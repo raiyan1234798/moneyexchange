@@ -7,7 +7,7 @@ service firebase.storage {
     }
 
     function isAllowedVideo() {
-      return request.resource.contentType in ['video/mp4', 'video/webm', 'video/quicktime'];
+      return request.resource.contentType.matches('video/.*');
     }
 
     match /videos/{branchPath}/{fileName} {

@@ -46,7 +46,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const [tickers, setTickers] = useState<TickerMessage[]>([]);
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [videoIndex, setVideoIndex] = useState(0);
-  const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
+  const [cachedStorageUrl, setCachedStorageUrl] = useState<string | null>(null);
+  const [trackedHeadVideoId, setTrackedHeadVideoId] = useState("");
   const [clock, setClock] = useState("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [videoLoaded, setVideoLoaded] = useState(false);
@@ -106,10 +107,22 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   // Active branch videos — newest first; no playlist required
   const activeVideos = useMemo(() => videos, [videos]);
+  const headVideoId = activeVideos[0]?.id ?? "";
+
+  if (headVideoId && headVideoId !== trackedHeadVideoId) {
+    setTrackedHeadVideoId(headVideoId);
+    setVideoIndex(0);
+    setVideoLoaded(false);
+    setCachedStorageUrl(null);
+  }
 
   const activeVideo = activeVideos[videoIndex % Math.max(activeVideos.length, 1)];
   const playbackUrl = useMemo(() => (activeVideo ? resolveVideoPlaybackUrl(activeVideo) : ""), [activeVideo]);
-  const currentVideoUrl = resolvedVideoUrl ?? playbackUrl;
+  const currentVideoUrl = useMemo(() => {
+    if (!playbackUrl) return "";
+    if (activeVideo?.sourceType === "external") return playbackUrl;
+    return cachedStorageUrl ?? playbackUrl;
+  }, [activeVideo?.sourceType, cachedStorageUrl, playbackUrl]);
 
   const activeTicker = tickers[0];
   const tickerText = useMemo(() => {
@@ -137,21 +150,23 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     return () => window.clearInterval(timer);
   }, [activeVideos.length]);
 
-  // Video caching
+  // Cache Firebase Storage uploads for offline playback
   useEffect(() => {
-    if (!activeVideo || !playbackUrl) return;
+    if (!activeVideo || !playbackUrl || activeVideo.sourceType !== "storage") {
+      return;
+    }
+
     let alive = true;
     void getCachedVideoUrl(activeVideo.id, playbackUrl).then((url) => {
-      if (alive) setResolvedVideoUrl(url);
+      if (alive) setCachedStorageUrl(url);
     });
-    if (online && activeVideo.sourceType === "storage") {
+    if (online) {
       void cacheVideoBlob(activeVideo.id, playbackUrl);
     }
     return () => {
       alive = false;
-      setResolvedVideoUrl(null);
     };
-  }, [activeVideo?.id, playbackUrl, online, activeVideo]);
+  }, [activeVideo, playbackUrl, online]);
 
   const brandColor = branch?.brandingColor ?? "#D4AF37"; // Default gold
 
@@ -159,7 +174,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     if (activeVideos.length > 1) {
       setVideoLoaded(false);
       setVideoIndex((prev) => (prev + 1) % activeVideos.length);
-      setResolvedVideoUrl(null);
+      setCachedStorageUrl(null);
     }
   }, [activeVideos.length]);
 
@@ -268,11 +283,14 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
                 muted
                 loop={activeVideos.length <= 1}
                 playsInline
+                crossOrigin={activeVideo?.sourceType === "external" ? "anonymous" : undefined}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: videoLoaded ? 1 : 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.8 }}
                 onLoadedData={() => setVideoLoaded(true)}
+                onCanPlay={() => setVideoLoaded(true)}
+                onError={() => setVideoLoaded(false)}
                 onEnded={handleVideoEnded}
               />
             ) : (

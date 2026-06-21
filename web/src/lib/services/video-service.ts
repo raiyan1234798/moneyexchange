@@ -8,17 +8,59 @@ import {
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { storage } from "@/lib/firebase/client";
-import { COLLECTIONS, MAX_VIDEO_UPLOAD_BYTES } from "@/lib/constants";
+import { COLLECTIONS } from "@/lib/constants";
+import {
+  inferVideoMimeType,
+  validateExternalVideoUrl,
+  validateVideoFile,
+} from "@/lib/video-utils";
 import type { VideoAsset } from "@/lib/types";
+
+function toMillis(value: VideoAsset["createdAt"]): number {
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  return 0;
+}
 
 function sortVideos(videos: VideoAsset[]): VideoAsset[] {
   return [...videos]
     .filter((video) => video.status === "active")
-    .sort((a, b) => {
-      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
-      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
-      return bTime - aTime;
-    });
+    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+}
+
+function mapStorageUploadError(error: unknown): Error {
+  const code = (error as { code?: string }).code ?? "";
+  if (code === "storage/unauthorized") {
+    return new Error("Upload denied. Sign in again or ask an admin to grant video permissions.");
+  }
+  if (code === "storage/unauthenticated") {
+    return new Error("You must be signed in to upload videos.");
+  }
+  if (code === "storage/unknown" || code === "storage/object-not-found" || code === "storage/bucket-not-found") {
+    return new Error(
+      "Firebase Storage is not available. Use the External URL tab, or enable Storage in the Firebase console.",
+    );
+  }
+  return error instanceof Error ? error : new Error("Upload failed");
+}
+
+function waitForUpload(
+  uploadTask: ReturnType<typeof uploadBytesResumable>,
+  onProgress?: (progress: number) => void,
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    uploadTask.on(
+      "state_changed",
+      (snapshot) => {
+        onProgress?.((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+      },
+      (error) => reject(mapStorageUploadError(error)),
+      () => resolve(),
+    );
+  });
 }
 
 export async function listVideos(branchId: string): Promise<VideoAsset[]> {
@@ -51,6 +93,8 @@ export async function addExternalVideo(
   },
   actor: { userId: string; userName: string },
 ): Promise<string> {
+  validateExternalVideoUrl(data.downloadUrl);
+
   const id = await createDocument(COLLECTIONS.videos, {
     title: data.title,
     description: data.description ?? "",
@@ -87,26 +131,14 @@ export async function uploadVideo(
   actor: { userId: string; userName: string },
   onProgress?: (progress: number) => void,
 ): Promise<string> {
-  if (file.size > MAX_VIDEO_UPLOAD_BYTES) {
-    throw new Error(
-      `File exceeds ${MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)}MB limit. Use External URL for large signage videos.`,
-    );
-  }
+  validateVideoFile(file);
 
+  const mimeType = inferVideoMimeType(file);
   const storagePath = `videos/${metadata.branchId}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
   const storageRef = ref(storage, storagePath);
-  const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
+  const uploadTask = uploadBytesResumable(storageRef, file, { contentType: mimeType });
 
-  await new Promise<void>((resolve, reject) => {
-    uploadTask.on(
-      "state_changed",
-      (snapshot) => {
-        onProgress?.((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-      },
-      reject,
-      () => resolve(),
-    );
-  });
+  await waitForUpload(uploadTask, onProgress);
 
   const downloadUrl = await getDownloadURL(storageRef);
   const id = await createDocument(COLLECTIONS.videos, {
@@ -116,7 +148,7 @@ export async function uploadVideo(
     sourceType: "storage",
     storagePath,
     downloadUrl,
-    mimeType: file.type,
+    mimeType,
     fileSizeBytes: file.size,
     status: "active",
     createdBy: metadata.createdBy,
@@ -141,26 +173,14 @@ export async function replaceVideo(
   actor: { userId: string; userName: string },
   onProgress?: (progress: number) => void,
 ): Promise<void> {
-  if (file.size > MAX_VIDEO_UPLOAD_BYTES) {
-    throw new Error(
-      `File exceeds ${MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)}MB limit.`,
-    );
-  }
+  validateVideoFile(file);
 
+  const mimeType = inferVideoMimeType(file);
   const storagePath = `videos/${existing.branchId}/${Date.now()}_${file.name.replace(/\s/g, "_")}`;
   const storageRef = ref(storage, storagePath);
-  const uploadTask = uploadBytesResumable(storageRef, file, { contentType: file.type });
+  const uploadTask = uploadBytesResumable(storageRef, file, { contentType: mimeType });
 
-  await new Promise<void>((resolve, reject) => {
-    uploadTask.on(
-      "state_changed",
-      (snapshot) => {
-        onProgress?.((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-      },
-      reject,
-      () => resolve(),
-    );
-  });
+  await waitForUpload(uploadTask, onProgress);
 
   const downloadUrl = await getDownloadURL(storageRef);
 
@@ -172,7 +192,7 @@ export async function replaceVideo(
     sourceType: "storage",
     storagePath,
     downloadUrl,
-    mimeType: file.type,
+    mimeType,
     fileSizeBytes: file.size,
     title: existing.title,
   });

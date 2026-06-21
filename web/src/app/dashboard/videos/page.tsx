@@ -33,6 +33,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MAX_VIDEO_UPLOAD_BYTES, RECOMMENDED_VIDEO_FORMATS } from "@/lib/constants";
 import { addExternalVideo, deleteVideo, subscribeVideos, uploadVideo } from "@/lib/services/video-service";
+import {
+  deriveTitleFromFile,
+  deriveTitleFromUrl,
+  resolveVideoTitle,
+  validateVideoFile,
+} from "@/lib/video-utils";
 import type { VideoAsset } from "@/lib/types";
 
 export default function VideosPage() {
@@ -58,14 +64,15 @@ export default function VideosPage() {
   }, [effectiveBranchId]);
 
   async function handleExternalAdd() {
-    if (!user || !profile || !effectiveBranchId || !title.trim() || !externalUrl.trim()) {
-      toast.error("Title and video URL are required");
+    if (!user || !profile || !effectiveBranchId || !externalUrl.trim()) {
+      toast.error("Video URL is required");
       return;
     }
+    const resolvedTitle = resolveVideoTitle(title, deriveTitleFromUrl(externalUrl));
     try {
       await addExternalVideo(
         {
-          title: title.trim(),
+          title: resolvedTitle,
           branchId: effectiveBranchId,
           downloadUrl: externalUrl.trim(),
           createdBy: user.uid,
@@ -81,19 +88,29 @@ export default function VideosPage() {
   }
 
   async function handleUpload() {
-    if (!user || !profile || !effectiveBranchId || !file || !title.trim()) {
-      toast.error("Title and video file are required");
+    if (!user || !profile || !effectiveBranchId || !file) {
+      toast.error("Select a video file to upload");
       return;
     }
+
+    try {
+      validateVideoFile(file);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Invalid video file");
+      return;
+    }
+
+    const resolvedTitle = resolveVideoTitle(title, deriveTitleFromFile(file));
     setUploading(true);
+    setProgress(0);
     try {
       await uploadVideo(
         file,
-        { title: title.trim(), branchId: effectiveBranchId, createdBy: user.uid },
+        { title: resolvedTitle, branchId: effectiveBranchId, createdBy: user.uid },
         { userId: user.uid, userName: profile.displayName || profile.email },
         setProgress,
       );
-      toast.success("Video uploaded");
+      toast.success("Video uploaded — it will appear on the display shortly");
       setTitle("");
       setFile(null);
       setProgress(0);
@@ -138,11 +155,11 @@ export default function VideosPage() {
               </TabsList>
               <TabsContent value="external" className="mt-4 space-y-4">
                 <div className="space-y-2">
-                  <Label>Title</Label>
+                  <Label>Title (optional)</Label>
                   <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Promo video"
+                    placeholder="Defaults to filename from URL"
                     className="rounded-xl"
                   />
                 </div>
@@ -157,7 +174,7 @@ export default function VideosPage() {
                 </div>
                 <Button
                   onClick={() => void handleExternalAdd()}
-                  disabled={!title.trim() || !externalUrl.trim()}
+                  disabled={!externalUrl.trim()}
                   className="rounded-xl"
                 >
                   <Link2 className="mr-2 h-4 w-4" />
@@ -166,21 +183,37 @@ export default function VideosPage() {
               </TabsContent>
               <TabsContent value="upload" className="mt-4 space-y-4">
                 <div className="space-y-2">
-                  <Label>Title</Label>
-                  <Input value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl" />
+                  <Label>Title (optional)</Label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Defaults to filename"
+                    className="rounded-xl"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>File (MP4, MOV, or WebM — max {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)}MB)</Label>
                   <Input
                     type="file"
-                    accept="video/mp4,video/webm,video/quicktime"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                    accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.webm"
+                    onChange={(e) => {
+                      const selected = e.target.files?.[0] ?? null;
+                      setFile(selected);
+                      if (selected && !title.trim()) {
+                        setTitle(deriveTitleFromFile(selected));
+                      }
+                    }}
                     className="rounded-xl"
                   />
+                  {file ? (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
+                    </p>
+                  ) : null}
                 </div>
                 {uploading ? <Progress value={progress} className="h-2" /> : null}
                 <Button
-                  disabled={uploading || !file || !title.trim()}
+                  disabled={uploading || !file}
                   onClick={() => void handleUpload()}
                   className="rounded-xl"
                 >
