@@ -76,7 +76,7 @@ export default function ExchangeRatesPage() {
       userName: profile.displayName || profile.email,
       branchName: branch?.name || effectiveBranchId,
     });
-    toast.success(`${rate.currencyCode} published to branch TVs`);
+    toast.success(`${rate.currencyCode} published to display`);
   }
 
   async function saveAllRates() {
@@ -94,7 +94,7 @@ export default function ExchangeRatesPage() {
           });
         }),
       );
-      toast.success("All rates published to branch TVs");
+      toast.success("All rates published to display");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Bulk publish failed");
     } finally {
@@ -111,7 +111,7 @@ export default function ExchangeRatesPage() {
     <>
       <DashboardHeader
         title="Exchange Rates"
-        description="Branch-specific buy/sell rates synced to TVs in real time."
+        description="Branch-specific buy/sell rates — changes appear on branch displays instantly."
         accent="emerald"
       />
       <PageShell accent="emerald">
@@ -160,7 +160,7 @@ export default function ExchangeRatesPage() {
         ) : (
           <ContentPanel
             title={`${branch?.name ?? "Branch"} Rates`}
-            description={`${rates.length} currencies · edits publish instantly to TVs`}
+            description={`${rates.length} currencies · edits publish instantly to displays`}
           >
             <DataTable
               data={rates}

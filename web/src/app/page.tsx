@@ -20,7 +20,7 @@ const features = [
   {
     icon: TrendingUp,
     title: "Live Rate Publishing",
-    description: "Branch-specific buy/sell rates with bulk edit, audit trail, and sub-second TV propagation.",
+    description: "Branch-specific buy/sell rates with bulk edit, audit trail, and instant display sync.",
     accent: "from-emerald-500/20 via-emerald-500/5 to-transparent",
   },
   {
@@ -70,8 +70,8 @@ export default function HomePage() {
           className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4"
         >
           <PublicCtaButton href="/login">Sign in to Console</PublicCtaButton>
-          <PublicCtaButton href="/display/setup" variant="outline">
-            Set Up Display
+          <PublicCtaButton href="/display" variant="outline">
+            Open Display
           </PublicCtaButton>
         </motion.div>
 

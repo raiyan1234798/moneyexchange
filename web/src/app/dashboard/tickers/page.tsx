@@ -112,7 +112,11 @@ export default function TickersPage() {
 
   return (
     <>
-      <DashboardHeader title="Tickers & Slogans" description="Scrolling messages and branch slogans on display footer." accent="sky" />
+      <DashboardHeader
+        title="Tickers & Slogans"
+        description="Scrolling footer messages — updates appear on branch displays instantly."
+        accent="sky"
+      />
       <PageShell accent="sky">
         {isSuperAdmin ? (
           <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />

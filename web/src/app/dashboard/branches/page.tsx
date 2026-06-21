@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Building2 } from "lucide-react";
+import { Plus, Building2, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import {
@@ -111,6 +111,11 @@ export default function BranchesPage() {
     toast.success(`${branch.name} has been disabled`);
   }
 
+  function copyDisplayUrl(code: string) {
+    void navigator.clipboard.writeText(getDisplayUrl(code));
+    toast.success("Display URL copied");
+  }
+
   return (
     <>
       <DashboardHeader title="Branches" description="Create and manage branch locations, hours, and branding." accent="violet" />
@@ -217,16 +222,30 @@ export default function BranchesPage() {
                 { key: "code", header: "Code", cell: (b) => <span className="font-mono text-xs">{b.code}</span> },
                 {
                   key: "display",
-                  header: "Display URL",
+                  header: "Display",
                   cell: (b) => (
-                    <a
-                      href={getDisplayUrl(b.code)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs text-primary underline-offset-4 hover:underline"
-                    >
-                      Open display
-                    </a>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 rounded-lg text-xs"
+                        onClick={() => copyDisplayUrl(b.code)}
+                      >
+                        <Copy className="mr-1.5 h-3 w-3" />
+                        Copy URL
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="h-8 rounded-lg text-xs"
+                        render={
+                          <a href={getDisplayUrl(b.code)} target="_blank" rel="noreferrer">
+                            <ExternalLink className="mr-1.5 h-3 w-3" />
+                            Open Display
+                          </a>
+                        }
+                      />
+                    </div>
                   ),
                   hideOnMobile: true,
                 },
@@ -255,7 +274,7 @@ export default function BranchesPage() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Disable {b.name}?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              This branch will no longer appear in active operations. TVs and rates will remain but the branch status changes to disabled.
+                              This branch will no longer appear in active operations. Display signage and rates will remain but the branch status changes to disabled.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>

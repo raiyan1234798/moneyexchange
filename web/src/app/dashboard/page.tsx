@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Building2, Monitor, TrendingUp, Activity, Coins } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -12,6 +12,7 @@ import {
   QuickActions,
   StatCard,
 } from "@/components/shared/page-elements";
+import { useAuth } from "@/contexts/auth-context";
 import { subscribeBranches } from "@/lib/services/branch-service";
 import { subscribeCurrencies } from "@/lib/services/currency-service";
 import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
@@ -20,6 +21,7 @@ import type { AuditLog, DashboardStats } from "@/lib/types";
 import { StatusBadge } from "@/components/shared/page-elements";
 
 export default function DashboardOverviewPage() {
+  const { isBranchManager } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,45 @@ export default function DashboardOverviewPage() {
     };
   }, []);
 
+  const quickActions = useMemo(
+    () => [
+      {
+        label: "Add Branch",
+        description: "Create a new location with branding",
+        href: "/dashboard/branches",
+        icon: Building2,
+        accent: "violet" as const,
+      },
+      {
+        label: "Update Rates",
+        description: "Publish buy/sell rates to displays",
+        href: "/dashboard/exchange-rates",
+        icon: TrendingUp,
+        accent: "emerald" as const,
+      },
+      ...(isBranchManager
+        ? [
+            {
+              label: "View Display",
+              description: "Open your branch signage in a new tab",
+              href: "/display",
+              icon: Monitor,
+              accent: "sky" as const,
+            },
+          ]
+        : [
+            {
+              label: "Open Display",
+              description: "Launch browser signage for a branch",
+              href: "/display",
+              icon: Monitor,
+              accent: "sky" as const,
+            },
+          ]),
+    ],
+    [isBranchManager],
+  );
+
   if (loading && !stats) {
     return (
       <>
@@ -103,31 +144,7 @@ export default function DashboardOverviewPage() {
         </div>
 
         <ContentPanel title="Quick Actions" description="Jump to common tasks">
-          <QuickActions
-            actions={[
-              {
-                label: "Add Branch",
-                description: "Create a new location with branding",
-                href: "/dashboard/branches",
-                icon: Building2,
-                accent: "violet",
-              },
-              {
-                label: "Update Rates",
-                description: "Publish buy/sell rates to displays",
-                href: "/dashboard/exchange-rates",
-                icon: TrendingUp,
-                accent: "emerald",
-              },
-              {
-                label: "Display Setup",
-                description: "Launch browser signage for a branch",
-                href: "/display/setup",
-                icon: Monitor,
-                accent: "sky",
-              },
-            ]}
-          />
+          <QuickActions actions={quickActions} />
         </ContentPanel>
 
         <div className="grid gap-5 xl:grid-cols-2">
@@ -172,15 +189,15 @@ export default function DashboardOverviewPage() {
               </div>
               <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
                 <div>
-                  <p className="text-sm font-medium">TV Propagation</p>
-                  <p className="text-xs text-muted-foreground">Sub-second updates to connected displays</p>
+                  <p className="text-sm font-medium">Display Sync</p>
+                  <p className="text-xs text-muted-foreground">Sub-second updates to open display pages</p>
                 </div>
                 <StatusBadge status="active" variant="success" />
               </div>
               <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
                 <div>
                   <p className="text-sm font-medium">Offline Cache</p>
-                  <p className="text-xs text-muted-foreground">TV player continues with cached content</p>
+                  <p className="text-xs text-muted-foreground">Display continues with cached video when offline</p>
                 </div>
                 <StatusBadge status="enabled" variant="info" />
               </div>

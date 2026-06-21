@@ -87,7 +87,7 @@ export default function VideosPage() {
     <>
       <DashboardHeader
         title="Videos"
-        description="Upload branch signage videos to Firebase Storage. Displays update in real time."
+        description="Upload branch signage videos — changes appear on branch displays instantly."
         accent="rose"
       />
       <PageShell accent="rose">
@@ -200,7 +200,7 @@ export default function VideosPage() {
                         <AlertDialogContent className="rounded-2xl">
                           <AlertDialogHeader>
                             <AlertDialogTitle>Remove {v.title}?</AlertDialogTitle>
-                            <AlertDialogDescription>This video will be removed from the branch library and TV playlists.</AlertDialogDescription>
+                            <AlertDialogDescription>This video will be removed from the branch library and playlists.</AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
