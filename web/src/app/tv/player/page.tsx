@@ -1,40 +1,69 @@
 "use client";
 
 import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { DisplayScreen } from "@/components/display/display-screen";
+import { heartbeatTvDevice, registerTvDevice } from "@/lib/services/tv-service";
+import { getTvSession, saveTvSession } from "@/lib/tv/offline-cache";
 
-function TvPlayerRedirectContent() {
-  const router = useRouter();
+function TvPlayerContent() {
   const searchParams = useSearchParams();
+  const session = typeof window !== "undefined" ? getTvSession() : null;
+  const branchId = searchParams.get("branchId") ?? session?.branchId ?? "";
+  const deviceId = searchParams.get("deviceId") ?? session?.deviceId ?? "";
 
   useEffect(() => {
-    const branch = searchParams.get("branch");
-    const branchId = searchParams.get("branchId");
-    const params = new URLSearchParams();
-    if (branch) params.set("branch", branch);
-    if (branchId) params.set("branchId", branchId);
-    const query = params.toString();
-    router.replace(query ? `/display?${query}` : "/display");
-  }, [router, searchParams]);
+    if (branchId && deviceId) {
+      saveTvSession({ branchId, deviceId });
+    }
+  }, [branchId, deviceId]);
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#06060a] text-white">
-      <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
-    </div>
-  );
+  useEffect(() => {
+    if (!branchId || !deviceId) return;
+
+    void registerTvDevice({
+      name: `TV ${deviceId.slice(0, 8)}`,
+      branchId,
+      deviceToken: deviceId,
+    }).catch(() => undefined);
+
+    const heartbeat = window.setInterval(() => {
+      void heartbeatTvDevice(deviceId, {
+        branchId,
+        internetStatus: navigator.onLine ? "connected" : "disconnected",
+        storageStatus: "healthy",
+      });
+    }, 30000);
+
+    return () => {
+      window.clearInterval(heartbeat);
+    };
+  }, [branchId, deviceId]);
+
+  if (!branchId || !deviceId) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-black text-white">
+        <p className="text-xl">TV not configured</p>
+        <a href="/tv/setup" className="rounded-lg bg-white px-6 py-3 text-black font-medium">
+          Connect this Android TV
+        </a>
+      </div>
+    );
+  }
+
+  return <DisplayScreen branchId={branchId} />;
 }
 
-export default function TvPlayerRedirectPage() {
+export default function TvPlayerPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-[#06060a] text-white">
-          <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+        <div className="flex h-screen items-center justify-center bg-black text-white">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
         </div>
       }
     >
-      <TvPlayerRedirectContent />
+      <TvPlayerContent />
     </Suspense>
   );
 }

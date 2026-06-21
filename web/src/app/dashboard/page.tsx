@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Building2, Monitor, TrendingUp, Activity, Coins } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
+import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import {
   ContentPanel,
@@ -165,9 +165,7 @@ export default function DashboardOverviewPage() {
                       </p>
                     </div>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {log.timestamp
-                        ? formatDistanceToNow(new Date(String(log.timestamp)), { addSuffix: true })
-                        : "—"}
+                      {safeFormatDistanceToNow(log.timestamp, { addSuffix: true })}
                     </span>
                   </div>
                 ))}

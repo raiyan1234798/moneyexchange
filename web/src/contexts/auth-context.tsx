@@ -18,7 +18,7 @@ import {
   type User,
 } from "firebase/auth";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { auth, db, enableOfflinePersistence } from "@/lib/firebase/client";
+import { auth, db } from "@/lib/firebase/client";
 import {
   ensureUserProfile,
   ProfileAccessError,
@@ -65,10 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    void enableOfflinePersistence();
-  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {

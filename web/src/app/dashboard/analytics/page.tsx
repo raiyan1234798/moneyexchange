@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { formatDistanceToNow } from "date-fns";
+import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ContentPanel, PageShell } from "@/components/shared/page-elements";
 import { subscribeBranches, getDashboardStats } from "@/lib/services/branch-service";
@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
                       </p>
                     </div>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {log.timestamp ? formatDistanceToNow(new Date(String(log.timestamp)), { addSuffix: true }) : "—"}
+                      {safeFormatDistanceToNow(log.timestamp, { addSuffix: true })}
                     </span>
                   </div>
                 ))}

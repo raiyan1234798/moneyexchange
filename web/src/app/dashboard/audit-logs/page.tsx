@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ScrollText } from "lucide-react";
-import { format } from "date-fns";
+import { safeFormatDate } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ContentPanel, DataTable, EmptyState, PageShell } from "@/components/shared/page-elements";
 import { subscribeCollection, orderBy } from "@/lib/firebase/firestore";
@@ -32,8 +32,7 @@ export default function AuditLogsPage() {
                 {
                   key: "timestamp",
                   header: "Timestamp",
-                  cell: (l) =>
-                    l.timestamp ? format(new Date(String(l.timestamp)), "MMM d, yyyy HH:mm") : "—",
+                  cell: (l) => safeFormatDate(l.timestamp, "MMM d, yyyy HH:mm"),
                   hideOnMobile: true,
                 },
                 {

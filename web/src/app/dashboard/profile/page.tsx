@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { db } from "@/lib/firebase/client";
+import { safeFormatLocaleDateTime } from "@/lib/utils/date";
 import { COLLECTIONS } from "@/lib/constants";
 
 const profileSchema = z.object({
@@ -83,9 +84,7 @@ export default function ProfilePage() {
               <div className="space-y-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Last Login</p>
                 <p className="text-sm font-medium">
-                  {profile.lastLoginAt instanceof Date
-                    ? profile.lastLoginAt.toLocaleString()
-                    : "Recent"}
+                  {safeFormatLocaleDateTime(profile.lastLoginAt)}
                 </p>
               </div>
             ) : null}

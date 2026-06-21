@@ -2,7 +2,9 @@ import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import {
   getFirestore,
-  enableIndexedDbPersistence,
+  initializeFirestore,
+  memoryLocalCache,
+  persistentLocalCache,
   type Firestore,
 } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
@@ -26,9 +28,24 @@ function createFirebaseApp(): FirebaseApp {
   return initializeApp(firebaseConfig);
 }
 
+function createFirestore(app: FirebaseApp): Firestore {
+  try {
+    if (typeof window !== "undefined") {
+      return initializeFirestore(app, {
+        localCache: persistentLocalCache(),
+      });
+    }
+    return initializeFirestore(app, {
+      localCache: memoryLocalCache(),
+    });
+  } catch {
+    return getFirestore(app);
+  }
+}
+
 export const app = createFirebaseApp();
 export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
+export const db: Firestore = createFirestore(app);
 export const storage: FirebaseStorage = getStorage(app);
 export const functions: Functions = getFunctions(app);
 
@@ -41,16 +58,4 @@ export async function getFirebaseAnalytics(): Promise<Analytics | null> {
   if (!supported) return null;
   analytics = getAnalytics(app);
   return analytics;
-}
-
-let persistenceEnabled = false;
-
-export async function enableOfflinePersistence(): Promise<void> {
-  if (typeof window === "undefined" || persistenceEnabled) return;
-  try {
-    await enableIndexedDbPersistence(db);
-    persistenceEnabled = true;
-  } catch (error) {
-    console.warn("Firestore offline persistence unavailable:", error);
-  }
 }

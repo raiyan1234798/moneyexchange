@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import { Maximize2, Minimize2, Wifi, WifiOff, TrendingUp, TrendingDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { enableOfflinePersistence } from "@/lib/firebase/client";
 import { subscribeBranch } from "@/lib/services/branch-service";
 import { subscribeExchangeRates } from "@/lib/services/exchange-rate-service";
 import { subscribePlaylists } from "@/lib/services/playlist-service";
@@ -86,7 +85,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // Firebase subscriptions
   useEffect(() => {
     if (!branchId) return;
-    void enableOfflinePersistence();
 
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
