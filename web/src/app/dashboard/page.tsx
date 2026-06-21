@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Building2, Monitor, TrendingUp, Activity, Coins } from "lucide-react";
 import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
+import { GettingStartedChecklist } from "@/components/shared/getting-started-checklist";
 import {
   ContentPanel,
   PageLoader,
@@ -13,8 +15,12 @@ import {
   StatCard,
 } from "@/components/shared/page-elements";
 import { useAuth } from "@/contexts/auth-context";
+import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { subscribeBranches } from "@/lib/services/branch-service";
 import { subscribeCurrencies } from "@/lib/services/currency-service";
+import { subscribeBranchExchangeRates } from "@/lib/services/exchange-rate-service";
+import { subscribeTickers } from "@/lib/services/ticker-service";
+import { subscribeVideos } from "@/lib/services/video-service";
 import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import type { AuditLog, DashboardStats } from "@/lib/types";
@@ -22,36 +28,48 @@ import { StatusBadge } from "@/components/shared/page-elements";
 
 export default function DashboardOverviewPage() {
   const { isBranchManager } = useAuth();
+  const { branches, effectiveBranchId } = useBranchScope();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [branchRatesCount, setBranchRatesCount] = useState(0);
+  const [branchVideosCount, setBranchVideosCount] = useState(0);
+  const [branchTickersCount, setBranchTickersCount] = useState(0);
+
+  const scopedBranch = branches.find((b) => b.id === effectiveBranchId);
 
   useEffect(() => {
     let branches = 0;
     let currencies = 0;
     let pendingRates = 0;
 
-    const unsubBranches = subscribeBranches((items) => {
-      branches = items.length;
-      setStats((prev) =>
-        prev
-          ? { ...prev, totalBranches: branches, activeTvs: branches, offlineTvs: 0 }
-          : {
-              totalBranches: branches,
-              activeTvs: branches,
-              offlineTvs: 0,
-              totalCurrencies: currencies,
-              pendingRateApprovals: pendingRates,
-              recentAuditEvents: 0,
-            },
-      );
-      setLoading(false);
-    });
+    const unsubBranches = subscribeBranches(
+      (items) => {
+        branches = items.length;
+        setStats((prev) =>
+          prev
+            ? { ...prev, totalBranches: branches, activeTvs: branches, offlineTvs: 0 }
+            : {
+                totalBranches: branches,
+                activeTvs: branches,
+                offlineTvs: 0,
+                totalCurrencies: currencies,
+                pendingRateApprovals: pendingRates,
+                recentAuditEvents: 0,
+              },
+        );
+        setLoading(false);
+      },
+      (error) => toast.error(error.message || "Failed to load branches"),
+    );
 
-    const unsubCurrencies = subscribeCurrencies((items) => {
-      currencies = items.length;
-      setStats((prev) => (prev ? { ...prev, totalCurrencies: currencies } : prev));
-    });
+    const unsubCurrencies = subscribeCurrencies(
+      (items) => {
+        currencies = items.length;
+        setStats((prev) => (prev ? { ...prev, totalCurrencies: currencies } : prev));
+      },
+      (error) => toast.error(error.message || "Failed to load currencies"),
+    );
 
     const unsubRates = subscribeCollection<{ id: string }>(
       COLLECTIONS.exchangeRates,
@@ -60,6 +78,7 @@ export default function DashboardOverviewPage() {
         pendingRates = items.length;
         setStats((prev) => (prev ? { ...prev, pendingRateApprovals: pendingRates } : prev));
       },
+      (error) => toast.error(error.message || "Failed to load pending rates"),
     );
 
     const unsubLogs = subscribeCollection<AuditLog>(
@@ -69,6 +88,7 @@ export default function DashboardOverviewPage() {
         setRecentLogs(logs.slice(0, 6));
         setStats((prev) => (prev ? { ...prev, recentAuditEvents: logs.length } : prev));
       },
+      (error) => toast.error(error.message || "Failed to load activity"),
     );
 
     return () => {
@@ -78,6 +98,32 @@ export default function DashboardOverviewPage() {
       unsubLogs();
     };
   }, []);
+
+  useEffect(() => {
+    if (!effectiveBranchId) return;
+
+    const unsubRates = subscribeBranchExchangeRates(
+      effectiveBranchId,
+      (items) => setBranchRatesCount(items.filter((r) => r.status === "published" && !r.isHidden).length),
+      (error) => toast.error(error.message || "Failed to load branch rates"),
+    );
+    const unsubVideos = subscribeVideos(
+      effectiveBranchId,
+      (items) => setBranchVideosCount(items.length),
+      (error) => toast.error(error.message || "Failed to load branch videos"),
+    );
+    const unsubTickers = subscribeTickers(
+      effectiveBranchId,
+      (items) => setBranchTickersCount(items.length),
+      (error) => toast.error(error.message || "Failed to load display messages"),
+    );
+
+    return () => {
+      unsubRates();
+      unsubVideos();
+      unsubTickers();
+    };
+  }, [effectiveBranchId]);
 
   const quickActions = useMemo(
     () => [
@@ -142,6 +188,15 @@ export default function DashboardOverviewPage() {
           <StatCard title="Pending Rates" value={stats?.pendingRateApprovals ?? 0} loading={loading} accent="default" icon={TrendingUp} />
           <StatCard title="Audit Events" value={stats?.recentAuditEvents ?? 0} hint="Total logged" loading={loading} accent="default" icon={Activity} />
         </div>
+
+        <GettingStartedChecklist
+          branchCode={scopedBranch?.code}
+          branchName={scopedBranch?.name}
+          hasBranch={branches.length > 0 && Boolean(effectiveBranchId)}
+          hasRates={Boolean(effectiveBranchId) && branchRatesCount > 0}
+          hasVideos={Boolean(effectiveBranchId) && branchVideosCount > 0}
+          hasMessages={Boolean(effectiveBranchId) && branchTickersCount > 0}
+        />
 
         <ContentPanel title="Quick Actions" description="Jump to common tasks">
           <QuickActions actions={quickActions} />

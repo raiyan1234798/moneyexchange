@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Building2, Copy, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
+import { BranchSelector } from "@/components/shared/branch-selector";
+import { DisplayUrlCard } from "@/components/shared/display-url-card";
 import {
   ContentPanel,
   DataTable,
@@ -73,6 +75,17 @@ export default function BranchesPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [displayBranchId, setDisplayBranchId] = useState("");
+
+  const activeBranches = useMemo(
+    () => branches.filter((b) => b.status === "active"),
+    [branches],
+  );
+  const resolvedDisplayBranchId =
+    displayBranchId && activeBranches.some((b) => b.id === displayBranchId)
+      ? displayBranchId
+      : (activeBranches[0]?.id ?? "");
+  const displayBranch = activeBranches.find((b) => b.id === resolvedDisplayBranchId);
 
   useEffect(() => {
     return subscribeBranches(setBranches);
@@ -194,13 +207,30 @@ export default function BranchesPage() {
         {branches.length === 0 ? (
           <EmptyState
             title="No branches yet"
-            description="Create your first branch to begin managing displays, rates, and signage content."
+            description="Step 1: Create your first branch here. Then add exchange rates, a video URL, and display messages from the sidebar."
             icon={Building2}
             actionLabel="Add Branch"
             onAction={hasPermission("createBranch") ? () => setOpen(true) : undefined}
           />
         ) : (
-          <ContentPanel title="Branch Directory" description={`${branches.length} location${branches.length === 1 ? "" : "s"}`}>
+          <>
+            {displayBranch ? (
+              <ContentPanel title="Launch Display" description="Copy or scan to open signage on any screen">
+                {activeBranches.length > 1 ? (
+                  <div className="mb-4">
+                    <BranchSelector
+                      branches={activeBranches}
+                      value={resolvedDisplayBranchId}
+                      onChange={setDisplayBranchId}
+                      label="Branch"
+                    />
+                  </div>
+                ) : null}
+                <DisplayUrlCard branchCode={displayBranch.code} branchName={displayBranch.name} />
+              </ContentPanel>
+            ) : null}
+
+            <ContentPanel title="Branch Directory" description={`${branches.length} location${branches.length === 1 ? "" : "s"}`}>
             <DataTable
               data={branches}
               keyExtractor={(b) => b.id}
@@ -241,13 +271,12 @@ export default function BranchesPage() {
                         render={
                           <a href={getDisplayUrl(b.code)} target="_blank" rel="noreferrer">
                             <ExternalLink className="mr-1.5 h-3 w-3" />
-                            Open Display
+                            Open
                           </a>
                         }
                       />
                     </div>
                   ),
-                  hideOnMobile: true,
                 },
                 { key: "city", header: "City", cell: (b) => b.city, hideOnMobile: true },
                 {
@@ -289,7 +318,8 @@ export default function BranchesPage() {
                 },
               ]}
             />
-          </ContentPanel>
+            </ContentPanel>
+          </>
         )}
       </PageShell>
     </>

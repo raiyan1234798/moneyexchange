@@ -61,11 +61,15 @@ export async function listBranches(): Promise<Branch[]> {
   return listDocuments<Branch>(COLLECTIONS.branches, [orderBy("name", "asc")]);
 }
 
-export function subscribeBranches(onData: (branches: Branch[]) => void) {
+export function subscribeBranches(
+  onData: (branches: Branch[]) => void,
+  onError?: (error: Error) => void,
+) {
   return subscribeCollection<Branch>(
     COLLECTIONS.branches,
     [orderBy("name", "asc")],
     onData,
+    onError,
   );
 }
 

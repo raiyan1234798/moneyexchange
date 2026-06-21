@@ -452,8 +452,8 @@ export default function ExchangeRatesPage() {
             title="No rates for this branch"
             description={
               currencies.length === 0
-                ? "Add currencies to the catalog first, then initialize branch rates."
-                : "Click Initialize rates from catalog, then set buy/sell values."
+                ? "Step 2: Add currencies using New Currency + Branch Rate above, then set buy/sell values."
+                : "Step 2: Click Initialize rates from catalog, edit buy/sell values, then Publish each currency."
             }
           />
         ) : (

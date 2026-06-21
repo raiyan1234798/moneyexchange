@@ -16,12 +16,18 @@ export function useBranchScope() {
     const unsubscribe = subscribeBranches((items) => {
       const active = items.filter((b) => b.status === "active");
       setBranches(active);
-      if (!selectedBranchId || !active.some((b) => b.id === selectedBranchId)) {
-        if (profile?.branchId && active.some((b) => b.id === profile.branchId)) {
-          setSelectedBranchId(profile.branchId);
-        } else if (active[0]?.id) {
-          setSelectedBranchId(active[0].id);
-        }
+
+      if (active.length === 0) return;
+
+      const selectionValid = selectedBranchId && active.some((b) => b.id === selectedBranchId);
+      if (selectionValid) return;
+
+      if (profile?.branchId && active.some((b) => b.id === profile.branchId)) {
+        setSelectedBranchId(profile.branchId);
+      } else if (active.length === 1) {
+        setSelectedBranchId(active[0].id);
+      } else if (active[0]?.id) {
+        setSelectedBranchId(active[0].id);
       }
     });
     return unsubscribe;

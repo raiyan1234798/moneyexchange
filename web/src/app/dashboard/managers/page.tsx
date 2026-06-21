@@ -56,9 +56,18 @@ export default function ManagersPage() {
       COLLECTIONS.users,
       [where("role", "==", "branchManager")],
       setManagers,
+      (error) => toast.error(error.message || "Failed to load managers"),
     );
-    const unsubInvites = subscribeCollection<UserInvite>(COLLECTIONS.userInvites, [], setInvites);
-    const unsubBranches = subscribeBranches(setBranches);
+    const unsubInvites = subscribeCollection<UserInvite>(
+      COLLECTIONS.userInvites,
+      [],
+      setInvites,
+      (error) => toast.error(error.message || "Failed to load invites"),
+    );
+    const unsubBranches = subscribeBranches(
+      setBranches,
+      (error) => toast.error(error.message || "Failed to load branches"),
+    );
     return () => {
       unsubManagers();
       unsubInvites();
