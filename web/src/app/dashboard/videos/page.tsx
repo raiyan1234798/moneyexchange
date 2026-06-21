@@ -46,29 +46,50 @@ export default function VideosPage() {
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
 
+  const branch = branches.find((b) => b.id === effectiveBranchId);
+
   useEffect(() => {
     if (!effectiveBranchId) return;
-    return subscribeVideos(effectiveBranchId, setVideos);
+    return subscribeVideos(
+      effectiveBranchId,
+      setVideos,
+      (error) => toast.error(error.message || "Failed to load videos"),
+    );
   }, [effectiveBranchId]);
 
   async function handleExternalAdd() {
-    if (!user || !profile || !effectiveBranchId || !title || !externalUrl) return;
-    await addExternalVideo(
-      { title, branchId: effectiveBranchId, downloadUrl: externalUrl, createdBy: user.uid },
-      { userId: user.uid, userName: profile.displayName || profile.email },
-    );
-    toast.success("External video linked");
-    setTitle("");
-    setExternalUrl("");
+    if (!user || !profile || !effectiveBranchId || !title.trim() || !externalUrl.trim()) {
+      toast.error("Title and video URL are required");
+      return;
+    }
+    try {
+      await addExternalVideo(
+        {
+          title: title.trim(),
+          branchId: effectiveBranchId,
+          downloadUrl: externalUrl.trim(),
+          createdBy: user.uid,
+        },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success("Video linked — display will play it automatically");
+      setTitle("");
+      setExternalUrl("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to link video");
+    }
   }
 
   async function handleUpload() {
-    if (!user || !profile || !effectiveBranchId || !file || !title) return;
+    if (!user || !profile || !effectiveBranchId || !file || !title.trim()) {
+      toast.error("Title and video file are required");
+      return;
+    }
     setUploading(true);
     try {
       await uploadVideo(
         file,
-        { title, branchId: effectiveBranchId, createdBy: user.uid },
+        { title: title.trim(), branchId: effectiveBranchId, createdBy: user.uid },
         { userId: user.uid, userName: profile.displayName || profile.email },
         setProgress,
       );
@@ -87,46 +108,60 @@ export default function VideosPage() {
     <>
       <DashboardHeader
         title="Videos"
-        description="Upload branch signage videos — changes appear on branch displays instantly."
+        description="Add branch signage videos by URL or file upload. The newest active video plays on the display."
         accent="rose"
       />
       <PageShell accent="rose">
         {isSuperAdmin ? (
           <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
+        ) : branch ? (
+          <p className="text-sm text-muted-foreground">
+            Managing videos for: <strong>{branch.name}</strong>
+          </p>
         ) : null}
 
         <Alert className="rounded-xl border-border/40 bg-card/50">
           <AlertDescription className="text-sm leading-relaxed">
-            <strong className="text-foreground">Primary upload:</strong> MP4, MOV, or WebM to Firebase Storage (up to{" "}
-            {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)}MB). Displays pick up new videos instantly.
+            <strong className="text-foreground">Recommended:</strong> paste a direct MP4/WebM URL (YouTube direct links,
+            CDN, etc.). File upload also works through this page (max{" "}
+            {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)}MB).
             <span className="mt-1 block text-xs text-muted-foreground">{RECOMMENDED_VIDEO_FORMATS.join(" · ")}</span>
           </AlertDescription>
         </Alert>
 
         {canManageVideos && effectiveBranchId ? (
-          <ContentPanel title="Add Video" description="Upload to Firebase Storage or link an external URL">
-            <Tabs defaultValue="upload">
+          <ContentPanel title="Add Video" description="External URL is the fastest way to get video on displays">
+            <Tabs defaultValue="external">
               <TabsList className="rounded-xl">
-                <TabsTrigger value="upload" className="rounded-lg">Upload</TabsTrigger>
                 <TabsTrigger value="external" className="rounded-lg">External URL</TabsTrigger>
+                <TabsTrigger value="upload" className="rounded-lg">File Upload</TabsTrigger>
               </TabsList>
               <TabsContent value="external" className="mt-4 space-y-4">
                 <div className="space-y-2">
                   <Label>Title</Label>
-                  <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Promo video" className="rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Video URL (MP4/WebM)</Label>
                   <Input
-                    value={externalUrl}
-                    onChange={(e) => setExternalUrl(e.target.value)}
-                    placeholder="https://cdn.example.com/signage/promo.webm"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Promo video"
                     className="rounded-xl"
                   />
                 </div>
-                <Button onClick={() => void handleExternalAdd()} disabled={!title || !externalUrl} className="rounded-xl">
+                <div className="space-y-2">
+                  <Label>Video URL (direct MP4/WebM)</Label>
+                  <Input
+                    value={externalUrl}
+                    onChange={(e) => setExternalUrl(e.target.value)}
+                    placeholder="https://cdn.example.com/signage/promo.mp4"
+                    className="rounded-xl"
+                  />
+                </div>
+                <Button
+                  onClick={() => void handleExternalAdd()}
+                  disabled={!title.trim() || !externalUrl.trim()}
+                  className="rounded-xl"
+                >
                   <Link2 className="mr-2 h-4 w-4" />
-                  Link External Video
+                  Add Video URL
                 </Button>
               </TabsContent>
               <TabsContent value="upload" className="mt-4 space-y-4">
@@ -144,9 +179,13 @@ export default function VideosPage() {
                   />
                 </div>
                 {uploading ? <Progress value={progress} className="h-2" /> : null}
-                <Button disabled={uploading || !file || !title} onClick={() => void handleUpload()} className="rounded-xl">
+                <Button
+                  disabled={uploading || !file || !title.trim()}
+                  onClick={() => void handleUpload()}
+                  className="rounded-xl"
+                >
                   <Upload className="mr-2 h-4 w-4" />
-                  {uploading ? `Uploading ${progress}%` : "Upload to Firebase"}
+                  {uploading ? `Uploading ${Math.round(progress)}%` : "Upload Video"}
                 </Button>
               </TabsContent>
             </Tabs>
@@ -158,11 +197,14 @@ export default function VideosPage() {
         ) : videos.length === 0 ? (
           <EmptyState
             title="No videos for this branch"
-            description="Upload a video to Firebase Storage to show on branch displays."
+            description="Paste a video URL above — it will play on the branch display immediately."
             icon={Video}
           />
         ) : (
-          <ContentPanel title="Video Library" description={`${videos.length} video${videos.length === 1 ? "" : "s"} assigned`}>
+          <ContentPanel
+            title="Branch Videos"
+            description="The most recent active video plays on the display (no playlist required)"
+          >
             <DataTable
               data={videos}
               keyExtractor={(v) => v.id}
@@ -172,7 +214,9 @@ export default function VideosPage() {
                 {
                   key: "source",
                   header: "Source",
-                  cell: (v) => <StatusBadge status={v.sourceType} variant={v.sourceType === "external" ? "info" : "neutral"} />,
+                  cell: (v) => (
+                    <StatusBadge status={v.sourceType} variant={v.sourceType === "external" ? "info" : "neutral"} />
+                  ),
                 },
                 {
                   key: "size",
@@ -184,7 +228,12 @@ export default function VideosPage() {
                   key: "preview",
                   header: "Preview",
                   cell: (v) => (
-                    <a className="text-sm text-primary underline-offset-4 hover:underline" href={v.downloadUrl} target="_blank" rel="noreferrer">
+                    <a
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                      href={v.downloadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       Open
                     </a>
                   ),
@@ -196,11 +245,20 @@ export default function VideosPage() {
                   cell: (v) =>
                     canManageVideos ? (
                       <AlertDialog>
-                        <AlertDialogTrigger render={<Button variant="outline" size="sm" className="rounded-lg"><Trash2 className="mr-1 h-3 w-3" />Remove</Button>} />
+                        <AlertDialogTrigger
+                          render={
+                            <Button variant="outline" size="sm" className="rounded-lg">
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              Remove
+                            </Button>
+                          }
+                        />
                         <AlertDialogContent className="rounded-2xl">
                           <AlertDialogHeader>
                             <AlertDialogTitle>Remove {v.title}?</AlertDialogTitle>
-                            <AlertDialogDescription>This video will be removed from the branch library and playlists.</AlertDialogDescription>
+                            <AlertDialogDescription>
+                              This video will be removed from the branch display.
+                            </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
@@ -210,7 +268,11 @@ export default function VideosPage() {
                                 void deleteVideo(v, {
                                   userId: user!.uid,
                                   userName: profile!.displayName || profile!.email,
-                                }).then(() => toast.success("Video removed"))
+                                })
+                                  .then(() => toast.success("Video removed"))
+                                  .catch((e) =>
+                                    toast.error(e instanceof Error ? e.message : "Failed to remove video"),
+                                  )
                               }
                             >
                               Remove

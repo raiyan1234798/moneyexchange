@@ -19,14 +19,26 @@ export async function listTickers(branchId: string): Promise<TickerMessage[]> {
   ]);
 }
 
+function sortTickers(tickers: TickerMessage[]): TickerMessage[] {
+  return [...tickers]
+    .filter((ticker) => ticker.status === "active")
+    .sort((a, b) => {
+      const aTime = a.updatedAt instanceof Date ? a.updatedAt.getTime() : 0;
+      const bTime = b.updatedAt instanceof Date ? b.updatedAt.getTime() : 0;
+      return bTime - aTime;
+    });
+}
+
 export function subscribeTickers(
   branchId: string,
   onData: (tickers: TickerMessage[]) => void,
+  onError?: (error: Error) => void,
 ) {
   return subscribeCollection<TickerMessage>(
     COLLECTIONS.tickerMessages,
-    [where("branchId", "==", branchId), where("status", "==", "active"), orderBy("updatedAt", "desc")],
-    onData,
+    [where("branchId", "==", branchId)],
+    (items) => onData(sortTickers(items)),
+    onError,
   );
 }
 

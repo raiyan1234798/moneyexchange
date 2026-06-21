@@ -14,11 +14,15 @@ export async function listCurrencies(): Promise<Currency[]> {
   return listDocuments<Currency>(COLLECTIONS.currencies, [orderBy("sortOrder", "asc")]);
 }
 
-export function subscribeCurrencies(onData: (items: Currency[]) => void) {
+export function subscribeCurrencies(
+  onData: (items: Currency[]) => void,
+  onError?: (error: Error) => void,
+) {
   return subscribeCollection<Currency>(
     COLLECTIONS.currencies,
     [orderBy("sortOrder", "asc")],
     onData,
+    onError,
   );
 }
 

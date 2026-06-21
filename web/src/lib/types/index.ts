@@ -79,6 +79,8 @@ export interface ExchangeRate {
   buyRate: number;
   sellRate: number;
   version: number;
+  displayOrder: number;
+  isHidden: boolean;
   status: "draft" | "pending" | "approved" | "published" | "emergency";
   updatedBy: string;
   updatedByName: string;
@@ -219,6 +221,9 @@ export interface SystemSettings {
   emergencyRateEnabled: boolean;
   offlineCacheEnabled: boolean;
   tvHeartbeatIntervalSeconds: number;
+  defaultTickerSpeed?: number;
+  maintenanceMode?: boolean;
+  auditRetentionDays?: number;
   updatedAt: Timestamp | Date;
 }
 

@@ -165,7 +165,9 @@ service cloud.firestore {
 
     match /branches/{branchId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create, update, delete: if isSuperAdmin();
+      allow create, delete: if isSuperAdmin();
+      allow update: if isSuperAdmin() ||
+        (isBranchManager() && belongsToManagerBranch(branchId));
     }
 
     match /currencies/{currencyId} {

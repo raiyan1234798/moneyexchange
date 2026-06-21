@@ -6,11 +6,10 @@ import { Maximize2, Minimize2, Wifi, WifiOff, TrendingUp, TrendingDown } from "l
 import { motion, AnimatePresence } from "framer-motion";
 import { subscribeBranch } from "@/lib/services/branch-service";
 import { subscribeExchangeRates } from "@/lib/services/exchange-rate-service";
-import { subscribePlaylists } from "@/lib/services/playlist-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos } from "@/lib/services/video-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
-import type { Branch, ExchangeRate, TickerMessage, VideoAsset, VideoPlaylist } from "@/lib/types";
+import type { Branch, ExchangeRate, TickerMessage, VideoAsset } from "@/lib/types";
 
 interface DisplayScreenProps {
   branchId: string;
@@ -45,7 +44,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const [branch, setBranch] = useState<Branch | null>(null);
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [tickers, setTickers] = useState<TickerMessage[]>([]);
-  const [playlists, setPlaylists] = useState<VideoPlaylist[]>([]);
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [videoIndex, setVideoIndex] = useState(0);
   const [resolvedVideoUrl, setResolvedVideoUrl] = useState<string | null>(null);
@@ -94,43 +92,35 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     const unsubBranch = subscribeBranch(branchId, setBranch);
     const unsubRates = subscribeExchangeRates(branchId, setRates);
     const unsubTickers = subscribeTickers(branchId, setTickers);
-    const unsubPlaylists = subscribePlaylists(branchId, setPlaylists);
     const unsubVideos = subscribeVideos(branchId, setVideos);
 
     return () => {
       unsubBranch();
       unsubRates();
       unsubTickers();
-      unsubPlaylists();
       unsubVideos();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
   }, [branchId]);
 
-  // Playlist resolution
-  const playlistVideos = useMemo(() => {
-    const activePlaylist = playlists[0];
-    if (activePlaylist?.videoIds?.length) {
-      return activePlaylist.videoIds
-        .map((id) => videos.find((v) => v.id === id))
-        .filter((v): v is VideoAsset => Boolean(v));
-    }
-    return videos;
-  }, [playlists, videos]);
+  // Active branch videos — newest first; no playlist required
+  const activeVideos = useMemo(() => videos, [videos]);
 
-  const activeVideo = playlistVideos[videoIndex % Math.max(playlistVideos.length, 1)];
+  const activeVideo = activeVideos[videoIndex % Math.max(activeVideos.length, 1)];
   const playbackUrl = useMemo(() => (activeVideo ? resolveVideoPlaybackUrl(activeVideo) : ""), [activeVideo]);
   const currentVideoUrl = resolvedVideoUrl ?? playbackUrl;
 
   const activeTicker = tickers[0];
   const tickerText = useMemo(() => {
-    const slogan = branch?.settings?.slogan ?? "Welcome to Money Exchange — Best Rates Guaranteed";
+    const fallback = branch?.name
+      ? `Welcome to ${branch.name} — Best Rates Guaranteed`
+      : "Welcome to Money Exchange";
     if (activeTicker?.messages?.length) {
       return activeTicker.messages.map((line) => line.text).join("   •   ");
     }
-    return slogan;
-  }, [activeTicker, branch]);
+    return fallback;
+  }, [activeTicker, branch?.name]);
 
   const tickerSpeed = activeTicker?.scrollSpeed || branch?.settings?.tickerSpeed || 30;
   const tickerFontSize = activeTicker?.fontSize || branch?.settings?.tickerFontSize || 22;
@@ -139,13 +129,13 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   // Auto-rotate videos
   useEffect(() => {
-    if (playlistVideos.length <= 1) return;
+    if (activeVideos.length <= 1) return;
     const timer = window.setInterval(() => {
       setVideoLoaded(false);
-      setVideoIndex((prev) => (prev + 1) % playlistVideos.length);
+      setVideoIndex((prev) => (prev + 1) % activeVideos.length);
     }, 60000);
     return () => window.clearInterval(timer);
-  }, [playlistVideos.length]);
+  }, [activeVideos.length]);
 
   // Video caching
   useEffect(() => {
@@ -166,12 +156,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const brandColor = branch?.brandingColor ?? "#D4AF37"; // Default gold
 
   const handleVideoEnded = useCallback(() => {
-    if (playlistVideos.length > 1) {
+    if (activeVideos.length > 1) {
       setVideoLoaded(false);
-      setVideoIndex((prev) => (prev + 1) % playlistVideos.length);
+      setVideoIndex((prev) => (prev + 1) % activeVideos.length);
       setResolvedVideoUrl(null);
     }
-  }, [playlistVideos.length]);
+  }, [activeVideos.length]);
 
   return (
     <div
@@ -233,7 +223,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
               {branch?.name ?? "Money Exchange"}
             </h1>
             <p className="truncate text-xs text-zinc-400 lg:text-sm">
-              {branch?.settings?.slogan ?? branch?.city ?? "Your Trusted Exchange Partner"}
+              {branch?.city ? `${branch.city}${branch.country ? `, ${branch.country}` : ""}` : "Live exchange rates"}
             </p>
           </div>
         </div>
@@ -276,7 +266,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
                 className="h-full w-full object-cover"
                 autoPlay
                 muted
-                loop={playlistVideos.length <= 1}
+                loop={activeVideos.length <= 1}
                 playsInline
                 initial={{ opacity: 0 }}
                 animate={{ opacity: videoLoaded ? 1 : 0 }}

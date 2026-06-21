@@ -7,7 +7,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import type { Branch } from "@/lib/types";
@@ -34,7 +33,7 @@ export function BranchSelector({
       <Label>{label}</Label>
       <Select value={value} onValueChange={(v) => v && onChange(v)}>
         <SelectTrigger className="h-11 w-full max-w-md rounded-xl">
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 flex-1 items-center gap-2.5">
             <div
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
               style={{ backgroundColor: `${selected?.brandingColor ?? "#6366f1"}22` }}
@@ -44,7 +43,16 @@ export function BranchSelector({
                 style={{ color: selected?.brandingColor ?? "#6366f1" }}
               />
             </div>
-            <SelectValue placeholder="Select branch" />
+            <span className="truncate text-left">
+              {selected ? (
+                <>
+                  {selected.name}
+                  <span className="ml-1.5 text-muted-foreground">({selected.code})</span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Select branch</span>
+              )}
+            </span>
           </div>
         </SelectTrigger>
         <SelectContent className="rounded-xl">

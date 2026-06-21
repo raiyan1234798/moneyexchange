@@ -5,30 +5,39 @@ import {
   subscribeCollection,
   updateDocument,
   where,
-  orderBy,
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { storage } from "@/lib/firebase/client";
 import { COLLECTIONS, MAX_VIDEO_UPLOAD_BYTES } from "@/lib/constants";
 import type { VideoAsset } from "@/lib/types";
 
-export async function listVideos(branchId: string): Promise<VideoAsset[]> {
-  return listDocuments<VideoAsset>(COLLECTIONS.videos, [
-    where("branchId", "==", branchId),
-    where("status", "==", "active"),
-    orderBy("createdAt", "desc"),
-  ]);
+function sortVideos(videos: VideoAsset[]): VideoAsset[] {
+  return [...videos]
+    .filter((video) => video.status === "active")
+    .sort((a, b) => {
+      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+      return bTime - aTime;
+    });
 }
 
-export function subscribeVideos(branchId: string, onData: (videos: VideoAsset[]) => void) {
+export async function listVideos(branchId: string): Promise<VideoAsset[]> {
+  const videos = await listDocuments<VideoAsset>(COLLECTIONS.videos, [
+    where("branchId", "==", branchId),
+  ]);
+  return sortVideos(videos);
+}
+
+export function subscribeVideos(
+  branchId: string,
+  onData: (videos: VideoAsset[]) => void,
+  onError?: (error: Error) => void,
+) {
   return subscribeCollection<VideoAsset>(
     COLLECTIONS.videos,
-    [
-      where("branchId", "==", branchId),
-      where("status", "==", "active"),
-      orderBy("createdAt", "desc"),
-    ],
-    onData,
+    [where("branchId", "==", branchId)],
+    (items) => onData(sortVideos(items)),
+    onError,
   );
 }
 

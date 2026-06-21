@@ -81,9 +81,13 @@ function BrandMark({ compact }: { compact?: boolean }) {
 
 function NavLinks({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const pathname = usePathname();
+  const { profile } = useAuth();
+  const role = profile?.role ?? "branchManager";
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
+
   return (
     <nav className={cn("flex flex-col gap-0.5", className)}>
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const Icon = iconMap[item.icon as keyof typeof iconMap];
         const active = pathname === item.href;
         return (

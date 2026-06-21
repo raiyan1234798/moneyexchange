@@ -42,21 +42,34 @@ export const RECOMMENDED_VIDEO_FORMATS = [
   "MOV (QuickTime)",
 ];
 
-export const NAV_ITEMS = [
-  { href: "/dashboard", label: "Overview", icon: "LayoutDashboard" },
-  { href: "/dashboard/branches", label: "Branches", icon: "Building2" },
-  { href: "/dashboard/managers", label: "Managers", icon: "Users" },
-  { href: "/dashboard/currencies", label: "Currencies", icon: "Coins" },
-  { href: "/dashboard/exchange-rates", label: "Exchange Rates", icon: "TrendingUp" },
-  { href: "/dashboard/videos", label: "Videos", icon: "Video" },
-  { href: "/dashboard/playlists", label: "Playlists", icon: "ListVideo" },
-  { href: "/dashboard/tickers", label: "Tickers", icon: "TextCursorInput" },
-  { href: "/dashboard/analytics", label: "Analytics", icon: "BarChart3" },
-  { href: "/dashboard/notifications", label: "Notifications", icon: "Bell" },
-  { href: "/dashboard/audit-logs", label: "Audit Logs", icon: "ScrollText" },
-  { href: "/dashboard/settings", label: "Settings", icon: "Settings" },
-  { href: "/dashboard/profile", label: "Profile", icon: "User" },
-] as const;
+export const DEFAULT_SYSTEM_SETTINGS = {
+  companyName: "MoneyExchange",
+  supportEmail: "support@moneyexchange.com",
+  defaultTimezone: "Asia/Dubai",
+  emergencyRateEnabled: true,
+  offlineCacheEnabled: true,
+  tvHeartbeatIntervalSeconds: 60,
+  defaultTickerSpeed: 30,
+  maintenanceMode: false,
+  auditRetentionDays: 90,
+} as const;
+
+export const NAV_ITEMS: Array<{
+  href: string;
+  label: string;
+  icon: string;
+  roles: readonly ("superAdmin" | "branchManager")[];
+}> = [
+  { href: "/dashboard", label: "Overview", icon: "LayoutDashboard", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard/branches", label: "Branches", icon: "Building2", roles: ["superAdmin"] },
+  { href: "/dashboard/managers", label: "Managers", icon: "Users", roles: ["superAdmin"] },
+  { href: "/dashboard/exchange-rates", label: "Exchange Rates", icon: "TrendingUp", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard/tickers", label: "Display Messages", icon: "TextCursorInput", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard/profile", label: "Profile", icon: "User", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard/audit-logs", label: "Audit Logs", icon: "ScrollText", roles: ["superAdmin"] },
+];
 
 export const SUPER_ADMIN_PERMISSIONS = [
   "createBranch",

@@ -1,4 +1,7 @@
-/tv/setup /display 301
+/dashboard/currencies /dashboard/exchange-rates 301
+/dashboard/currencies/ /dashboard/exchange-rates/ 301
+/dashboard/playlists /dashboard/videos 301
+/dashboard/playlists/ /dashboard/videos/ 301
 /tv/setup/ /display/ 301
 /tv/player /display 301
 /tv/player/ /display/ 301

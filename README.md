@@ -84,6 +84,67 @@ Sample external video URL for testing:
 `https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`
 
 
+## Production / demo data seed
+
+The hosted display (`/display?branch=DXB01`) and email/password demo login require Firestore data and an Auth user. **Do not commit service account keys.**
+
+### One-command seed (recommended)
+
+1. Download a Firebase **service account JSON** (Console → Project settings → Service accounts → Generate new private key). Store it **outside** the repo.
+2. Enable **Email/Password** sign-in in Firebase Authentication.
+3. Run from the repo root:
+
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/absolute/path/to/serviceAccount.json"
+npm run seed:production
+```
+
+`npm run seed:admin` runs the same script.
+
+This creates:
+
+| Item | Details |
+|------|---------|
+| Demo super admin | `demo@moneyexchange.local` / `Demo123456!` |
+| Branch | `DXB01` — Dubai Main (`branches/dxb01-main`) |
+| Currencies | USD, GBP, EUR, AED |
+| Exchange rates | Published buy/sell per currency for `DXB01` |
+| Ticker | Active scrolling messages for `DXB01` |
+| Video + playlist | **External** sample MP4 URL (no Firebase Storage upload) |
+| Settings | `settings/global` |
+
+**Videos:** Storage binaries are not uploaded by the seed script. A public **external** MP4 URL is used so signage video works without Storage cost. Upload branch videos later via Dashboard → Videos (external URL or small Storage upload).
+
+### Verify after seeding
+
+```bash
+# Firestore (requires ADC or service account — same env as seed)
+node --input-type=module -e "
+import { initializeApp, applicationDefault, cert } from 'firebase-admin/app';
+import { readFileSync } from 'node:fs';
+import { getFirestore } from 'firebase-admin/firestore';
+const key = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+initializeApp(key ? { credential: cert(JSON.parse(readFileSync(key,'utf8'))), projectId: 'moneyexchange-35c33' } : { credential: applicationDefault(), projectId: 'moneyexchange-35c33' });
+const snap = await getFirestore().collection('branches').where('code','==','DXB01').get();
+console.log(snap.empty ? 'MISSING' : snap.docs[0].data());
+"
+
+# Public display (client resolves branch in browser)
+curl -sI "https://moneyexchange.pages.dev/display?branch=DXB01" | head -5
+```
+
+Open [https://moneyexchange.pages.dev/display?branch=DXB01](https://moneyexchange.pages.dev/display?branch=DXB01) — you should see rates, ticker, and demo video (not “Branch not found”).
+
+### Manual seed (no script)
+
+If you cannot run Admin SDK locally, create the same documents in Firebase Console:
+
+1. **Authentication** → Add user `demo@moneyexchange.local` with password `Demo123456!`.
+2. **Firestore** → `users/{that-uid}` with `role: superAdmin`, `isActive: true`, `branchId: null`.
+3. **Firestore** → `branches/dxb01-main` with `code: DXB01`, `status: active`, and branch fields from `scripts/seed-production.mjs`.
+4. Add `currencies/*`, `exchange_rates/*` (`status: published`, `branchId: dxb01-main`), `ticker_messages/*` (`status: active`), optional `videos` + `video_playlists` with an external `downloadUrl`.
+
+
 ## Initial Firebase Setup
 
 ### Enable Authentication

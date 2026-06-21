@@ -32,6 +32,7 @@ import {
   createBranchManagerInvite,
   provisionBranchManagerAccount,
 } from "@/lib/services/manager-service";
+import { normalizeEmail } from "@/lib/auth/user-profile";
 import type { AppUser, Branch, UserInvite } from "@/lib/types";
 
 const emptyForm = {
@@ -71,9 +72,10 @@ export default function ManagersPage() {
   async function handleCreate() {
     if (!user || !profile || !form.email || !form.displayName || !form.branchId) return;
     setSubmitting(true);
+    const normalizedEmail = normalizeEmail(form.email);
     try {
       await createBranchManagerInvite({
-        email: form.email,
+        email: normalizedEmail,
         displayName: form.displayName,
         branchId: form.branchId,
         createdBy: user.uid,
@@ -82,19 +84,19 @@ export default function ManagersPage() {
       let tempPassword: string | undefined;
       try {
         const result = await provisionBranchManagerAccount({
-          email: form.email,
+          email: normalizedEmail,
           displayName: form.displayName,
           branchId: form.branchId,
         });
         tempPassword = result.temporaryPassword;
       } catch {
-        // Google-only sign-in fallback
+        // Invite record is enough for Google sign-in at /login
       }
 
       setOpen(false);
       setForm(emptyForm);
-      setSuccessDialog({ email: form.email, tempPassword });
-      toast.success("Branch manager invited");
+      setSuccessDialog({ email: normalizedEmail, tempPassword });
+      toast.success("Branch manager invited — they can sign in with Google at /login");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to invite manager");
     } finally {
