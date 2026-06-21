@@ -32,6 +32,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { MAX_VIDEO_UPLOAD_BYTES, RECOMMENDED_VIDEO_FORMATS } from "@/lib/constants";
+import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
+import { DEMO_SAMPLE_VIDEO_URL } from "@/lib/demo-content";
 import { addExternalVideo, deleteVideo, subscribeVideos, uploadVideo } from "@/lib/services/video-service";
 import {
   deriveTitleFromFile,
@@ -115,9 +117,10 @@ export default function VideosPage() {
       setFile(null);
       setProgress(0);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed");
+      toast.error(error instanceof Error ? error.message : "Upload failed", { duration: 8000 });
     } finally {
       setUploading(false);
+      setProgress(0);
     }
   }
 
@@ -137,6 +140,8 @@ export default function VideosPage() {
           </p>
         ) : null}
 
+        <PreviewDisplayLink branchCode={branch?.code} />
+
         <Alert className="rounded-xl border-border/40 bg-card/50">
           <AlertDescription className="text-sm leading-relaxed">
             <strong className="text-foreground">Recommended:</strong> paste a direct MP4/WebM URL (YouTube direct links,
@@ -154,6 +159,9 @@ export default function VideosPage() {
                 <TabsTrigger value="upload" className="rounded-lg">File Upload</TabsTrigger>
               </TabsList>
               <TabsContent value="external" className="mt-4 space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Recommended: paste a direct MP4 link — works instantly without Firebase Storage.
+                </p>
                 <div className="space-y-2">
                   <Label>Title (optional)</Label>
                   <Input
@@ -168,7 +176,7 @@ export default function VideosPage() {
                   <Input
                     value={externalUrl}
                     onChange={(e) => setExternalUrl(e.target.value)}
-                    placeholder="https://cdn.example.com/signage/promo.mp4"
+                    placeholder={DEMO_SAMPLE_VIDEO_URL}
                     className="rounded-xl"
                   />
                 </div>

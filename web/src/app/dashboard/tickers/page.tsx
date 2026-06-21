@@ -5,6 +5,7 @@ import { Plus, TextCursorInput } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
+import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import {
   ContentPanel,
   DataTable,
@@ -95,6 +96,8 @@ export default function TickersPage() {
             Managing messages for: <strong>{branch.name}</strong>
           </p>
         ) : null}
+
+        <PreviewDisplayLink branchCode={branch?.code} />
 
         {canManageTickers && effectiveBranchId ? (
           <PageActions>

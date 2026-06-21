@@ -31,18 +31,32 @@ function sortVideos(videos: VideoAsset[]): VideoAsset[] {
     .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 }
 
+export const STORAGE_UNAVAILABLE_MESSAGE =
+  "Enable Firebase Storage in the Firebase console OR use the External URL tab.";
+
+const UPLOAD_TIMEOUT_MS = 30_000;
+
 function mapStorageUploadError(error: unknown): Error {
   const code = (error as { code?: string }).code ?? "";
+  const message = (error as { message?: string }).message ?? "";
+
   if (code === "storage/unauthorized") {
-    return new Error("Upload denied. Sign in again or ask an admin to grant video permissions.");
+    return new Error(`${STORAGE_UNAVAILABLE_MESSAGE} Upload was denied — check your sign-in and permissions.`);
   }
   if (code === "storage/unauthenticated") {
     return new Error("You must be signed in to upload videos.");
   }
-  if (code === "storage/unknown" || code === "storage/object-not-found" || code === "storage/bucket-not-found") {
-    return new Error(
-      "Firebase Storage is not available. Use the External URL tab, or enable Storage in the Firebase console.",
-    );
+  if (
+    code === "storage/unknown" ||
+    code === "storage/object-not-found" ||
+    code === "storage/bucket-not-found" ||
+    /bucket.*not found/i.test(message) ||
+    /storage.*not.*enabled/i.test(message)
+  ) {
+    return new Error(STORAGE_UNAVAILABLE_MESSAGE);
+  }
+  if (code === "storage/canceled") {
+    return new Error(`${STORAGE_UNAVAILABLE_MESSAGE} Upload timed out after 30 seconds.`);
   }
   return error instanceof Error ? error : new Error("Upload failed");
 }
@@ -52,13 +66,32 @@ function waitForUpload(
   onProgress?: (progress: number) => void,
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
+    let settled = false;
+
+    const timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      uploadTask.cancel();
+      reject(new Error(`${STORAGE_UNAVAILABLE_MESSAGE} Upload timed out after 30 seconds.`));
+    }, UPLOAD_TIMEOUT_MS);
+
     uploadTask.on(
       "state_changed",
       (snapshot) => {
         onProgress?.((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
       },
-      (error) => reject(mapStorageUploadError(error)),
-      () => resolve(),
+      (error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        reject(mapStorageUploadError(error));
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve();
+      },
     );
   });
 }

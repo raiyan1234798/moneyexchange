@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
+import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import {
   ContentPanel,
   DataTable,
@@ -272,6 +273,8 @@ export default function ExchangeRatesPage() {
             Managing rates for: <strong>{branch.name}</strong>
           </p>
         ) : null}
+
+        <PreviewDisplayLink branchCode={branch?.code} />
 
         {canCreateCatalog ? (
           <ContentPanel
