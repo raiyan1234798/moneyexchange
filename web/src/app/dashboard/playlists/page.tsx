@@ -60,7 +60,7 @@ export default function PlaylistsPage() {
       },
       { userId: user.uid, userName: profile.displayName || profile.email },
     );
-    toast.success("Playlist created — TVs will play these videos");
+    toast.success("Playlist created — display will play these videos");
     setOpen(false);
     setName("");
     setSelectedVideoIds([]);
@@ -124,7 +124,7 @@ export default function PlaylistsPage() {
         {playlists.length === 0 ? (
           <EmptyState
             title="No playlists"
-            description="Create a playlist to control TV video rotation for this branch."
+            description="Create a playlist to control video rotation on the branch display."
             icon={ListVideo}
             actionLabel={canManagePlaylists ? "Create Playlist" : undefined}
             onAction={canManagePlaylists ? () => setOpen(true) : undefined}

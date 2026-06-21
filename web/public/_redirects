@@ -1,0 +1,6 @@
+/display/setup /display 301
+/display/setup/ /display/ 301
+/tv/setup /display 301
+/tv/setup/ /display/ 301
+/tv/player /display 301
+/tv/player/ /display/ 301

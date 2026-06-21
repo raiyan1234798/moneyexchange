@@ -188,10 +188,10 @@ function DisplayContent() {
             Sign in as manager
           </Link>
           <Link
-            href="/dashboard/branches"
+            href="/login"
             className="rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition-colors hover:bg-white/5"
           >
-            Admin dashboard
+            Admin sign in
           </Link>
         </div>
       </div>
