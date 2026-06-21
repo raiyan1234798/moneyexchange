@@ -1,0 +1,268 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// users/{uid}
+//   email, displayName, role, branchId, isActive, timestamps
+//
+// branches/{branchId}
+//   name, code, address, city, country, phone, email, managerId, status, settings
+//
+// currencies/{currencyId}
+//   currencyCode, currencyName, country, flag, sortOrder, status, isHidden
+//
+// exchange_rates/{rateId}
+//   branchId, currencyCode, buyRate, sellRate, version, status, updatedBy
+//
+// rate_history/{historyId}
+//   branchId, currencyCode, old/new rates, updatedBy, timestamp
+//
+// videos/{videoId}
+//   title, branchId, storagePath, downloadUrl, status, createdBy
+//
+// video_playlists/{playlistId}
+//   name, branchId, videoIds, loop, status, createdBy
+//
+// ticker_messages/{tickerId}
+//   branchId, messages, scrollSpeed, fontSize, fontColor, status
+//
+// tv_devices/{deviceId}
+//   name, branchId, deviceToken, status, health fields
+//
+// tv_health/{healthId}
+//   deviceId, branchId, heartbeat metrics
+//
+// audit_logs/{logId}
+//   action, entityType, userId, userName, branchId, timestamp
+//
+// notifications/{notificationId}
+//   type, title, message, branchId, read, createdAt
+//
+// settings/global
+//   companyName, supportEmail, operational flags
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() && userDoc().isActive == true;
+    }
+
+    function isSuperAdmin() {
+      return isActiveUser() && userDoc().role == 'superAdmin';
+    }
+
+    function isBranchManager() {
+      return isActiveUser() && userDoc().role == 'branchManager';
+    }
+
+    function managerBranchId() {
+      return userDoc().branchId;
+    }
+
+    function belongsToManagerBranch(branchId) {
+      return isBranchManager() && managerBranchId() == branchId;
+    }
+
+    function canAccessBranch(branchId) {
+      return isSuperAdmin() || belongsToManagerBranch(branchId);
+    }
+
+    function hasOnlyAllowedKeys(allowedKeys) {
+      return request.resource.data.keys().hasOnly(allowedKeys);
+    }
+
+    function isValidUserCreate() {
+      let data = request.resource.data;
+      return hasOnlyAllowedKeys([
+        'email', 'displayName', 'role', 'branchId', 'photoURL',
+        'isActive', 'createdAt', 'updatedAt', 'lastLoginAt'
+      ])
+      && data.email is string
+      && data.displayName is string
+      && data.role in ['superAdmin', 'branchManager']
+      && data.isActive is bool;
+    }
+
+    function isValidUserUpdate() {
+      let data = request.resource.data;
+      return hasOnlyAllowedKeys([
+        'email', 'displayName', 'role', 'branchId', 'photoURL',
+        'isActive', 'createdAt', 'updatedAt', 'lastLoginAt'
+      ])
+      && data.email is string
+      && data.displayName is string
+      && data.role in ['superAdmin', 'branchManager']
+      && data.isActive is bool;
+    }
+
+    function isSuperAdminEmail() {
+      return isAuthenticated() &&
+        request.auth.token.email.lower() == 'abubackerraiyan@gmail.com';
+    }
+
+    function isValidInvite(inviteEmail) {
+      return exists(/databases/$(database)/documents/user_invites/$(inviteEmail));
+    }
+
+    function inviteData(inviteEmail) {
+      return get(/databases/$(database)/documents/user_invites/$(inviteEmail)).data;
+    }
+
+    function isSelfRegistrationFromInvite() {
+      let email = request.auth.token.email.lower();
+      let invite = inviteData(email);
+      let data = request.resource.data;
+      return request.auth.uid == userId
+        && isValidInvite(email)
+        && data.email.lower() == email
+        && data.displayName is string
+        && data.role == invite.role
+        && data.branchId == invite.branchId
+        && data.isActive == true
+        && data.role == 'branchManager';
+    }
+
+    function isSuperAdminBootstrap() {
+      let data = request.resource.data;
+      return request.auth.uid == userId
+        && isSuperAdminEmail()
+        && data.email.lower() == 'abubackerraiyan@gmail.com'
+        && data.role == 'superAdmin'
+        && data.isActive == true
+        && data.displayName is string;
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow read: if isActiveUser() && isSuperAdmin();
+      allow create: if (isSuperAdmin() && isValidUserCreate()) ||
+        isSelfRegistrationFromInvite() ||
+        isSuperAdminBootstrap();
+      allow update: if (isSuperAdmin() && isValidUserUpdate()) ||
+        (request.auth.uid == userId && request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastLoginAt', 'updatedAt', 'displayName', 'photoURL'])) ||
+        (request.auth.uid == userId && isSuperAdminEmail() && isValidUserUpdate());
+      allow delete: if isSuperAdmin();
+    }
+
+    match /user_invites/{inviteEmail} {
+      allow read: if isAuthenticated() && request.auth.token.email.lower() == inviteEmail.lower();
+      allow create, update: if isSuperAdmin();
+      allow delete: if isSuperAdmin() ||
+        (isAuthenticated() && request.auth.token.email.lower() == inviteEmail.lower());
+    }
+
+    match /branches/{branchId} {
+      allow read: if isActiveUser() || resource.data.status == 'active';
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /currencies/{currencyId} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isSuperAdmin();
+    }
+
+    match /exchange_rates/{rateId} {
+      allow read: if isActiveUser() || resource.data.status == 'published';
+      allow create, update: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
+      allow delete: if isSuperAdmin();
+    }
+
+    match /rate_history/{historyId} {
+      allow read: if isActiveUser();
+      allow create: if isActiveUser();
+      allow update, delete: if isSuperAdmin();
+    }
+
+    match /videos/{videoId} {
+      allow read: if isActiveUser() || resource.data.status == 'active';
+      allow create, update, delete: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
+    }
+
+    match /video_playlists/{playlistId} {
+      allow read: if isActiveUser() || resource.data.status == 'active';
+      allow create, update, delete: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
+    }
+
+    match /ticker_messages/{tickerId} {
+      allow read: if isActiveUser() || resource.data.status == 'active';
+      allow create, update, delete: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
+    }
+
+    match /tv_devices/{deviceId} {
+      allow read: if isActiveUser() || request.auth == null;
+      allow create: if true;
+      allow update: if isActiveUser() || request.auth == null;
+      allow delete: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(resource.data.branchId));
+    }
+
+    match /tv_pairing_codes/{code} {
+      allow get: if true;
+      allow create, update, delete: if isActiveUser();
+    }
+
+    match /tv_health/{healthId} {
+      allow read: if isActiveUser();
+      allow create, update: if true;
+      allow delete: if isSuperAdmin();
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isSuperAdmin() ||
+        (isBranchManager() && resource.data.branchId == managerBranchId());
+      allow create: if isActiveUser();
+      allow update, delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow read: if isActiveUser();
+      allow create: if isSuperAdmin();
+      allow update: if isActiveUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if isActiveUser();
+      allow create, update: if isSuperAdmin();
+      allow delete: if false;
+    }
+
+    match /roles/{roleId} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin();
+    }
+
+    match /permissions/{permissionId} {
+      allow read: if isActiveUser();
+      allow write: if isSuperAdmin();
+    }
+
+    match /activity_logs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isActiveUser();
+      allow update, delete: if false;
+    }
+
+    match /scheduled_content/{contentId} {
+      allow read: if isActiveUser();
+      allow create, update, delete: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
+    }
+  }
+}

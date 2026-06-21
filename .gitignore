@@ -1,0 +1,8 @@
+node_modules
+.next
+out
+.env.local
+.firebase
+*.log
+.DS_Store
+web/TEST_CREDENTIALS.local.md

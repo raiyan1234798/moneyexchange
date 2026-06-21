@@ -1,0 +1,21 @@
+{
+  "name": "moneyexchange-tv",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Enterprise Money Exchange Digital Signage & Branch Management System",
+  "scripts": {
+    "dev": "npm --prefix web run dev",
+    "build": "npm --prefix web run build",
+    "start": "npm --prefix web run start",
+    "lint": "npm --prefix web run lint",
+    "functions:build": "npm --prefix functions run build",
+    "deploy:hosting": "npm run build && npx firebase-tools@latest deploy --only hosting",
+    "deploy:rules": "npx firebase-tools@latest deploy --only firestore:rules,storage",
+    "deploy:functions": "npm --prefix functions run build && npx firebase-tools@latest deploy --only functions",
+    "deploy:all": "npm run build && npm --prefix functions run build && npx firebase-tools@latest deploy",
+    "seed:admin": "node scripts/seed-admin.mjs"
+  },
+  "devDependencies": {
+    "firebase-admin": "^13.6.0"
+  }
+}
