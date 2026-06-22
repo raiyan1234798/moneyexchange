@@ -1,4 +1,4 @@
-import { createDocument, listDocuments, updateDocument, where, writeAuditLog } from "@/lib/firebase/firestore";
+import { createDocument, getDocument, listDocuments, updateDocument, where, writeAuditLog } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import {
   DEMO_BRANCH_CODE,
@@ -35,14 +35,16 @@ export async function loadDemoContent(actor: {
     );
   }
 
+  const existingByDocId = await getDocument<Branch>(COLLECTIONS.branches, DEMO_BRANCH_DOC_ID);
   const existingBranches = await listDocuments<Branch>(COLLECTIONS.branches, [
     where("code", "==", DEMO_BRANCH_CODE),
   ]);
 
   let branchId: string;
-  if (existingBranches.length > 0) {
-    branchId = existingBranches[0].id;
+  if (existingBranches.length > 0 || existingByDocId) {
+    branchId = existingBranches[0]?.id ?? existingByDocId!.id;
     await updateDocument(COLLECTIONS.branches, branchId, {
+      code: DEMO_BRANCH_CODE,
       name: DEMO_BRANCH_NAME,
       status: "active",
       brandingColor: "#0ea5e9",

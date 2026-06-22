@@ -9,10 +9,17 @@ import { subscribeExchangeRates } from "@/lib/services/exchange-rate-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos } from "@/lib/services/video-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
+import {
+  getDemoBranch,
+  getDemoRates,
+  getDemoTickers,
+  getDemoVideos,
+} from "@/lib/demo-content";
 import type { Branch, ExchangeRate, TickerMessage, VideoAsset } from "@/lib/types";
 
 interface DisplayScreenProps {
-  branchId: string;
+  branchId?: string;
+  demoMode?: boolean;
 }
 
 /** Map currency codes to flag emojis for display */
@@ -39,12 +46,12 @@ function formatDate() {
   });
 }
 
-export function DisplayScreen({ branchId }: DisplayScreenProps) {
+export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps) {
   const [online, setOnline] = useState(true);
-  const [branch, setBranch] = useState<Branch | null>(null);
-  const [rates, setRates] = useState<ExchangeRate[]>([]);
-  const [tickers, setTickers] = useState<TickerMessage[]>([]);
-  const [videos, setVideos] = useState<VideoAsset[]>([]);
+  const [branch, setBranch] = useState<Branch | null>(demoMode ? getDemoBranch() : null);
+  const [rates, setRates] = useState<ExchangeRate[]>(demoMode ? getDemoRates() : []);
+  const [tickers, setTickers] = useState<TickerMessage[]>(demoMode ? getDemoTickers() : []);
+  const [videos, setVideos] = useState<VideoAsset[]>(demoMode ? getDemoVideos() : []);
   const [videoIndex, setVideoIndex] = useState(0);
   const [cachedStorageUrl, setCachedStorageUrl] = useState<string | null>(null);
   const [trackedHeadVideoId, setTrackedHeadVideoId] = useState("");
@@ -81,9 +88,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     return () => window.clearInterval(timer);
   }, []);
 
-  // Firebase subscriptions
+  // Firebase subscriptions (skipped in offline demo preview)
   useEffect(() => {
-    if (!branchId) return;
+    if (demoMode || !branchId) return;
 
     const handleOnline = () => setOnline(true);
     const handleOffline = () => setOnline(false);
@@ -103,7 +110,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, [branchId]);
+  }, [branchId, demoMode]);
 
   // Active branch videos — newest first; no playlist required
   const activeVideos = useMemo(() => videos, [videos]);

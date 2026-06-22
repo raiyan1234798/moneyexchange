@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { getDisplayUrl } from "@/lib/display-url";
+import { getDisplayUrl, DEMO_DISPLAY_PATH } from "@/lib/display-url";
 import { loadDemoContent } from "@/lib/services/demo-content-service";
 import { cn } from "@/lib/utils";
 
@@ -28,9 +28,14 @@ export function LoadDemoContentButton({
       const displayUrl = getDisplayUrl(branchCode);
       toast.success("Demo content loaded", {
         description: (
-          <a href={displayUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-            Open display preview →
-          </a>
+          <span className="flex flex-col gap-1">
+            <a href={DEMO_DISPLAY_PATH} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+              Instant preview → /display/demo
+            </a>
+            <a href={displayUrl} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+              Firestore branch → /display?branch=DEMO
+            </a>
+          </span>
         ),
         duration: 10000,
       });

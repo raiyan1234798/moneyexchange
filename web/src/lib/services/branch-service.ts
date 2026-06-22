@@ -11,36 +11,67 @@ import {
 } from "@/lib/firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS, DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import { normalizeBranchCode } from "@/lib/display-url";
 import type { Branch, DashboardStats, EntityStatus } from "@/lib/types";
+
+function branchMatchesCode(branch: Branch, normalizedCode: string): boolean {
+  return normalizeBranchCode(String(branch.code ?? "")) === normalizedCode;
+}
 
 export function subscribeBranchByCode(
   branchCode: string,
   onData: (branch: Branch | null) => void,
 ) {
-  const normalized = branchCode.trim().toUpperCase();
+  const normalized = normalizeBranchCode(branchCode);
   if (!normalized) {
     onData(null);
     return () => undefined;
   }
 
-  const q = query(
+  const exactQuery = query(
     collection(db, COLLECTIONS.branches),
     where("code", "==", normalized),
     where("status", "==", "active"),
   );
 
-  return onSnapshot(
-    q,
+  const fallbackQuery = query(
+    collection(db, COLLECTIONS.branches),
+    where("status", "==", "active"),
+  );
+
+  let fallbackUnsub: (() => void) | undefined;
+
+  const exactUnsub = onSnapshot(
+    exactQuery,
     (snapshot) => {
       const docSnap = snapshot.docs[0];
-      if (!docSnap) {
-        onData(null);
+      if (docSnap) {
+        fallbackUnsub?.();
+        fallbackUnsub = undefined;
+        onData({ id: docSnap.id, ...docSnap.data() } as Branch);
         return;
       }
-      onData({ id: docSnap.id, ...docSnap.data() } as Branch);
+
+      if (!fallbackUnsub) {
+        fallbackUnsub = onSnapshot(
+          fallbackQuery,
+          (activeSnapshot) => {
+            const match = activeSnapshot.docs
+              .map((item) => ({ id: item.id, ...item.data() }) as Branch)
+              .find((branch) => branchMatchesCode(branch, normalized));
+            onData(match ?? null);
+          },
+          () => onData(null),
+        );
+      }
     },
     () => onData(null),
   );
+
+  return () => {
+    exactUnsub();
+    fallbackUnsub?.();
+  };
 }
 
 export function subscribeBranch(branchId: string, onData: (branch: Branch | null) => void) {
@@ -79,6 +110,7 @@ export async function createBranch(
 ): Promise<string> {
   const id = await createDocument(COLLECTIONS.branches, {
     ...data,
+    code: normalizeBranchCode(data.code),
     settings: { ...DEFAULT_BRANCH_SETTINGS, ...data.settings },
   });
   await writeAuditLog({
@@ -97,7 +129,8 @@ export async function updateBranch(
   data: Partial<Branch>,
   actor: { userId: string; userName: string },
 ): Promise<void> {
-  await updateDocument(COLLECTIONS.branches, id, data);
+  const payload = data.code !== undefined ? { ...data, code: normalizeBranchCode(data.code) } : data;
+  await updateDocument(COLLECTIONS.branches, id, payload);
   await writeAuditLog({
     action: "update",
     entityType: "branch",

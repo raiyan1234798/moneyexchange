@@ -40,7 +40,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
-import { getDisplayUrl } from "@/lib/display-url";
+import { getDisplayUrl, DEMO_DISPLAY_PATH, normalizeBranchCode } from "@/lib/display-url";
 import { DEMO_BRANCH_CODE } from "@/lib/demo-content";
 import { createBranch, disableBranch, subscribeBranches } from "@/lib/services/branch-service";
 import type { Branch } from "@/lib/types";
@@ -88,7 +88,7 @@ export default function BranchesPage() {
       ? displayBranchId
       : (activeBranches[0]?.id ?? "");
   const displayBranch = activeBranches.find((b) => b.id === resolvedDisplayBranchId);
-  const demoBranch = branches.find((b) => b.code === DEMO_BRANCH_CODE);
+  const demoBranch = branches.find((b) => normalizeBranchCode(b.code) === DEMO_BRANCH_CODE);
 
   useEffect(() => {
     return subscribeBranches(setBranches);
@@ -159,8 +159,14 @@ export default function BranchesPage() {
                         <Label>{fieldLabels[key]}</Label>
                         <Input
                           value={form[key]}
-                          onChange={(event) => setForm((prev) => ({ ...prev, [key]: event.target.value }))}
+                          onChange={(event) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              [key]: key === "code" ? normalizeBranchCode(event.target.value) : event.target.value,
+                            }))
+                          }
                           className="rounded-xl"
+                          {...(key === "code" ? { placeholder: "e.g. CS02", style: { textTransform: "uppercase" as const } } : {})}
                         />
                       </div>
                     ))}
@@ -224,6 +230,25 @@ export default function BranchesPage() {
           />
         ) : (
           <>
+            <ContentPanel
+              title="Client Preview"
+              description="Share this URL for an instant demo display — no branch setup required"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <code className="rounded-lg bg-muted px-3 py-2 text-sm">{DEMO_DISPLAY_PATH}</code>
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  render={
+                    <a href={DEMO_DISPLAY_PATH} target="_blank" rel="noreferrer">
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      Open Demo Display
+                    </a>
+                  }
+                />
+              </div>
+            </ContentPanel>
+
             {demoBranch ? (
               <ContentPanel
                 title="Demo Branch Display"

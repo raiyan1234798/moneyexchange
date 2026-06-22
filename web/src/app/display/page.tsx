@@ -9,7 +9,8 @@ import { DisplayScreen } from "@/components/display/display-screen";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
-import { getDisplayUrl, getStoredDisplayBranchCode, setStoredDisplayBranchCode } from "@/lib/display-url";
+import { getDisplayUrl, getStoredDisplayBranchCode, normalizeBranchCode, setStoredDisplayBranchCode, DEMO_DISPLAY_PATH } from "@/lib/display-url";
+import { DEMO_BRANCH_CODE } from "@/lib/demo-content";
 import type { Branch } from "@/lib/types";
 
 function DisplayContent() {
@@ -17,7 +18,7 @@ function DisplayContent() {
   const searchParams = useSearchParams();
   const { profile, loading: authLoading, isSuperAdmin, isBranchManager } = useAuth();
 
-  const branchCode = searchParams.get("branch")?.trim().toUpperCase() ?? "";
+  const branchCode = searchParams.get("branch") ? normalizeBranchCode(searchParams.get("branch")!) : "";
   const branchIdParam = searchParams.get("branchId") ?? "";
 
   const [codeResolvedId, setCodeResolvedId] = useState("");
@@ -103,17 +104,43 @@ function DisplayContent() {
       <div className="flex h-screen flex-col items-center justify-center gap-5 bg-[#06060a] px-6 text-center text-white">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/5 text-2xl">🏢</div>
         <p className="text-2xl font-semibold">Branch not found</p>
-        <p className="max-w-md text-sm leading-relaxed text-zinc-400">
+        <p className="max-w-lg text-sm leading-relaxed text-zinc-400">
           {branchCode ? (
             <>
-              No active branch matches code <strong className="text-white">{branchCode}</strong>. An admin must create
-              this branch in Dashboard → Branches first.
+              No active branch matches code <strong className="text-white">{branchCode}</strong>.
+              {branchCode === "CS02" ? (
+                <>
+                  {" "}
+                  Create a branch with code <strong className="text-white">CS02</strong> in Dashboard → Branches
+                  first.
+                </>
+              ) : (
+                <> An admin can create this branch in Dashboard → Branches, or use one of the preview options below.</>
+              )}
             </>
           ) : (
             "This branch is inactive or does not exist."
           )}
         </p>
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex w-full max-w-md flex-col gap-3">
+          <Link
+            href={DEMO_DISPLAY_PATH}
+            className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sky-400"
+          >
+            Preview instant demo (no setup)
+          </Link>
+          <Link
+            href={getDisplayUrl(DEMO_BRANCH_CODE).replace(/^https?:\/\/[^/]+/, "")}
+            className="rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition-colors hover:bg-white/5"
+          >
+            Open <code className="text-emerald-400">/display?branch=DEMO</code>
+          </Link>
+          <p className="text-xs text-zinc-600">
+            The DEMO branch appears after clicking <strong className="text-zinc-400">Load Demo Content</strong> in the
+            dashboard.
+          </p>
+        </div>
+        <div className="mt-2 flex flex-col gap-3 sm:flex-row">
           <Link
             href="/display"
             className="rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition-colors hover:bg-white/5"

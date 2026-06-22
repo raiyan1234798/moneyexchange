@@ -46,13 +46,11 @@ export function subscribeExchangeRates(
 ) {
   return subscribeCollection<ExchangeRate>(
     COLLECTIONS.exchangeRates,
-    [where("branchId", "==", branchId)],
-    (items) =>
-      onData(
-        sortRates(
-          items.filter((rate) => rate.status === "published" && rate.isHidden !== true),
-        ),
-      ),
+    [
+      where("branchId", "==", branchId),
+      where("status", "==", "published"),
+    ],
+    (items) => onData(sortRates(items.filter((rate) => rate.isHidden !== true))),
     onError,
   );
 }

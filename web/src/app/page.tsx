@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Building2, Monitor, ShieldCheck, TrendingUp, Zap } from "lucide-react";
 import { PublicCtaButton, PublicHeroBadge, PublicShell } from "@/components/layout/public-shell";
+import { DEMO_DISPLAY_PATH } from "@/lib/display-url";
 
 const features = [
   {
@@ -70,6 +71,9 @@ export default function HomePage() {
           className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4"
         >
           <PublicCtaButton href="/login">Sign in to Console</PublicCtaButton>
+          <PublicCtaButton href={DEMO_DISPLAY_PATH} variant="outline">
+            View Demo Display
+          </PublicCtaButton>
           <PublicCtaButton href="/display" variant="outline">
             Open Display
           </PublicCtaButton>

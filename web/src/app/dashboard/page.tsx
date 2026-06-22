@@ -8,6 +8,7 @@ import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { GettingStartedChecklist } from "@/components/shared/getting-started-checklist";
 import { LoadDemoContentButton } from "@/components/shared/load-demo-content-button";
+import { Button } from "@/components/ui/button";
 import {
   ContentPanel,
   PageLoader,
@@ -24,6 +25,7 @@ import { subscribeTickers } from "@/lib/services/ticker-service";
 import { subscribeVideos } from "@/lib/services/video-service";
 import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
+import { DEMO_DISPLAY_PATH } from "@/lib/display-url";
 import type { AuditLog, DashboardStats } from "@/lib/types";
 import { StatusBadge } from "@/components/shared/page-elements";
 
@@ -190,12 +192,28 @@ export default function DashboardOverviewPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 Creates branch <strong className="font-mono text-foreground">DEMO</strong> with sample exchange rates,
-                Big Buck Bunny video, and ticker text.
+                Big Buck Bunny video, and ticker text. Share{" "}
+                <Link href={DEMO_DISPLAY_PATH} target="_blank" className="font-mono text-primary underline-offset-4 hover:underline">
+                  /display/demo
+                </Link>{" "}
+                for an instant client preview — no Firestore setup required.
               </p>
-              <LoadDemoContentButton
-                userId={user.uid}
-                userName={profile.displayName || profile.email}
-              />
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  className="rounded-xl"
+                  render={
+                    <Link href={DEMO_DISPLAY_PATH} target="_blank" rel="noreferrer">
+                      <Monitor className="mr-2 h-4 w-4" />
+                      Open Demo Display
+                    </Link>
+                  }
+                />
+                <LoadDemoContentButton
+                  userId={user.uid}
+                  userName={profile.displayName || profile.email}
+                />
+              </div>
             </div>
           </ContentPanel>
         ) : null}

@@ -36,7 +36,10 @@ export function subscribeTickers(
 ) {
   return subscribeCollection<TickerMessage>(
     COLLECTIONS.tickerMessages,
-    [where("branchId", "==", branchId)],
+    [
+      where("branchId", "==", branchId),
+      where("status", "==", "active"),
+    ],
     (items) => onData(sortTickers(items)),
     onError,
   );

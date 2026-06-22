@@ -110,7 +110,10 @@ export function subscribeVideos(
 ) {
   return subscribeCollection<VideoAsset>(
     COLLECTIONS.videos,
-    [where("branchId", "==", branchId)],
+    [
+      where("branchId", "==", branchId),
+      where("status", "==", "active"),
+    ],
     (items) => onData(sortVideos(items)),
     onError,
   );

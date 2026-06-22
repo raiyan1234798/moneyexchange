@@ -1,3 +1,6 @@
+import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import type { Branch, ExchangeRate, TickerMessage, VideoAsset } from "@/lib/types";
+
 export const DEMO_BRANCH_CODE = "DEMO";
 export const DEMO_BRANCH_DOC_ID = "demo-main";
 export const DEMO_BRANCH_NAME = "Demo Branch — Dubai Main";
@@ -53,3 +56,98 @@ export const DEMO_TICKER_LINES = [
   "COMPETITIVE RATES DAILY • FAST & SECURE TRANSFERS",
   "ASK OUR TEAM ABOUT ZERO-FEE TRANSFERS ON SELECT CORRIDORS",
 ];
+
+const demoNow = new Date();
+
+export function getDemoBranch(): Branch {
+  return {
+    id: "demo",
+    name: DEMO_BRANCH_NAME,
+    code: DEMO_BRANCH_CODE,
+    address: "Sheikh Zayed Road",
+    city: "Dubai",
+    country: "United Arab Emirates",
+    phone: "+971 4 000 0000",
+    email: "demo@moneyexchange.com",
+    managerId: null,
+    logoUrl: null,
+    brandingColor: "#0ea5e9",
+    workingHours: "Mon–Sat 9:00–21:00",
+    status: "active",
+    settings: {
+      ...DEFAULT_BRANCH_SETTINGS,
+      slogan: "Your trusted exchange partner",
+    },
+    createdAt: demoNow,
+    updatedAt: demoNow,
+  };
+}
+
+export function getDemoRates(): ExchangeRate[] {
+  return DEMO_CURRENCIES.map((currency, index) => {
+    const rates = DEMO_RATES[currency.currencyCode];
+    return {
+      id: `demo-rate-${currency.currencyCode.toLowerCase()}`,
+      branchId: "demo",
+      currencyCode: currency.currencyCode,
+      buyRate: rates.buyRate,
+      sellRate: rates.sellRate,
+      version: 1,
+      displayOrder: index + 1,
+      isHidden: false,
+      status: "published" as const,
+      updatedBy: "demo",
+      updatedByName: "Demo",
+      publishedAt: demoNow,
+      createdAt: demoNow,
+      updatedAt: demoNow,
+    };
+  });
+}
+
+export function getDemoVideos(): VideoAsset[] {
+  return [
+    {
+      id: "demo-video",
+      title: "Demo signage video",
+      description: "Big Buck Bunny sample MP4",
+      branchId: "demo",
+      category: "promo",
+      sourceType: "external",
+      storagePath: null,
+      downloadUrl: DEMO_SAMPLE_VIDEO_URL,
+      mimeType: "video/mp4",
+      durationSeconds: 596,
+      status: "active",
+      expiresAt: null,
+      createdBy: "demo",
+      createdAt: demoNow,
+      updatedAt: demoNow,
+    },
+  ];
+}
+
+export function getDemoTickers(): TickerMessage[] {
+  return [
+    {
+      id: "demo-ticker",
+      branchId: "demo",
+      messages: DEMO_TICKER_LINES.map((text, index) => ({
+        id: `line-${index + 1}`,
+        text,
+        priority: index + 1,
+      })),
+      scrollSpeed: 50,
+      fontSize: 18,
+      fontColor: "#FFFFFF",
+      paused: false,
+      language: "en",
+      scheduleStart: null,
+      scheduleEnd: null,
+      status: "active",
+      createdBy: "demo",
+      createdAt: demoNow,
+      updatedAt: demoNow,
+    },
+  ];
+}
