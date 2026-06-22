@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { Maximize2, Minimize2, Wifi, WifiOff, TrendingUp, TrendingDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -54,8 +54,9 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
   const [videos, setVideos] = useState<VideoAsset[]>(demoMode ? getDemoVideos() : []);
   const [videoIndex, setVideoIndex] = useState(0);
   const [cachedStorageUrl, setCachedStorageUrl] = useState<string | null>(null);
-  const [trackedHeadVideoId, setTrackedHeadVideoId] = useState("");
+  const prevHeadVideoIdRef = useRef("");
   const [clock, setClock] = useState("");
+  const [dateLabel, setDateLabel] = useState("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -78,13 +79,16 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
     }
   }, []);
 
-  // Clock
+  // Clock and date (client-only to avoid hydration mismatch)
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const tick = () => {
       const now = new Date();
       setClock(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
+      setDateLabel(formatDate());
       setLastUpdated(now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    }, 1000);
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -116,12 +120,13 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
   const activeVideos = useMemo(() => videos, [videos]);
   const headVideoId = activeVideos[0]?.id ?? "";
 
-  if (headVideoId && headVideoId !== trackedHeadVideoId) {
-    setTrackedHeadVideoId(headVideoId);
+  useEffect(() => {
+    if (!headVideoId || prevHeadVideoIdRef.current === headVideoId) return;
+    prevHeadVideoIdRef.current = headVideoId;
     setVideoIndex(0);
     setVideoLoaded(false);
     setCachedStorageUrl(null);
-  }
+  }, [headVideoId]);
 
   const activeVideo = activeVideos[videoIndex % Math.max(activeVideos.length, 1)];
   const playbackUrl = useMemo(() => {
@@ -256,7 +261,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
         {/* Right: Date, Time, Status */}
         <div className="flex shrink-0 items-center gap-4 text-sm">
           <div className="hidden flex-col items-end lg:flex">
-            <span className="text-xs text-zinc-500">{formatDate()}</span>
+            <span className="text-xs text-zinc-500">{dateLabel}</span>
             <span className="font-mono text-lg font-semibold tabular-nums" style={{ color: brandColor }}>
               {clock}
             </span>
