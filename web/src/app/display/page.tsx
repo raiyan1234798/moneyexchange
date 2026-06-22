@@ -91,7 +91,21 @@ function DisplayContent() {
     router.replace(getDisplayUrl(branch.code).replace(/^https?:\/\/[^/]+/, ""));
   }
 
+  const isResolvingBranchCode = Boolean(branchCode && !codeResolvedId && !codeNotFound);
+  const isResolvingBranchId = Boolean(branchIdParam && !branchCode && !idParamMissing && !resolvedBranchId);
+  const isResolvingStoredCode = Boolean(
+    storedCode && !branchCode && !branchIdParam && !managerBranchId && !storedResolvedId,
+  );
+
   if (authLoading && !branchCode && !branchIdParam) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#06060a] text-white">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+      </div>
+    );
+  }
+
+  if (isResolvingBranchCode || isResolvingBranchId || isResolvingStoredCode) {
     return (
       <div className="flex h-screen items-center justify-center bg-[#06060a] text-white">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
@@ -158,7 +172,7 @@ function DisplayContent() {
     );
   }
 
-  if (!resolvedBranchId) {
+  if (!resolvedBranchId && !branchCode && !branchIdParam) {
     if (isSuperAdmin && branches.length > 0) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-[#06060a] px-4 text-white">
@@ -221,14 +235,6 @@ function DisplayContent() {
             Admin sign in
           </Link>
         </div>
-      </div>
-    );
-  }
-
-  if ((branchCode && !codeResolvedId) || (storedCode && !branchCode && !branchIdParam && !managerBranchId && !storedResolvedId)) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-[#06060a] text-white">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-white" />
       </div>
     );
   }

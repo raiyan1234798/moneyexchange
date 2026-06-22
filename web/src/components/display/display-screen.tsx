@@ -124,7 +124,10 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
   }
 
   const activeVideo = activeVideos[videoIndex % Math.max(activeVideos.length, 1)];
-  const playbackUrl = useMemo(() => (activeVideo ? resolveVideoPlaybackUrl(activeVideo) : ""), [activeVideo]);
+  const playbackUrl = useMemo(() => {
+    if (!activeVideo) return "";
+    return resolveVideoPlaybackUrl(activeVideo);
+  }, [activeVideo]);
   const currentVideoUrl = useMemo(() => {
     if (!playbackUrl) return "";
     if (activeVideo?.sourceType === "external") return playbackUrl;
@@ -290,7 +293,13 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
                 muted
                 loop={activeVideos.length <= 1}
                 playsInline
-                crossOrigin={activeVideo?.sourceType === "external" ? "anonymous" : undefined}
+                crossOrigin={
+                  activeVideo?.sourceType === "external" &&
+                  playbackUrl.startsWith("http") &&
+                  !playbackUrl.startsWith(typeof window !== "undefined" ? window.location.origin : "")
+                    ? "anonymous"
+                    : undefined
+                }
                 initial={{ opacity: 0 }}
                 animate={{ opacity: videoLoaded ? 1 : 0 }}
                 exit={{ opacity: 0 }}

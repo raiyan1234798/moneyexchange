@@ -1,4 +1,13 @@
-import { createDocument, getDocument, listDocuments, updateDocument, where, writeAuditLog } from "@/lib/firebase/firestore";
+import {
+  createDocument,
+  getDocument,
+  listDocuments,
+  updateDocument,
+  where,
+  writeAuditLog,
+} from "@/lib/firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
 import { COLLECTIONS, DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import {
   DEMO_BRANCH_CODE,
@@ -79,72 +88,72 @@ export async function loadDemoContent(actor: {
     );
   }
 
+  async function upsertDemoDoc(collectionName: string, docId: string, data: Record<string, unknown>) {
+    await setDoc(
+      doc(db, collectionName, docId),
+      {
+        ...data,
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      },
+      { merge: true },
+    );
+  }
+
   let order = 0;
   for (const currency of DEMO_CURRENCIES) {
     order += 1;
     const rates = DEMO_RATES[currency.currencyCode];
     const docId = `rate_${branchId}_${currency.currencyCode.toLowerCase()}`;
-    await createDocument(
-      COLLECTIONS.exchangeRates,
-      {
-        branchId,
-        currencyCode: currency.currencyCode,
-        buyRate: rates.buyRate,
-        sellRate: rates.sellRate,
-        version: 1,
-        displayOrder: order,
-        isHidden: false,
-        status: "published",
-        updatedBy: actor.userId,
-        updatedByName: actor.userName,
-        publishedAt: new Date(),
-      },
-      docId,
-    );
+    await upsertDemoDoc(COLLECTIONS.exchangeRates, docId, {
+      branchId,
+      currencyCode: currency.currencyCode,
+      buyRate: rates.buyRate,
+      sellRate: rates.sellRate,
+      version: 1,
+      displayOrder: order,
+      isHidden: false,
+      status: "published",
+      updatedBy: actor.userId,
+      updatedByName: actor.userName,
+      publishedAt: new Date(),
+    });
   }
 
   const videoId = `video_${branchId}_demo`;
-  await createDocument(
-    COLLECTIONS.videos,
-    {
-      title: "Demo signage video",
-      description: "External sample MP4 (no Firebase Storage upload).",
-      branchId,
-      category: "promo",
-      sourceType: "external",
-      storagePath: null,
-      downloadUrl: DEMO_SAMPLE_VIDEO_URL,
-      mimeType: "video/mp4",
-      durationSeconds: 596,
-      status: "active",
-      expiresAt: null,
-      createdBy: actor.userId,
-    },
-    videoId,
-  );
+  await upsertDemoDoc(COLLECTIONS.videos, videoId, {
+    title: "Demo signage video",
+    description: "Local demo MP4 served from /demo-video.mp4",
+    branchId,
+    category: "promo",
+    sourceType: "external",
+    storagePath: null,
+    downloadUrl: DEMO_SAMPLE_VIDEO_URL,
+    mimeType: "video/mp4",
+    durationSeconds: 596,
+    status: "active",
+    expiresAt: null,
+    createdBy: actor.userId,
+  });
 
   const tickerId = `ticker_${branchId}_main`;
-  await createDocument(
-    COLLECTIONS.tickerMessages,
-    {
-      branchId,
-      messages: DEMO_TICKER_LINES.map((text, index) => ({
-        id: `line-${index + 1}`,
-        text,
-        priority: index + 1,
-      })),
-      scrollSpeed: 50,
-      fontSize: 18,
-      fontColor: "#FFFFFF",
-      paused: false,
-      language: "en",
-      scheduleStart: null,
-      scheduleEnd: null,
-      status: "active",
-      createdBy: actor.userId,
-    },
-    tickerId,
-  );
+  await upsertDemoDoc(COLLECTIONS.tickerMessages, tickerId, {
+    branchId,
+    messages: DEMO_TICKER_LINES.map((text, index) => ({
+      id: `line-${index + 1}`,
+      text,
+      priority: index + 1,
+    })),
+    scrollSpeed: 50,
+    fontSize: 18,
+    fontColor: "#FFFFFF",
+    paused: false,
+    language: "en",
+    scheduleStart: null,
+    scheduleEnd: null,
+    status: "active",
+    createdBy: actor.userId,
+  });
 
   await writeAuditLog({
     action: "demo_content_load",

@@ -5,8 +5,21 @@ export const DEMO_BRANCH_CODE = "DEMO";
 export const DEMO_BRANCH_DOC_ID = "demo-main";
 export const DEMO_BRANCH_NAME = "Demo Branch — Dubai Main";
 
-export const DEMO_SAMPLE_VIDEO_URL =
-  "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+/** Local demo video served from /public — works on Cloudflare Pages without Firestore. */
+export const DEMO_VIDEO_URL = "/demo-video.mp4";
+
+/** @deprecated Use DEMO_VIDEO_URL */
+export const DEMO_SAMPLE_VIDEO_URL = DEMO_VIDEO_URL;
+
+export const DEMO_PUBLIC_SITE_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ?? "https://moneyexchange.pages.dev";
+
+/** Resolve absolute URL for the bundled demo video (works on static hosting). */
+export function getDemoSampleVideoPublicUrl(origin?: string): string {
+  const base =
+    origin ?? (typeof window !== "undefined" ? window.location.origin : DEMO_PUBLIC_SITE_ORIGIN);
+  return `${base.replace(/\/$/, "")}${DEMO_VIDEO_URL}`;
+}
 
 export const DEMO_CURRENCIES = [
   {
@@ -43,12 +56,12 @@ export const DEMO_CURRENCIES = [
   },
 ] as const;
 
-/** Illustrative buy/sell vs AED for demo displays. */
+/** Illustrative buy/sell vs AED for demo displays (UAE quote style: 3650 = 3.650 AED). */
 export const DEMO_RATES: Record<string, { buyRate: number; sellRate: number }> = {
   USD: { buyRate: 3.65, sellRate: 3.68 },
-  GBP: { buyRate: 4.549, sellRate: 4.579 },
-  EUR: { buyRate: 3.949, sellRate: 3.979 },
-  AED: { buyRate: 1.0, sellRate: 1.0 },
+  GBP: { buyRate: 4.75, sellRate: 4.8 },
+  EUR: { buyRate: 4.05, sellRate: 4.09 },
+  AED: { buyRate: 0.995, sellRate: 1.015 },
 };
 
 export const DEMO_TICKER_LINES = [
@@ -110,14 +123,14 @@ export function getDemoVideos(): VideoAsset[] {
     {
       id: "demo-video",
       title: "Demo signage video",
-      description: "Big Buck Bunny sample MP4",
+      description: "Local demo MP4 bundled with the app",
       branchId: "demo",
       category: "promo",
       sourceType: "external",
       storagePath: null,
-      downloadUrl: DEMO_SAMPLE_VIDEO_URL,
+      downloadUrl: DEMO_VIDEO_URL,
       mimeType: "video/mp4",
-      durationSeconds: 596,
+      durationSeconds: 21,
       status: "active",
       expiresAt: null,
       createdBy: "demo",

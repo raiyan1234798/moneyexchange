@@ -126,11 +126,12 @@ export async function getTvDevice(deviceId: string): Promise<TvDevice | null> {
   return getDocument<TvDevice>(COLLECTIONS.tvDevices, deviceId);
 }
 
-export function getTvPlayerUrl(branchId: string): string {
+export function getTvPlayerUrl(branchCode: string): string {
+  const code = encodeURIComponent(branchCode.trim().toUpperCase());
   if (typeof window === "undefined") {
-    return `/display?branchId=${branchId}`;
+    return `/display?branch=${code}`;
   }
-  return `${window.location.origin}/display?branchId=${branchId}`;
+  return `${window.location.origin}/display?branch=${code}`;
 }
 
 export async function requestTvRestart(

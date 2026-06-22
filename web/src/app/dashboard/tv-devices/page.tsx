@@ -31,7 +31,15 @@ function QrImage({ url }: { url: string }) {
   );
 }
 
-function PairingCodeDisplay({ device, setupUrl }: { device: TvDevice; setupUrl: string }) {
+function PairingCodeDisplay({
+  device,
+  setupUrl,
+  branchCode,
+}: {
+  device: TvDevice;
+  setupUrl: string;
+  branchCode?: string;
+}) {
   function copy(text: string, label: string) {
     void navigator.clipboard.writeText(text);
     toast.success(`${label} copied`);
@@ -52,7 +60,12 @@ function PairingCodeDisplay({ device, setupUrl }: { device: TvDevice; setupUrl: 
             <QrCode className="mr-2 h-4 w-4" />
             Copy Setup URL
           </Button>
-          <Button variant="outline" className="rounded-xl" onClick={() => copy(getTvPlayerUrl(device.branchId), "Player URL")}>
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => copy(getTvPlayerUrl(branchCode!), "Player URL")}
+            disabled={!branchCode}
+          >
             <Monitor className="mr-2 h-4 w-4" />
             Copy Player URL
           </Button>
@@ -93,6 +106,7 @@ export default function TvDevicesPage() {
   }
 
   const setupUrl = typeof window !== "undefined" ? `${window.location.origin}/tv/setup` : "/tv/setup";
+  const branchCodeById = Object.fromEntries(branches.map((branch) => [branch.id, branch.code]));
 
   return (
     <>
@@ -141,7 +155,13 @@ export default function TvDevicesPage() {
                     Create & Get Pairing Code
                   </Button>
                 </DialogFooter>
-                {newDevice ? <PairingCodeDisplay device={newDevice} setupUrl={setupUrl} /> : null}
+                {newDevice ? (
+                  <PairingCodeDisplay
+                    device={newDevice}
+                    setupUrl={setupUrl}
+                    branchCode={branchCodeById[newDevice.branchId]}
+                  />
+                ) : null}
               </DialogContent>
             </Dialog>
           </PageActions>
@@ -193,8 +213,8 @@ export default function TvDevicesPage() {
                         <Copy className="mr-1 h-3 w-3" />
                         Code
                       </Button>
-                      <Link href={getTvPlayerUrl(d.branchId)}>
-                        <Button size="sm" variant="outline" className="rounded-lg">
+                      <Link href={getTvPlayerUrl(branchCodeById[d.branchId] ?? "")}>
+                        <Button size="sm" variant="outline" className="rounded-lg" disabled={!branchCodeById[d.branchId]}>
                           <Monitor className="mr-1 h-3 w-3" />
                           Preview
                         </Button>
