@@ -11,7 +11,8 @@ import { storage } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
 import {
   inferVideoMimeType,
-  validateExternalVideoUrl,
+  isGoogleDriveUrl,
+  normalizeExternalVideoUrl,
   validateVideoFile,
 } from "@/lib/video-utils";
 import type { VideoAsset } from "@/lib/types";
@@ -128,8 +129,8 @@ export async function addExternalVideo(
     createdBy: string;
   },
   actor: { userId: string; userName: string },
-): Promise<string> {
-  validateExternalVideoUrl(data.downloadUrl);
+): Promise<{ id: string; source: "direct" | "google_drive" }> {
+  const normalized = normalizeExternalVideoUrl(data.downloadUrl);
 
   const id = await createDocument(COLLECTIONS.videos, {
     title: data.title,
@@ -137,23 +138,28 @@ export async function addExternalVideo(
     branchId: data.branchId,
     sourceType: "external",
     storagePath: null,
-    downloadUrl: data.downloadUrl,
+    downloadUrl: normalized.url,
     mimeType: "video/mp4",
     status: "active",
     createdBy: data.createdBy,
   });
 
   await writeAuditLog({
-    action: "video_add_external",
+    action: normalized.source === "google_drive" ? "video_add_google_drive" : "video_add_external",
     entityType: "video",
     entityId: id,
     userId: actor.userId,
     userName: actor.userName,
     branchId: data.branchId,
-    metadata: { title: data.title, sourceType: "external" },
+    metadata: {
+      title: data.title,
+      sourceType: "external",
+      videoSource: normalized.source,
+      ...(normalized.originalUrl ? { originalUrl: normalized.originalUrl } : {}),
+    },
   });
 
-  return id;
+  return { id, source: normalized.source };
 }
 
 export async function uploadVideo(
@@ -263,5 +269,14 @@ export async function deleteVideo(
 }
 
 export function resolveVideoPlaybackUrl(video: VideoAsset): string {
-  return video.downloadUrl;
+  const url = video.downloadUrl?.trim() ?? "";
+  if (!url) return url;
+  if (isGoogleDriveUrl(url)) {
+    try {
+      return normalizeExternalVideoUrl(url).url;
+    } catch {
+      return url;
+    }
+  }
+  return url;
 }

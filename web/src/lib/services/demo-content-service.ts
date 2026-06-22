@@ -130,7 +130,7 @@ export async function loadDemoContent(actor: {
     storagePath: null,
     downloadUrl: DEMO_SAMPLE_VIDEO_URL,
     mimeType: "video/mp4",
-    durationSeconds: 596,
+    durationSeconds: 21,
     status: "active",
     expiresAt: null,
     createdBy: actor.userId,

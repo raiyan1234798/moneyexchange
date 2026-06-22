@@ -192,7 +192,7 @@ export default function DashboardOverviewPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">
                 Creates branch <strong className="font-mono text-foreground">DEMO</strong> with sample exchange rates,
-                Big Buck Bunny video, and ticker text. Share{" "}
+                your demo video (<code className="text-xs">/demo-video.mp4</code>), and ticker text. Share{" "}
                 <Link href={DEMO_DISPLAY_PATH} target="_blank" className="font-mono text-primary underline-offset-4 hover:underline">
                   /display/demo
                 </Link>{" "}

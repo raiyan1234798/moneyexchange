@@ -53,10 +53,71 @@ export function deriveTitleFromUrl(url: string): string {
   }
 }
 
+export function isGoogleDriveUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url.trim()).hostname;
+    return hostname === "drive.google.com" || hostname.endsWith(".drive.google.com");
+  } catch {
+    return false;
+  }
+}
+
+/** Extract Google Drive file ID from common share / open / uc link formats. */
+export function extractGoogleDriveFileId(url: string): string | null {
+  const trimmed = url.trim();
+  const filePathMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (filePathMatch) return filePathMatch[1];
+
+  const openMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (openMatch) return openMatch[1];
+
+  return null;
+}
+
+export function convertGoogleDriveToDirectUrl(url: string): string {
+  const fileId = extractGoogleDriveFileId(url);
+  if (!fileId) {
+    throw new Error("Could not read Google Drive file ID — use a share link like drive.google.com/file/d/…/view");
+  }
+  return `https://drive.google.com/uc?export=download&id=${fileId}`;
+}
+
+export interface NormalizedVideoUrl {
+  url: string;
+  source: "direct" | "google_drive";
+  originalUrl?: string;
+}
+
+/** Normalize external URLs — auto-converts Google Drive share links to direct playback URLs. */
+export function normalizeExternalVideoUrl(input: string): NormalizedVideoUrl {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    throw new Error("Video URL is required");
+  }
+
+  if (isGoogleDriveUrl(trimmed)) {
+    return {
+      url: convertGoogleDriveToDirectUrl(trimmed),
+      source: "google_drive",
+      originalUrl: trimmed,
+    };
+  }
+
+  validateExternalVideoUrl(trimmed);
+  return { url: trimmed, source: "direct" };
+}
+
 export function validateExternalVideoUrl(url: string): void {
   const trimmed = url.trim();
   if (!trimmed) {
     throw new Error("Video URL is required");
+  }
+
+  if (isGoogleDriveUrl(trimmed)) {
+    if (!extractGoogleDriveFileId(trimmed)) {
+      throw new Error("Could not read Google Drive file ID — use a share link like drive.google.com/file/d/…/view");
+    }
+    return;
   }
 
   let parsed: URL;

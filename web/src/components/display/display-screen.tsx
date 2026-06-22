@@ -311,8 +311,12 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
                 </div>
                 <p className="text-lg font-medium text-zinc-300">Video could not play</p>
                 <p className="max-w-md text-sm text-zinc-500">
-                  Tried loading <code className="text-zinc-400">{currentVideoUrl}</code>. Check that the file is
-                  deployed at <code className="text-zinc-400">{DEMO_VIDEO_URL}</code>.
+                  {activeVideo?.downloadUrl.includes("drive.google.com")
+                    ? "Google Drive may block browser playback (CORS). Try a direct MP4 URL or upload the file instead."
+                    : `Could not load the video source. Check that the URL is a direct MP4/WebM link.`}
+                </p>
+                <p className="max-w-md text-xs text-zinc-600">
+                  Fallback: bundled demo at <code className="text-zinc-400">{DEMO_VIDEO_URL}</code>
                 </p>
               </motion.div>
             ) : (

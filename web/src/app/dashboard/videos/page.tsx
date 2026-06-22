@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Link2, Upload, Video, Trash2 } from "lucide-react";
+import { Cloud, Link2, Upload, Video, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
@@ -34,10 +34,17 @@ import {
 import { MAX_VIDEO_UPLOAD_BYTES, RECOMMENDED_VIDEO_FORMATS } from "@/lib/constants";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import { DEMO_VIDEO_URL } from "@/lib/demo-content";
-import { addExternalVideo, deleteVideo, subscribeVideos, uploadVideo } from "@/lib/services/video-service";
+import {
+  addExternalVideo,
+  deleteVideo,
+  STORAGE_UNAVAILABLE_MESSAGE,
+  subscribeVideos,
+  uploadVideo,
+} from "@/lib/services/video-service";
 import {
   deriveTitleFromFile,
   deriveTitleFromUrl,
+  isGoogleDriveUrl,
   resolveVideoTitle,
   validateVideoFile,
 } from "@/lib/video-utils";
@@ -50,6 +57,7 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [title, setTitle] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
+  const [driveUrl, setDriveUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -72,7 +80,7 @@ export default function VideosPage() {
     }
     const resolvedTitle = resolveVideoTitle(title, deriveTitleFromUrl(externalUrl));
     try {
-      await addExternalVideo(
+      const result = await addExternalVideo(
         {
           title: resolvedTitle,
           branchId: effectiveBranchId,
@@ -81,11 +89,49 @@ export default function VideosPage() {
         },
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
-      toast.success("Video linked — display will play it automatically");
+      if (result.source === "google_drive") {
+        toast.success("Google Drive link converted and saved", {
+          description: "If playback fails on the display, try a direct MP4 URL or file upload.",
+          duration: 8000,
+        });
+      } else {
+        toast.success("Video linked — display will play it automatically");
+      }
       setTitle("");
       setExternalUrl("");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to link video");
+    }
+  }
+
+  async function handleDriveAdd() {
+    if (!user || !profile || !effectiveBranchId || !driveUrl.trim()) {
+      toast.error("Google Drive share link is required");
+      return;
+    }
+    if (!isGoogleDriveUrl(driveUrl)) {
+      toast.error("Paste a Google Drive share link (drive.google.com/file/d/…)");
+      return;
+    }
+    const resolvedTitle = resolveVideoTitle(title, "Google Drive video");
+    try {
+      await addExternalVideo(
+        {
+          title: resolvedTitle,
+          branchId: effectiveBranchId,
+          downloadUrl: driveUrl.trim(),
+          createdBy: user.uid,
+        },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success("Google Drive link converted and saved", {
+        description: "If playback fails on the display, try a direct MP4 URL or file upload.",
+        duration: 8000,
+      });
+      setTitle("");
+      setDriveUrl("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to link Google Drive video");
     }
   }
 
@@ -117,7 +163,8 @@ export default function VideosPage() {
       setFile(null);
       setProgress(0);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Upload failed", { duration: 8000 });
+      const message = error instanceof Error ? error.message : "Upload failed";
+      toast.error(message, { duration: 8000 });
     } finally {
       setUploading(false);
       setProgress(0);
@@ -128,7 +175,7 @@ export default function VideosPage() {
     <>
       <DashboardHeader
         title="Videos"
-        description="Add branch signage videos by URL or file upload. The newest active video plays on the display."
+        description="Add branch signage videos by URL, Google Drive, or file upload. The newest active video plays on the display."
         accent="rose"
       />
       <PageShell accent="rose">
@@ -144,23 +191,24 @@ export default function VideosPage() {
 
         <Alert className="rounded-xl border-border/40 bg-card/50">
           <AlertDescription className="text-sm leading-relaxed">
-            <strong className="text-foreground">Recommended:</strong> paste a direct MP4/WebM URL (YouTube direct links,
-            CDN, etc.). File upload also works through this page (max{" "}
-            {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)}MB).
+            <strong className="text-foreground">Recommended:</strong> paste a direct MP4/WebM URL (CDN, your hosting,
+            etc.). Google Drive links are converted automatically but may not play in all browsers due to CORS — use
+            direct MP4 or file upload for best results.
             <span className="mt-1 block text-xs text-muted-foreground">{RECOMMENDED_VIDEO_FORMATS.join(" · ")}</span>
           </AlertDescription>
         </Alert>
 
         {canManageVideos && effectiveBranchId ? (
-          <ContentPanel title="Add Video" description="External URL is the fastest way to get video on displays">
+          <ContentPanel title="Add Video" description="Choose the fastest option for your video source">
             <Tabs defaultValue="external">
               <TabsList className="rounded-xl">
-                <TabsTrigger value="external" className="rounded-lg">External URL</TabsTrigger>
+                <TabsTrigger value="external" className="rounded-lg">Direct URL</TabsTrigger>
+                <TabsTrigger value="drive" className="rounded-lg">Google Drive</TabsTrigger>
                 <TabsTrigger value="upload" className="rounded-lg">File Upload</TabsTrigger>
               </TabsList>
               <TabsContent value="external" className="mt-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Recommended: paste a direct MP4 link — works instantly without Firebase Storage.
+                  Paste a direct MP4/WebM link — works instantly without Firebase Storage.
                 </p>
                 <div className="space-y-2">
                   <Label>Title (optional)</Label>
@@ -189,7 +237,60 @@ export default function VideosPage() {
                   Add Video URL
                 </Button>
               </TabsContent>
+              <TabsContent value="drive" className="mt-4 space-y-4">
+                <Alert className="rounded-xl border-amber-500/30 bg-amber-500/5">
+                  <Cloud className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-sm">
+                    Paste a Google Drive share link — we&apos;ll convert it automatically. Google may block playback in
+                    some browsers (CORS). For reliable signage, prefer a direct MP4 URL or file upload.
+                  </AlertDescription>
+                </Alert>
+                <div className="space-y-2">
+                  <Label>Title (optional)</Label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Defaults to Google Drive video"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Google Drive share link</Label>
+                  <Input
+                    value={driveUrl}
+                    onChange={(e) => setDriveUrl(e.target.value)}
+                    placeholder="https://drive.google.com/file/d/FILE_ID/view"
+                    className="rounded-xl"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Paste Google Drive share link — we&apos;ll convert it automatically
+                  </p>
+                </div>
+                <Button
+                  onClick={() => void handleDriveAdd()}
+                  disabled={!driveUrl.trim()}
+                  className="rounded-xl"
+                >
+                  <Cloud className="mr-2 h-4 w-4" />
+                  Add from Google Drive
+                </Button>
+              </TabsContent>
               <TabsContent value="upload" className="mt-4 space-y-4">
+                <Alert className="rounded-xl border-border/40 bg-muted/20">
+                  <AlertDescription className="text-sm">
+                    Requires Firebase Storage enabled on your project. If upload fails, use{" "}
+                    <strong>Direct URL</strong> or <strong>Google Drive</strong> instead. Enable Storage in the{" "}
+                    <a
+                      href="https://console.firebase.google.com/project/_/storage"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline-offset-4 hover:underline"
+                    >
+                      Firebase console
+                    </a>{" "}
+                    → Build → Storage → Get started.
+                  </AlertDescription>
+                </Alert>
                 <div className="space-y-2">
                   <Label>Title (optional)</Label>
                   <Input
@@ -228,6 +329,7 @@ export default function VideosPage() {
                   <Upload className="mr-2 h-4 w-4" />
                   {uploading ? `Uploading ${Math.round(progress)}%` : "Upload Video"}
                 </Button>
+                <p className="text-xs text-muted-foreground">{STORAGE_UNAVAILABLE_MESSAGE}</p>
               </TabsContent>
             </Tabs>
           </ContentPanel>
@@ -256,7 +358,12 @@ export default function VideosPage() {
                   key: "source",
                   header: "Source",
                   cell: (v) => (
-                    <StatusBadge status={v.sourceType} variant={v.sourceType === "external" ? "info" : "neutral"} />
+                    <StatusBadge
+                      status={
+                        v.downloadUrl.includes("drive.google.com") ? "google_drive" : v.sourceType
+                      }
+                      variant={v.sourceType === "external" ? "info" : "neutral"}
+                    />
                   ),
                 },
                 {

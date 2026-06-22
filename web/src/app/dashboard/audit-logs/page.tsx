@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ScrollText } from "lucide-react";
+import { toast } from "sonner";
 import { safeFormatDate } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ContentPanel, DataTable, EmptyState, PageShell } from "@/components/shared/page-elements";
@@ -13,7 +14,12 @@ export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
 
   useEffect(() => {
-    return subscribeCollection<AuditLog>(COLLECTIONS.auditLogs, [orderBy("timestamp", "desc")], setLogs);
+    return subscribeCollection<AuditLog>(
+      COLLECTIONS.auditLogs,
+      [orderBy("timestamp", "desc")],
+      setLogs,
+      (error) => toast.error(error.message || "Failed to load audit logs"),
+    );
   }, []);
 
   return (
