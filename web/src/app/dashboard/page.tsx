@@ -7,6 +7,7 @@ import { Building2, Monitor, TrendingUp, Activity, Coins } from "lucide-react";
 import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { GettingStartedChecklist } from "@/components/shared/getting-started-checklist";
+import { DisplayUrlCard } from "@/components/shared/display-url-card";
 import { LoadDemoContentButton } from "@/components/shared/load-demo-content-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,7 @@ import { subscribeTickers } from "@/lib/services/ticker-service";
 import { subscribeVideos } from "@/lib/services/video-service";
 import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
-import { DEMO_DISPLAY_PATH } from "@/lib/display-url";
+import { DEMO_DISPLAY_PATH, getDisplayUrl } from "@/lib/display-url";
 import type { AuditLog, DashboardStats } from "@/lib/types";
 import { StatusBadge } from "@/components/shared/page-elements";
 
@@ -144,17 +145,27 @@ export default function DashboardOverviewPage() {
         icon: TrendingUp,
         accent: "emerald" as const,
       },
-      ...(isBranchManager
+      ...(isBranchManager && scopedBranch?.code
         ? [
             {
               label: "View Display",
               description: "Open your branch signage in a new tab",
-              href: "/display",
+              href: getDisplayUrl(scopedBranch.code),
               icon: Monitor,
               accent: "sky" as const,
             },
           ]
-        : [
+        : isBranchManager
+          ? [
+              {
+                label: "View Display",
+                description: "Open your branch signage in a new tab",
+                href: "/display",
+                icon: Monitor,
+                accent: "sky" as const,
+              },
+            ]
+          : [
             {
               label: "Open Display",
               description: "Launch browser signage for a branch",
@@ -164,7 +175,7 @@ export default function DashboardOverviewPage() {
             },
           ]),
     ],
-    [isBranchManager],
+    [isBranchManager, scopedBranch],
   );
 
   if (loading && !stats) {
@@ -234,6 +245,10 @@ export default function DashboardOverviewPage() {
           hasVideos={Boolean(effectiveBranchId) && branchVideosCount > 0}
           hasMessages={Boolean(effectiveBranchId) && branchTickersCount > 0}
         />
+
+        {isBranchManager && scopedBranch?.code ? (
+          <DisplayUrlCard branchCode={scopedBranch.code} branchName={scopedBranch.name} />
+        ) : null}
 
         <ContentPanel title="Quick Actions" description="Jump to common tasks">
           <QuickActions actions={quickActions} />

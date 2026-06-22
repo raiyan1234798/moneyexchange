@@ -57,7 +57,7 @@ export interface BranchSettings {
   showSellRate: boolean;
 }
 
-export type VideoSourceType = "external" | "storage";
+export type VideoSourceType = "external" | "storage" | "chunked";
 
 export interface Currency {
   id: string;
@@ -113,6 +113,7 @@ export interface VideoAsset {
   sourceType: VideoSourceType;
   storagePath?: string | null;
   downloadUrl: string;
+  chunkCount?: number;
   mimeType: string;
   durationSeconds?: number;
   fileSizeBytes?: number;

@@ -6,20 +6,42 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    function userDoc() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isActiveUser() {
+      return isAuthenticated() && userDoc().isActive == true;
+    }
+
+    function isSuperAdmin() {
+      return isActiveUser() && (
+        userDoc().role == 'superAdmin' ||
+        request.auth.token.email.lower() == 'abubackerraiyan@gmail.com'
+      );
+    }
+
+    function canAccessBranch(branchId) {
+      return isSuperAdmin() ||
+        (isActiveUser() && userDoc().role == 'branchManager' && userDoc().branchId == branchId);
+    }
+
     function isAllowedVideo() {
       return request.resource.contentType.matches('video/.*');
     }
 
-    match /videos/{branchPath}/{fileName} {
+    match /videos/{branchId}/{fileName} {
       allow read: if true;
-      allow write: if isAuthenticated() && isAllowedVideo() && request.resource.size < 500 * 1024 * 1024;
-      allow delete: if isAuthenticated();
+      allow write: if canAccessBranch(branchId) &&
+        isAllowedVideo() &&
+        request.resource.size < 500 * 1024 * 1024;
+      allow delete: if canAccessBranch(branchId);
     }
 
     match /branch-logos/{branchId}/{fileName} {
       allow read: if true;
-      allow write: if isAuthenticated() && request.resource.size < 5 * 1024 * 1024;
-      allow delete: if isAuthenticated();
+      allow write: if canAccessBranch(branchId) && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if canAccessBranch(branchId);
     }
   }
 }

@@ -8,6 +8,7 @@ export const COLLECTIONS = {
   exchangeRates: "exchange_rates",
   rateHistory: "rate_history",
   videos: "videos",
+  videoChunks: "video_chunks",
   videoPlaylists: "video_playlists",
   tickerMessages: "ticker_messages",
   tvDevices: "tv_devices",
@@ -35,6 +36,15 @@ export const DEFAULT_BRANCH_SETTINGS = {
 
 /** Max Firebase Storage upload per file (matches storage.rules) */
 export const MAX_VIDEO_UPLOAD_BYTES = 500 * 1024 * 1024;
+
+/** Firestore chunk fallback when Firebase Storage is unavailable (Spark / no billing) */
+export const MAX_CHUNKED_VIDEO_BYTES = 25 * 1024 * 1024;
+
+/** Warn in UI when file exceeds this size — recommend compression */
+export const WARN_LARGE_VIDEO_BYTES = 50 * 1024 * 1024;
+
+/** Binary bytes per Firestore chunk document (~1MB doc limit with base64 overhead) */
+export const VIDEO_CHUNK_BINARY_BYTES = 750_000;
 
 export const RECOMMENDED_VIDEO_FORMATS = [
   "MP4 H.264 (recommended)",

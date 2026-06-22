@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { subscribeBranch } from "@/lib/services/branch-service";
 import { subscribeExchangeRates } from "@/lib/services/exchange-rate-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
-import { resolveVideoPlaybackUrl, subscribeVideos } from "@/lib/services/video-service";
+import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVideoBlobUrl } from "@/lib/services/video-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
 import {
   DEMO_VIDEO_URL,
@@ -55,6 +55,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
   const [videos, setVideos] = useState<VideoAsset[]>(demoMode ? getDemoVideos() : []);
   const [videoIndex, setVideoIndex] = useState(0);
   const [cachedStorageUrl, setCachedStorageUrl] = useState<string | null>(null);
+  const [chunkedVideoUrl, setChunkedVideoUrl] = useState<string | null>(null);
   const prevHeadVideoIdRef = useRef("");
   const [clock, setClock] = useState("");
   const [dateLabel, setDateLabel] = useState("");
@@ -133,6 +134,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
     setVideoLoaded(false);
     setVideoError(false);
     setCachedStorageUrl(null);
+    setChunkedVideoUrl(null);
   }, [headVideoId]);
 
   const activeVideo = activeVideos[videoIndex % Math.max(activeVideos.length, 1)];
@@ -141,10 +143,14 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
     return resolveVideoPlaybackUrl(activeVideo);
   }, [activeVideo]);
   const currentVideoUrl = useMemo(() => {
+    if (!activeVideo) return DEMO_VIDEO_URL;
+    if (isChunkedVideo(activeVideo)) {
+      return chunkedVideoUrl ?? "";
+    }
     if (!playbackUrl) return DEMO_VIDEO_URL;
-    if (activeVideo?.sourceType === "external") return playbackUrl;
+    if (activeVideo.sourceType === "external") return playbackUrl;
     return cachedStorageUrl ?? playbackUrl;
-  }, [activeVideo?.sourceType, cachedStorageUrl, playbackUrl]);
+  }, [activeVideo, chunkedVideoUrl, cachedStorageUrl, playbackUrl]);
 
   const activeTicker = tickers[0];
   const tickerText = useMemo(() => {
@@ -155,7 +161,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
       return activeTicker.messages.map((line) => line.text).join("   •   ");
     }
     return fallback;
-  }, [activeTicker, branch?.name]);
+  }, [activeTicker, branch]);
 
   const tickerSpeed = activeTicker?.scrollSpeed || branch?.settings?.tickerSpeed || 30;
   const tickerFontSize = activeTicker?.fontSize || branch?.settings?.tickerFontSize || 22;
@@ -190,6 +196,33 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
     };
   }, [activeVideo, playbackUrl, online]);
 
+  // Assemble Firestore-chunked uploads for playback (fallback when Firebase Storage unavailable)
+  useEffect(() => {
+    if (!activeVideo || !isChunkedVideo(activeVideo)) {
+      return;
+    }
+
+    let alive = true;
+    let objectUrl: string | null = null;
+    void loadChunkedVideoBlobUrl(activeVideo)
+      .then((url) => {
+        if (!alive) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        objectUrl = url;
+        setChunkedVideoUrl(url);
+      })
+      .catch(() => {
+        if (alive) setVideoError(true);
+      });
+
+    return () => {
+      alive = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [activeVideo]);
+
   const brandColor = branch?.brandingColor ?? "#D4AF37"; // Default gold
 
   const handleVideoEnded = useCallback(() => {
@@ -197,6 +230,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
       setVideoLoaded(false);
       setVideoIndex((prev) => (prev + 1) % activeVideos.length);
       setCachedStorageUrl(null);
+      setChunkedVideoUrl(null);
     }
   }, [activeVideos.length]);
 

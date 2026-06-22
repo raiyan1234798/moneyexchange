@@ -31,13 +31,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { MAX_VIDEO_UPLOAD_BYTES, RECOMMENDED_VIDEO_FORMATS } from "@/lib/constants";
+import { MAX_VIDEO_UPLOAD_BYTES, MAX_CHUNKED_VIDEO_BYTES, RECOMMENDED_VIDEO_FORMATS, WARN_LARGE_VIDEO_BYTES } from "@/lib/constants";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import { DEMO_VIDEO_URL } from "@/lib/demo-content";
 import {
   addExternalVideo,
   deleteVideo,
   STORAGE_UNAVAILABLE_MESSAGE,
+  STORAGE_SETUP_URL,
   subscribeVideos,
   uploadVideo,
 } from "@/lib/services/video-service";
@@ -191,9 +192,10 @@ export default function VideosPage() {
 
         <Alert className="rounded-xl border-border/40 bg-card/50">
           <AlertDescription className="text-sm leading-relaxed">
-            <strong className="text-foreground">Recommended:</strong> paste a direct MP4/WebM URL (CDN, your hosting,
-            etc.). Google Drive links are converted automatically but may not play in all browsers due to CORS — use
-            direct MP4 or file upload for best results.
+            <strong className="text-foreground">Best format: MP4 (H.264)</strong> — works on all displays.
+            WebM and MOV are also accepted. Paste a direct URL for instant setup, or upload a file (Firebase
+            Storage when enabled, otherwise Firestore chunk storage up to{" "}
+            {MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB).
             <span className="mt-1 block text-xs text-muted-foreground">{RECOMMENDED_VIDEO_FORMATS.join(" · ")}</span>
           </AlertDescription>
         </Alert>
@@ -278,17 +280,18 @@ export default function VideosPage() {
               <TabsContent value="upload" className="mt-4 space-y-4">
                 <Alert className="rounded-xl border-border/40 bg-muted/20">
                   <AlertDescription className="text-sm">
-                    Requires Firebase Storage enabled on your project. If upload fails, use{" "}
-                    <strong>Direct URL</strong> or <strong>Google Drive</strong> instead. Enable Storage in the{" "}
+                    Upload tries <strong>Firebase Storage</strong> first. If Storage is not enabled, files up to{" "}
+                    {MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB are stored via Firestore chunks automatically.
+                    Enable Storage in the{" "}
                     <a
-                      href="https://console.firebase.google.com/project/_/storage"
+                      href={STORAGE_SETUP_URL}
                       target="_blank"
                       rel="noreferrer"
                       className="text-primary underline-offset-4 hover:underline"
                     >
                       Firebase console
                     </a>{" "}
-                    → Build → Storage → Get started.
+                    (requires Blaze billing) for larger uploads up to {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)} MB.
                   </AlertDescription>
                 </Alert>
                 <div className="space-y-2">
@@ -317,6 +320,11 @@ export default function VideosPage() {
                   {file ? (
                     <p className="text-xs text-muted-foreground">
                       Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
+                      {file.size > WARN_LARGE_VIDEO_BYTES ? (
+                        <span className="mt-1 block text-amber-600 dark:text-amber-400">
+                          Large file — compress to under 50 MB for faster uploads and better display performance.
+                        </span>
+                      ) : null}
                     </p>
                   ) : null}
                 </div>
@@ -360,7 +368,11 @@ export default function VideosPage() {
                   cell: (v) => (
                     <StatusBadge
                       status={
-                        v.downloadUrl.includes("drive.google.com") ? "google_drive" : v.sourceType
+                        v.sourceType === "chunked"
+                          ? "chunked"
+                          : v.downloadUrl.includes("drive.google.com")
+                            ? "google_drive"
+                            : v.sourceType
                       }
                       variant={v.sourceType === "external" ? "info" : "neutral"}
                     />
@@ -375,16 +387,19 @@ export default function VideosPage() {
                 {
                   key: "preview",
                   header: "Preview",
-                  cell: (v) => (
-                    <a
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                      href={v.downloadUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open
-                    </a>
-                  ),
+                  cell: (v) =>
+                    v.sourceType === "chunked" ? (
+                      <span className="text-xs text-muted-foreground">Plays on display</span>
+                    ) : (
+                      <a
+                        className="text-sm text-primary underline-offset-4 hover:underline"
+                        href={v.downloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open
+                      </a>
+                    ),
                 },
                 {
                   key: "actions",

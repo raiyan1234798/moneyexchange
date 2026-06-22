@@ -212,6 +212,24 @@ service cloud.firestore {
         (isBranchManager() && canAccessBranch(resource.data.branchId));
     }
 
+    match /video_chunks/{videoId} {
+      allow read: if true;
+      allow create: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
+      allow update, delete: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(resource.data.branchId));
+
+      match /parts/{partId} {
+        allow read: if true;
+        allow create, update: if isSuperAdmin() ||
+          (isBranchManager() &&
+            canAccessBranch(get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId));
+        allow delete: if isSuperAdmin() ||
+          (isBranchManager() &&
+            canAccessBranch(get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId));
+      }
+    }
+
     match /video_playlists/{playlistId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
       allow create: if isSuperAdmin() ||
