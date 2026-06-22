@@ -10,6 +10,7 @@ import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos } from "@/lib/services/video-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
 import {
+  DEMO_VIDEO_URL,
   getDemoBranch,
   getDemoRates,
   getDemoTickers,
@@ -59,6 +60,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
   const [dateLabel, setDateLabel] = useState("");
   const [lastUpdated, setLastUpdated] = useState<string>("");
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
@@ -116,8 +118,12 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
     };
   }, [branchId, demoMode]);
 
-  // Active branch videos — newest first; no playlist required
-  const activeVideos = useMemo(() => videos, [videos]);
+  // Active branch videos — newest first; fallback to bundled demo MP4 when none assigned
+  const activeVideos = useMemo(
+    () => (videos.length > 0 ? videos : getDemoVideos()),
+    [videos],
+  );
+  const usingDemoFallback = videos.length === 0;
   const headVideoId = activeVideos[0]?.id ?? "";
 
   useEffect(() => {
@@ -125,6 +131,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
     prevHeadVideoIdRef.current = headVideoId;
     setVideoIndex(0);
     setVideoLoaded(false);
+    setVideoError(false);
     setCachedStorageUrl(null);
   }, [headVideoId]);
 
@@ -134,7 +141,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
     return resolveVideoPlaybackUrl(activeVideo);
   }, [activeVideo]);
   const currentVideoUrl = useMemo(() => {
-    if (!playbackUrl) return "";
+    if (!playbackUrl) return DEMO_VIDEO_URL;
     if (activeVideo?.sourceType === "external") return playbackUrl;
     return cachedStorageUrl ?? playbackUrl;
   }, [activeVideo?.sourceType, cachedStorageUrl, playbackUrl]);
@@ -289,7 +296,26 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
         {/* VIDEO SECTION — 70% */}
         <section className="relative h-[45vh] w-full shrink-0 bg-black lg:h-auto lg:w-[70%]">
           <AnimatePresence mode="wait">
-            {currentVideoUrl ? (
+            {videoError ? (
+              <motion.div
+                key="video-error"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex h-full flex-col items-center justify-center gap-4 bg-gradient-to-br from-zinc-950 to-black px-6 text-center"
+              >
+                <div
+                  className="flex h-20 w-20 items-center justify-center rounded-3xl text-3xl"
+                  style={{ background: `${brandColor}15`, color: brandColor }}
+                >
+                  ⚠️
+                </div>
+                <p className="text-lg font-medium text-zinc-300">Video could not play</p>
+                <p className="max-w-md text-sm text-zinc-500">
+                  Tried loading <code className="text-zinc-400">{currentVideoUrl}</code>. Check that the file is
+                  deployed at <code className="text-zinc-400">{DEMO_VIDEO_URL}</code>.
+                </p>
+              </motion.div>
+            ) : (
               <motion.video
                 key={`${activeVideo?.id}-${currentVideoUrl}`}
                 src={currentVideoUrl}
@@ -298,37 +324,24 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
                 muted
                 loop={activeVideos.length <= 1}
                 playsInline
-                crossOrigin={
-                  activeVideo?.sourceType === "external" &&
-                  playbackUrl.startsWith("http") &&
-                  !playbackUrl.startsWith(typeof window !== "undefined" ? window.location.origin : "")
-                    ? "anonymous"
-                    : undefined
-                }
                 initial={{ opacity: 0 }}
-                animate={{ opacity: videoLoaded ? 1 : 0 }}
+                animate={{ opacity: videoLoaded ? 1 : 0.3 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.8 }}
-                onLoadedData={() => setVideoLoaded(true)}
-                onCanPlay={() => setVideoLoaded(true)}
-                onError={() => setVideoLoaded(false)}
+                onLoadedData={() => {
+                  setVideoLoaded(true);
+                  setVideoError(false);
+                }}
+                onCanPlay={() => {
+                  setVideoLoaded(true);
+                  setVideoError(false);
+                }}
+                onError={() => {
+                  setVideoLoaded(false);
+                  setVideoError(true);
+                }}
                 onEnded={handleVideoEnded}
               />
-            ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex h-full flex-col items-center justify-center gap-4 bg-gradient-to-br from-zinc-950 to-black"
-              >
-                <div
-                  className="flex h-20 w-20 items-center justify-center rounded-3xl text-3xl"
-                  style={{ background: `${brandColor}15`, color: brandColor }}
-                >
-                  🎬
-                </div>
-                <p className="text-lg font-medium text-zinc-400">No video assigned</p>
-                <p className="text-sm text-zinc-600">Upload a promotional video in the dashboard</p>
-              </motion.div>
             )}
           </AnimatePresence>
 
@@ -336,9 +349,9 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/80 to-transparent" />
 
           {/* Video info badge */}
-          {activeVideo && (
+          {activeVideo && !videoError && (
             <div className="absolute bottom-4 left-4 rounded-lg bg-black/60 px-3 py-1.5 text-xs text-zinc-300 backdrop-blur-sm border border-white/5">
-              {activeVideo.title}
+              {usingDemoFallback ? "Demo video (no branch video assigned)" : activeVideo.title}
             </div>
           )}
         </section>
