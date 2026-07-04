@@ -11,12 +11,19 @@ import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
 import { updateBranch } from "@/lib/services/branch-service";
-import type { BranchSettings, SystemSettings } from "@/lib/types";
+import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
 
 const SETTINGS_ID = "global";
 
@@ -65,6 +72,44 @@ function BranchSettingsForm({
             className="flex-1 rounded-xl font-mono text-sm"
           />
         </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Ticker Logo URL (breaking news box)</Label>
+        <Input
+          value={settings.tickerLogoUrl ?? ""}
+          onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
+          placeholder="https://example.com/ticker-logo.png"
+          className="rounded-xl"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Rate Card Position</Label>
+        <Select
+          value={settings.rateCardPosition ?? "right"}
+          onValueChange={(value) =>
+            setSettings({ ...settings, rateCardPosition: value as RateCardPosition })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="right">Video left, rates right (default)</SelectItem>
+            <SelectItem value="left">Rates left, video right</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Rate Card Display Duration (seconds, 0 = always show)</Label>
+        <Input
+          type="number"
+          min={0}
+          value={settings.rateCardDisplaySeconds ?? 0}
+          onChange={(event) =>
+            setSettings({ ...settings, rateCardDisplaySeconds: Number(event.target.value) })
+          }
+          className="rounded-xl"
+        />
       </div>
       <div className="space-y-2">
         <Label>Default Ticker Speed (seconds)</Label>

@@ -32,17 +32,24 @@ export const createBranchManager = onCall(async (request) => {
 
   const email = normalizeEmail(String(request.data?.email ?? ""));
   const displayName = String(request.data?.displayName ?? "").trim();
-  const branchId = String(request.data?.branchId ?? "").trim();
+  const role = String(request.data?.role ?? "branchManager").trim();
+  const branchIdRaw = request.data?.branchId;
+  const branchId = branchIdRaw ? String(branchIdRaw).trim() : null;
 
-  if (!email || !displayName || !branchId) {
-    throw new HttpsError("invalid-argument", "Email, display name, and branch are required.");
+  const validRoles = ["admin", "branchManager", "branchUser"];
+  if (!email || !displayName || !validRoles.includes(role)) {
+    throw new HttpsError("invalid-argument", "Email, display name, and valid role are required.");
+  }
+
+  if ((role === "branchManager" || role === "branchUser") && !branchId) {
+    throw new HttpsError("invalid-argument", "Branch is required for branch managers and branch users.");
   }
 
   await db.collection("user_invites").doc(email).set(
     {
       email,
       displayName,
-      role: "branchManager",
+      role,
       branchId,
       createdBy: request.auth.uid,
       createdAt: FieldValue.serverTimestamp(),
@@ -71,7 +78,7 @@ export const createBranchManager = onCall(async (request) => {
       {
         email,
         displayName,
-        role: "branchManager",
+        role,
         branchId,
         isActive: true,
         createdAt: FieldValue.serverTimestamp(),

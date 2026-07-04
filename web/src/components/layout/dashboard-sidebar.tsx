@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "@/lib/constants";
+import { NAV_ITEMS, ROLE_LABELS } from "@/lib/constants";
 import { useAuth } from "@/contexts/auth-context";
 import { RealtimeBadge } from "@/contexts/realtime-context";
 import { Button } from "@/components/ui/button";
@@ -83,7 +83,7 @@ function NavLinks({ onNavigate, className }: { onNavigate?: () => void; classNam
   const pathname = usePathname();
   const { profile } = useAuth();
   const role = profile?.role ?? "branchManager";
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(role));
+  const items = NAV_ITEMS.filter((item) => item.roles.includes(role as (typeof item.roles)[number]));
 
   return (
     <nav className={cn("flex flex-col gap-0.5", className)}>
@@ -133,7 +133,7 @@ function UserPanel({ onAction }: { onAction?: () => void }) {
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{profile?.displayName || "User"}</p>
           <StatusBadge
-            status={profile?.role === "superAdmin" ? "Super Admin" : "Branch Manager"}
+            status={ROLE_LABELS[profile?.role ?? ""] ?? profile?.role ?? "User"}
             variant="info"
             className="mt-1.5"
           />

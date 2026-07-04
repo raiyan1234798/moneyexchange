@@ -13,10 +13,11 @@ function mapFirestoreError(error: unknown, fallback: string): Error {
   return new Error(fallback);
 }
 
-export async function createBranchManagerInvite(params: {
+export async function createUserInvite(params: {
   email: string;
   displayName: string;
-  branchId: string;
+  role: "admin" | "branchManager" | "branchUser";
+  branchId: string | null;
   createdBy: string;
 }): Promise<void> {
   const email = normalizeEmail(params.email);
@@ -26,7 +27,7 @@ export async function createBranchManagerInvite(params: {
       {
         email,
         displayName: params.displayName.trim(),
-        role: "branchManager",
+        role: params.role,
         branchId: params.branchId,
         createdBy: params.createdBy,
         createdAt: serverTimestamp(),
@@ -34,14 +35,25 @@ export async function createBranchManagerInvite(params: {
       { merge: true },
     );
   } catch (error) {
-    throw mapFirestoreError(error, "Failed to create manager invite");
+    throw mapFirestoreError(error, "Failed to create user invite");
   }
 }
 
-export async function provisionBranchManagerAccount(params: {
+/** @deprecated use createUserInvite */
+export async function createBranchManagerInvite(params: {
   email: string;
   displayName: string;
   branchId: string;
+  createdBy: string;
+}): Promise<void> {
+  return createUserInvite({ ...params, role: "branchManager" });
+}
+
+export async function provisionUserAccount(params: {
+  email: string;
+  displayName: string;
+  role: "admin" | "branchManager" | "branchUser";
+  branchId: string | null;
 }): Promise<{ temporaryPassword?: string; message?: string }> {
   const callable = httpsCallable<
     typeof params,
@@ -49,4 +61,13 @@ export async function provisionBranchManagerAccount(params: {
   >(functions, "createBranchManager");
   const result = await callable(params);
   return result.data;
+}
+
+/** @deprecated use provisionUserAccount */
+export async function provisionBranchManagerAccount(params: {
+  email: string;
+  displayName: string;
+  branchId: string;
+}): Promise<{ temporaryPassword?: string; message?: string }> {
+  return provisionUserAccount({ ...params, role: "branchManager" });
 }

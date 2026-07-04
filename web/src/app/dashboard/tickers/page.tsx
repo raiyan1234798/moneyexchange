@@ -27,12 +27,14 @@ import type { TickerMessage } from "@/lib/types";
 
 export default function TickersPage() {
   const { user, profile } = useAuth();
-  const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin } = useBranchScope();
+  const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin, isAdmin } = useBranchScope();
   const { canManageTickers } = useContentPermissions();
   const [tickers, setTickers] = useState<TickerMessage[]>([]);
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState("");
   const [scrollSpeed, setScrollSpeed] = useState(30);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [fontColor, setFontColor] = useState("#FFFFFF");
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
@@ -66,7 +68,8 @@ export default function TickersPage() {
           messages: lines,
           scrollSpeed,
           fontSize: branch?.settings?.tickerFontSize ?? 18,
-          fontColor: branch?.settings?.tickerFontColor ?? "#FFFFFF",
+          fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
+          logoUrl: logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
           language: "en",
           status: "active",
           createdBy: user.uid,
@@ -89,7 +92,7 @@ export default function TickersPage() {
         accent="sky"
       />
       <PageShell accent="sky">
-        {isSuperAdmin ? (
+        {isSuperAdmin || isAdmin ? (
           <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
         ) : branch ? (
           <p className="text-sm text-muted-foreground">
@@ -125,6 +128,24 @@ export default function TickersPage() {
                       min={5}
                       value={scrollSpeed}
                       onChange={(e) => setScrollSpeed(Number(e.target.value))}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ticker Logo URL (optional)</Label>
+                    <Input
+                      value={logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      placeholder={branch?.logoUrl ?? "https://example.com/logo.png"}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Font Color</Label>
+                    <Input
+                      value={fontColor}
+                      onChange={(e) => setFontColor(e.target.value)}
+                      placeholder="#FFFFFF"
                       className="rounded-xl"
                     />
                   </div>

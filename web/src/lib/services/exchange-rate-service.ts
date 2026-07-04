@@ -11,6 +11,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
+import { createCurrency, listCurrencies } from "@/lib/services/currency-service";
 import type { Currency, ExchangeRate, RateHistoryEntry } from "@/lib/types";
 
 function sortRates(rates: ExchangeRate[]): ExchangeRate[] {
@@ -230,15 +231,55 @@ export async function bulkUpdateRates(
   branchId: string,
   updates: Array<{ currencyCode: string; buyRate: number; sellRate: number }>,
   actor: { userId: string; userName: string; branchName: string },
-): Promise<void> {
-  const existing = await listExchangeRates(branchId);
+  options?: { autoCreateCurrencies?: boolean },
+): Promise<number> {
+  const autoCreate = options?.autoCreateCurrencies !== false;
+  let existing = await listExchangeRates(branchId);
+  const catalog = autoCreate ? await listCurrencies() : [];
+  const catalogByCode = new Map(catalog.map((c) => [c.currencyCode.toUpperCase(), c]));
+
+  for (const update of updates) {
+    const code = update.currencyCode.toUpperCase();
+    if (!catalogByCode.has(code) && autoCreate) {
+      const sortOrder = catalog.length + 1;
+      const currencyId = await createCurrency(
+        {
+          currencyCode: code,
+          currencyName: code,
+          country: "",
+          flag: "💱",
+          sortOrder,
+          status: "active",
+          isHidden: false,
+        },
+        { userId: actor.userId, userName: actor.userName },
+      );
+      catalog.push({
+        id: currencyId,
+        currencyCode: code,
+        currencyName: code,
+        country: "",
+        flag: "💱",
+        sortOrder,
+        status: "active",
+        isHidden: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      catalogByCode.set(code, catalog[catalog.length - 1]);
+    }
+  }
+
+  existing = await listExchangeRates(branchId);
+
   await Promise.all(
     updates.map(async (update) => {
-      const rate = existing.find((item) => item.currencyCode === update.currencyCode);
+      const code = update.currencyCode.toUpperCase();
+      const rate = existing.find((item) => item.currencyCode.toUpperCase() === code);
       if (!rate) {
         await createDocument(COLLECTIONS.exchangeRates, {
           branchId,
-          currencyCode: update.currencyCode,
+          currencyCode: code,
           buyRate: update.buyRate,
           sellRate: update.sellRate,
           version: 1,
@@ -254,6 +295,17 @@ export async function bulkUpdateRates(
       await updateExchangeRate(rate, update.buyRate, update.sellRate, actor, "bulk");
     }),
   );
+
+  await writeAuditLog({
+    action: "rate_bulk_import",
+    entityType: "exchange_rate",
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId,
+    metadata: { count: updates.length },
+  });
+
+  return updates.length;
 }
 
 export async function listRateHistory(branchId?: string): Promise<RateHistoryEntry[]> {

@@ -7,7 +7,7 @@ import { useBranchScopeStore } from "@/lib/stores/branch-scope-store";
 import type { Branch } from "@/lib/types";
 
 export function useBranchScope() {
-  const { profile, isSuperAdmin, isBranchManager } = useAuth();
+  const { profile, isSuperAdmin, isAdmin, isBranchManager, isBranchUser } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const selectedBranchId = useBranchScopeStore((s) => s.selectedBranchId);
   const setSelectedBranchId = useBranchScopeStore((s) => s.setSelectedBranchId);
@@ -34,7 +34,7 @@ export function useBranchScope() {
   }, [profile?.branchId, selectedBranchId, setSelectedBranchId]);
 
   const managerBranchId = profile?.branchId ?? "";
-  const effectiveBranchId = isSuperAdmin ? selectedBranchId : managerBranchId;
+  const effectiveBranchId = isSuperAdmin || isAdmin ? selectedBranchId : managerBranchId;
 
   return {
     branches,
@@ -42,7 +42,9 @@ export function useBranchScope() {
     selectedBranchId,
     setSelectedBranchId,
     isSuperAdmin,
+    isAdmin,
     isBranchManager,
+    isBranchUser,
     managerBranchId,
   };
 }
@@ -52,6 +54,10 @@ export function useContentPermissions() {
   return {
     canManageBranches: hasPermission("createBranch"),
     canManageCurrencies: hasPermission("manageCurrencies"),
+    canViewRates:
+      hasPermission("viewExchangeRates") ||
+      hasPermission("manageExchangeRates") ||
+      hasPermission("manageOwnBranchRates"),
     canManageRates:
       hasPermission("manageExchangeRates") || hasPermission("manageOwnBranchRates"),
     canManageVideos:
@@ -60,6 +66,7 @@ export function useContentPermissions() {
       hasPermission("managePlaylists") || hasPermission("manageOwnBranchPlaylists"),
     canManageTickers:
       hasPermission("manageTickers") || hasPermission("manageOwnBranchTickers"),
+    canManageImages: hasPermission("manageImageAdverts"),
     canManageTvs:
       hasPermission("manageTVDevices") || hasPermission("manageOwnBranchTVDevices"),
   };

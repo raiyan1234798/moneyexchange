@@ -1,50 +1,5 @@
 rules_version = '2';
 
-// ===============================================================
-// Assumed Data Model
-// ===============================================================
-//
-// users/{uid}
-//   email, displayName, role, branchId, isActive, timestamps
-//
-// branches/{branchId}
-//   name, code, address, city, country, phone, email, managerId, status, settings
-//
-// currencies/{currencyId}
-//   currencyCode, currencyName, country, flag, sortOrder, status, isHidden
-//
-// exchange_rates/{rateId}
-//   branchId, currencyCode, buyRate, sellRate, version, status, updatedBy
-//
-// rate_history/{historyId}
-//   branchId, currencyCode, old/new rates, updatedBy, timestamp
-//
-// videos/{videoId}
-//   title, branchId, storagePath, downloadUrl, status, createdBy
-//
-// video_playlists/{playlistId}
-//   name, branchId, videoIds, loop, status, createdBy
-//
-// ticker_messages/{tickerId}
-//   branchId, messages, scrollSpeed, fontSize, fontColor, status
-//
-// tv_devices/{deviceId}
-//   name, branchId, deviceToken, status, health fields
-//
-// tv_health/{healthId}
-//   deviceId, branchId, heartbeat metrics
-//
-// audit_logs/{logId}
-//   action, entityType, userId, userName, branchId, timestamp
-//
-// notifications/{notificationId}
-//   type, title, message, branchId, read, createdAt
-//
-// settings/global
-//   companyName, supportEmail, operational flags
-//
-// ===============================================================
-
 service cloud.firestore {
   match /databases/{database}/documents {
     function isAuthenticated() {
@@ -74,8 +29,16 @@ service cloud.firestore {
       );
     }
 
+    function isAdmin() {
+      return isActiveUser() && userDoc().role == 'admin';
+    }
+
     function isBranchManager() {
       return isActiveUser() && userDoc().role == 'branchManager';
+    }
+
+    function isBranchUser() {
+      return isActiveUser() && userDoc().role == 'branchUser';
     }
 
     function managerBranchId() {
@@ -86,12 +49,28 @@ service cloud.firestore {
       return isBranchManager() && managerBranchId() == branchId;
     }
 
+    function belongsToBranchUserBranch(branchId) {
+      return isBranchUser() && managerBranchId() == branchId;
+    }
+
     function canAccessBranch(branchId) {
-      return isSuperAdmin() || belongsToManagerBranch(branchId);
+      return isSuperAdmin() || isAdmin() || belongsToManagerBranch(branchId) || belongsToBranchUserBranch(branchId);
+    }
+
+    function canManageBranchContent(branchId) {
+      return isSuperAdmin() || isAdmin() || belongsToManagerBranch(branchId);
+    }
+
+    function canManageBranchRates(branchId) {
+      return isSuperAdmin() || belongsToManagerBranch(branchId) || belongsToBranchUserBranch(branchId);
     }
 
     function hasOnlyAllowedKeys(allowedKeys) {
       return request.resource.data.keys().hasOnly(allowedKeys);
+    }
+
+    function validRoles() {
+      return ['superAdmin', 'admin', 'branchManager', 'branchUser'];
     }
 
     function isValidUserCreate() {
@@ -102,7 +81,7 @@ service cloud.firestore {
       ])
       && data.email is string
       && data.displayName is string
-      && data.role in ['superAdmin', 'branchManager']
+      && data.role in validRoles()
       && data.isActive is bool;
     }
 
@@ -114,7 +93,7 @@ service cloud.firestore {
       ])
       && data.email is string
       && data.displayName is string
-      && data.role in ['superAdmin', 'branchManager']
+      && data.role in validRoles()
       && data.isActive is bool;
     }
 
@@ -142,7 +121,7 @@ service cloud.firestore {
         && data.role == invite.role
         && data.branchId == invite.branchId
         && data.isActive == true
-        && data.role == 'branchManager';
+        && data.role in ['admin', 'branchManager', 'branchUser'];
     }
 
     function isSuperAdminBootstrap() {
@@ -191,8 +170,9 @@ service cloud.firestore {
     match /exchange_rates/{rateId} {
       allow read: if isActiveUser() || resource.data.status == 'published';
       allow create, update: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
-      allow delete: if isSuperAdmin();
+        canManageBranchRates(request.resource.data.branchId);
+      allow delete: if isSuperAdmin() ||
+        (isBranchManager() && canAccessBranch(resource.data.branchId));
     }
 
     match /rate_history/{historyId} {
@@ -203,53 +183,52 @@ service cloud.firestore {
 
     match /videos/{videoId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
-      allow update: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId) &&
-          canAccessBranch(request.resource.data.branchId));
+      allow create: if canManageBranchContent(request.resource.data.branchId);
+      allow update: if canManageBranchContent(resource.data.branchId) &&
+        canManageBranchContent(request.resource.data.branchId);
       allow delete: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId));
+        (canManageBranchContent(resource.data.branchId));
+    }
+
+    match /image_adverts/{imageId} {
+      allow read: if isActiveUser() || resource.data.status == 'active';
+      allow create: if canManageBranchContent(request.resource.data.branchId);
+      allow update: if canManageBranchContent(resource.data.branchId) &&
+        canManageBranchContent(request.resource.data.branchId);
+      allow delete: if isSuperAdmin() ||
+        canManageBranchContent(resource.data.branchId);
     }
 
     match /video_chunks/{videoId} {
       allow read: if true;
-      allow create: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
-      allow update, delete: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId));
+      allow create: if canManageBranchContent(request.resource.data.branchId);
+      allow update, delete: if canManageBranchContent(resource.data.branchId);
 
       match /parts/{partId} {
         allow read: if true;
-        allow create, update: if isSuperAdmin() ||
-          (isBranchManager() &&
-            canAccessBranch(get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId));
-        allow delete: if isSuperAdmin() ||
-          (isBranchManager() &&
-            canAccessBranch(get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId));
+        allow create, update: if canManageBranchContent(
+          get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId);
+        allow delete: if canManageBranchContent(
+          get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId);
       }
     }
 
     match /video_playlists/{playlistId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
-      allow update: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId) &&
-          canAccessBranch(request.resource.data.branchId));
+      allow create: if canManageBranchContent(request.resource.data.branchId);
+      allow update: if canManageBranchContent(resource.data.branchId) &&
+        canManageBranchContent(request.resource.data.branchId);
       allow delete: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId));
+        canManageBranchContent(resource.data.branchId);
     }
 
     match /ticker_messages/{tickerId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
-      allow update: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId) &&
-          canAccessBranch(request.resource.data.branchId));
+      allow create: if canManageBranchContent(request.resource.data.branchId);
+      allow update: if canManageBranchContent(resource.data.branchId) &&
+        canManageBranchContent(request.resource.data.branchId);
       allow delete: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId));
+        canManageBranchContent(resource.data.branchId);
     }
 
     match /tv_devices/{deviceId} {
@@ -309,13 +288,11 @@ service cloud.firestore {
 
     match /scheduled_content/{contentId} {
       allow read: if isActiveUser();
-      allow create: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
-      allow update: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId) &&
-          canAccessBranch(request.resource.data.branchId));
+      allow create: if canManageBranchContent(request.resource.data.branchId);
+      allow update: if canManageBranchContent(resource.data.branchId) &&
+        canManageBranchContent(request.resource.data.branchId);
       allow delete: if isSuperAdmin() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId));
+        canManageBranchContent(resource.data.branchId);
     }
   }
 }

@@ -29,6 +29,8 @@ import { COLLECTIONS } from "@/lib/constants";
 import type { AppUser, UserRole } from "@/lib/types";
 import {
   BRANCH_MANAGER_PERMISSIONS,
+  BRANCH_USER_PERMISSIONS,
+  ADMIN_PERMISSIONS,
   SUPER_ADMIN_PERMISSIONS,
 } from "@/lib/constants";
 
@@ -42,7 +44,9 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   isSuperAdmin: boolean;
+  isAdmin: boolean;
   isBranchManager: boolean;
+  isBranchUser: boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -92,9 +96,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const permissions = useMemo<string[]>(() => {
     if (!profile) return [];
-    return profile.role === "superAdmin"
-      ? [...SUPER_ADMIN_PERMISSIONS]
-      : [...BRANCH_MANAGER_PERMISSIONS];
+    switch (profile.role) {
+      case "superAdmin":
+        return [...SUPER_ADMIN_PERMISSIONS];
+      case "admin":
+        return [...ADMIN_PERMISSIONS];
+      case "branchManager":
+        return [...BRANCH_MANAGER_PERMISSIONS];
+      case "branchUser":
+        return [...BRANCH_USER_PERMISSIONS];
+      default:
+        return [];
+    }
   }, [profile]);
 
   const hasPermission = useCallback(
@@ -153,7 +166,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     hasPermission,
     isSuperAdmin: profile?.role === "superAdmin",
+    isAdmin: profile?.role === "admin",
     isBranchManager: profile?.role === "branchManager",
+    isBranchUser: profile?.role === "branchUser",
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

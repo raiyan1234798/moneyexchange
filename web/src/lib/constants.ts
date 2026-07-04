@@ -21,6 +21,7 @@ export const COLLECTIONS = {
   activityLogs: "activity_logs",
   scheduledContent: "scheduled_content",
   tvPairingCodes: "tv_pairing_codes",
+  imageAdverts: "image_adverts",
 } as const;
 
 export const DEFAULT_BRANCH_SETTINGS = {
@@ -30,8 +31,11 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerSpeed: 50,
   tickerFontSize: 18,
   tickerFontColor: "#FFFFFF",
+  tickerLogoUrl: null as string | null,
   showBuyRate: true,
   showSellRate: true,
+  rateCardPosition: "right" as const,
+  rateCardDisplaySeconds: 0,
 };
 
 /** Max Firebase Storage upload per file (matches storage.rules) */
@@ -68,16 +72,31 @@ export const NAV_ITEMS: Array<{
   href: string;
   label: string;
   icon: string;
-  roles: readonly ("superAdmin" | "branchManager")[];
+  roles: readonly ("superAdmin" | "admin" | "branchManager" | "branchUser")[];
 }> = [
-  { href: "/dashboard", label: "Overview", icon: "LayoutDashboard", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard", label: "Overview", icon: "LayoutDashboard", roles: ["superAdmin", "admin", "branchManager"] },
   { href: "/dashboard/branches", label: "Branches", icon: "Building2", roles: ["superAdmin"] },
   { href: "/dashboard/managers", label: "Managers", icon: "Users", roles: ["superAdmin"] },
-  { href: "/dashboard/exchange-rates", label: "Exchange Rates", icon: "TrendingUp", roles: ["superAdmin", "branchManager"] },
-  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "branchManager"] },
-  { href: "/dashboard/tickers", label: "Display Messages", icon: "TextCursorInput", roles: ["superAdmin", "branchManager"] },
+  {
+    href: "/dashboard/exchange-rates",
+    label: "Exchange Rates",
+    icon: "TrendingUp",
+    roles: ["superAdmin", "admin", "branchManager", "branchUser"],
+  },
+  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "admin", "branchManager"] },
+  {
+    href: "/dashboard/tickers",
+    label: "Display Messages",
+    icon: "TextCursorInput",
+    roles: ["superAdmin", "admin", "branchManager"],
+  },
   { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "branchManager"] },
-  { href: "/dashboard/profile", label: "Profile", icon: "User", roles: ["superAdmin", "branchManager"] },
+  {
+    href: "/dashboard/profile",
+    label: "Profile",
+    icon: "User",
+    roles: ["superAdmin", "admin", "branchManager", "branchUser"],
+  },
   { href: "/dashboard/audit-logs", label: "Audit Logs", icon: "ScrollText", roles: ["superAdmin"] },
 ];
 
@@ -101,12 +120,32 @@ export const SUPER_ADMIN_PERMISSIONS = [
   "manageAllBranches",
 ] as const;
 
+export const ADMIN_PERMISSIONS = [
+  "manageVideos",
+  "managePlaylists",
+  "manageTickers",
+  "manageImageAdverts",
+  "viewExchangeRates",
+  "manageAllBranches",
+  "viewTVStatus",
+] as const;
+
 export const BRANCH_MANAGER_PERMISSIONS = [
   "manageOwnBranchRates",
   "manageOwnBranchVideos",
   "manageOwnBranchPlaylists",
   "manageOwnBranchTickers",
   "manageOwnBranchTVDevices",
+  "manageImageAdverts",
   "viewOwnBranchAnalytics",
   "viewOwnBranchAuditLogs",
 ] as const;
+
+export const BRANCH_USER_PERMISSIONS = ["manageOwnBranchRates"] as const;
+
+export const ROLE_LABELS: Record<string, string> = {
+  superAdmin: "Super Admin",
+  admin: "Admin",
+  branchManager: "Branch Manager",
+  branchUser: "Branch User (rates only)",
+};

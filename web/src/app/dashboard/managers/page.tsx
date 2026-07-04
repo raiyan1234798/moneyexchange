@@ -25,25 +25,32 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { COLLECTIONS } from "@/lib/constants";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { COLLECTIONS, ROLE_LABELS } from "@/lib/constants";
 import { subscribeCollection, where } from "@/lib/firebase/firestore";
 import { subscribeBranches } from "@/lib/services/branch-service";
-import {
-  createBranchManagerInvite,
-  provisionBranchManagerAccount,
-} from "@/lib/services/manager-service";
+import { createUserInvite, provisionUserAccount } from "@/lib/services/manager-service";
 import { normalizeEmail } from "@/lib/auth/user-profile";
-import type { AppUser, Branch, UserInvite } from "@/lib/types";
+import type { AppUser, Branch, UserInvite, UserRole } from "@/lib/types";
 
 const emptyForm = {
   email: "",
   displayName: "",
+  role: "branchManager" as "admin" | "branchManager" | "branchUser",
   branchId: "",
 };
 
+const MANAGED_ROLES: UserRole[] = ["admin", "branchManager", "branchUser"];
+
 export default function ManagersPage() {
   const { user, profile, hasPermission } = useAuth();
-  const [managers, setManagers] = useState<AppUser[]>([]);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<UserInvite[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [open, setOpen] = useState(false);
@@ -52,11 +59,11 @@ export default function ManagersPage() {
   const [successDialog, setSuccessDialog] = useState<{ email: string; tempPassword?: string } | null>(null);
 
   useEffect(() => {
-    const unsubManagers = subscribeCollection<AppUser>(
+    const unsubUsers = subscribeCollection<AppUser>(
       COLLECTIONS.users,
-      [where("role", "==", "branchManager")],
-      setManagers,
-      (error) => toast.error(error.message || "Failed to load managers"),
+      [where("role", "in", MANAGED_ROLES)],
+      setUsers,
+      (error) => toast.error(error.message || "Failed to load users"),
     );
     const unsubInvites = subscribeCollection<UserInvite>(
       COLLECTIONS.userInvites,
@@ -69,7 +76,7 @@ export default function ManagersPage() {
       (error) => toast.error(error.message || "Failed to load branches"),
     );
     return () => {
-      unsubManagers();
+      unsubUsers();
       unsubInvites();
       unsubBranches();
     };
@@ -77,25 +84,35 @@ export default function ManagersPage() {
 
   const branchMap = Object.fromEntries(branches.map((branch) => [branch.id, branch.name]));
   const canManage = hasPermission("manageUsers");
+  const needsBranch = form.role === "branchManager" || form.role === "branchUser";
 
   async function handleCreate() {
-    if (!user || !profile || !form.email || !form.displayName || !form.branchId) return;
+    if (!user || !profile || !form.email || !form.displayName) return;
+    if (needsBranch && !form.branchId) {
+      toast.error("Select a branch for this role");
+      return;
+    }
+
     setSubmitting(true);
     const normalizedEmail = normalizeEmail(form.email);
+    const branchId = needsBranch ? form.branchId : null;
+
     try {
-      await createBranchManagerInvite({
+      await createUserInvite({
         email: normalizedEmail,
         displayName: form.displayName,
-        branchId: form.branchId,
+        role: form.role,
+        branchId,
         createdBy: user.uid,
       });
 
       let tempPassword: string | undefined;
       try {
-        const result = await provisionBranchManagerAccount({
+        const result = await provisionUserAccount({
           email: normalizedEmail,
           displayName: form.displayName,
-          branchId: form.branchId,
+          role: form.role,
+          branchId,
         });
         tempPassword = result.temporaryPassword;
       } catch {
@@ -105,9 +122,9 @@ export default function ManagersPage() {
       setOpen(false);
       setForm(emptyForm);
       setSuccessDialog({ email: normalizedEmail, tempPassword });
-      toast.success("Branch manager invited — they can sign in with Google at /login");
+      toast.success(`${ROLE_LABELS[form.role]} invited — they can sign in at /login`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to invite manager");
+      toast.error(error instanceof Error ? error.message : "Failed to invite user");
     } finally {
       setSubmitting(false);
     }
@@ -122,50 +139,78 @@ export default function ManagersPage() {
     <>
       <DashboardHeader
         title="Managers"
-        description="Invite branch managers by email. They can sign in with Google or email and password."
+        description="Invite admins, branch managers, and branch users. Admins control all branches' media; branch users edit rates only."
         accent="rose"
       />
       <PageShell accent="rose">
         {canManage ? (
           <PageActions>
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Invite Manager</Button>} />
+              <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Invite User</Button>} />
               <DialogContent className="rounded-2xl sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Invite Branch Manager</DialogTitle>
+                  <DialogTitle>Invite User</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-2">
                   <div className="space-y-2">
-                    <Label htmlFor="manager-email">Email</Label>
+                    <Label htmlFor="user-email">Email</Label>
                     <Input
-                      id="manager-email"
+                      id="user-email"
                       type="email"
-                      placeholder="manager@company.com"
+                      placeholder="user@company.com"
                       value={form.email}
                       onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                       className="rounded-xl"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="manager-name">Display name</Label>
+                    <Label htmlFor="user-name">Display name</Label>
                     <Input
-                      id="manager-name"
+                      id="user-name"
                       value={form.displayName}
                       onChange={(event) => setForm((prev) => ({ ...prev, displayName: event.target.value }))}
                       className="rounded-xl"
                     />
                   </div>
-                  <BranchSelector
-                    branches={branches}
-                    value={form.branchId}
-                    onChange={(branchId) => setForm((prev) => ({ ...prev, branchId }))}
-                    label="Assigned branch"
-                  />
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <Select
+                      value={form.role}
+                      onValueChange={(value) =>
+                        setForm((prev) => ({
+                          ...prev,
+                          role: value as typeof form.role,
+                          branchId: value === "admin" ? "" : prev.branchId,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin — all branches, media & view rates</SelectItem>
+                        <SelectItem value="branchManager">Branch Manager — full branch control</SelectItem>
+                        <SelectItem value="branchUser">Branch User — exchange rates only</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {needsBranch ? (
+                    <BranchSelector
+                      branches={branches}
+                      value={form.branchId}
+                      onChange={(branchId) => setForm((prev) => ({ ...prev, branchId }))}
+                      label="Assigned branch"
+                    />
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Admins can manage videos, images, and display messages across all branches.
+                    </p>
+                  )}
                 </div>
                 <DialogFooter>
                   <Button
                     onClick={() => void handleCreate()}
-                    disabled={submitting || !form.email || !form.displayName || !form.branchId}
+                    disabled={submitting || !form.email || !form.displayName || (needsBranch && !form.branchId)}
                     className="rounded-xl"
                   >
                     {submitting ? "Sending invite..." : "Send Invite"}
@@ -182,11 +227,11 @@ export default function ManagersPage() {
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
                 <CheckCircle2 className="h-6 w-6 text-emerald-600" />
               </div>
-              <DialogTitle className="text-center">Manager Invited</DialogTitle>
+              <DialogTitle className="text-center">User Invited</DialogTitle>
             </DialogHeader>
             <div className="space-y-3 text-center text-sm">
               <p>
-                <strong>{successDialog?.email}</strong> has been invited as a branch manager.
+                <strong>{successDialog?.email}</strong> has been invited.
               </p>
               {successDialog?.tempPassword ? (
                 <div className="rounded-xl border border-border/40 bg-muted/30 p-4 text-left">
@@ -197,7 +242,6 @@ export default function ManagersPage() {
                       <Copy className="h-3.5 w-3.5" />
                     </Button>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground">Share this password securely. They can change it after first login.</p>
                 </div>
               ) : (
                 <p className="text-muted-foreground">They can sign in with Google using this email address.</p>
@@ -218,7 +262,12 @@ export default function ManagersPage() {
               columns={[
                 { key: "name", header: "Name", cell: (i) => i.displayName },
                 { key: "email", header: "Email", cell: (i) => i.email },
-                { key: "branch", header: "Branch", cell: (i) => branchMap[i.branchId] ?? i.branchId },
+                { key: "role", header: "Role", cell: (i) => ROLE_LABELS[i.role] ?? i.role },
+                {
+                  key: "branch",
+                  header: "Branch",
+                  cell: (i) => (i.branchId ? branchMap[i.branchId] ?? i.branchId : "All branches"),
+                },
                 {
                   key: "status",
                   header: "Status",
@@ -229,27 +278,28 @@ export default function ManagersPage() {
           </ContentPanel>
         ) : null}
 
-        {managers.length === 0 && invites.length === 0 ? (
+        {users.length === 0 && invites.length === 0 ? (
           <EmptyState
-            title="No branch managers"
-            description="Invite a branch manager by email. They will get access after signing in with Google or the password you share."
+            title="No users yet"
+            description="Invite admins, branch managers, or branch users by email."
             icon={Users}
-            actionLabel={canManage ? "Invite Manager" : undefined}
+            actionLabel={canManage ? "Invite User" : undefined}
             onAction={canManage ? () => setOpen(true) : undefined}
           />
-        ) : managers.length > 0 ? (
-          <ContentPanel title="Active Managers" description={`${managers.length} branch manager${managers.length === 1 ? "" : "s"}`}>
+        ) : users.length > 0 ? (
+          <ContentPanel title="Active Users" description={`${users.length} user${users.length === 1 ? "" : "s"}`}>
             <DataTable
-              data={managers}
+              data={users}
               keyExtractor={(m) => m.uid}
               mobileTitle={(m) => m.displayName}
               columns={[
                 { key: "name", header: "Name", cell: (m) => <span className="font-medium">{m.displayName}</span> },
                 { key: "email", header: "Email", cell: (m) => m.email, hideOnMobile: true },
+                { key: "role", header: "Role", cell: (m) => ROLE_LABELS[m.role] ?? m.role },
                 {
                   key: "branch",
                   header: "Branch",
-                  cell: (m) => (m.branchId ? branchMap[m.branchId] ?? m.branchId : "Unassigned"),
+                  cell: (m) => (m.branchId ? branchMap[m.branchId] ?? m.branchId : "All branches"),
                 },
                 {
                   key: "status",

@@ -1,6 +1,6 @@
 import type { Timestamp } from "firebase/firestore";
 
-export type UserRole = "superAdmin" | "branchManager";
+export type UserRole = "superAdmin" | "admin" | "branchManager" | "branchUser";
 
 export type EntityStatus = "active" | "inactive" | "disabled";
 
@@ -9,7 +9,7 @@ export interface UserInvite {
   email: string;
   displayName: string;
   role: UserRole;
-  branchId: string;
+  branchId: string | null;
   createdBy: string;
   createdAt: Timestamp | Date;
 }
@@ -46,6 +46,8 @@ export interface Branch {
   updatedAt: Timestamp | Date;
 }
 
+export type RateCardPosition = "left" | "right";
+
 export interface BranchSettings {
   timezone: string;
   defaultLanguage: string;
@@ -53,8 +55,12 @@ export interface BranchSettings {
   tickerSpeed: number;
   tickerFontSize: number;
   tickerFontColor: string;
+  tickerLogoUrl?: string | null;
   showBuyRate: boolean;
   showSellRate: boolean;
+  rateCardPosition: RateCardPosition;
+  /** 0 = always show rate card; otherwise hide after N seconds when rotating */
+  rateCardDisplaySeconds: number;
 }
 
 export type VideoSourceType = "external" | "storage" | "chunked";
@@ -104,6 +110,19 @@ export interface RateHistoryEntry {
   changeType: "manual" | "bulk" | "scheduled" | "emergency";
 }
 
+export interface ImageAdvert {
+  id: string;
+  title: string;
+  branchId: string;
+  downloadUrl: string;
+  storagePath?: string | null;
+  displayDurationSeconds: number;
+  status: EntityStatus;
+  createdBy: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+}
+
 export interface VideoAsset {
   id: string;
   title: string;
@@ -146,6 +165,7 @@ export interface TickerMessage {
   scrollSpeed: number;
   fontSize: number;
   fontColor: string;
+  logoUrl?: string | null;
   paused?: boolean;
   language: string;
   scheduleStart?: Timestamp | Date | null;

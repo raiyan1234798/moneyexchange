@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Cloud, Link2, Upload, Video, Trash2 } from "lucide-react";
+import { Cloud, Link2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
@@ -43,35 +43,55 @@ import {
   uploadVideo,
 } from "@/lib/services/video-service";
 import {
+  addImageAdvertUrl,
+  deleteImageAdvert,
+  subscribeImageAdverts,
+  uploadImageAdvert,
+} from "@/lib/services/image-advert-service";
+import {
   deriveTitleFromFile,
   deriveTitleFromUrl,
   isGoogleDriveUrl,
   resolveVideoTitle,
   validateVideoFile,
 } from "@/lib/video-utils";
-import type { VideoAsset } from "@/lib/types";
+import type { ImageAdvert, VideoAsset } from "@/lib/types";
 
 export default function VideosPage() {
   const { user, profile } = useAuth();
-  const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin } = useBranchScope();
-  const { canManageVideos } = useContentPermissions();
+  const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin, isAdmin } = useBranchScope();
+  const { canManageVideos, canManageImages } = useContentPermissions();
   const [videos, setVideos] = useState<VideoAsset[]>([]);
+  const [images, setImages] = useState<ImageAdvert[]>([]);
   const [title, setTitle] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [driveUrl, setDriveUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageDuration, setImageDuration] = useState(15);
+  const [imageUploading, setImageUploading] = useState(false);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
   useEffect(() => {
     if (!effectiveBranchId) return;
-    return subscribeVideos(
+    const unsubVideos = subscribeVideos(
       effectiveBranchId,
       setVideos,
       (error) => toast.error(error.message || "Failed to load videos"),
     );
+    const unsubImages = subscribeImageAdverts(
+      effectiveBranchId,
+      setImages,
+      (error) => toast.error(error.message || "Failed to load images"),
+    );
+    return () => {
+      unsubVideos();
+      unsubImages();
+    };
   }, [effectiveBranchId]);
 
   async function handleExternalAdd() {
@@ -172,6 +192,60 @@ export default function VideosPage() {
     }
   }
 
+  async function handleImageUrlAdd() {
+    if (!user || !profile || !effectiveBranchId || !imageUrl.trim()) {
+      toast.error("Image URL is required");
+      return;
+    }
+    setImageUploading(true);
+    try {
+      await addImageAdvertUrl(
+        {
+          title: title.trim() || "Image advert",
+          branchId: effectiveBranchId,
+          downloadUrl: imageUrl.trim(),
+          displayDurationSeconds: imageDuration,
+          createdBy: user.uid,
+        },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success("Image advert saved — shows on display when no video is playing");
+      setImageUrl("");
+      setTitle("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to add image");
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
+  async function handleImageUpload() {
+    if (!user || !profile || !effectiveBranchId || !imageFile) {
+      toast.error("Select an image file");
+      return;
+    }
+    setImageUploading(true);
+    try {
+      await uploadImageAdvert(
+        {
+          title: title.trim() || imageFile.name,
+          branchId: effectiveBranchId,
+          file: imageFile,
+          displayDurationSeconds: imageDuration,
+          createdBy: user.uid,
+        },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success("Image uploaded — shows on display when no video is playing");
+      setImageFile(null);
+      setTitle("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to upload image");
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
   return (
     <>
       <DashboardHeader
@@ -180,7 +254,7 @@ export default function VideosPage() {
         accent="rose"
       />
       <PageShell accent="rose">
-        {isSuperAdmin ? (
+        {isSuperAdmin || isAdmin ? (
           <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
         ) : branch ? (
           <p className="text-sm text-muted-foreground">
@@ -343,6 +417,69 @@ export default function VideosPage() {
           </ContentPanel>
         ) : null}
 
+        {canManageImages && effectiveBranchId ? (
+          <ContentPanel title="Image Adverts" description="Static images rotate on the display when no video is playing">
+            <Tabs defaultValue="image-url">
+              <TabsList className="rounded-xl">
+                <TabsTrigger value="image-url" className="rounded-lg">Image URL</TabsTrigger>
+                <TabsTrigger value="image-upload" className="rounded-lg">Upload Image</TabsTrigger>
+              </TabsList>
+              <TabsContent value="image-url" className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label>Title (optional)</Label>
+                  <Input value={title} onChange={(e) => setTitle(e.target.value)} className="rounded-xl" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Image URL</Label>
+                  <Input
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    placeholder="https://example.com/promo.jpg"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Display duration (seconds)</Label>
+                  <Input
+                    type="number"
+                    min={5}
+                    value={imageDuration}
+                    onChange={(e) => setImageDuration(Number(e.target.value))}
+                    className="rounded-xl"
+                  />
+                </div>
+                <Button
+                  onClick={() => void handleImageUrlAdd()}
+                  disabled={imageUploading || !imageUrl.trim()}
+                  className="rounded-xl"
+                >
+                  <ImageIcon className="mr-2 h-4 w-4" />
+                  Add Image URL
+                </Button>
+              </TabsContent>
+              <TabsContent value="image-upload" className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label>Image file (JPG, PNG, WebP)</Label>
+                  <Input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                    onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                    className="rounded-xl"
+                  />
+                </div>
+                <Button
+                  onClick={() => void handleImageUpload()}
+                  disabled={imageUploading || !imageFile}
+                  className="rounded-xl"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {imageUploading ? "Uploading..." : "Upload Image"}
+                </Button>
+              </TabsContent>
+            </Tabs>
+          </ContentPanel>
+        ) : null}
+
         {!effectiveBranchId ? (
           <EmptyState title="Select a branch" description="Choose a branch to manage its display videos." icon={Video} />
         ) : videos.length === 0 ? (
@@ -449,6 +586,65 @@ export default function VideosPage() {
             />
           </ContentPanel>
         )}
+
+        {images.length > 0 ? (
+          <ContentPanel title="Active Image Adverts" description="Shown on display when video is unavailable">
+            <DataTable
+              data={images}
+              keyExtractor={(img) => img.id}
+              mobileTitle={(img) => img.title}
+              columns={[
+                { key: "title", header: "Title", cell: (img) => img.title },
+                {
+                  key: "duration",
+                  header: "Duration",
+                  cell: (img) => `${img.displayDurationSeconds}s`,
+                  hideOnMobile: true,
+                },
+                {
+                  key: "preview",
+                  header: "Preview",
+                  cell: (img) => (
+                    <a
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                      href={img.downloadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open
+                    </a>
+                  ),
+                },
+                {
+                  key: "actions",
+                  header: "Actions",
+                  className: "text-right",
+                  cell: (img) =>
+                    canManageImages ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() =>
+                          void deleteImageAdvert(img, {
+                            userId: user!.uid,
+                            userName: profile!.displayName || profile!.email,
+                          })
+                            .then(() => toast.success("Image removed"))
+                            .catch((e) =>
+                              toast.error(e instanceof Error ? e.message : "Failed to remove image"),
+                            )
+                        }
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" />
+                        Remove
+                      </Button>
+                    ) : null,
+                },
+              ]}
+            />
+          </ContentPanel>
+        ) : null}
       </PageShell>
     </>
   );

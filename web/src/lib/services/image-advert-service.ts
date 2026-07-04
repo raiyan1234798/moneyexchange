@@ -1,0 +1,141 @@
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import {
+  createDocument,
+  listDocuments,
+  subscribeCollection,
+  updateDocument,
+  where,
+  writeAuditLog,
+} from "@/lib/firebase/firestore";
+import { storage } from "@/lib/firebase/client";
+import { COLLECTIONS } from "@/lib/constants";
+import type { ImageAdvert } from "@/lib/types";
+
+function toMillis(value: ImageAdvert["createdAt"]): number {
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  return 0;
+}
+
+function sortImages(images: ImageAdvert[]): ImageAdvert[] {
+  return [...images]
+    .filter((img) => img.status === "active")
+    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+}
+
+export function subscribeImageAdverts(
+  branchId: string,
+  onData: (images: ImageAdvert[]) => void,
+  onError?: (error: Error) => void,
+) {
+  return subscribeCollection<ImageAdvert>(
+    COLLECTIONS.imageAdverts,
+    [where("branchId", "==", branchId)],
+    (items) => onData(sortImages(items)),
+    onError,
+  );
+}
+
+export async function listImageAdverts(branchId: string): Promise<ImageAdvert[]> {
+  const items = await listDocuments<ImageAdvert>(COLLECTIONS.imageAdverts, [
+    where("branchId", "==", branchId),
+  ]);
+  return sortImages(items);
+}
+
+async function deactivateBranchImages(branchId: string): Promise<void> {
+  const existing = await listImageAdverts(branchId);
+  await Promise.all(
+    existing.map((img) => updateDocument(COLLECTIONS.imageAdverts, img.id, { status: "inactive" })),
+  );
+}
+
+export async function addImageAdvertUrl(
+  params: {
+    title: string;
+    branchId: string;
+    downloadUrl: string;
+    displayDurationSeconds?: number;
+    createdBy: string;
+  },
+  actor: { userId: string; userName: string },
+): Promise<string> {
+  await deactivateBranchImages(params.branchId);
+  const id = await createDocument(COLLECTIONS.imageAdverts, {
+    title: params.title,
+    branchId: params.branchId,
+    downloadUrl: params.downloadUrl.trim(),
+    storagePath: null,
+    displayDurationSeconds: params.displayDurationSeconds ?? 15,
+    status: "active",
+    createdBy: params.createdBy,
+  });
+  await writeAuditLog({
+    action: "image_advert_add",
+    entityType: "image_advert",
+    entityId: id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: params.branchId,
+    metadata: { title: params.title },
+  });
+  return id;
+}
+
+export async function uploadImageAdvert(
+  params: {
+    title: string;
+    branchId: string;
+    file: File;
+    displayDurationSeconds?: number;
+    createdBy: string;
+  },
+  actor: { userId: string; userName: string },
+): Promise<string> {
+  const path = `image-adverts/${params.branchId}/${Date.now()}_${params.file.name}`;
+  const storageRef = ref(storage, path);
+  await uploadBytes(storageRef, params.file, { contentType: params.file.type });
+  const downloadUrl = await getDownloadURL(storageRef);
+
+  await deactivateBranchImages(params.branchId);
+  const id = await createDocument(COLLECTIONS.imageAdverts, {
+    title: params.title,
+    branchId: params.branchId,
+    downloadUrl,
+    storagePath: path,
+    displayDurationSeconds: params.displayDurationSeconds ?? 15,
+    status: "active",
+    createdBy: params.createdBy,
+  });
+  await writeAuditLog({
+    action: "image_advert_upload",
+    entityType: "image_advert",
+    entityId: id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: params.branchId,
+    metadata: { title: params.title, fileSize: params.file.size },
+  });
+  return id;
+}
+
+export async function deleteImageAdvert(
+  image: ImageAdvert,
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  if (image.storagePath) {
+    await deleteObject(ref(storage, image.storagePath)).catch(() => undefined);
+  }
+  await updateDocument(COLLECTIONS.imageAdverts, image.id, { status: "inactive" });
+  await writeAuditLog({
+    action: "image_advert_delete",
+    entityType: "image_advert",
+    entityId: image.id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: image.branchId,
+  });
+}

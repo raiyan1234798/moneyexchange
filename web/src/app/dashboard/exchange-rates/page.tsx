@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   ArrowDown,
   ArrowUp,
   Coins,
+  Download,
   Eye,
   EyeOff,
   Plus,
   Trash2,
   TrendingUp,
   RefreshCw,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -45,6 +47,7 @@ import {
 } from "@/lib/services/currency-service";
 import {
   addBranchRate,
+  bulkUpdateRates,
   initializeBranchRates,
   listExchangeRates,
   reorderRates,
@@ -53,6 +56,11 @@ import {
   removeBranchRate,
   updateExchangeRate,
 } from "@/lib/services/exchange-rate-service";
+import {
+  downloadRateTemplateCsv,
+  downloadRateTemplateXlsx,
+  parseRateFile,
+} from "@/lib/rate-import";
 import type { Currency, ExchangeRate } from "@/lib/types";
 
 const emptyCurrencyForm = {
@@ -64,7 +72,7 @@ const emptyCurrencyForm = {
 
 export default function ExchangeRatesPage() {
   const { user, profile, hasPermission } = useAuth();
-  const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin } = useBranchScope();
+  const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin, isAdmin } = useBranchScope();
   const { canManageRates } = useContentPermissions();
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
@@ -74,6 +82,8 @@ export default function ExchangeRatesPage() {
   const [loadingInit, setLoadingInit] = useState(false);
   const [currencyForm, setCurrencyForm] = useState(emptyCurrencyForm);
   const [creating, setCreating] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canCreateCatalog = hasPermission("manageCurrencies");
@@ -252,6 +262,35 @@ export default function ExchangeRatesPage() {
     }
   }
 
+  async function handleBulkUpload(file: File) {
+    if (!user || !profile || !effectiveBranchId) return;
+    setUploading(true);
+    try {
+      const rows = await parseRateFile(file);
+      const count = await bulkUpdateRates(
+        effectiveBranchId,
+        rows.map((r) => ({
+          currencyCode: r.currencyCode,
+          buyRate: r.buyRate,
+          sellRate: r.sellRate,
+        })),
+        {
+          userId: user.uid,
+          userName: profile.displayName || profile.email,
+          branchName: branch?.name || effectiveBranchId,
+        },
+        { autoCreateCurrencies: canCreateCatalog },
+      );
+      toast.success(`Updated ${count} rates for branch ${branch?.name ?? effectiveBranchId}`);
+      setRates(await listExchangeRates(effectiveBranchId));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to import rates");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
   const availableCurrencies = currencies.filter((c) => {
     if (c.status !== "active" || c.isHidden) return false;
     const existing = rates.find((r) => r.currencyCode === c.currencyCode);
@@ -266,7 +305,7 @@ export default function ExchangeRatesPage() {
         accent="emerald"
       />
       <PageShell accent="emerald">
-        {isSuperAdmin ? (
+        {isSuperAdmin || isAdmin ? (
           <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
         ) : branch ? (
           <p className="text-sm text-muted-foreground">
@@ -275,6 +314,41 @@ export default function ExchangeRatesPage() {
         ) : null}
 
         <PreviewDisplayLink branchCode={branch?.code} />
+
+        {canManageRates && effectiveBranchId ? (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateCsv()}>
+              <Download className="mr-2 h-4 w-4" />
+              Download Template (CSV)
+            </Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateXlsx()}>
+              <Download className="mr-2 h-4 w-4" />
+              Download Template (XLSX)
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void handleBulkUpload(file);
+              }}
+            />
+            <Button
+              className="rounded-xl"
+              disabled={uploading}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {uploading ? "Uploading..." : "Upload Excel/CSV"}
+            </Button>
+          </div>
+        ) : isAdmin && effectiveBranchId ? (
+          <p className="text-sm text-muted-foreground">
+            View-only access — you can see rates but cannot edit them.
+          </p>
+        ) : null}
 
         {canCreateCatalog ? (
           <ContentPanel

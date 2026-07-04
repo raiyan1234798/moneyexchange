@@ -1,12 +1,13 @@
 import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import { UNIMONI_DEFAULT_RATES, UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import type { Branch, ExchangeRate, TickerMessage, VideoAsset } from "@/lib/types";
 
 export const DEMO_BRANCH_CODE = "DEMO";
 export const DEMO_BRANCH_DOC_ID = "demo-main";
-export const DEMO_BRANCH_NAME = "Demo Branch — Dubai Main";
+export const DEMO_BRANCH_NAME = "Unimoni Kisement";
 
-/** Local demo video served from /public — works on Cloudflare Pages without Firestore. */
-export const DEMO_VIDEO_URL = "/demo-video.mp4";
+/** Local demo video served from /public — works on static hosting without Firestore. */
+export const DEMO_VIDEO_URL = "/unimoni-promo.mp4";
 
 /** @deprecated Use DEMO_VIDEO_URL */
 export const DEMO_SAMPLE_VIDEO_URL = DEMO_VIDEO_URL;
@@ -21,54 +22,21 @@ export function getDemoSampleVideoPublicUrl(origin?: string): string {
   return `${base.replace(/\/$/, "")}${DEMO_VIDEO_URL}`;
 }
 
-export const DEMO_CURRENCIES = [
-  {
-    id: "currency_usd",
-    currencyCode: "USD",
-    currencyName: "US Dollar",
-    country: "United States",
-    flag: "🇺🇸",
-    sortOrder: 1,
-  },
-  {
-    id: "currency_gbp",
-    currencyCode: "GBP",
-    currencyName: "British Pound",
-    country: "United Kingdom",
-    flag: "🇬🇧",
-    sortOrder: 2,
-  },
-  {
-    id: "currency_eur",
-    currencyCode: "EUR",
-    currencyName: "Euro",
-    country: "European Union",
-    flag: "🇪🇺",
-    sortOrder: 3,
-  },
-  {
-    id: "currency_aed",
-    currencyCode: "AED",
-    currencyName: "UAE Dirham",
-    country: "United Arab Emirates",
-    flag: "🇦🇪",
-    sortOrder: 4,
-  },
-] as const;
+export const DEMO_CURRENCIES = UNIMONI_DEFAULT_RATES.map((rate, index) => ({
+  id: `currency_${rate.currencyCode.toLowerCase()}`,
+  currencyCode: rate.currencyCode,
+  currencyName: rate.currencyCode,
+  country: "",
+  flag: "",
+  sortOrder: index + 1,
+}));
 
-/** Illustrative buy/sell vs AED for demo displays (UAE quote style: 3650 = 3.650 AED). */
-export const DEMO_RATES: Record<string, { buyRate: number; sellRate: number }> = {
-  USD: { buyRate: 3.65, sellRate: 3.68 },
-  GBP: { buyRate: 4.75, sellRate: 4.8 },
-  EUR: { buyRate: 4.05, sellRate: 4.09 },
-  AED: { buyRate: 0.995, sellRate: 1.015 },
-};
+/** Unimoni signage reference rates (UGX quote style). */
+export const DEMO_RATES: Record<string, { buyRate: number; sellRate: number }> = Object.fromEntries(
+  UNIMONI_DEFAULT_RATES.map((rate) => [rate.currencyCode, { buyRate: rate.buyRate, sellRate: rate.sellRate }]),
+);
 
-export const DEMO_TICKER_LINES = [
-  "WELCOME TO DEMO EXCHANGE • BEST RATES • TRUSTED SERVICE",
-  "COMPETITIVE RATES DAILY • FAST & SECURE TRANSFERS",
-  "ASK OUR TEAM ABOUT ZERO-FEE TRANSFERS ON SELECT CORRIDORS",
-];
+export const DEMO_TICKER_LINES = [UNIMONI_DEFAULT_TICKER];
 
 const demoNow = new Date();
 
@@ -77,19 +45,19 @@ export function getDemoBranch(): Branch {
     id: "demo",
     name: DEMO_BRANCH_NAME,
     code: DEMO_BRANCH_CODE,
-    address: "Sheikh Zayed Road",
-    city: "Dubai",
-    country: "United Arab Emirates",
-    phone: "+971 4 000 0000",
-    email: "demo@moneyexchange.com",
+    address: "Kisement",
+    city: "Kampala",
+    country: "Uganda",
+    phone: "0759207000",
+    email: "kisement@unimoni.com",
     managerId: null,
     logoUrl: null,
-    brandingColor: "#0ea5e9",
+    brandingColor: "#0078D4",
     workingHours: "Mon–Sat 9:00–21:00",
     status: "active",
     settings: {
       ...DEFAULT_BRANCH_SETTINGS,
-      slogan: "Your trusted exchange partner",
+      slogan: UNIMONI_DEFAULT_TICKER,
     },
     createdAt: demoNow,
     updatedAt: demoNow,
@@ -119,25 +87,7 @@ export function getDemoRates(): ExchangeRate[] {
 }
 
 export function getDemoVideos(): VideoAsset[] {
-  return [
-    {
-      id: "demo-video",
-      title: "Demo signage video",
-      description: "Local demo MP4 bundled with the app",
-      branchId: "demo",
-      category: "promo",
-      sourceType: "external",
-      storagePath: null,
-      downloadUrl: DEMO_VIDEO_URL,
-      mimeType: "video/mp4",
-      durationSeconds: 21,
-      status: "active",
-      expiresAt: null,
-      createdBy: "demo",
-      createdAt: demoNow,
-      updatedAt: demoNow,
-    },
-  ];
+  return [];
 }
 
 export function getDemoTickers(): TickerMessage[] {

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 90" fill="none" aria-hidden="true">
+  <path d="M28 72V38c0-8.8 7.2-16 16-16s16 7.2 16 16v34" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M12 28c8-14 24-22 40-18" stroke="#33B5E5" stroke-width="6" stroke-linecap="round"/>
+  <path d="M12 28c4-8 12-14 22-16" stroke="#0078D4" stroke-width="4" stroke-linecap="round"/>
+  <text x="72" y="62" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="52" font-weight="700" letter-spacing="-1">unimoni</text>
+</svg>
