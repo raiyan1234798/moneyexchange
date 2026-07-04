@@ -65,7 +65,16 @@ export function UnimoniPromoPanel({
           unoptimized
           priority
         />
-      ) : null}
+      ) : (
+        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-3 bg-black/40 px-8 text-center backdrop-blur-[2px]">
+          <p className="text-[clamp(1rem,1.6vw,1.35rem)] font-semibold tracking-wide text-white/90">
+            No video configured
+          </p>
+          <p className="max-w-md text-[clamp(0.8rem,1.2vw,1rem)] leading-relaxed text-white/60">
+            Upload a video in Dashboard → Videos to display promotional content on this screen.
+          </p>
+        </div>
+      )}
 
       <div
         className="pointer-events-none relative z-10 flex h-full flex-col items-center justify-between px-[clamp(1.5rem,4vw,3rem)] py-[clamp(1.5rem,3vh,2.5rem)] text-center font-[Arial,Helvetica,sans-serif] text-white"

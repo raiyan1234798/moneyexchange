@@ -17,6 +17,7 @@
     "seed:production": "node scripts/seed-production.mjs"
   },
   "devDependencies": {
-    "firebase-admin": "^13.6.0"
+    "firebase-admin": "^13.6.0",
+    "playwright": "^1.61.1"
   }
 }

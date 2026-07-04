@@ -5,8 +5,6 @@ export function normalizeBranchCode(code: string): string {
   return code.trim().toUpperCase();
 }
 
-export const DEMO_DISPLAY_PATH = "/display/demo";
-
 /** Public signage URL — open in Chrome fullscreen on any display */
 export function getDisplayUrl(branchCode: string, origin?: string): string {
   const base = origin ?? (typeof window !== "undefined" ? window.location.origin : "");

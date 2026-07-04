@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Seeds production/demo Firestore + Auth for MoneyExchangeTV.
+ * Seeds production Firestore + Auth for MoneyExchangeTV.
  *
  * Usage:
  *   npm run seed:production
@@ -21,20 +21,19 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore, FieldValue, Timestamp } from "firebase-admin/firestore";
 
 const PROJECT_ID = "moneyexchange-35c33";
-const DEMO_EMAIL = "demo@moneyexchange.local";
-const DEMO_PASSWORD = "Demo123456!";
-const DEMO_DISPLAY_NAME = "Demo Admin";
+const SEED_ADMIN_EMAIL = "demo@moneyexchange.local";
+const SEED_ADMIN_PASSWORD = "Demo123456!";
+const SEED_ADMIN_NAME = "System Admin";
 
 const BRANCH_DOC_ID = "dxb01-main";
 const BRANCH_CODE = "DXB01";
 
-const SAMPLE_VIDEO_URL =
-  "https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+const SAMPLE_VIDEO_PATH = "/unimoni-promo.mp4";
 
 const DEFAULT_BRANCH_SETTINGS = {
-  timezone: "Asia/Dubai",
+  timezone: "Africa/Kampala",
   defaultLanguage: "en",
-  slogan: "Your trusted exchange partner",
+  slogan: "WELCOME TO UNIMONI KISEMENT",
   tickerSpeed: 50,
   tickerFontSize: 18,
   tickerFontColor: "#FFFFFF",
@@ -46,15 +45,31 @@ const CURRENCIES = [
   { id: "currency_usd", currencyCode: "USD", currencyName: "US Dollar", country: "United States", flag: "🇺🇸", sortOrder: 1 },
   { id: "currency_gbp", currencyCode: "GBP", currencyName: "British Pound", country: "United Kingdom", flag: "🇬🇧", sortOrder: 2 },
   { id: "currency_eur", currencyCode: "EUR", currencyName: "Euro", country: "European Union", flag: "🇪🇺", sortOrder: 3 },
-  { id: "currency_aed", currencyCode: "AED", currencyName: "UAE Dirham", country: "United Arab Emirates", flag: "🇦🇪", sortOrder: 4 },
+  { id: "currency_aud", currencyCode: "AUD", currencyName: "Australian Dollar", country: "Australia", flag: "🇦🇺", sortOrder: 4 },
+  { id: "currency_cad", currencyCode: "CAD", currencyName: "Canadian Dollar", country: "Canada", flag: "🇨🇦", sortOrder: 5 },
+  { id: "currency_chf", currencyCode: "CHF", currencyName: "Swiss Franc", country: "Switzerland", flag: "🇨🇭", sortOrder: 6 },
+  { id: "currency_kes", currencyCode: "KES", currencyName: "Kenyan Shilling", country: "Kenya", flag: "🇰🇪", sortOrder: 7 },
+  { id: "currency_zar", currencyCode: "ZAR", currencyName: "South African Rand", country: "South Africa", flag: "🇿🇦", sortOrder: 8 },
+  { id: "currency_tzs", currencyCode: "TZS", currencyName: "Tanzanian Shilling", country: "Tanzania", flag: "🇹🇿", sortOrder: 9 },
+  { id: "currency_rwf", currencyCode: "RWF", currencyName: "Rwandan Franc", country: "Rwanda", flag: "🇷🇼", sortOrder: 10 },
+  { id: "currency_sar", currencyCode: "SAR", currencyName: "Saudi Riyal", country: "Saudi Arabia", flag: "🇸🇦", sortOrder: 11 },
+  { id: "currency_aed", currencyCode: "AED", currencyName: "UAE Dirham", country: "United Arab Emirates", flag: "🇦🇪", sortOrder: 12 },
 ];
 
-/** Demo buy/sell vs AED (illustrative only). */
-const DEMO_RATES = {
-  USD: { buyRate: 3.649, sellRate: 3.669 },
-  GBP: { buyRate: 4.549, sellRate: 4.579 },
-  EUR: { buyRate: 3.949, sellRate: 3.979 },
-  AED: { buyRate: 1.0, sellRate: 1.0 },
+/** Unimoni signage reference rates (UGX quote style). */
+const SEED_RATES = {
+  USD: { buyRate: 3625, sellRate: 3685 },
+  GBP: { buyRate: 4725, sellRate: 4975 },
+  EUR: { buyRate: 4095, sellRate: 4315 },
+  AUD: { buyRate: 2060, sellRate: 2700 },
+  CAD: { buyRate: 2200, sellRate: 3600 },
+  CHF: { buyRate: 3010, sellRate: 4500 },
+  KES: { buyRate: 27.3, sellRate: 30 },
+  ZAR: { buyRate: 195, sellRate: 350 },
+  TZS: { buyRate: 1.3, sellRate: 1.65 },
+  RWF: { buyRate: 1.55, sellRate: 4.0 },
+  SAR: { buyRate: 830, sellRate: 1120 },
+  AED: { buyRate: 870, sellRate: 1250 },
 };
 
 function initFirebaseAdmin() {
@@ -78,32 +93,32 @@ initFirebaseAdmin();
 const auth = getAuth();
 const db = getFirestore();
 
-async function ensureDemoUser() {
+async function ensureAdminUser() {
   let user;
   try {
-    user = await auth.getUserByEmail(DEMO_EMAIL);
+    user = await auth.getUserByEmail(SEED_ADMIN_EMAIL);
     await auth.updateUser(user.uid, {
-      password: DEMO_PASSWORD,
-      displayName: DEMO_DISPLAY_NAME,
+      password: SEED_ADMIN_PASSWORD,
+      displayName: SEED_ADMIN_NAME,
       disabled: false,
     });
-    console.log(`Updated existing auth user: ${DEMO_EMAIL}`);
+    console.log(`Updated existing auth user: ${SEED_ADMIN_EMAIL}`);
   } catch (error) {
     const code = error?.code;
     if (code !== "auth/user-not-found") throw error;
     user = await auth.createUser({
-      email: DEMO_EMAIL,
-      password: DEMO_PASSWORD,
-      displayName: DEMO_DISPLAY_NAME,
+      email: SEED_ADMIN_EMAIL,
+      password: SEED_ADMIN_PASSWORD,
+      displayName: SEED_ADMIN_NAME,
       emailVerified: true,
     });
-    console.log(`Created auth user: ${DEMO_EMAIL}`);
+    console.log(`Created auth user: ${SEED_ADMIN_EMAIL}`);
   }
 
   await db.collection("users").doc(user.uid).set(
     {
-      email: DEMO_EMAIL,
-      displayName: DEMO_DISPLAY_NAME,
+      email: SEED_ADMIN_EMAIL,
+      displayName: SEED_ADMIN_NAME,
       role: "superAdmin",
       branchId: null,
       isActive: true,
@@ -136,16 +151,16 @@ async function ensureBranch(actorUid, actorName) {
   const ref = db.collection("branches").doc(BRANCH_DOC_ID);
   await ref.set(
     {
-      name: "Dubai Main",
+      name: "Unimoni Kisement",
       code: BRANCH_CODE,
-      address: "Sheikh Zayed Road",
-      city: "Dubai",
-      country: "United Arab Emirates",
-      phone: "+971 4 000 0000",
-      email: "dxb01@moneyexchange.com",
+      address: "Kisement",
+      city: "Kampala",
+      country: "Uganda",
+      phone: "0759207000",
+      email: "kisement@unimoni.com",
       managerId: null,
       logoUrl: null,
-      brandingColor: "#0ea5e9",
+      brandingColor: "#0078D4",
       workingHours: "Mon–Sat 9:00–21:00",
       status: "active",
       settings: DEFAULT_BRANCH_SETTINGS,
@@ -179,7 +194,7 @@ async function ensureExchangeRates(branchId, actorUid, actorName) {
   let order = 0;
   for (const c of CURRENCIES) {
     order += 1;
-    const rates = DEMO_RATES[c.currencyCode];
+    const rates = SEED_RATES[c.currencyCode];
     const docId = `rate_${branchId}_${c.currencyCode.toLowerCase()}`;
     await db.collection("exchange_rates").doc(docId).set(
       {
@@ -209,8 +224,7 @@ async function ensureTicker(branchId, actorUid) {
     {
       branchId,
       messages: [
-        { id: "line-1", text: "Welcome to Dubai Main — competitive rates daily.", priority: 1 },
-        { id: "line-2", text: "Ask our team about zero-fee transfers on select corridors.", priority: 2 },
+        { id: "line-1", text: "WELCOME TO UNIMONI KISEMENT", priority: 1 },
       ],
       scrollSpeed: 50,
       fontSize: 18,
@@ -230,16 +244,16 @@ async function ensureTicker(branchId, actorUid) {
 }
 
 async function ensureVideoAndPlaylist(branchId, actorUid) {
-  const videoId = `video_${branchId}_demo`;
+  const videoId = `video_${branchId}_promo`;
   await db.collection("videos").doc(videoId).set(
     {
-      title: "Demo signage video",
-      description: "External sample MP4 (no Firebase Storage upload).",
+      title: "Unimoni promo video",
+      description: "Bundled signage promo MP4 served from Firebase Hosting.",
       branchId,
       category: "promo",
       sourceType: "external",
       storagePath: null,
-      downloadUrl: SAMPLE_VIDEO_URL,
+      downloadUrl: SAMPLE_VIDEO_PATH,
       mimeType: "video/mp4",
       durationSeconds: 596,
       status: "active",
@@ -268,7 +282,7 @@ async function ensureVideoAndPlaylist(branchId, actorUid) {
     },
     { merge: true },
   );
-  console.log("Ensured external demo video + active playlist (no Storage upload)");
+  console.log("Ensured external promo video + active playlist (no Storage upload)");
 }
 
 async function verifyBranch() {
@@ -286,18 +300,18 @@ async function verifyBranch() {
 }
 
 async function main() {
-  const user = await ensureDemoUser();
+  const user = await ensureAdminUser();
   await ensureGlobalSettings();
-  const branchId = await ensureBranch(user.uid, DEMO_DISPLAY_NAME);
+  const branchId = await ensureBranch(user.uid, SEED_ADMIN_NAME);
   await ensureCurrencies();
-  await ensureExchangeRates(branchId, user.uid, DEMO_DISPLAY_NAME);
+  await ensureExchangeRates(branchId, user.uid, SEED_ADMIN_NAME);
   await ensureTicker(branchId, user.uid);
   await ensureVideoAndPlaylist(branchId, user.uid);
   await verifyBranch();
 
   console.log("\nProduction seed complete.");
-  console.log(`Display: https://moneyexchange.pages.dev/display?branch=${BRANCH_CODE}`);
-  console.log(`Test login: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
+  console.log(`Display: https://moneyexchange-35c33.web.app/display?branch=${BRANCH_CODE}`);
+  console.log(`Admin login: ${SEED_ADMIN_EMAIL} / ${SEED_ADMIN_PASSWORD}`);
   console.log("Super admin (Google): abubackerraiyan@gmail.com");
 }
 

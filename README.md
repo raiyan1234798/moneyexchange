@@ -80,13 +80,13 @@ Open [http://localhost:3000](http://localhost:3000) (or the next available port 
 8. **TV Devices** → register TV → copy pairing code
 9. Open **http://localhost:3000/tv/setup** → enter code → TV player shows video + rates + slogan
 
-Sample external video URL for testing:
-`https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4`
+Sample external video URL for testing (use your own hosted MP4 in production):
+`https://example.com/promo.mp4`
 
 
-## Production / demo data seed
+## Production data seed
 
-The hosted display (`/display?branch=DXB01`) and email/password demo login require Firestore data and an Auth user. **Do not commit service account keys.**
+The hosted display (`/display?branch=DXB01`) and initial admin login require Firestore data and an Auth user. **Do not commit service account keys.**
 
 ### One-command seed (recommended)
 
@@ -105,7 +105,7 @@ This creates:
 
 | Item | Details |
 |------|---------|
-| Demo super admin | `demo@moneyexchange.local` / `Demo123456!` |
+| Initial super admin | `demo@moneyexchange.local` / `Demo123456!` |
 | Branch | `DXB01` — Dubai Main (`branches/dxb01-main`) |
 | Currencies | USD, GBP, EUR, AED |
 | Exchange rates | Published buy/sell per currency for `DXB01` |
@@ -133,7 +133,7 @@ console.log(snap.empty ? 'MISSING' : snap.docs[0].data());
 curl -sI "https://moneyexchange.pages.dev/display?branch=DXB01" | head -5
 ```
 
-Open [https://moneyexchange.pages.dev/display?branch=DXB01](https://moneyexchange.pages.dev/display?branch=DXB01) — you should see rates, ticker, and demo video (not “Branch not found”).
+Open [https://moneyexchange.pages.dev/display?branch=DXB01](https://moneyexchange.pages.dev/display?branch=DXB01) — you should see rates, ticker, and video (not “Branch not found”).
 
 ### Manual seed (no script)
 

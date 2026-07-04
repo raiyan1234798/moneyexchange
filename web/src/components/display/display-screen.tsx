@@ -8,12 +8,6 @@ import { subscribeImageAdverts } from "@/lib/services/image-advert-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVideoBlobUrl } from "@/lib/services/video-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
-import {
-  DEMO_VIDEO_URL,
-  getDemoBranch,
-  getDemoRates,
-  getDemoTickers,
-} from "@/lib/demo-content";
 import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { UnimoniPromoPanel } from "@/components/display/unimoni-promo-panel";
@@ -23,7 +17,6 @@ import type { Branch, ExchangeRate, ImageAdvert, TickerMessage, VideoAsset } fro
 
 interface DisplayScreenProps {
   branchId?: string;
-  demoMode?: boolean;
 }
 
 interface TimedRatesPanelProps {
@@ -49,10 +42,10 @@ function TimedRatesPanel({ rates, displaySeconds, showBuyRate, showSellRate }: T
   );
 }
 
-export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps) {
-  const [branch, setBranch] = useState<Branch | null>(demoMode ? getDemoBranch() : null);
-  const [rates, setRates] = useState<ExchangeRate[]>(demoMode ? getDemoRates() : []);
-  const [tickers, setTickers] = useState<TickerMessage[]>(demoMode ? getDemoTickers() : []);
+export function DisplayScreen({ branchId }: DisplayScreenProps) {
+  const [branch, setBranch] = useState<Branch | null>(null);
+  const [rates, setRates] = useState<ExchangeRate[]>([]);
+  const [tickers, setTickers] = useState<TickerMessage[]>([]);
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [images, setImages] = useState<ImageAdvert[]>([]);
   const [videoIndex, setVideoIndex] = useState(0);
@@ -88,7 +81,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
   }, []);
 
   useEffect(() => {
-    if (demoMode || !branchId) return;
+    if (!branchId) return;
 
     const unsubBranch = subscribeBranch(branchId, setBranch);
     const unsubRates = subscribeExchangeRates(branchId, setRates);
@@ -103,7 +96,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
       unsubVideos();
       unsubImages();
     };
-  }, [branchId, demoMode]);
+  }, [branchId]);
 
   const activeVideos = useMemo(
     () => videos.filter((video) => video.status === "active"),
@@ -133,19 +126,17 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
   }, [activeVideo]);
 
   const branchVideoUrl = useMemo(() => {
-    if (demoMode) return DEMO_VIDEO_URL;
     if (!activeVideo) return null;
-    if (activeVideo.downloadUrl === DEMO_VIDEO_URL) return DEMO_VIDEO_URL;
     if (isChunkedVideo(activeVideo)) return chunkedVideoUrl || null;
     if (activeVideo.sourceType === "external") return playbackUrl || null;
     return cachedStorageUrl ?? playbackUrl ?? null;
-  }, [activeVideo, chunkedVideoUrl, cachedStorageUrl, demoMode, playbackUrl]);
+  }, [activeVideo, chunkedVideoUrl, cachedStorageUrl, playbackUrl]);
 
   const branchImageUrl = useMemo(() => {
-    if (demoMode || !activeImage) return null;
+    if (!activeImage) return null;
     if (activeVideos.length > 0 && videoLoaded && !videoError) return null;
     return activeImage.downloadUrl;
-  }, [activeImage, activeVideos.length, demoMode, videoError, videoLoaded]);
+  }, [activeImage, activeVideos.length, videoError, videoLoaded]);
 
   const activeTicker = tickers[0];
   const tickerText = useMemo(() => {
@@ -232,7 +223,7 @@ export function DisplayScreen({ branchId, demoMode = false }: DisplayScreenProps
       videoUrl={branchVideoUrl && !videoError ? branchVideoUrl : null}
       imageUrl={branchImageUrl}
       videoLoaded={videoLoaded}
-      loopVideo={demoMode || activeVideos.length <= 1}
+      loopVideo={activeVideos.length <= 1}
       onVideoLoaded={() => {
         setVideoLoaded(true);
         setVideoError(false);

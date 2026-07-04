@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Unimoni Signage Recording</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 100%; height: 100%; overflow: hidden; font-family: Arial, Helvetica, sans-serif; }
+      .screen { display: flex; flex-direction: column; width: 100vw; height: 100vh; background: #000; }
+      .main { display: flex; flex: 1; min-height: 0; }
+      .promo {
+        width: 60%;
+        background: linear-gradient(to bottom, #d9ecfb, #eef6fd 45%, #fff 100%);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .landmarks {
+        height: 38%;
+        min-height: 140px;
+        background: url("../web/public/unimoni-landmarks.png") center top / cover no-repeat;
+        position: relative;
+      }
+      .landmarks::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.3));
+      }
+      .promo-body {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        gap: 2.5rem;
+        padding: 0 3.5rem 2rem;
+      }
+      .clock { width: 9rem; height: 9rem; flex-shrink: 0; }
+      .promo-text { color: #001f3f; font-weight: 700; text-transform: uppercase; line-height: 1.05; }
+      .promo-text .line1 { font-size: 2.2rem; }
+      .promo-text .line2 { font-size: 6.5rem; }
+      .promo-text .line3 { font-size: 2.75rem; }
+      .rates {
+        width: 40%;
+        background: #001f3f;
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+      }
+      .rates-header {
+        background: #0088e8;
+        text-align: center;
+        font-size: 1.65rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 0.85rem 1rem;
+      }
+      .rates-columns, .rate-row {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr 1fr;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.45rem 0.75rem;
+      }
+      .rates-columns {
+        font-size: 1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+      }
+      .rates-columns span:nth-child(2),
+      .rates-columns span:nth-child(3) { text-align: center; }
+      .rates-body { flex: 1; display: flex; flex-direction: column; justify-content: space-between; padding: 0.25rem 0.5rem; }
+      .rate-row .code { font-size: 1.15rem; font-weight: 700; padding-left: 0.25rem; }
+      .box {
+        text-align: center;
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: #001f3f;
+        border-radius: 2px;
+        padding: 0.15rem 0.25rem;
+      }
+      .buy { background: #fff; }
+      .sell { background: #b8d9f5; }
+      .usd-note {
+        font-size: 0.8rem;
+        padding: 0.5rem 0.75rem 0.75rem;
+        line-height: 1.3;
+      }
+      .usd-note .usd { color: #007bff; }
+      .ticker {
+        height: 4.5rem;
+        background: #001f3f;
+        overflow: hidden;
+        position: relative;
+      }
+      .ticker-track {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        white-space: nowrap;
+        padding-left: 100vw;
+        font-size: 2.25rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #fff;
+        animation: scroll 35s linear infinite;
+      }
+      @keyframes scroll {
+        from { transform: translateX(0); }
+        to { transform: translateX(calc(-100% - 100vw)); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="screen">
+      <div class="main">
+        <section class="promo">
+          <div class="landmarks"></div>
+          <div class="promo-body">
+            <svg class="clock" viewBox="0 0 120 120" aria-hidden="true">
+              <circle cx="60" cy="60" r="56" fill="none" stroke="#001f3f" stroke-width="3"></circle>
+              <line x1="60" y1="60" x2="60" y2="28" stroke="#001f3f" stroke-width="4" stroke-linecap="round"></line>
+              <line x1="60" y1="60" x2="82" y2="42" stroke="#001f3f" stroke-width="3" stroke-linecap="round"></line>
+              <circle cx="60" cy="60" r="4" fill="#001f3f"></circle>
+            </svg>
+            <div class="promo-text">
+              <div class="line1">Send money to</div>
+              <div class="line2">India</div>
+              <div class="line3">In 5 minutes</div>
+            </div>
+          </div>
+        </section>
+        <aside class="rates">
+          <div class="rates-header">Exchange rates</div>
+          <div class="rates-columns"><span></span><span>Buy</span><span>Sell</span></div>
+          <div class="rates-body" id="rates"></div>
+          <p class="usd-note">WE BUY <span class="usd">USD</span> 20, 10, 5, 2 &amp; 1 @ 3400</p>
+        </aside>
+      </div>
+      <footer class="ticker">
+        <div class="ticker-track">WELCOME TO UNIMONI KISEMENT</div>
+      </footer>
+    </div>
+    <script>
+      const rows = [
+        ["USD", "3625", "3685"], ["GBP", "4725", "4975"], ["EUR", "4095", "4315"],
+        ["AUD", "2060", "2700"], ["CAD", "2200", "3600"], ["CHF", "3010", "4500"],
+        ["KES", "27.3", "30"], ["ZAR", "195", "350"], ["TZS", "1.3", "1.65"],
+        ["RWF", "1.55", "4.0"], ["SAR", "830", "1120"], ["AED", "870", "1250"],
+      ];
+      document.getElementById("rates").innerHTML = rows.map(([code, buy, sell]) => `
+        <div class="rate-row">
+          <span class="code">${code}</span>
+          <span class="box buy">${buy}</span>
+          <span class="box sell">${sell}</span>
+        </div>`).join("");
+    </script>
+  </body>
+</html>

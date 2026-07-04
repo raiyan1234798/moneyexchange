@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { DisplayUrlCard } from "@/components/shared/display-url-card";
-import { LoadDemoContentButton } from "@/components/shared/load-demo-content-button";
 import {
   ContentPanel,
   DataTable,
@@ -40,8 +39,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
-import { getDisplayUrl, DEMO_DISPLAY_PATH, normalizeBranchCode } from "@/lib/display-url";
-import { DEMO_BRANCH_CODE } from "@/lib/demo-content";
+import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
 import { createBranch, disableBranch, subscribeBranches } from "@/lib/services/branch-service";
 import type { Branch } from "@/lib/types";
 
@@ -88,7 +86,6 @@ export default function BranchesPage() {
       ? displayBranchId
       : (activeBranches[0]?.id ?? "");
   const displayBranch = activeBranches.find((b) => b.id === resolvedDisplayBranchId);
-  const demoBranch = branches.find((b) => normalizeBranchCode(b.code) === DEMO_BRANCH_CODE);
 
   useEffect(() => {
     return subscribeBranches(setBranches);
@@ -138,13 +135,6 @@ export default function BranchesPage() {
       <PageShell accent="violet">
         {hasPermission("createBranch") ? (
           <PageActions>
-            {user && profile ? (
-              <LoadDemoContentButton
-                userId={user.uid}
-                userName={profile.displayName || profile.email}
-                variant="outline"
-              />
-            ) : null}
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add Branch</Button>} />
               <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-lg">
@@ -230,34 +220,6 @@ export default function BranchesPage() {
           />
         ) : (
           <>
-            <ContentPanel
-              title="Client Preview"
-              description="Share this URL for an instant demo display — no branch setup required"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <code className="rounded-lg bg-muted px-3 py-2 text-sm">{DEMO_DISPLAY_PATH}</code>
-                <Button
-                  variant="outline"
-                  className="rounded-xl"
-                  render={
-                    <a href={DEMO_DISPLAY_PATH} target="_blank" rel="noreferrer">
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Open Demo Display
-                    </a>
-                  }
-                />
-              </div>
-            </ContentPanel>
-
-            {demoBranch ? (
-              <ContentPanel
-                title="Demo Branch Display"
-                description="Share this URL with clients — loads rates, video, and ticker after Load Demo Content"
-              >
-                <DisplayUrlCard branchCode={demoBranch.code} branchName={demoBranch.name} />
-              </ContentPanel>
-            ) : null}
-
             {displayBranch ? (
               <ContentPanel title="Launch Display" description="Copy or scan to open signage on any screen">
                 {activeBranches.length > 1 ? (

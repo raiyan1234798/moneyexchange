@@ -8,8 +8,6 @@ import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { GettingStartedChecklist } from "@/components/shared/getting-started-checklist";
 import { DisplayUrlCard } from "@/components/shared/display-url-card";
-import { LoadDemoContentButton } from "@/components/shared/load-demo-content-button";
-import { Button } from "@/components/ui/button";
 import {
   ContentPanel,
   PageLoader,
@@ -26,12 +24,12 @@ import { subscribeTickers } from "@/lib/services/ticker-service";
 import { subscribeVideos } from "@/lib/services/video-service";
 import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
-import { DEMO_DISPLAY_PATH, getDisplayUrl } from "@/lib/display-url";
+import { getDisplayUrl } from "@/lib/display-url";
 import type { AuditLog, DashboardStats } from "@/lib/types";
 import { StatusBadge } from "@/components/shared/page-elements";
 
 export default function DashboardOverviewPage() {
-  const { user, profile, isBranchManager, isSuperAdmin } = useAuth();
+  const { isBranchManager } = useAuth();
   const { branches, effectiveBranchId } = useBranchScope();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentLogs, setRecentLogs] = useState<AuditLog[]>([]);
@@ -195,40 +193,6 @@ export default function DashboardOverviewPage() {
         accent="violet"
       />
       <PageShell accent="violet">
-        {isSuperAdmin && user && profile ? (
-          <ContentPanel
-            title="Client Demo"
-            description="One-click sample branch with rates, video, and scrolling messages for client previews"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                Creates branch <strong className="font-mono text-foreground">DEMO</strong> with sample exchange rates,
-                your demo video (<code className="text-xs">/demo-video.mp4</code>), and ticker text. Share{" "}
-                <Link href={DEMO_DISPLAY_PATH} target="_blank" className="font-mono text-primary underline-offset-4 hover:underline">
-                  /display/demo
-                </Link>{" "}
-                for an instant client preview — no Firestore setup required.
-              </p>
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
-                <Button
-                  variant="outline"
-                  className="rounded-xl"
-                  render={
-                    <Link href={DEMO_DISPLAY_PATH} target="_blank" rel="noreferrer">
-                      <Monitor className="mr-2 h-4 w-4" />
-                      Open Demo Display
-                    </Link>
-                  }
-                />
-                <LoadDemoContentButton
-                  userId={user.uid}
-                  userName={profile.displayName || profile.email}
-                />
-              </div>
-            </div>
-          </ContentPanel>
-        ) : null}
-
         <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-5">
           <StatCard title="Branches" value={stats?.totalBranches ?? 0} loading={loading} accent="violet" icon={Building2} />
           <StatCard title="Active Branches" value={stats?.totalBranches ?? 0} hint="Locations" loading={loading} accent="emerald" icon={Monitor} />

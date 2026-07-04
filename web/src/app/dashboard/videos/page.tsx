@@ -33,7 +33,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MAX_VIDEO_UPLOAD_BYTES, MAX_CHUNKED_VIDEO_BYTES, RECOMMENDED_VIDEO_FORMATS, WARN_LARGE_VIDEO_BYTES } from "@/lib/constants";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
-import { DEMO_VIDEO_URL } from "@/lib/demo-content";
 import {
   addExternalVideo,
   deleteVideo,
@@ -300,7 +299,7 @@ export default function VideosPage() {
                   <Input
                     value={externalUrl}
                     onChange={(e) => setExternalUrl(e.target.value)}
-                    placeholder={DEMO_VIDEO_URL}
+                    placeholder="https://example.com/promo.mp4"
                     className="rounded-xl"
                   />
                 </div>

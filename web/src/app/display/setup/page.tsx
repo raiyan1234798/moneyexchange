@@ -77,10 +77,7 @@ function DisplaySetupContent() {
           </Button>
 
           <p className="mt-4 text-center text-xs text-zinc-600">
-            Demo:{" "}
-            <a href="/display?branch=DXB01" className="text-emerald-500/80 underline-offset-4 hover:underline">
-              /display?branch=DXB01
-            </a>
+            Need a branch code? Ask your administrator or sign in to Dashboard → Branches.
           </p>
 
           <div className="mt-6 rounded-2xl border border-white/8 bg-black/30 p-5">
