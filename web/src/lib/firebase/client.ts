@@ -48,10 +48,11 @@ function createFirestore(app: FirebaseApp): Firestore {
       }),
     });
   } catch (error) {
-    console.warn("Firestore persistent cache unavailable, using memory cache:", error);
+    console.warn("Firestore multi-tab cache unavailable, falling back to memory cache:", error);
     try {
       return initializeFirestore(app, { localCache: memoryLocalCache() });
-    } catch {
+    } catch (memoryError) {
+      console.warn("Firestore memory cache init failed, using default:", memoryError);
       return getFirestore(app);
     }
   }

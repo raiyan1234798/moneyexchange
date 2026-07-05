@@ -7,19 +7,28 @@ import { useAuth } from "@/contexts/auth-context";
 import { NAV_ITEMS } from "@/lib/constants";
 import type { UserRole } from "@/lib/types";
 
+function normalizePath(pathname: string): string {
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return pathname.slice(0, -1);
+  }
+  return pathname;
+}
+
 function getDefaultPath(role: UserRole): string {
   return role === "branchUser" ? "/dashboard/exchange-rates" : "/dashboard";
 }
 
 function isPathAllowed(pathname: string, role: UserRole): boolean {
-  if (pathname === "/dashboard/profile" || pathname.startsWith("/dashboard/profile/")) {
+  const path = normalizePath(pathname);
+
+  if (path === "/dashboard/profile" || path.startsWith("/dashboard/profile/")) {
     return true;
   }
 
   return NAV_ITEMS.some((item) => {
     if (!item.roles.includes(role)) return false;
-    if (item.href === "/dashboard") return pathname === "/dashboard";
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (item.href === "/dashboard") return path === "/dashboard";
+    return path === item.href || path.startsWith(`${item.href}/`);
   });
 }
 
@@ -40,16 +49,18 @@ export function DashboardRouteGuard({ children }: { children: React.ReactNode })
 
   if (loading || !profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Loading dashboard…</p>
       </div>
     );
   }
 
   if (!allowed) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm text-muted-foreground">Redirecting…</p>
       </div>
     );
   }

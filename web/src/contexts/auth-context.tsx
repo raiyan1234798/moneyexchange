@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -21,9 +22,12 @@ import {
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/client";
 import {
+  buildSuperAdminFallbackProfile,
   ensureUserProfile,
+  isSuperAdminEmail,
   ProfileAccessError,
   signOutIfProfileDenied,
+  withFirestoreTimeout,
 } from "@/lib/auth/user-profile";
 import { toast } from "sonner";
 import { writeAuditLog } from "@/lib/firebase/firestore";
@@ -36,14 +40,19 @@ import {
   SUPER_ADMIN_PERMISSIONS,
 } from "@/lib/constants";
 
+export type AuthLoadingPhase = "auth" | "profile" | null;
+
 interface AuthContextValue {
   user: User | null;
   profile: AppUser | null;
   loading: boolean;
+  loadingPhase: AuthLoadingPhase;
+  profileError: string | null;
   permissions: string[];
   login: (email: string, password: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
   isSuperAdmin: boolean;
   isAdmin: boolean;
@@ -53,7 +62,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const PROFILE_LOAD_TIMEOUT_MS = 15_000;
+const PROFILE_LOAD_TIMEOUT_MS = 8_000;
+const AUTH_LOADING_SAFETY_MS = 8_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -72,9 +82,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
 }
 
 async function finalizeLogin(firebaseUser: User, profile: AppUser): Promise<void> {
-  await updateDoc(doc(db, COLLECTIONS.users, firebaseUser.uid), {
-    lastLoginAt: serverTimestamp(),
-  }).catch(() => undefined);
+  await withFirestoreTimeout(
+    updateDoc(doc(db, COLLECTIONS.users, firebaseUser.uid), {
+      lastLoginAt: serverTimestamp(),
+    }),
+    "Login timestamp update",
+  ).catch(() => undefined);
 
   await writeAuditLog({
     action: "login",
@@ -82,46 +95,96 @@ async function finalizeLogin(firebaseUser: User, profile: AppUser): Promise<void
     userId: firebaseUser.uid,
     userName: profile.displayName || firebaseUser.email || "Unknown",
     branchId: profile.branchId ?? null,
-  });
+  }).catch(() => undefined);
+}
+
+async function resolveUserProfile(firebaseUser: User): Promise<AppUser> {
+  try {
+    return await withTimeout(
+      ensureUserProfile(firebaseUser),
+      PROFILE_LOAD_TIMEOUT_MS,
+      "Profile load timed out",
+    );
+  } catch (error) {
+    const email = firebaseUser.email ?? "";
+    if (email && isSuperAdminEmail(email)) {
+      console.warn("Profile load failed for super admin, using fallback", error);
+      return buildSuperAdminFallbackProfile(firebaseUser);
+    }
+    throw error;
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingPhase, setLoadingPhase] = useState<AuthLoadingPhase>("auth");
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const authGenerationRef = useRef(0);
+
+  const loadProfileForUser = useCallback(async (firebaseUser: User) => {
+    const generation = ++authGenerationRef.current;
+    setLoading(true);
+    setLoadingPhase("profile");
+    setProfileError(null);
+
+    try {
+      const userProfile = await resolveUserProfile(firebaseUser);
+      if (generation !== authGenerationRef.current) return;
+      setProfile(userProfile);
+    } catch (error) {
+      if (generation !== authGenerationRef.current) return;
+      console.error("Failed to load user profile", error);
+      const message =
+        error instanceof ProfileAccessError
+          ? error.message
+          : error instanceof Error && error.message === "Profile load timed out"
+            ? "Sign-in timed out. Check your connection and try again."
+            : "Could not load your profile. Please try again.";
+      setProfileError(message);
+      if (error instanceof ProfileAccessError) {
+        toast.error(error.message);
+      } else if (error instanceof Error && error.message === "Profile load timed out") {
+        toast.error(message);
+      }
+      await signOutIfProfileDenied(error);
+      setProfile(null);
+    } finally {
+      if (generation === authGenerationRef.current) {
+        setLoading(false);
+        setLoadingPhase(null);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       if (!firebaseUser) {
+        authGenerationRef.current += 1;
         setProfile(null);
+        setProfileError(null);
         setLoading(false);
+        setLoadingPhase(null);
         return;
       }
 
-      try {
-        const userProfile = await withTimeout(
-          ensureUserProfile(firebaseUser),
-          PROFILE_LOAD_TIMEOUT_MS,
-          "Profile load timed out",
-        );
-        setProfile(userProfile);
-      } catch (error) {
-        console.error("Failed to load user profile", error);
-        if (error instanceof ProfileAccessError) {
-          toast.error(error.message);
-        } else if (error instanceof Error && error.message === "Profile load timed out") {
-          toast.error("Sign-in timed out. Check your connection and try again.");
-        }
-        await signOutIfProfileDenied(error);
-        setProfile(null);
-      } finally {
-        setLoading(false);
-      }
+      void loadProfileForUser(firebaseUser);
     });
 
     return unsubscribe;
-  }, []);
+  }, [loadProfileForUser]);
+
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+      setLoadingPhase(null);
+      setProfileError((current) => current ?? "Sign-in is taking longer than expected. Please retry.");
+    }, AUTH_LOADING_SAFETY_MS);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const permissions = useMemo<string[]>(() => {
     if (!profile) return [];
@@ -144,10 +207,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [permissions],
   );
 
+  const refreshProfile = useCallback(async () => {
+    const firebaseUser = auth.currentUser;
+    if (!firebaseUser) return;
+    await loadProfileForUser(firebaseUser);
+  }, [loadProfileForUser]);
+
   const login = useCallback(async (email: string, password: string) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     try {
-      const userProfile = await ensureUserProfile(credential.user);
+      const userProfile = await resolveUserProfile(credential.user);
+      setProfile(userProfile);
       await finalizeLogin(credential.user, userProfile);
     } catch (error) {
       await signOutIfProfileDenied(error);
@@ -183,7 +253,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const userProfile = await ensureUserProfile(credential.user);
+      const userProfile = await resolveUserProfile(credential.user);
+      setProfile(userProfile);
       await finalizeLogin(credential.user, userProfile);
     } catch (error) {
       await signOutIfProfileDenied(error);
@@ -201,7 +272,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         userId: user.uid,
         userName: profile.displayName || user.email || "Unknown",
         branchId: profile.branchId ?? null,
-      });
+      }).catch(() => undefined);
     }
     await signOut(auth);
   }, [profile, user]);
@@ -210,10 +281,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     profile,
     loading,
+    loadingPhase,
+    profileError,
     permissions,
     login,
     loginWithGoogle,
     logout,
+    refreshProfile,
     hasPermission,
     isSuperAdmin: profile?.role === "superAdmin",
     isAdmin: profile?.role === "admin",
