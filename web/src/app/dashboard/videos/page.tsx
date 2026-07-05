@@ -50,7 +50,6 @@ import {
 import { getDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import {
-  addImageAdvertUrl,
   deleteImageAdvert,
   subscribeImageAdverts,
   uploadImageAdvert,

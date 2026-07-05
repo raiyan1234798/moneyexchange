@@ -184,7 +184,7 @@ export default function LoginPage() {
             </Button>
 
             <p className="mt-7 text-center text-sm text-muted-foreground">
-              <Link href="/" className="underline underline-offset-4 transition-colors hover:text-[var(--unimoni-blue-light)]">
+              <Link href="/" className="underline underline-offset-4 transition-colors hover:text-[var(--brand-primary)]">
                 Back to home
               </Link>
             </p>

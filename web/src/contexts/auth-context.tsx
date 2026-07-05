@@ -24,6 +24,7 @@ import {
   ProfileAccessError,
   signOutIfProfileDenied,
 } from "@/lib/auth/user-profile";
+import { toast } from "sonner";
 import { writeAuditLog } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import type { AppUser, UserRole } from "@/lib/types";
@@ -106,6 +107,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(userProfile);
       } catch (error) {
         console.error("Failed to load user profile", error);
+        if (error instanceof ProfileAccessError) {
+          toast.error(error.message);
+        } else if (error instanceof Error && error.message === "Profile load timed out") {
+          toast.error("Sign-in timed out. Check your connection and try again.");
+        }
         await signOutIfProfileDenied(error);
         setProfile(null);
       } finally {
