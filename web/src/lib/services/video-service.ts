@@ -314,7 +314,11 @@ export async function uploadVideo(
 
     return id;
   } catch (error) {
-    if (!isStorageUnavailableError(error)) {
+    const shouldFallback =
+      isStorageUnavailableError(error) ||
+      (error instanceof Error && error.message === STORAGE_UNAVAILABLE_MESSAGE);
+
+    if (!shouldFallback) {
       throw error instanceof Error ? error : new Error("Upload failed");
     }
 

@@ -136,7 +136,7 @@ export default function TickersPage() {
                     <Input
                       value={logoUrl}
                       onChange={(e) => setLogoUrl(e.target.value)}
-                      placeholder={branch?.logoUrl ?? "https://example.com/logo.png"}
+                      placeholder={branch?.settings?.tickerLogoUrl ?? "Leave blank for default Unimoni logo (/unimoni-logo-on-dark.svg)"}
                       className="rounded-xl"
                     />
                   </div>

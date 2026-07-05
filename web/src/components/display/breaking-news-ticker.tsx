@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
@@ -45,12 +45,6 @@ function BreakingNewsTickerInner({
   const [scrolling, setScrolling] = useState(!paused);
 
   const activeText = messages[messageIndex] ?? "";
-
-  useEffect(() => {
-    setMessageIndex(0);
-    setCycle(0);
-    setScrolling(!paused);
-  }, [messages, paused]);
 
   const handleAnimationEnd = useCallback(() => {
     setScrolling(false);

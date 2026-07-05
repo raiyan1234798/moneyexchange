@@ -17,11 +17,11 @@ const fadeIn = {
 export type SectionAccent = "violet" | "emerald" | "sky" | "amber" | "rose" | "default";
 
 const accentMap: Record<SectionAccent, string> = {
-  default: "from-[var(--unimoni-blue)]/10 to-transparent",
-  violet: "from-[var(--unimoni-blue)]/18 via-[var(--unimoni-blue)]/5 to-transparent",
-  emerald: "from-emerald-500/18 via-emerald-500/5 to-transparent",
-  sky: "from-[var(--unimoni-blue-light)]/18 via-[var(--unimoni-blue-light)]/5 to-transparent",
-  amber: "from-[var(--unimoni-gold)]/18 via-[var(--unimoni-gold)]/5 to-transparent",
+  default: "from-[var(--brand-primary-light)]/10 to-transparent",
+  violet: "from-[var(--brand-primary-light)]/18 via-[var(--brand-primary-light)]/5 to-transparent",
+  emerald: "from-[var(--brand-live)]/18 via-[var(--brand-live)]/5 to-transparent",
+  sky: "from-[#14B8A6]/18 via-[#14B8A6]/5 to-transparent",
+  amber: "from-[var(--brand-accent)]/18 via-[var(--brand-accent)]/5 to-transparent",
   rose: "from-rose-500/18 via-rose-500/5 to-transparent",
 };
 
@@ -78,8 +78,8 @@ export function StatCard({
             {title}
           </CardTitle>
           {Icon ? (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--unimoni-blue)]/10">
-              <Icon className="h-4 w-4 text-[var(--unimoni-blue)]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand-accent)]/10">
+              <Icon className="h-4 w-4 text-[var(--brand-accent)]" />
             </div>
           ) : null}
         </CardHeader>
@@ -240,7 +240,7 @@ export function StatusBadge({
     warning: "bg-amber-500/12 text-amber-700 dark:text-amber-300 ring-amber-500/20",
     danger: "bg-red-500/12 text-red-700 dark:text-red-300 ring-red-500/20",
     neutral: "bg-muted text-muted-foreground ring-border/50",
-    info: "bg-[var(--unimoni-blue)]/12 text-[var(--unimoni-blue)] dark:text-[var(--unimoni-blue-light)] ring-[var(--unimoni-blue)]/20",
+    info: "bg-[var(--brand-primary-light)]/12 text-[var(--brand-primary-light)] dark:text-[var(--brand-accent)] ring-[var(--brand-accent)]/20",
   };
 
   return (
@@ -371,7 +371,7 @@ export function QuickActions({
                 action.accent ? accentMap[action.accent] : "",
               )}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--unimoni-blue)] text-white transition-transform group-hover:scale-105">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-accent)] text-[var(--brand-primary)] transition-transform group-hover:scale-105">
                 <Icon className="h-4 w-4" />
               </div>
               <div className="min-w-0">

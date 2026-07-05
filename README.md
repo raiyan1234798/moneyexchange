@@ -1,6 +1,6 @@
-# MoneyExchangeTV
+# Unimoney Money Exchange
 
-Enterprise-grade money exchange management platform with centralized administration, branch-wise management, Android TV digital signage, real-time exchange rate updates, offline playback, and Firebase backend.
+Enterprise-grade money exchange management platform with centralized administration, branch-wise management, browser-based digital signage, real-time exchange rate updates, offline playback, and Firebase backend.
 
 ## Stack
 
