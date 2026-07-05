@@ -12,6 +12,8 @@
     "deploy:hosting": "npm run build && npx firebase-tools@latest deploy --only hosting",
     "deploy:rules": "npx firebase-tools@latest deploy --only firestore:rules,storage",
     "deploy:functions": "npm --prefix functions run build && npx firebase-tools@latest deploy --only functions",
+    "deploy:pages": "npm run build && npx wrangler pages deploy out --project-name=moneyexchange --no-bundle",
+    "deploy:r2-worker": "npm --prefix workers/upload-video run deploy",
     "deploy:all": "npm run build && npm --prefix functions run build && npx firebase-tools@latest deploy",
     "seed:admin": "node scripts/seed-production.mjs",
     "seed:production": "node scripts/seed-production.mjs"

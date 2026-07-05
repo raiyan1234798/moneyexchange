@@ -34,10 +34,11 @@ import {
 } from "@/components/ui/alert-dialog";
 import { MAX_VIDEO_UPLOAD_BYTES, MAX_CHUNKED_VIDEO_BYTES, RECOMMENDED_VIDEO_FORMATS, WARN_LARGE_VIDEO_BYTES } from "@/lib/constants";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
+import { Badge } from "@/components/ui/badge";
 import {
+  CHUNKED_UPLOAD_WARNING,
   deleteVideo,
-  STORAGE_UNAVAILABLE_MESSAGE,
-  STORAGE_SETUP_URL,
+  isR2UploadConfigured,
   subscribeVideos,
   uploadVideo,
 } from "@/lib/services/video-service";
@@ -185,19 +186,23 @@ export default function VideosPage() {
 
     const resolvedTitle = resolveVideoTitle(title, deriveTitleFromFile(file));
     setUploading(true);
-    setProgress(0);
+    setProgress(1);
     try {
-      const videoId = await uploadVideo(
+      const { id: videoId, usedChunkFallback } = await uploadVideo(
         file,
         { title: resolvedTitle, branchId: effectiveBranchId, createdBy: user.uid },
         { userId: user.uid, userName: profile.displayName || profile.email },
         setProgress,
       );
 
+      if (usedChunkFallback) {
+        toast.warning(CHUNKED_UPLOAD_WARNING, { duration: 10000 });
+      }
+
       if (applyToAll && canApplyToAll && actor) {
         const uploaded = await getDocument<VideoAsset>(COLLECTIONS.videos, videoId);
         if (uploaded?.sourceType === "chunked") {
-          toast.warning("Chunked upload applied to this branch only — use a direct URL to sync to all branches.");
+          toast.warning("This upload is branch-only. Paste a video link to sync the same video to all branches.");
         } else if (uploaded) {
           const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, true).filter(
             (b) => b.id !== effectiveBranchId,
@@ -293,7 +298,7 @@ export default function VideosPage() {
     <>
       <DashboardHeader
         title="Videos"
-        description="Add branch signage videos by URL, Google Drive, or file upload. The newest active video plays on the display."
+        description="Add a promo video for your shop display. Pasting a link is fastest — uploads go to Cloudflare when configured."
         accent="rose"
       />
       <PageShell accent="rose">
@@ -307,18 +312,16 @@ export default function VideosPage() {
 
         <PreviewDisplayLink branchCode={branch?.code} />
 
-        <Alert className="rounded-xl border-border/40 bg-card/50">
+        <Alert className="rounded-xl border-emerald-500/25 bg-emerald-500/5">
           <AlertDescription className="text-sm leading-relaxed">
-            <strong className="text-foreground">Best format: MP4 (H.264)</strong> — works on all displays.
-            WebM and MOV are also accepted. Paste a direct URL for instant setup, or upload a file (Firebase
-            Storage when enabled, otherwise Firestore chunk storage up to{" "}
-            {MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB).
+            <strong className="text-foreground">Recommended: MP4 (H.264), max 50 MB</strong> — works on every TV
+            browser. For large files, paste a direct link instead of uploading.
             <span className="mt-1 block text-xs text-muted-foreground">{RECOMMENDED_VIDEO_FORMATS.join(" · ")}</span>
           </AlertDescription>
         </Alert>
 
         {canManageVideos && effectiveBranchId ? (
-          <ContentPanel title="Add Video" description="Choose the fastest option for your video source">
+          <ContentPanel title="Add Video" description="Choose how to add your promo video">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
                 checked={applyToAll}
@@ -329,13 +332,16 @@ export default function VideosPage() {
             ) : null}
             <Tabs defaultValue="external">
               <TabsList className="rounded-xl">
-                <TabsTrigger value="external" className="rounded-lg">Direct URL</TabsTrigger>
+                <TabsTrigger value="external" className="gap-2 rounded-lg">
+                  Paste video link
+                  <Badge className="bg-emerald-600 text-[10px] text-white hover:bg-emerald-600">Fastest</Badge>
+                </TabsTrigger>
+                <TabsTrigger value="upload" className="rounded-lg">Upload file</TabsTrigger>
                 <TabsTrigger value="drive" className="rounded-lg">Google Drive</TabsTrigger>
-                <TabsTrigger value="upload" className="rounded-lg">File Upload</TabsTrigger>
               </TabsList>
               <TabsContent value="external" className="mt-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Paste a direct MP4/WebM link — works instantly without Firebase Storage.
+                  Paste a direct MP4 or WebM link — no upload needed. Your display starts playing it right away.
                 </p>
                 <div className="space-y-2">
                   <Label>Title (optional)</Label>
@@ -361,15 +367,74 @@ export default function VideosPage() {
                   className="rounded-xl"
                 >
                   <Link2 className="mr-2 h-4 w-4" />
-                  Add Video URL
+                  Save video link
+                </Button>
+              </TabsContent>
+              <TabsContent value="upload" className="mt-4 space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {isR2UploadConfigured()
+                    ? "Upload goes to fast Cloudflare storage. Having trouble? Paste a direct video link instead."
+                    : "Upload a video file from your computer. Having trouble? Paste a direct video link instead."}
+                </p>
+                <div className="space-y-2">
+                  <Label>Title (optional)</Label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Defaults to filename"
+                    className="rounded-xl"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Video file (MP4 recommended — max {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)} MB)</Label>
+                  <Input
+                    type="file"
+                    accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.webm"
+                    onChange={(e) => {
+                      const selected = e.target.files?.[0] ?? null;
+                      setFile(selected);
+                      if (selected && !title.trim()) {
+                        setTitle(deriveTitleFromFile(selected));
+                      }
+                    }}
+                    className="rounded-xl"
+                  />
+                  {file ? (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
+                      {file.size > WARN_LARGE_VIDEO_BYTES ? (
+                        <span className="mt-1 block text-amber-600 dark:text-amber-400">
+                          Large file — compress to under 50 MB or paste a direct link for faster setup.
+                        </span>
+                      ) : null}
+                      {file.size > MAX_CHUNKED_VIDEO_BYTES && !isR2UploadConfigured() ? (
+                        <span className="mt-1 block text-amber-600 dark:text-amber-400">
+                          Files over {MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB need Cloudflare R2 or a direct link.
+                        </span>
+                      ) : null}
+                    </p>
+                  ) : null}
+                </div>
+                {uploading ? (
+                  <div className="space-y-2">
+                    <Progress value={progress} className="h-2" />
+                    <p className="text-xs text-muted-foreground">Uploading {Math.round(progress)}%…</p>
+                  </div>
+                ) : null}
+                <Button
+                  disabled={uploading || !file}
+                  onClick={() => void handleUpload()}
+                  className="rounded-xl"
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {uploading ? `Uploading ${Math.round(progress)}%` : "Upload Video"}
                 </Button>
               </TabsContent>
               <TabsContent value="drive" className="mt-4 space-y-4">
                 <Alert className="rounded-xl border-amber-500/30 bg-amber-500/5">
                   <Cloud className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-sm">
-                    Paste a Google Drive share link — we&apos;ll convert it automatically. Google may block playback in
-                    some browsers (CORS). For reliable signage, prefer a direct MP4 URL or file upload.
+                    Paste a Google Drive share link. For the most reliable playback, use a direct MP4 link instead.
                   </AlertDescription>
                 </Alert>
                 <div className="space-y-2">
@@ -401,68 +466,6 @@ export default function VideosPage() {
                   <Cloud className="mr-2 h-4 w-4" />
                   Add from Google Drive
                 </Button>
-              </TabsContent>
-              <TabsContent value="upload" className="mt-4 space-y-4">
-                <Alert className="rounded-xl border-border/40 bg-muted/20">
-                  <AlertDescription className="text-sm">
-                    Upload tries <strong>Firebase Storage</strong> first. If Storage is not enabled, files up to{" "}
-                    {MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB are stored via Firestore chunks automatically.
-                    Enable Storage in the{" "}
-                    <a
-                      href={STORAGE_SETUP_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline-offset-4 hover:underline"
-                    >
-                      Firebase console
-                    </a>{" "}
-                    (requires Blaze billing) for larger uploads up to {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)} MB.
-                  </AlertDescription>
-                </Alert>
-                <div className="space-y-2">
-                  <Label>Title (optional)</Label>
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Defaults to filename"
-                    className="rounded-xl"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>File (MP4, MOV, or WebM — max {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)}MB)</Label>
-                  <Input
-                    type="file"
-                    accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.webm"
-                    onChange={(e) => {
-                      const selected = e.target.files?.[0] ?? null;
-                      setFile(selected);
-                      if (selected && !title.trim()) {
-                        setTitle(deriveTitleFromFile(selected));
-                      }
-                    }}
-                    className="rounded-xl"
-                  />
-                  {file ? (
-                    <p className="text-xs text-muted-foreground">
-                      Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
-                      {file.size > WARN_LARGE_VIDEO_BYTES ? (
-                        <span className="mt-1 block text-amber-600 dark:text-amber-400">
-                          Large file — compress to under 50 MB for faster uploads and better display performance.
-                        </span>
-                      ) : null}
-                    </p>
-                  ) : null}
-                </div>
-                {uploading ? <Progress value={progress} className="h-2" /> : null}
-                <Button
-                  disabled={uploading || !file}
-                  onClick={() => void handleUpload()}
-                  className="rounded-xl"
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {uploading ? `Uploading ${Math.round(progress)}%` : "Upload Video"}
-                </Button>
-                <p className="text-xs text-muted-foreground">{STORAGE_UNAVAILABLE_MESSAGE}</p>
               </TabsContent>
             </Tabs>
           </ContentPanel>
@@ -566,9 +569,11 @@ export default function VideosPage() {
                       status={
                         v.sourceType === "chunked"
                           ? "chunked"
-                          : v.downloadUrl.includes("drive.google.com")
-                            ? "google_drive"
-                            : v.sourceType
+                          : v.sourceType === "r2"
+                            ? "cloud"
+                            : v.downloadUrl.includes("drive.google.com")
+                              ? "google_drive"
+                              : v.sourceType
                       }
                       variant={v.sourceType === "external" ? "info" : "neutral"}
                     />

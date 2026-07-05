@@ -10,6 +10,7 @@ import {
   Download,
   Eye,
   EyeOff,
+  FileSpreadsheet,
   Plus,
   Trash2,
   TrendingUp,
@@ -45,6 +46,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
+import { subscribeCollection, orderBy } from "@/lib/firebase/firestore";
+import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import {
   createCurrency,
   subscribeCurrencies,
@@ -72,7 +75,7 @@ import {
   parseRateFile,
   TEMPLATE_CURRENCIES,
 } from "@/lib/rate-import";
-import type { Currency, ExchangeRate, PendingApproval, SystemSettings } from "@/lib/types";
+import type { AuditLog, Currency, ExchangeRate, PendingApproval, SystemSettings } from "@/lib/types";
 
 const SETTINGS_ID = "global";
 
@@ -100,6 +103,7 @@ export default function ExchangeRatesPage() {
   const [currencyForm, setCurrencyForm] = useState(emptyCurrencyForm);
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [lastImport, setLastImport] = useState<{ count: number; at: Date } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
@@ -145,6 +149,37 @@ export default function ExchangeRatesPage() {
       (error) => toast.error(error.message || "Failed to load rates"),
     );
     return unsubscribe;
+  }, [effectiveBranchId]);
+
+  useEffect(() => {
+    if (!effectiveBranchId) return;
+    return subscribeCollection<AuditLog>(
+      COLLECTIONS.auditLogs,
+      [orderBy("timestamp", "desc")],
+      (logs) => {
+        const hit = logs.find(
+          (log) => log.action === "rate_bulk_import" && log.branchId === effectiveBranchId,
+        );
+        if (!hit) {
+          setLastImport(null);
+          return;
+        }
+        const at =
+          hit.timestamp instanceof Date
+            ? hit.timestamp
+            : typeof hit.timestamp === "object" &&
+                hit.timestamp !== null &&
+                "toDate" in hit.timestamp &&
+                typeof hit.timestamp.toDate === "function"
+              ? hit.timestamp.toDate()
+              : new Date();
+        setLastImport({
+          count: Number(hit.metadata?.count ?? 0),
+          at,
+        });
+      },
+      () => undefined,
+    );
   }, [effectiveBranchId]);
 
   async function initRates() {
@@ -352,10 +387,87 @@ export default function ExchangeRatesPage() {
     <>
       <DashboardHeader
         title="Exchange Rates"
-        description="Manage the global currency catalog and branch-specific buy/sell rates for displays."
+        description="Import rates from Excel or edit buy/sell values — changes appear on your TV display instantly."
         accent="emerald"
       />
       <PageShell accent="emerald">
+        {canManageRates && effectiveBranchId ? (
+          <div className="overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent p-5 sm:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-xl">
+                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                  <FileSpreadsheet className="h-5 w-5" />
+                  <p className="text-sm font-semibold">Import Rates from Excel</p>
+                </div>
+                <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
+                  Update all currencies in one upload
+                </h2>
+                <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+                  <li>
+                    <strong className="text-foreground">Step 1:</strong> Download the template (14 currencies)
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Step 2:</strong> Fill in <strong>WE BUY</strong> and{" "}
+                    <strong>WE SELL</strong> columns in Excel
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Step 3:</strong> Upload the file — rates appear on every
+                    display instantly
+                  </li>
+                </ol>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Columns: CURRENCY | WE BUY | WE SELL — {TEMPLATE_CURRENCIES.join(", ")}
+                </p>
+                {lastImport ? (
+                  <p className="mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                    Last import: {lastImport.count} currencies ·{" "}
+                    {safeFormatDistanceToNow(lastImport.at, { addSuffix: true })}
+                  </p>
+                ) : null}
+              </div>
+              <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void handleBulkUpload(file);
+                  }}
+                />
+                <Button
+                  size="lg"
+                  className="h-12 rounded-xl px-6"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 h-5 w-5" />
+                  {uploading ? "Importing..." : "Upload Excel File"}
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-12 rounded-xl px-6"
+                  onClick={() => downloadRateTemplateXlsx()}
+                >
+                  <Download className="mr-2 h-5 w-5" />
+                  Download Excel Template
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-xl text-muted-foreground"
+                  onClick={() => downloadRateTemplateCsv()}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  CSV template (alternative)
+                </Button>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {isSuperAdmin || isAdmin ? (
           <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
         ) : branch ? (
@@ -366,47 +478,7 @@ export default function ExchangeRatesPage() {
 
         <PreviewDisplayLink branchCode={branch?.code} />
 
-        {canManageRates && effectiveBranchId ? (
-          <ContentPanel
-            title="Bulk Excel Upload"
-            description="Upload CURRENCY | WE BUY | WE SELL — rates publish to this branch's display in real time."
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void handleBulkUpload(file);
-                }}
-              />
-              <Button
-                size="lg"
-                className="h-12 rounded-xl px-6"
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="mr-2 h-5 w-5" />
-                {uploading ? "Uploading..." : "Upload Excel / CSV"}
-              </Button>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateCsv()}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Template (CSV)
-                </Button>
-                <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateXlsx()}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Template (XLSX)
-                </Button>
-              </div>
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">
-              14 currencies: {TEMPLATE_CURRENCIES.join(", ")} — columns: CURRENCY | WE BUY | WE SELL
-            </p>
-          </ContentPanel>
-        ) : isAdmin && effectiveBranchId ? (
+        {isAdmin && effectiveBranchId && !canManageRates ? (
           <p className="text-sm text-muted-foreground">
             View-only access — you can see rates but cannot edit them.
           </p>

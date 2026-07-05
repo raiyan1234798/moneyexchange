@@ -9,9 +9,10 @@ import {
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { db, storage } from "@/lib/firebase/client";
-import { COLLECTIONS, MAX_CHUNKED_VIDEO_BYTES } from "@/lib/constants";
+import { COLLECTIONS, CHUNKED_UPLOAD_WARNING, MAX_CHUNKED_VIDEO_BYTES } from "@/lib/constants";
 import { assertBranchId } from "@/lib/branch-isolation";
 import { isChunkedVideo, loadChunkedVideoBlobUrl, uploadVideoChunks } from "@/lib/video-chunk-utils";
+import { deleteR2Object, isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
 import {
   inferVideoMimeType,
   isGoogleDriveUrl,
@@ -36,14 +37,16 @@ function sortVideos(videos: VideoAsset[]): VideoAsset[] {
 }
 
 export const STORAGE_UNAVAILABLE_MESSAGE =
-  "Firebase Storage is not enabled on this project. Uploads use Firestore chunk storage (up to 25 MB) or use the Direct URL tab.";
+  "Having trouble uploading? Paste a direct video link instead — it's instant and works on every display.";
 
 export const STORAGE_SETUP_URL =
   "https://console.firebase.google.com/project/moneyexchange-35c33/storage";
 
+export { CHUNKED_UPLOAD_WARNING };
+
 function uploadTimeoutMs(fileSizeBytes: number): number {
   const minutes = Math.ceil(fileSizeBytes / (1024 * 1024)) * 60_000;
-  return Math.min(Math.max(minutes, 120_000), 600_000);
+  return Math.min(Math.max(minutes, 60_000), 600_000);
 }
 
 function isStorageUnavailableError(error: unknown): boolean {
@@ -72,7 +75,7 @@ function mapStorageUploadError(error: unknown): Error {
     return new Error(STORAGE_UNAVAILABLE_MESSAGE);
   }
   if (code === "storage/canceled") {
-    return new Error("Upload timed out. Try a smaller file or use Direct URL.");
+    return new Error("Upload timed out. Try a smaller file or paste a direct video link.");
   }
   return error instanceof Error ? error : new Error("Upload failed");
 }
@@ -84,18 +87,23 @@ function waitForUpload(
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let settled = false;
+    onProgress?.(1);
 
     const timeoutId = setTimeout(() => {
       if (settled) return;
       settled = true;
       uploadTask.cancel();
-      reject(new Error("Upload timed out. Try a smaller file or use Direct URL."));
+      reject(new Error("Upload timed out. Try a smaller file or paste a direct video link."));
     }, timeoutMs);
 
     uploadTask.on(
       "state_changed",
       (snapshot) => {
-        onProgress?.((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        const pct =
+          snapshot.totalBytes > 0
+            ? (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+            : 1;
+        onProgress?.(Math.max(1, pct));
       },
       (error) => {
         if (settled) return;
@@ -107,6 +115,7 @@ function waitForUpload(
         if (settled) return;
         settled = true;
         clearTimeout(timeoutId);
+        onProgress?.(100);
         resolve();
       },
     );
@@ -126,6 +135,18 @@ async function deactivatePreviousBranchVideos(branchId: string): Promise<void> {
 
 async function removeChunkedVideoData(videoId: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTIONS.videoChunks, videoId)).catch(() => undefined);
+}
+
+async function removeStoredVideoBytes(video: VideoAsset): Promise<void> {
+  if (video.sourceType === "r2" && video.storagePath) {
+    await deleteR2Object(video.storagePath);
+  }
+  if (video.sourceType === "storage" && video.storagePath) {
+    await deleteObject(ref(storage, video.storagePath)).catch(() => undefined);
+  }
+  if (video.sourceType === "chunked") {
+    await removeChunkedVideoData(video.id);
+  }
 }
 
 export async function listVideos(branchId: string): Promise<VideoAsset[]> {
@@ -227,7 +248,7 @@ async function uploadVideoViaChunks(
 ): Promise<string> {
   if (file.size > MAX_CHUNKED_VIDEO_BYTES) {
     throw new Error(
-      `File exceeds ${MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)}MB Firestore fallback limit. Use Direct URL or enable Firebase Storage.`,
+      `File exceeds ${MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)}MB limit for slow fallback. Paste a direct video link or enable Cloudflare R2.`,
     );
   }
 
@@ -272,6 +293,48 @@ async function uploadVideoViaChunks(
   return videoId;
 }
 
+async function saveUploadedVideoDoc(
+  file: File,
+  metadata: {
+    title: string;
+    branchId: string;
+    description?: string;
+    createdBy: string;
+  },
+  upload: {
+    sourceType: "r2" | "storage";
+    storagePath: string;
+    downloadUrl: string;
+    mimeType: string;
+  },
+  actor: { userId: string; userName: string },
+): Promise<string> {
+  const id = await createDocument(COLLECTIONS.videos, {
+    title: metadata.title,
+    description: metadata.description ?? "",
+    branchId: metadata.branchId,
+    sourceType: upload.sourceType,
+    storagePath: upload.storagePath,
+    downloadUrl: upload.downloadUrl,
+    mimeType: upload.mimeType,
+    fileSizeBytes: file.size,
+    status: "active",
+    createdBy: metadata.createdBy,
+  });
+
+  await writeAuditLog({
+    action: upload.sourceType === "r2" ? "video_upload_r2" : "video_upload",
+    entityType: "video",
+    entityId: id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: metadata.branchId,
+    metadata: { title: metadata.title, fileSizeBytes: file.size, sourceType: upload.sourceType },
+  });
+
+  return id;
+}
+
 export async function uploadVideo(
   file: File,
   metadata: {
@@ -282,41 +345,33 @@ export async function uploadVideo(
   },
   actor: { userId: string; userName: string },
   onProgress?: (progress: number) => void,
-): Promise<string> {
+): Promise<{ id: string; usedChunkFallback: boolean }> {
   validateVideoFile(file);
+  onProgress?.(1);
   await deactivatePreviousBranchVideos(metadata.branchId);
 
+  if (isR2UploadConfigured()) {
+    try {
+      const r2 = await uploadVideoToR2(file, metadata.branchId, onProgress);
+      const id = await saveUploadedVideoDoc(file, metadata, { ...r2, sourceType: "r2" }, actor);
+      return { id, usedChunkFallback: false };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (!isStorageUnavailableError(error) && !/not configured/i.test(message)) {
+        console.warn("R2 upload failed, trying Firebase Storage:", error);
+      }
+    }
+  }
+
   try {
-    const { storagePath, downloadUrl, mimeType } = await uploadVideoToStorage(
+    const firebase = await uploadVideoToStorage(file, metadata.branchId, onProgress);
+    const id = await saveUploadedVideoDoc(
       file,
-      metadata.branchId,
-      onProgress,
+      metadata,
+      { ...firebase, sourceType: "storage" },
+      actor,
     );
-
-    const id = await createDocument(COLLECTIONS.videos, {
-      title: metadata.title,
-      description: metadata.description ?? "",
-      branchId: metadata.branchId,
-      sourceType: "storage",
-      storagePath,
-      downloadUrl,
-      mimeType,
-      fileSizeBytes: file.size,
-      status: "active",
-      createdBy: metadata.createdBy,
-    });
-
-    await writeAuditLog({
-      action: "video_upload",
-      entityType: "video",
-      entityId: id,
-      userId: actor.userId,
-      userName: actor.userName,
-      branchId: metadata.branchId,
-      metadata: { title: metadata.title, fileSizeBytes: file.size, sourceType: "storage" },
-    });
-
-    return id;
+    return { id, usedChunkFallback: false };
   } catch (error) {
     const shouldFallback =
       isStorageUnavailableError(error) ||
@@ -326,7 +381,8 @@ export async function uploadVideo(
       throw error instanceof Error ? error : new Error("Upload failed");
     }
 
-    return uploadVideoViaChunks(file, metadata, actor, onProgress);
+    const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
+    return { id, usedChunkFallback: true };
   }
 }
 
@@ -337,30 +393,48 @@ export async function replaceVideo(
   onProgress?: (progress: number) => void,
 ): Promise<void> {
   validateVideoFile(file);
+  onProgress?.(1);
+
+  const previous = { ...existing };
+
+  if (isR2UploadConfigured()) {
+    try {
+      const r2 = await uploadVideoToR2(file, existing.branchId, onProgress);
+      await removeStoredVideoBytes(previous);
+      await updateDocument(COLLECTIONS.videos, existing.id, {
+        sourceType: "r2",
+        storagePath: r2.storagePath,
+        downloadUrl: r2.downloadUrl,
+        mimeType: r2.mimeType,
+        fileSizeBytes: file.size,
+        title: existing.title,
+      });
+      await writeAuditLog({
+        action: "video_replace",
+        entityType: "video",
+        entityId: existing.id,
+        userId: actor.userId,
+        userName: actor.userName,
+        branchId: existing.branchId,
+        metadata: { title: existing.title, fileSizeBytes: file.size, sourceType: "r2" },
+      });
+      return;
+    } catch {
+      // fall through to Firebase Storage / chunks
+    }
+  }
 
   try {
-    const { storagePath, downloadUrl, mimeType } = await uploadVideoToStorage(
-      file,
-      existing.branchId,
-      onProgress,
-    );
-
-    if (existing.sourceType === "storage" && existing.storagePath) {
-      await deleteObject(ref(storage, existing.storagePath)).catch(() => undefined);
-    }
-    if (existing.sourceType === "chunked") {
-      await removeChunkedVideoData(existing.id);
-    }
-
+    const firebase = await uploadVideoToStorage(file, existing.branchId, onProgress);
+    await removeStoredVideoBytes(previous);
     await updateDocument(COLLECTIONS.videos, existing.id, {
       sourceType: "storage",
-      storagePath,
-      downloadUrl,
-      mimeType,
+      storagePath: firebase.storagePath,
+      downloadUrl: firebase.downloadUrl,
+      mimeType: firebase.mimeType,
       fileSizeBytes: file.size,
       title: existing.title,
     });
-
     await writeAuditLog({
       action: "video_replace",
       entityType: "video",
@@ -375,9 +449,7 @@ export async function replaceVideo(
       throw error instanceof Error ? error : new Error("Replace failed");
     }
 
-    if (existing.sourceType === "chunked") {
-      await removeChunkedVideoData(existing.id);
-    }
+    await removeStoredVideoBytes(previous);
 
     const chunkCount = await uploadVideoChunks(
       file,
@@ -403,12 +475,7 @@ export async function deleteVideo(
   video: VideoAsset,
   actor: { userId: string; userName: string },
 ): Promise<void> {
-  if (video.sourceType === "storage" && video.storagePath) {
-    await deleteObject(ref(storage, video.storagePath)).catch(() => undefined);
-  }
-  if (video.sourceType === "chunked") {
-    await removeChunkedVideoData(video.id);
-  }
+  await removeStoredVideoBytes(video);
   await updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" });
   await writeAuditLog({
     action: "delete",
@@ -437,4 +504,4 @@ export function resolveVideoPlaybackUrl(video: VideoAsset): string {
   return url;
 }
 
-export { isChunkedVideo, loadChunkedVideoBlobUrl };
+export { isChunkedVideo, loadChunkedVideoBlobUrl, isR2UploadConfigured };

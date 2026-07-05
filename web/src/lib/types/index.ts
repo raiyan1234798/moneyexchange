@@ -63,7 +63,7 @@ export interface BranchSettings {
   rateCardDisplaySeconds: number;
 }
 
-export type VideoSourceType = "external" | "storage" | "chunked";
+export type VideoSourceType = "external" | "r2" | "storage" | "chunked";
 
 export interface Currency {
   id: string;

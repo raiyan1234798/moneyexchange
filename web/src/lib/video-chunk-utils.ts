@@ -37,6 +37,7 @@ export async function uploadVideoChunks(
   onProgress?: (progress: number) => void,
 ): Promise<number> {
   const chunkCount = Math.ceil(file.size / VIDEO_CHUNK_BINARY_BYTES);
+  onProgress?.(1);
 
   await setDoc(doc(db, COLLECTIONS.videoChunks, videoId), {
     branchId,

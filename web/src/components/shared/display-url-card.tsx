@@ -41,7 +41,7 @@ export function DisplayUrlCard({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-600 dark:text-emerald-400">
-            Display URL
+            Your TV link
           </p>
           <p className="mt-1 text-sm font-medium">
             {branchName ? (
@@ -54,7 +54,7 @@ export function DisplayUrlCard({
             )}
           </p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Open this link on your TV or kiosk browser, then press Enter Fullscreen.
+            Open this link on your TV browser, then press fullscreen. Rates and video update automatically.
           </p>
           {!compact ? (
             <div className="mt-3 flex flex-wrap gap-2">

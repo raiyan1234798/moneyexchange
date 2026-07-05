@@ -42,8 +42,11 @@ export const DEFAULT_BRANCH_SETTINGS = {
 /** Max Firebase Storage upload per file (matches storage.rules) */
 export const MAX_VIDEO_UPLOAD_BYTES = 500 * 1024 * 1024;
 
-/** Firestore chunk fallback when Firebase Storage is unavailable (Spark / no billing) */
-export const MAX_CHUNKED_VIDEO_BYTES = 25 * 1024 * 1024;
+/** Firestore chunk fallback — slow; use R2 or direct URL instead (max 10 MB) */
+export const MAX_CHUNKED_VIDEO_BYTES = 10 * 1024 * 1024;
+
+export const CHUNKED_UPLOAD_WARNING =
+  "Slow upload — Firestore chunk storage. Paste a direct video link or enable Cloudflare R2 for faster uploads.";
 
 /** Warn in UI when file exceeds this size — recommend compression */
 export const WARN_LARGE_VIDEO_BYTES = 50 * 1024 * 1024;

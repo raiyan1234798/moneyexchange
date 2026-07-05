@@ -221,7 +221,7 @@ export default function BranchesPage() {
         ) : (
           <>
             {displayBranch ? (
-              <ContentPanel title="Launch Display" description="Copy or scan to open signage on any screen">
+              <ContentPanel title="Your TV link" description="Copy this link and open it on your shop TV">
                 {activeBranches.length > 1 ? (
                   <div className="mb-4">
                     <BranchSelector

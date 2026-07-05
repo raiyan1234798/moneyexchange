@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Building2, Monitor, TrendingUp, Activity, Coins } from "lucide-react";
+import { Building2, FileSpreadsheet, Monitor, TrendingUp, Activity, Coins } from "lucide-react";
 import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { GettingStartedChecklist } from "@/components/shared/getting-started-checklist";
@@ -137,8 +137,15 @@ export default function DashboardOverviewPage() {
         accent: "violet" as const,
       },
       {
+        label: "Import Excel Rates",
+        description: "Upload CURRENCY | WE BUY | WE SELL template",
+        href: "/dashboard/exchange-rates",
+        icon: FileSpreadsheet,
+        accent: "emerald" as const,
+      },
+      {
         label: "Update Rates",
-        description: "Publish buy/sell rates to displays",
+        description: "Edit buy/sell rates manually",
         href: "/dashboard/exchange-rates",
         icon: TrendingUp,
         accent: "emerald" as const,
@@ -179,7 +186,7 @@ export default function DashboardOverviewPage() {
   if (loading && !stats) {
     return (
       <>
-        <DashboardHeader title="Overview" description="Live network status across branches and displays." accent="violet" />
+        <DashboardHeader title="Overview" description="Set up branches, import rates, and open your TV display." accent="violet" />
         <PageLoader />
       </>
     );
@@ -189,7 +196,7 @@ export default function DashboardOverviewPage() {
     <>
       <DashboardHeader
         title="Overview"
-        description="Real-time command center for branches, displays, and exchange rates."
+        description="Your simple control panel — set up branches, import rates, add videos, and open your TV display."
         accent="violet"
       />
       <PageShell accent="violet">
