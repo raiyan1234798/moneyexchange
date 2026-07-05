@@ -51,6 +51,24 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const PROFILE_LOAD_TIMEOUT_MS = 15_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
 async function finalizeLogin(firebaseUser: User, profile: AppUser): Promise<void> {
   await updateDoc(doc(db, COLLECTIONS.users, firebaseUser.uid), {
     lastLoginAt: serverTimestamp(),
@@ -80,7 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const userProfile = await ensureUserProfile(firebaseUser);
+        const userProfile = await withTimeout(
+          ensureUserProfile(firebaseUser),
+          PROFILE_LOAD_TIMEOUT_MS,
+          "Profile load timed out",
+        );
         setProfile(userProfile);
       } catch (error) {
         console.error("Failed to load user profile", error);

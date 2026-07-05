@@ -5,6 +5,7 @@ import {
   initializeFirestore,
   memoryLocalCache,
   persistentLocalCache,
+  persistentMultipleTabManager,
   type Firestore,
 } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
@@ -32,17 +33,27 @@ function createFirebaseApp(): FirebaseApp {
 }
 
 function createFirestore(app: FirebaseApp): Firestore {
-  try {
-    if (typeof window !== "undefined") {
-      return initializeFirestore(app, {
-        localCache: persistentLocalCache(),
-      });
+  if (typeof window === "undefined") {
+    try {
+      return initializeFirestore(app, { localCache: memoryLocalCache() });
+    } catch {
+      return getFirestore(app);
     }
+  }
+
+  try {
     return initializeFirestore(app, {
-      localCache: memoryLocalCache(),
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
     });
-  } catch {
-    return getFirestore(app);
+  } catch (error) {
+    console.warn("Firestore persistent cache unavailable, using memory cache:", error);
+    try {
+      return initializeFirestore(app, { localCache: memoryLocalCache() });
+    } catch {
+      return getFirestore(app);
+    }
   }
 }
 
