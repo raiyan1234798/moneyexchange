@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Cloud, Link2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
+import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import {
   ContentPanel,
@@ -34,13 +35,20 @@ import {
 import { MAX_VIDEO_UPLOAD_BYTES, MAX_CHUNKED_VIDEO_BYTES, RECOMMENDED_VIDEO_FORMATS, WARN_LARGE_VIDEO_BYTES } from "@/lib/constants";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import {
-  addExternalVideo,
   deleteVideo,
   STORAGE_UNAVAILABLE_MESSAGE,
   STORAGE_SETUP_URL,
   subscribeVideos,
   uploadVideo,
 } from "@/lib/services/video-service";
+import {
+  duplicateStorageVideoToBranch,
+  getActiveBranchTargets,
+  syncExternalVideoToBranches,
+  syncImageUrlToBranches,
+} from "@/lib/services/branch-sync";
+import { getDocument } from "@/lib/firebase/firestore";
+import { COLLECTIONS } from "@/lib/constants";
 import {
   addImageAdvertUrl,
   deleteImageAdvert,
@@ -72,8 +80,11 @@ export default function VideosPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageDuration, setImageDuration] = useState(15);
   const [imageUploading, setImageUploading] = useState(false);
+  const [applyToAll, setApplyToAll] = useState(false);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
+  const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
+  const actor = user && profile ? { userId: user.uid, userName: profile.displayName || profile.email } : null;
 
   useEffect(() => {
     if (!effectiveBranchId) return;
@@ -94,38 +105,38 @@ export default function VideosPage() {
   }, [effectiveBranchId]);
 
   async function handleExternalAdd() {
-    if (!user || !profile || !effectiveBranchId || !externalUrl.trim()) {
+    if (!user || !profile || !effectiveBranchId || !externalUrl.trim() || !actor) {
       toast.error("Video URL is required");
       return;
     }
     const resolvedTitle = resolveVideoTitle(title, deriveTitleFromUrl(externalUrl));
     try {
-      const result = await addExternalVideo(
+      const count = await syncExternalVideoToBranches(
+        branches,
+        effectiveBranchId,
+        applyToAll && canApplyToAll,
         {
           title: resolvedTitle,
-          branchId: effectiveBranchId,
           downloadUrl: externalUrl.trim(),
           createdBy: user.uid,
         },
-        { userId: user.uid, userName: profile.displayName || profile.email },
+        actor,
       );
-      if (result.source === "google_drive") {
-        toast.success("Google Drive link converted and saved", {
-          description: "If playback fails on the display, try a direct MP4 URL or file upload.",
-          duration: 8000,
-        });
-      } else {
-        toast.success("Video linked — display will play it automatically");
-      }
+      toast.success(
+        count > 1
+          ? `Video linked to ${count} branches`
+          : "Video linked — display will play it automatically",
+      );
       setTitle("");
       setExternalUrl("");
+      setApplyToAll(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to link video");
     }
   }
 
   async function handleDriveAdd() {
-    if (!user || !profile || !effectiveBranchId || !driveUrl.trim()) {
+    if (!user || !profile || !effectiveBranchId || !driveUrl.trim() || !actor) {
       toast.error("Google Drive share link is required");
       return;
     }
@@ -135,21 +146,26 @@ export default function VideosPage() {
     }
     const resolvedTitle = resolveVideoTitle(title, "Google Drive video");
     try {
-      await addExternalVideo(
+      const count = await syncExternalVideoToBranches(
+        branches,
+        effectiveBranchId,
+        applyToAll && canApplyToAll,
         {
           title: resolvedTitle,
-          branchId: effectiveBranchId,
           downloadUrl: driveUrl.trim(),
           createdBy: user.uid,
         },
-        { userId: user.uid, userName: profile.displayName || profile.email },
+        actor,
       );
-      toast.success("Google Drive link converted and saved", {
-        description: "If playback fails on the display, try a direct MP4 URL or file upload.",
-        duration: 8000,
-      });
+      toast.success(
+        count > 1
+          ? `Google Drive video linked to ${count} branches`
+          : "Google Drive link converted and saved",
+        { duration: 8000 },
+      );
       setTitle("");
       setDriveUrl("");
+      setApplyToAll(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to link Google Drive video");
     }
@@ -172,16 +188,38 @@ export default function VideosPage() {
     setUploading(true);
     setProgress(0);
     try {
-      await uploadVideo(
+      const videoId = await uploadVideo(
         file,
         { title: resolvedTitle, branchId: effectiveBranchId, createdBy: user.uid },
         { userId: user.uid, userName: profile.displayName || profile.email },
         setProgress,
       );
-      toast.success("Video uploaded — it will appear on the display shortly");
+
+      if (applyToAll && canApplyToAll && actor) {
+        const uploaded = await getDocument<VideoAsset>(COLLECTIONS.videos, videoId);
+        if (uploaded?.sourceType === "chunked") {
+          toast.warning("Chunked upload applied to this branch only — use a direct URL to sync to all branches.");
+        } else if (uploaded) {
+          const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, true).filter(
+            (b) => b.id !== effectiveBranchId,
+          );
+          await Promise.all(
+            otherBranches.map((b) =>
+              duplicateStorageVideoToBranch(uploaded, b.id, user.uid, actor),
+            ),
+          );
+          if (otherBranches.length > 0) {
+            toast.success(`Video synced to ${otherBranches.length + 1} branches`);
+          }
+        }
+      } else {
+        toast.success("Video uploaded — it will appear on the display shortly");
+      }
+
       setTitle("");
       setFile(null);
       setProgress(0);
+      setApplyToAll(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
       toast.error(message, { duration: 8000 });
@@ -192,25 +230,32 @@ export default function VideosPage() {
   }
 
   async function handleImageUrlAdd() {
-    if (!user || !profile || !effectiveBranchId || !imageUrl.trim()) {
+    if (!user || !profile || !effectiveBranchId || !imageUrl.trim() || !actor) {
       toast.error("Image URL is required");
       return;
     }
     setImageUploading(true);
     try {
-      await addImageAdvertUrl(
+      const count = await syncImageUrlToBranches(
+        branches,
+        effectiveBranchId,
+        applyToAll && canApplyToAll,
         {
           title: title.trim() || "Image advert",
-          branchId: effectiveBranchId,
           downloadUrl: imageUrl.trim(),
           displayDurationSeconds: imageDuration,
           createdBy: user.uid,
         },
-        { userId: user.uid, userName: profile.displayName || profile.email },
+        actor,
       );
-      toast.success("Image advert saved — shows on display when no video is playing");
+      toast.success(
+        count > 1
+          ? `Image advert saved to ${count} branches`
+          : "Image advert saved — shows on display when no video is playing",
+      );
       setImageUrl("");
       setTitle("");
+      setApplyToAll(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add image");
     } finally {
@@ -275,6 +320,14 @@ export default function VideosPage() {
 
         {canManageVideos && effectiveBranchId ? (
           <ContentPanel title="Add Video" description="Choose the fastest option for your video source">
+            {canApplyToAll ? (
+              <ApplyToAllCheckbox
+                checked={applyToAll}
+                onChange={setApplyToAll}
+                branchCount={branches.filter((b) => b.status === "active").length}
+                className="mb-4"
+              />
+            ) : null}
             <Tabs defaultValue="external">
               <TabsList className="rounded-xl">
                 <TabsTrigger value="external" className="rounded-lg">Direct URL</TabsTrigger>
@@ -418,6 +471,14 @@ export default function VideosPage() {
 
         {canManageImages && effectiveBranchId ? (
           <ContentPanel title="Image Adverts" description="Static images rotate on the display when no video is playing">
+            {canApplyToAll ? (
+              <ApplyToAllCheckbox
+                checked={applyToAll}
+                onChange={setApplyToAll}
+                branchCount={branches.filter((b) => b.status === "active").length}
+                className="mb-4"
+              />
+            ) : null}
             <Tabs defaultValue="image-url">
               <TabsList className="rounded-xl">
                 <TabsTrigger value="image-url" className="rounded-lg">Image URL</TabsTrigger>

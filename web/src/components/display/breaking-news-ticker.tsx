@@ -31,7 +31,7 @@ function BreakingNewsTickerInner({
   headline = "BIG BREAKING",
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
-  const resolvedLogo = logoUrl || BRAND.logoOnDarkPath;
+  const resolvedLogo = logoUrl?.trim() || null;
 
   const messages = useMemo(() => {
     const fromProp = messagesProp?.map((line) => line.trim()).filter(Boolean);
@@ -83,14 +83,25 @@ function BreakingNewsTickerInner({
             borderColor: UNIMONI_COLORS.gold,
           }}
         >
-          <Image
-            src={resolvedLogo}
-            alt="unimoni"
-            width={80}
-            height={80}
-            className="ticker-logo-pulse h-[75%] w-[85%] object-contain drop-shadow-md"
-            unoptimized
-          />
+          {resolvedLogo ? (
+            <Image
+              src={resolvedLogo}
+              alt={`${BRAND.name} logo`}
+              width={80}
+              height={80}
+              className="ticker-logo-pulse h-[75%] w-[85%] object-contain drop-shadow-md"
+              unoptimized
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center px-1 text-center">
+              <span className="text-[clamp(0.55rem,1vw,0.75rem)] font-black uppercase leading-none text-white">
+                NEWS
+              </span>
+              <span className="mt-0.5 text-[clamp(0.45rem,0.8vw,0.6rem)] font-bold uppercase text-[#F5B942]">
+                LIVE
+              </span>
+            </div>
+          )}
         </div>
 
         <div

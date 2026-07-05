@@ -1,33 +1,26 @@
 import type { ExchangeRate } from "@/lib/types";
-import { BRAND_COLORS } from "@/lib/brand";
+import { BRAND, BRAND_COLORS } from "@/lib/brand";
 
-/** Unimoni digital signage palette. */
+/** Unimoney digital signage palette. */
 export const UNIMONI_COLORS = {
-  panelBlue: BRAND_COLORS.blue,
-  navy: BRAND_COLORS.navy,
-  headerBlue: BRAND_COLORS.blue,
-  gold: BRAND_COLORS.gold,
-  goldBright: BRAND_COLORS.goldBright,
-  tickerBlack: BRAND_COLORS.navy,
+  panelBlue: BRAND_COLORS.primaryLight,
+  navy: BRAND_COLORS.primary,
+  headerBlue: BRAND_COLORS.accent,
+  gold: BRAND_COLORS.accent,
+  goldBright: BRAND_COLORS.accentBright,
+  tickerBlack: "#060912",
   white: "#ffffff",
-  darkText: BRAND_COLORS.navy,
-  accentBlue: BRAND_COLORS.blueLight,
+  darkText: BRAND_COLORS.primary,
+  accentBlue: BRAND_COLORS.primaryLight,
   sellBox: "#ffffff",
-  promoText: BRAND_COLORS.navy,
+  promoText: BRAND_COLORS.primary,
 } as const;
 
-export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONI";
-
-export const UNIMONI_CONTACT_LINE = "Dial 0759207000/001/002 & 0772207001";
-
-export const UNIMONI_WEBSITE = "www.unimoni.com";
-
-export const UNIMONI_LOCATIONS = [
-  "Lugogo Mall | Amber House | Arua Park | Kampala Road",
-  "Imperial Mall - Entebbe | Nabugabo | Bugolobi | Nakivubo",
-] as const;
-
-export const UNIMONI_USD_NOTE = "WE BUY USD 20, 10, 5, 2 & 1 @ 3400";
+export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONEY";
+export const UNIMONI_CONTACT_LINE = BRAND.tagline;
+export const UNIMONI_WEBSITE = "unimoney.com";
+export const UNIMONI_LOCATIONS = [BRAND.tagline] as const;
+export const UNIMONI_USD_NOTE = "Rates update in real time from your branch dashboard";
 
 export const UNIMONI_DEFAULT_RATES: Array<{
   currencyCode: string;
@@ -64,7 +57,7 @@ export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
 
   const now = new Date();
   return UNIMONI_DEFAULT_RATES.map((rate, index) => ({
-    id: `unimoni-${rate.currencyCode.toLowerCase()}`,
+    id: `unimoney-${rate.currencyCode.toLowerCase()}`,
     branchId: "default",
     currencyCode: rate.currencyCode,
     buyRate: rate.buyRate,

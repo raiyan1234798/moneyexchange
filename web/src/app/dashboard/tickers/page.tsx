@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, TextCursorInput } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
+import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import {
@@ -22,7 +23,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { createTicker, subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
+import { subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
+import { syncTickerToBranches } from "@/lib/services/branch-sync";
 import type { TickerMessage } from "@/lib/types";
 
 export default function TickersPage() {
@@ -35,8 +37,10 @@ export default function TickersPage() {
   const [scrollSpeed, setScrollSpeed] = useState(30);
   const [logoUrl, setLogoUrl] = useState("");
   const [fontColor, setFontColor] = useState("#FFFFFF");
+  const [applyToAll, setApplyToAll] = useState(false);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
+  const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
 
   useEffect(() => {
     if (!effectiveBranchId) return;
@@ -62,23 +66,33 @@ export default function TickersPage() {
     }
 
     try {
-      await createTicker(
-        {
-          branchId: effectiveBranchId,
-          messages: lines,
-          scrollSpeed,
-          fontSize: branch?.settings?.tickerFontSize ?? 18,
-          fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
-          logoUrl: logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
-          language: "en",
-          status: "active",
-          createdBy: user.uid,
-        },
+      const tickerData = {
+        messages: lines,
+        scrollSpeed,
+        fontSize: branch?.settings?.tickerFontSize ?? 18,
+        fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
+        logoUrl: logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
+        language: "en" as const,
+        status: "active" as const,
+        createdBy: user.uid,
+      };
+
+      const count = await syncTickerToBranches(
+        branches,
+        effectiveBranchId,
+        applyToAll && canApplyToAll,
+        tickerData,
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
-      toast.success("Scrolling messages published to displays");
+
+      toast.success(
+        count > 1
+          ? `Scrolling messages published to ${count} branches`
+          : "Scrolling messages published to displays",
+      );
       setOpen(false);
       setMessages("");
+      setApplyToAll(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to publish messages");
     }
@@ -149,6 +163,13 @@ export default function TickersPage() {
                       className="rounded-xl"
                     />
                   </div>
+                  {canApplyToAll ? (
+                    <ApplyToAllCheckbox
+                      checked={applyToAll}
+                      onChange={setApplyToAll}
+                      branchCount={branches.filter((b) => b.status === "active").length}
+                    />
+                  ) : null}
                 </div>
                 <DialogFooter>
                   <Button

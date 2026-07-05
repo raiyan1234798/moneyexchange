@@ -100,20 +100,34 @@ function NavLinks({ onNavigate, className }: { onNavigate?: () => void; classNam
             onClick={onNavigate}
             className={cn(
               "group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-200",
-              active ? "text-[var(--unimoni-blue-light)]" : "text-muted-foreground hover:text-foreground",
+              active
+                ? "text-[var(--brand-primary)] dark:text-[var(--brand-accent)]"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             {active ? (
               <motion.span
                 layoutId="sidebar-active"
-                className="absolute inset-0 rounded-xl border-l-[3px] border-[var(--unimoni-blue-light)] bg-[var(--unimoni-blue)]/10 shadow-[inset_0_0_20px_rgba(0,102,204,0.08)]"
+                className="absolute inset-0 rounded-xl border-l-[3px] border-[var(--brand-primary)] bg-[var(--brand-primary)]/8 dark:border-[var(--brand-accent)] dark:bg-[var(--brand-accent)]/10"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
               />
             ) : (
               <span className="absolute inset-0 rounded-xl bg-transparent transition-colors group-hover:bg-[var(--unimoni-blue)]/8" />
             )}
-            <Icon className={cn("relative z-10 h-4 w-4 shrink-0", active && "text-[var(--unimoni-blue-light)]")} />
-            <span className={cn("relative z-10", active && "text-[var(--unimoni-blue-light)]")}>{item.label}</span>
+            <Icon
+              className={cn(
+                "relative z-10 h-4 w-4 shrink-0",
+                active && "text-[var(--brand-primary)] dark:text-[var(--brand-accent)]",
+              )}
+            />
+            <span
+              className={cn(
+                "relative z-10",
+                active && "text-[var(--brand-primary)] dark:text-[var(--brand-accent)]",
+              )}
+            >
+              {item.label}
+            </span>
           </Link>
         );
       })}
@@ -276,14 +290,16 @@ export function DashboardMobileBottomNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[10px] font-medium transition-colors",
-                active ? "text-[var(--unimoni-blue-light)]" : "text-muted-foreground",
+                active
+                  ? "text-[var(--brand-primary)] dark:text-[var(--brand-accent)]"
+                  : "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
                   active
-                    ? "bg-[var(--unimoni-blue)]/15 text-[var(--unimoni-blue-light)] ring-1 ring-[var(--unimoni-blue)]/30"
+                    ? "bg-[var(--brand-primary)]/12 text-[var(--brand-primary)] ring-1 ring-[var(--brand-primary)]/25 dark:bg-[var(--brand-accent)]/15 dark:text-[var(--brand-accent)] dark:ring-[var(--brand-accent)]/30"
                     : "bg-transparent",
                 )}
               >

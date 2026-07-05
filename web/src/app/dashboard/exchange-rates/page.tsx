@@ -316,34 +316,46 @@ export default function ExchangeRatesPage() {
         <PreviewDisplayLink branchCode={branch?.code} />
 
         {canManageRates && effectiveBranchId ? (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateCsv()}>
-              <Download className="mr-2 h-4 w-4" />
-              Download Template (CSV)
-            </Button>
-            <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateXlsx()}>
-              <Download className="mr-2 h-4 w-4" />
-              Download Template (XLSX)
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleBulkUpload(file);
-              }}
-            />
-            <Button
-              className="rounded-xl"
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              {uploading ? "Uploading..." : "Upload Excel/CSV"}
-            </Button>
-          </div>
+          <ContentPanel
+            title="Bulk Excel Upload"
+            description="Upload CURRENCY | WE BUY | WE SELL — rates publish instantly to this branch's display."
+            className="border-[var(--brand-accent)]/25 bg-gradient-to-br from-[var(--brand-accent)]/8 via-transparent to-transparent"
+          >
+            <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleBulkUpload(file);
+                }}
+              />
+              <Button
+                size="lg"
+                className="btn-gradient h-12 rounded-xl px-6"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="mr-2 h-5 w-5" />
+                {uploading ? "Uploading..." : "Upload Excel / CSV"}
+              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateCsv()}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Template (CSV)
+                </Button>
+                <Button variant="outline" className="rounded-xl" onClick={() => downloadRateTemplateXlsx()}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Template (XLSX)
+                </Button>
+              </div>
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              9 currencies: USD, GBP, EUR, KES, ZAR, CAD, AUD, HKD, CNY — columns: CURRENCY | WE BUY | WE SELL
+            </p>
+          </ContentPanel>
         ) : isAdmin && effectiveBranchId ? (
           <p className="text-sm text-muted-foreground">
             View-only access — you can see rates but cannot edit them.
@@ -551,8 +563,8 @@ export default function ExchangeRatesPage() {
                       key={rate.id}
                       className={`flex flex-col gap-3 rounded-xl border p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${
                         rate.isHidden
-                          ? "border-dashed border-white/5 bg-white/[0.02] opacity-60"
-                          : "border-white/10 bg-white/[0.03]"
+                          ? "border-dashed border-border/50 bg-muted/25 opacity-60"
+                          : "border-border/60 bg-card"
                       }`}
                     >
                       <div className="flex min-w-[100px] items-center gap-2.5">
@@ -561,13 +573,13 @@ export default function ExchangeRatesPage() {
                         </span>
                         <div>
                           <span className="text-sm font-bold">{rate.currencyCode}</span>
-                          <span className="ml-2 text-[10px] text-zinc-600">v{rate.version}</span>
+                          <span className="ml-2 text-[10px] text-muted-foreground">v{rate.version}</span>
                         </div>
                       </div>
 
                       <div className="flex flex-1 gap-3">
                         <div className="flex-1 space-y-1">
-                          <Label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80">
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
                             Buy
                           </Label>
                           <Input
@@ -581,11 +593,11 @@ export default function ExchangeRatesPage() {
                                 [rate.id]: { ...prev[rate.id], buyRate: Number(e.target.value) },
                               }))
                             }
-                            className="h-10 rounded-lg border-emerald-500/20 bg-emerald-500/5 text-emerald-400"
+                            className="h-10 rounded-lg border-emerald-600/25 bg-emerald-500/5 text-foreground dark:text-emerald-400"
                           />
                         </div>
                         <div className="flex-1 space-y-1">
-                          <Label className="text-[10px] font-semibold uppercase tracking-wider text-amber-400/80">
+                          <Label className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
                             Sell
                           </Label>
                           <Input
@@ -599,7 +611,7 @@ export default function ExchangeRatesPage() {
                                 [rate.id]: { ...prev[rate.id], sellRate: Number(e.target.value) },
                               }))
                             }
-                            className="h-10 rounded-lg border-amber-500/20 bg-amber-500/5 text-amber-400"
+                            className="h-10 rounded-lg border-amber-600/25 bg-amber-500/5 text-foreground dark:text-amber-400"
                           />
                         </div>
                       </div>
@@ -645,7 +657,7 @@ export default function ExchangeRatesPage() {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="rounded-lg text-red-400 hover:text-red-300"
+                            className="rounded-lg text-destructive hover:text-destructive"
                             onClick={() => void handleRemove(rate.id)}
                           >
                             <Trash2 className="h-3 w-3" />
