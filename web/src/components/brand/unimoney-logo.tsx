@@ -1,8 +1,8 @@
 export {
-  UnimoneyLogo,
-  UnimoneyMark,
-  UnimoneyLogoImage,
   UnimoniLogo,
   UnimoniMark,
   UnimoniLogoImage,
+  UnimoneyLogo,
+  UnimoneyMark,
+  UnimoneyLogoImage,
 } from "@/components/brand/unimoni-logo";

@@ -6,7 +6,7 @@ import {
   formatUnimoniRate,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
-import { UnimoneyLogoImage } from "@/components/brand/unimoney-logo";
+import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import type { ExchangeRate } from "@/lib/types";
 
 interface UnimoniRatesPanelProps {
@@ -31,7 +31,7 @@ export function UnimoniRatesPanel({
         className="flex shrink-0 flex-col items-center gap-1 px-3 py-2"
         style={{ backgroundColor: UNIMONI_COLORS.headerBlue }}
       >
-        <UnimoneyLogoImage
+        <UnimoniLogoImage
           variant="onDark"
           width={180}
           height={40}

@@ -1,4 +1,4 @@
-# Unimoney Money Exchange
+# unimoni Money Exchange
 
 Enterprise-grade money exchange management platform with centralized administration, branch-wise management, browser-based digital signage, real-time exchange rate updates, offline playback, and Firebase backend.
 

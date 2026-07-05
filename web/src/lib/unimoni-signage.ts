@@ -1,13 +1,13 @@
 import type { ExchangeRate } from "@/lib/types";
 import { BRAND, BRAND_COLORS } from "@/lib/brand";
 
-/** Unimoney digital signage palette. */
+/** unimoni digital signage palette. */
 export const UNIMONI_COLORS = {
   panelBlue: BRAND_COLORS.primaryLight,
-  navy: BRAND_COLORS.primary,
-  headerBlue: BRAND_COLORS.accent,
-  gold: BRAND_COLORS.accent,
-  goldBright: BRAND_COLORS.accentBright,
+  navy: BRAND_COLORS.surface,
+  headerBlue: BRAND_COLORS.primary,
+  gold: BRAND_COLORS.gold,
+  goldBright: BRAND_COLORS.goldBright,
   tickerBlack: "#060912",
   white: "#ffffff",
   darkText: BRAND_COLORS.primary,
@@ -16,9 +16,9 @@ export const UNIMONI_COLORS = {
   promoText: BRAND_COLORS.primary,
 } as const;
 
-export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONEY";
+export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONI";
 export const UNIMONI_CONTACT_LINE = BRAND.tagline;
-export const UNIMONI_WEBSITE = "unimoney.com";
+export const UNIMONI_WEBSITE = "unimoni.com";
 export const UNIMONI_LOCATIONS = [BRAND.tagline] as const;
 export const UNIMONI_USD_NOTE = "Rates update in real time from your branch dashboard";
 
@@ -57,7 +57,7 @@ export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
 
   const now = new Date();
   return UNIMONI_DEFAULT_RATES.map((rate, index) => ({
-    id: `unimoney-${rate.currencyCode.toLowerCase()}`,
+    id: `unimoni-${rate.currencyCode.toLowerCase()}`,
     branchId: "default",
     currencyCode: rate.currencyCode,
     buyRate: rate.buyRate,

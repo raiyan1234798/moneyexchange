@@ -17,8 +17,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading || !user || !profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background mesh-background">
+        <Loader2 className="spinner-brand h-8 w-8" />
+        <p className="text-sm text-muted-foreground">Loading your profile…</p>
       </div>
     );
   }

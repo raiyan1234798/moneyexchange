@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { UnimoneyLogoImage } from "@/components/brand/unimoney-logo";
+import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import {
   UNIMONI_COLORS,
   UNIMONI_CONTACT_LINE,
@@ -82,7 +82,7 @@ export function UnimoniPromoPanel({
         style={{ textShadow: BRANDING_TEXT_SHADOW }}
       >
         <div className="flex w-full max-w-[min(90%,42rem)] flex-col items-center gap-[clamp(0.5rem,1.2vh,1rem)]">
-          <UnimoneyLogoImage
+          <UnimoniLogoImage
             variant="onDark"
             className="h-[clamp(3rem,8vh,5.5rem)] w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
             priority

@@ -72,7 +72,7 @@ export function StatCard({
 }) {
   return (
     <motion.div {...fadeIn}>
-      <Card className={cn("glass-panel overflow-hidden bg-gradient-to-br", accentMap[accent])}>
+      <Card className={cn("glass-panel interactive-card overflow-hidden bg-gradient-to-br", accentMap[accent])}>
         <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
           <CardTitle className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             {title}

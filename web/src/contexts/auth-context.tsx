@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { FirebaseError } from "firebase/app";
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
@@ -159,7 +160,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = useCallback(async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    const credential = await signInWithPopup(auth, provider);
+
+    let credential;
+    try {
+      credential = await signInWithPopup(auth, provider);
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        if (error.code === "auth/popup-blocked") {
+          const message =
+            "Google sign-in pop-up was blocked. Allow pop-ups for this site in your browser settings, then try again.";
+          toast.error(message);
+          throw new Error(message);
+        }
+        if (error.code === "auth/popup-closed-by-user") {
+          throw new Error("Sign-in cancelled");
+        }
+        if (error.code === "auth/cancelled-popup-request") {
+          return;
+        }
+      }
+      throw error instanceof Error ? error : new Error("Google sign-in failed");
+    }
+
     try {
       const userProfile = await ensureUserProfile(credential.user);
       await finalizeLogin(credential.user, userProfile);

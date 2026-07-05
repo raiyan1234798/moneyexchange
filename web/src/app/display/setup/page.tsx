@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, Monitor } from "lucide-react";
 import { toast } from "sonner";
-import { UnimoneyLogo } from "@/components/brand/unimoney-logo";
+import { UnimoniLogo } from "@/components/brand/unimoni-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +43,7 @@ function DisplaySetupContent() {
       >
         <div className="rounded-3xl border border-[#D4A853]/20 bg-[#1E3A5F]/40 p-8 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.8)] backdrop-blur-2xl sm:p-10">
           <div className="mx-auto mb-6 flex flex-col items-center text-center">
-            <UnimoneyLogo size="lg" />
+            <UnimoniLogo size="lg" />
             <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.28em] text-[#D4A853]/80">
               Browser Signage
             </p>

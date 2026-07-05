@@ -26,7 +26,7 @@ import {
   Video,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { UnimoneyMark } from "@/components/brand/unimoney-logo";
+import { UnimoniMark } from "@/components/brand/unimoni-logo";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, ROLE_LABELS } from "@/lib/constants";
 import { BRAND } from "@/lib/brand";
@@ -72,9 +72,9 @@ function mobileNavForRole(role: string) {
 function BrandMark({ compact }: { compact?: boolean }) {
   return (
     <Link href="/dashboard" className="group flex items-center gap-3">
-      <UnimoneyMark size={compact ? 36 : 40} />
+      <UnimoniMark size={compact ? 36 : 40} />
       {!compact ? (
-        <p className="brand-wordmark truncate text-sm font-semibold tracking-tight text-[var(--unimoni-navy)] dark:text-foreground">
+        <p className="truncate text-sm font-semibold lowercase tracking-tight text-[var(--brand-primary)] dark:text-foreground">
           {BRAND.name}
         </p>
       ) : null}

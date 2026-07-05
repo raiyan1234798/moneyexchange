@@ -56,23 +56,25 @@
 }
 
 :root {
-  /* Unimoney fintech palette */
-  --brand-primary: #0B1F3A;
-  --brand-primary-light: #1E3A5F;
-  --brand-surface: #0F2847;
-  --brand-accent: #D4A853;
-  --brand-accent-bright: #F5B942;
+  /* unimoni corporate palette — inspired by unimoni.com */
+  --brand-primary: #0066B3;
+  --brand-primary-light: #0078C8;
+  --brand-surface: #1A4D8F;
+  --brand-accent: #00A3E0;
+  --brand-accent-bright: #7DD3F0;
   --brand-live: #10B981;
+  --brand-gold: #C9A227;
+  --brand-gold-bright: #D4A853;
 
   /* Legacy aliases used by mesh/grid utilities */
-  --unimoni-blue: var(--brand-primary-light);
-  --unimoni-blue-light: var(--brand-accent-bright);
-  --unimoni-cyan: #14B8A6;
-  --unimoni-navy: var(--brand-primary);
+  --unimoni-blue: var(--brand-primary);
+  --unimoni-blue-light: var(--brand-primary-light);
+  --unimoni-cyan: var(--brand-accent);
+  --unimoni-navy: var(--brand-surface);
   --unimoni-navy-mid: var(--brand-primary-light);
-  --unimoni-gold: var(--brand-accent);
-  --unimoni-gold-bright: var(--brand-accent-bright);
-  --unimoni-off-white: #F4F6F8;
+  --unimoni-gold: var(--brand-gold);
+  --unimoni-gold-bright: var(--brand-gold-bright);
+  --unimoni-off-white: #F5F8FB;
 
   --background: var(--unimoni-off-white);
   --foreground: var(--brand-primary);
@@ -95,7 +97,7 @@
   --warning-foreground: oklch(0.28 0.06 75);
   --border: oklch(0.9 0.014 240 / 0.55);
   --input: oklch(0.94 0.01 240 / 0.88);
-  --ring: var(--brand-accent);
+  --ring: var(--brand-primary-light);
   --chart-1: var(--brand-primary-light);
   --chart-2: var(--brand-accent);
   --chart-3: oklch(0.62 0.16 160);
@@ -109,28 +111,28 @@
   --sidebar-accent: oklch(0.955 0.018 240 / 0.78);
   --sidebar-accent-foreground: var(--brand-primary);
   --sidebar-border: oklch(0.9 0.012 240 / 0.45);
-  --sidebar-ring: var(--brand-accent);
-  --gradient-brand: linear-gradient(135deg, var(--brand-primary-light) 0%, var(--brand-primary) 50%, var(--brand-accent) 100%);
-  --gradient-hero: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 45%, var(--brand-accent) 100%);
-  --gradient-gold: linear-gradient(135deg, var(--brand-accent) 0%, var(--brand-accent-bright) 100%);
+  --sidebar-ring: var(--brand-primary-light);
+  --gradient-brand: linear-gradient(135deg, var(--brand-primary-light) 0%, var(--brand-primary) 55%, var(--brand-surface) 100%);
+  --gradient-hero: linear-gradient(135deg, var(--brand-surface) 0%, var(--brand-primary) 40%, var(--brand-primary-light) 100%);
+  --gradient-gold: linear-gradient(135deg, var(--brand-gold) 0%, var(--brand-gold-bright) 100%);
   --gradient-mesh-light:
-    radial-gradient(ellipse 80% 60% at 10% 0%, color-mix(in srgb, var(--brand-primary-light) 12%, transparent), transparent 55%),
+    radial-gradient(ellipse 80% 60% at 10% 0%, color-mix(in srgb, var(--brand-primary-light) 14%, transparent), transparent 55%),
     radial-gradient(ellipse 70% 50% at 90% 10%, color-mix(in srgb, var(--brand-accent) 10%, transparent), transparent 50%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, color-mix(in srgb, var(--brand-live) 8%, transparent), transparent 55%);
+    radial-gradient(ellipse 60% 40% at 50% 100%, color-mix(in srgb, var(--brand-live) 6%, transparent), transparent 55%);
   --shadow-premium: 0 1px 2px color-mix(in srgb, var(--brand-primary) 5%, transparent), 0 8px 32px color-mix(in srgb, var(--brand-primary-light) 8%, transparent);
   --shadow-elevated: 0 4px 6px color-mix(in srgb, var(--brand-primary) 6%, transparent), 0 24px 64px color-mix(in srgb, var(--brand-primary-light) 12%, transparent);
   --shadow-glow: 0 0 40px color-mix(in srgb, var(--brand-accent) 25%, transparent);
 }
 
 .dark {
-  --background: var(--brand-primary);
+  --background: #0F2847;
   --foreground: oklch(0.96 0.008 240);
   --card: oklch(0.2 0.035 240 / 0.65);
   --card-foreground: oklch(0.96 0.008 240);
   --popover: oklch(0.16 0.04 240 / 0.95);
   --popover-foreground: oklch(0.96 0.008 240);
-  --primary: var(--brand-accent);
-  --primary-foreground: var(--brand-primary);
+  --primary: var(--brand-primary-light);
+  --primary-foreground: #ffffff;
   --secondary: oklch(0.22 0.04 240 / 0.75);
   --secondary-foreground: oklch(0.96 0.008 240);
   --muted: oklch(0.2 0.035 240 / 0.55);
@@ -152,15 +154,15 @@
   --chart-5: oklch(0.7 0.16 340);
   --sidebar: oklch(0.12 0.04 240 / 0.78);
   --sidebar-foreground: oklch(0.96 0.008 240);
-  --sidebar-primary: var(--brand-accent);
-  --sidebar-primary-foreground: var(--brand-primary);
+  --sidebar-primary: var(--brand-primary-light);
+  --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: oklch(0.2 0.04 240 / 0.65);
   --sidebar-accent-foreground: oklch(0.96 0.008 240);
   --sidebar-border: oklch(1 0.01 240 / 10%);
   --sidebar-ring: var(--brand-accent-bright);
   --gradient-mesh-dark:
-    radial-gradient(ellipse 80% 60% at 15% 0%, color-mix(in srgb, var(--brand-primary-light) 22%, transparent), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 85% 20%, color-mix(in srgb, var(--brand-accent) 15%, transparent), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 15% 0%, color-mix(in srgb, var(--brand-primary-light) 24%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 20%, color-mix(in srgb, var(--brand-accent) 14%, transparent), transparent 50%),
     radial-gradient(ellipse 60% 40% at 40% 100%, color-mix(in srgb, var(--brand-live) 10%, transparent), transparent 55%);
   --shadow-premium: 0 1px 2px oklch(0 0 0 / 0.25), 0 8px 32px oklch(0 0 0 / 0.35);
   --shadow-elevated: 0 4px 6px oklch(0 0 0 / 0.3), 0 24px 64px oklch(0 0 0 / 0.45);
@@ -206,7 +208,7 @@
   }
 
   .glass-panel {
-    @apply rounded-2xl border border-border/35 bg-card/80 shadow-[var(--shadow-premium)] backdrop-blur-xl;
+    @apply rounded-2xl border border-border/35 bg-card/80 shadow-[var(--shadow-premium)] backdrop-blur-xl transition-[box-shadow,transform,border-color] duration-200;
   }
 
   .glass-panel-soft {
@@ -219,7 +221,11 @@
 
   .btn-gradient {
     background: var(--gradient-brand);
-    @apply text-white shadow-[var(--shadow-glow)] transition-all hover:brightness-110 hover:shadow-[var(--shadow-elevated)] active:scale-[0.98];
+    @apply text-white shadow-[var(--shadow-glow)] transition-[filter,box-shadow,transform] duration-200 hover:brightness-110 hover:shadow-[var(--shadow-elevated)] active:scale-[0.98];
+  }
+
+  .interactive-card {
+    @apply transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:shadow-[var(--shadow-premium)];
   }
 
   .brand-wordmark {

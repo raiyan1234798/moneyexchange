@@ -89,7 +89,7 @@ export default function HomePage() {
             <HeroReveal
               key={feature.title}
               delay={0.1 + index * 0.06}
-              className={`glass-panel-elevated animate-fade-in-up bg-gradient-to-br p-6 transition-transform hover:-translate-y-0.5 hover:shadow-[var(--shadow-glow)] ${feature.accent}`}
+              className={`glass-panel-elevated interactive-card animate-fade-in-up bg-gradient-to-br p-6 ${feature.accent}`}
             >
               <feature.icon className="mb-4 h-7 w-7 text-[var(--unimoni-blue-light)] sm:h-8 sm:w-8" />
               <h2 className="text-base font-semibold sm:text-lg">{feature.title}</h2>
