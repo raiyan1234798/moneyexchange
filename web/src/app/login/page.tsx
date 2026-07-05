@@ -8,6 +8,7 @@ import { Loader2, LockKeyhole } from "lucide-react";
 import { toast } from "sonner";
 import { PublicShell } from "@/components/layout/public-shell";
 import { useAuth } from "@/contexts/auth-context";
+import { getPostLoginPath } from "@/components/auth/role-guard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,17 +39,17 @@ function GoogleIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loginWithGoogle, user, loading } = useAuth();
+  const { login, loginWithGoogle, user, profile, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!loading && user) {
-      router.replace("/dashboard");
+    if (!loading && user && profile) {
+      router.replace(getPostLoginPath(profile.role));
     }
-  }, [loading, user, router]);
+  }, [loading, user, profile, router]);
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -56,7 +57,6 @@ export default function LoginPage() {
     try {
       await login(email, password);
       toast.success("Welcome back");
-      router.replace("/dashboard");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Login failed");
     } finally {
@@ -69,7 +69,6 @@ export default function LoginPage() {
     try {
       await loginWithGoogle();
       toast.success("Welcome back");
-      router.replace("/dashboard");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Google sign-in failed");
     } finally {

@@ -164,7 +164,7 @@ function BranchSettingsForm({
 
 export default function SettingsPage() {
   const { user, profile, isSuperAdmin } = useAuth();
-  const { branches, effectiveBranchId, setSelectedBranchId } = useBranchScope();
+  const { branches, effectiveBranchId, setSelectedBranchId, isAdmin } = useBranchScope();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [globalLoading, setGlobalLoading] = useState(isSuperAdmin);
   const [saving, setSaving] = useState(false);
@@ -364,7 +364,7 @@ export default function SettingsPage() {
         ) : null}
 
         <ContentPanel title="Branch Display Settings" description="Branding and ticker defaults for branch signage">
-          {isSuperAdmin ? (
+          {isSuperAdmin || isAdmin ? (
             <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
           ) : branch ? (
             <p className="mb-4 text-sm text-muted-foreground">

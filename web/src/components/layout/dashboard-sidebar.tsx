@@ -60,6 +60,13 @@ const MOBILE_NAV = [
   { href: "/dashboard/profile", label: "Profile", icon: User },
 ] as const;
 
+function mobileNavForRole(role: string) {
+  return MOBILE_NAV.filter((item) => {
+    const nav = NAV_ITEMS.find((entry) => entry.href === item.href);
+    return nav?.roles.includes(role as (typeof NAV_ITEMS)[number]["roles"][number]);
+  });
+}
+
 function BrandMark({ compact }: { compact?: boolean }) {
   return (
     <Link href="/dashboard" className="group flex items-center gap-3">
@@ -257,11 +264,14 @@ export function DashboardUnifiedHeader() {
 
 export function DashboardMobileBottomNav() {
   const pathname = usePathname();
+  const { profile } = useAuth();
+  const role = profile?.role ?? "branchManager";
+  const items = mobileNavForRole(role);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border/35 bg-background/85 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
       <div className="mx-auto flex max-w-lg items-center justify-around">
-        {MOBILE_NAV.map((item) => {
+        {items.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/");
           const Icon = item.icon;
           return (

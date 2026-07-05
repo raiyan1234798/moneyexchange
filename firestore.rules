@@ -159,6 +159,7 @@ service cloud.firestore {
       allow read: if isActiveUser() || resource.data.status == 'active';
       allow create, delete: if isSuperAdmin();
       allow update: if isSuperAdmin() ||
+        isAdmin() ||
         (isBranchManager() && belongsToManagerBranch(branchId));
     }
 

@@ -90,7 +90,7 @@ export const NAV_ITEMS: Array<{
     icon: "TextCursorInput",
     roles: ["superAdmin", "admin", "branchManager"],
   },
-  { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "branchManager"] },
+  { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "admin", "branchManager"] },
   {
     href: "/dashboard/profile",
     label: "Profile",
@@ -128,6 +128,7 @@ export const ADMIN_PERMISSIONS = [
   "viewExchangeRates",
   "manageAllBranches",
   "viewTVStatus",
+  "manageBranchDisplaySettings",
 ] as const;
 
 export const BRANCH_MANAGER_PERMISSIONS = [
