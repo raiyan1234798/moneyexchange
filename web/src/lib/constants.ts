@@ -57,7 +57,7 @@ export const RECOMMENDED_VIDEO_FORMATS = [
 ];
 
 export const DEFAULT_SYSTEM_SETTINGS = {
-  companyName: "Unimoni",
+  companyName: "unimoni",
   supportEmail: "support@unimoni.com",
   defaultTimezone: "Asia/Dubai",
   emergencyRateEnabled: true,

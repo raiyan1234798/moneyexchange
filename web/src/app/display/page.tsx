@@ -129,13 +129,13 @@ function DisplayContent() {
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/login"
+            href="/login/"
             className="rounded-xl bg-sky-500 px-6 py-3 text-sm font-medium text-white transition-colors hover:bg-sky-400"
           >
             Sign in to Dashboard
           </Link>
           <Link
-            href="/display/setup"
+            href="/display/setup/"
             className="rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition-colors hover:bg-white/5"
           >
             Enter branch code
@@ -143,13 +143,13 @@ function DisplayContent() {
         </div>
         <div className="mt-2 flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/display"
+            href="/display/"
             className="rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition-colors hover:bg-white/5"
           >
             Choose another branch
           </Link>
           <Link
-            href="/login"
+            href="/login/"
             className="rounded-xl bg-white/10 px-6 py-3 text-sm font-medium transition-colors hover:bg-white/15"
           >
             Sign in to dashboard
@@ -210,13 +210,13 @@ function DisplayContent() {
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
-            href="/login"
+            href="/login/"
             className="rounded-xl bg-white px-8 py-3.5 text-base font-medium text-black transition-opacity hover:opacity-90"
           >
             Sign in as manager
           </Link>
           <Link
-            href="/login"
+            href="/login/"
             className="rounded-xl border border-white/15 px-6 py-3 text-sm font-medium transition-colors hover:bg-white/5"
           >
             Admin sign in

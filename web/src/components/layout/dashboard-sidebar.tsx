@@ -82,17 +82,27 @@ function BrandMark({ compact }: { compact?: boolean }) {
   );
 }
 
+function normalizePath(pathname: string): string {
+  if (pathname.length > 1 && pathname.endsWith("/")) {
+    return pathname.slice(0, -1);
+  }
+  return pathname;
+}
+
 function NavLinks({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const pathname = usePathname();
   const { profile } = useAuth();
   const role = profile?.role ?? "branchManager";
   const items = NAV_ITEMS.filter((item) => item.roles.includes(role as (typeof item.roles)[number]));
+  const currentPath = normalizePath(pathname);
 
   return (
     <nav className={cn("flex flex-col gap-0.5", className)}>
       {items.map((item) => {
         const Icon = iconMap[item.icon as keyof typeof iconMap];
-        const active = pathname === item.href;
+        const active =
+          currentPath === item.href ||
+          (item.href !== "/dashboard" && currentPath.startsWith(`${item.href}/`));
         return (
           <Link
             key={item.href}
@@ -277,12 +287,15 @@ export function DashboardMobileBottomNav() {
   const { profile } = useAuth();
   const role = profile?.role ?? "branchManager";
   const items = mobileNavForRole(role);
+  const currentPath = normalizePath(pathname);
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-border/35 bg-background/85 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl lg:hidden">
       <div className="mx-auto flex max-w-lg items-center justify-around">
         {items.map((item) => {
-          const active = pathname === item.href || pathname.startsWith(item.href + "/");
+          const active =
+            currentPath === item.href ||
+            (item.href !== "/dashboard" && currentPath.startsWith(`${item.href}/`));
           const Icon = item.icon;
           return (
             <Link

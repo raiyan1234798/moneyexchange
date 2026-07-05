@@ -7,16 +7,10 @@
   </defs>
   <rect width="32" height="32" rx="8" fill="url(#unimoni-mark)"/>
   <path
-    d="M9 22V13.5C9 10.5 11.2 8.5 14 8.5C16.8 8.5 19 10.5 19 13.5V22"
+    d="M10 9.5V15.25C10 18.35 12.15 20.5 16 20.5C19.85 20.5 22 18.35 22 15.25V9.5"
     stroke="#ffffff"
-    stroke-width="3.25"
+    stroke-width="3.5"
     stroke-linecap="round"
     stroke-linejoin="round"
-  />
-  <path
-    d="M6.5 11.5C8.2 8.2 11.2 6.2 14.5 6.2"
-    stroke="#7dd3f0"
-    stroke-width="2"
-    stroke-linecap="round"
   />
 </svg>

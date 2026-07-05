@@ -5,6 +5,7 @@ export const BRAND = {
   fullName: "unimoni Money Exchange",
   tagline: "Trusted Exchange · Real-Time Signage",
   subtitle: "Money Exchange · Digital Signage",
+  pageTitle: "Money Exchange",
   supportEmail: "support@unimoni.com",
 } as const;
 

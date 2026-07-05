@@ -78,7 +78,7 @@ function BranchSettingsForm({
         <Input
           value={settings.tickerLogoUrl ?? ""}
           onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
-          placeholder="Leave blank for default Unimoni logo (/unimoni-logo-on-dark.svg)"
+          placeholder="Leave blank for default unimoni logo (/unimoni-logo-on-dark.svg)"
           className="rounded-xl"
         />
       </div>
