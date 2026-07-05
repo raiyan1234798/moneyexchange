@@ -17,11 +17,11 @@ const fadeIn = {
 export type SectionAccent = "violet" | "emerald" | "sky" | "amber" | "rose" | "default";
 
 const accentMap: Record<SectionAccent, string> = {
-  default: "from-foreground/8 to-transparent",
-  violet: "from-violet-500/18 via-violet-500/5 to-transparent",
+  default: "from-[var(--unimoni-blue)]/10 to-transparent",
+  violet: "from-[var(--unimoni-blue)]/18 via-[var(--unimoni-blue)]/5 to-transparent",
   emerald: "from-emerald-500/18 via-emerald-500/5 to-transparent",
-  sky: "from-sky-500/18 via-sky-500/5 to-transparent",
-  amber: "from-amber-500/18 via-amber-500/5 to-transparent",
+  sky: "from-[var(--unimoni-blue-light)]/18 via-[var(--unimoni-blue-light)]/5 to-transparent",
+  amber: "from-[var(--unimoni-gold)]/18 via-[var(--unimoni-gold)]/5 to-transparent",
   rose: "from-rose-500/18 via-rose-500/5 to-transparent",
 };
 
@@ -78,8 +78,8 @@ export function StatCard({
             {title}
           </CardTitle>
           {Icon ? (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/5">
-              <Icon className="h-4 w-4 text-muted-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--unimoni-blue)]/10">
+              <Icon className="h-4 w-4 text-[var(--unimoni-blue)]" />
             </div>
           ) : null}
         </CardHeader>
@@ -240,7 +240,7 @@ export function StatusBadge({
     warning: "bg-amber-500/12 text-amber-700 dark:text-amber-300 ring-amber-500/20",
     danger: "bg-red-500/12 text-red-700 dark:text-red-300 ring-red-500/20",
     neutral: "bg-muted text-muted-foreground ring-border/50",
-    info: "bg-sky-500/12 text-sky-700 dark:text-sky-300 ring-sky-500/20",
+    info: "bg-[var(--unimoni-blue)]/12 text-[var(--unimoni-blue)] dark:text-[var(--unimoni-blue-light)] ring-[var(--unimoni-blue)]/20",
   };
 
   return (
@@ -371,7 +371,7 @@ export function QuickActions({
                 action.accent ? accentMap[action.accent] : "",
               )}
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-background transition-transform group-hover:scale-105">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--unimoni-blue)] text-white transition-transform group-hover:scale-105">
                 <Icon className="h-4 w-4" />
               </div>
               <div className="min-w-0">

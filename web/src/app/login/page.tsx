@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, LockKeyhole } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { UnimoniLogo } from "@/components/brand/unimoni-logo";
 import { PublicShell } from "@/components/layout/public-shell";
 import { useAuth } from "@/contexts/auth-context";
 import { getPostLoginPath } from "@/components/auth/role-guard";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { BRAND } from "@/lib/brand";
 
 function GoogleIcon() {
   return (
@@ -79,7 +81,7 @@ export default function LoginPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <Loader2 className="h-8 w-8 animate-spin text-[var(--unimoni-blue)]" />
       </div>
     );
   }
@@ -91,13 +93,18 @@ export default function LoginPage() {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45 }}
-          className="glass-panel-elevated w-full max-w-md p-6 sm:p-8 lg:p-10"
+          className="glass-panel-elevated w-full max-w-md border-[var(--unimoni-blue)]/10 bg-white/95 p-6 sm:p-8 lg:p-10 dark:bg-card/95"
         >
-          <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-foreground text-background sm:h-14 sm:w-14">
-            <LockKeyhole className="h-5 w-5 sm:h-6 sm:w-6" />
+          <div className="mb-6 flex flex-col items-center text-center">
+            <UnimoniLogo size="lg" />
+            <p className="mt-3 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              {BRAND.tagline}
+            </p>
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sign in</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Access your MoneyExchange console</p>
+          <h1 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">Sign in</h1>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Access your {BRAND.name} console
+          </p>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-4 sm:space-y-5">
             <div className="space-y-2">
@@ -154,7 +161,7 @@ export default function LoginPage() {
           </Button>
 
           <p className="mt-7 text-center text-sm text-muted-foreground">
-            <Link href="/" className="underline underline-offset-4 transition-colors hover:text-foreground">
+            <Link href="/" className="underline underline-offset-4 transition-colors hover:text-[var(--unimoni-blue)]">
               Back to home
             </Link>
           </p>

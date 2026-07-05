@@ -107,14 +107,14 @@ export function GettingStartedChecklist({
               className={cn(
                 "flex items-start gap-3 rounded-xl border p-4 transition-colors",
                 step.done
-                  ? "border-emerald-500/20 bg-emerald-500/5"
-                  : "border-border/30 bg-muted/20 hover:border-border/50 hover:bg-muted/30",
+                  ? "border-[var(--unimoni-blue)]/25 bg-[var(--unimoni-blue)]/5"
+                  : "border-border/30 bg-muted/20 hover:border-[var(--unimoni-gold)]/30 hover:bg-muted/30",
               )}
             >
               <Icon
                 className={cn(
                   "mt-0.5 h-5 w-5 shrink-0",
-                  step.done ? "text-emerald-500" : "text-muted-foreground",
+                  step.done ? "text-[var(--unimoni-blue)]" : "text-muted-foreground",
                 )}
               />
               <div className="min-w-0 flex-1">

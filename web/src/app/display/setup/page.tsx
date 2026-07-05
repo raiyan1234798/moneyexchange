@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { UnimoniLogo } from "@/components/brand/unimoni-logo";
+import { BRAND } from "@/lib/brand";
 import { getDisplayUrl, setStoredDisplayBranchCode } from "@/lib/display-url";
 
 function DisplaySetupContent() {
@@ -27,11 +29,11 @@ function DisplaySetupContent() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#06060a] px-4 text-white sm:px-6">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#1A2B4A] px-4 text-white sm:px-6">
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <div className="animate-blob absolute -left-20 top-0 h-[480px] w-[480px] rounded-full bg-indigo-600/20 blur-[100px]" />
-        <div className="animate-blob animation-delay-2000 absolute -right-16 bottom-0 h-[420px] w-[420px] rounded-full bg-emerald-500/15 blur-[100px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#06060a_70%)]" />
+        <div className="animate-blob absolute -left-20 top-0 h-[480px] w-[480px] rounded-full bg-[#0066CC]/25 blur-[100px]" />
+        <div className="animate-blob animation-delay-2000 absolute -right-16 bottom-0 h-[420px] w-[420px] rounded-full bg-[#C9A227]/15 blur-[100px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#1A2B4A_70%)]" />
       </div>
 
       <motion.div
@@ -41,10 +43,12 @@ function DisplaySetupContent() {
         className="relative w-full max-w-lg"
       >
         <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 shadow-[0_32px_80px_-20px_rgba(0,0,0,0.8)] backdrop-blur-2xl sm:p-10">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-black shadow-lg">
-            <Monitor className="h-8 w-8" />
+          <div className="mx-auto mb-6 flex justify-center rounded-2xl bg-white px-4 py-3 shadow-lg">
+            <UnimoniLogo size="md" />
           </div>
-          <p className="text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-zinc-500">Browser Signage</p>
+          <p className="text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-zinc-400">
+            {BRAND.subtitle}
+          </p>
           <h1 className="mt-2 text-center text-3xl font-semibold tracking-tight sm:text-4xl">Open Display</h1>
           <p className="mt-3 text-center text-sm leading-relaxed text-zinc-400">
             Enter your branch code from Dashboard → Branches. The display opens immediately — press F11 or use the

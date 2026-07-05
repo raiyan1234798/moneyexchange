@@ -6,6 +6,8 @@ import {
   formatUnimoniRate,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
+import { BRAND } from "@/lib/brand";
+import Image from "next/image";
 import type { ExchangeRate } from "@/lib/types";
 
 interface UnimoniRatesPanelProps {
@@ -27,16 +29,30 @@ export function UnimoniRatesPanel({
       style={{ backgroundColor: UNIMONI_COLORS.navy }}
     >
       <div
-        className="shrink-0 px-4 py-3 text-center font-[Arial,Helvetica,sans-serif] text-[clamp(1.1rem,1.8vw,1.65rem)] font-bold uppercase tracking-[0.12em] text-white"
+        className="flex shrink-0 flex-col items-center gap-1 px-3 py-2"
         style={{ backgroundColor: UNIMONI_COLORS.headerBlue }}
       >
-        EXCHANGE RATES
+        <Image
+          src={BRAND.logoPath}
+          alt={BRAND.name}
+          width={180}
+          height={40}
+          className="h-[clamp(1.5rem,2.5vh,2.25rem)] w-auto object-contain"
+          unoptimized
+          priority
+        />
+        <p className="font-[Arial,Helvetica,sans-serif] text-[clamp(0.65rem,1vw,0.85rem)] font-bold uppercase tracking-[0.14em] text-white">
+          Exchange Rates
+        </p>
       </div>
 
-      <div className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 border-b border-white/10 px-3 py-2 font-[Arial,Helvetica,sans-serif] text-[clamp(0.75rem,1.2vw,1rem)] font-bold uppercase tracking-wide text-white">
-        <span />
-        {showBuyRate ? <span className="text-center">Buy</span> : <span />}
-        {showSellRate ? <span className="text-center">Sell</span> : <span />}
+      <div
+        className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 border-b px-3 py-2 font-[Arial,Helvetica,sans-serif] text-[clamp(0.7rem,1.1vw,0.95rem)] font-bold uppercase tracking-wide text-white"
+        style={{ borderColor: `${UNIMONI_COLORS.gold}40` }}
+      >
+        <span>Currency</span>
+        {showBuyRate ? <span className="text-center">We Buy</span> : <span />}
+        {showSellRate ? <span className="text-center">We Sell</span> : <span />}
       </div>
 
       <div className="min-h-0 flex-1 overflow-hidden px-2 py-1">
@@ -51,7 +67,7 @@ export function UnimoniRatesPanel({
               </span>
               {showBuyRate ? (
                 <span
-                  className="rounded-[2px] px-1 py-[0.15rem] text-center text-[clamp(0.8rem,1.25vw,1.05rem)] font-bold tabular-nums"
+                  className="rounded-[3px] px-1 py-[0.15rem] text-center text-[clamp(0.8rem,1.25vw,1.05rem)] font-bold tabular-nums"
                   style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
                 >
                   {formatUnimoniRate(rate.buyRate)}
@@ -61,7 +77,7 @@ export function UnimoniRatesPanel({
               )}
               {showSellRate ? (
                 <span
-                  className="rounded-[2px] px-1 py-[0.15rem] text-center text-[clamp(0.8rem,1.25vw,1.05rem)] font-bold tabular-nums"
+                  className="rounded-[3px] px-1 py-[0.15rem] text-center text-[clamp(0.8rem,1.25vw,1.05rem)] font-bold tabular-nums"
                   style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
                 >
                   {formatUnimoniRate(rate.sellRate)}
@@ -74,7 +90,12 @@ export function UnimoniRatesPanel({
         </div>
       </div>
 
-      <p className="shrink-0 px-3 py-2 font-[Arial,Helvetica,sans-serif] text-[clamp(0.55rem,0.95vw,0.8rem)] leading-snug text-white">
+      <div
+        className="h-0.5 shrink-0"
+        style={{ backgroundColor: UNIMONI_COLORS.gold }}
+      />
+
+      <p className="shrink-0 px-3 py-2 font-[Arial,Helvetica,sans-serif] text-[clamp(0.55rem,0.95vw,0.8rem)] leading-snug text-white/90">
         {UNIMONI_USD_NOTE}
       </p>
     </aside>

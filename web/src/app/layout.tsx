@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
 import { Toaster } from "@/components/ui/sonner";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,9 +22,9 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "MoneyExchangeTV | Enterprise Digital Signage",
+  title: `${BRAND.name} | ${BRAND.tagline}`,
   description:
-    "Enterprise money exchange management platform with branch administration, browser-based digital signage, and real-time exchange rate synchronization.",
+    "Unimoney money exchange platform — branch administration, browser-based digital signage, and real-time exchange rate synchronization.",
 };
 
 export default function RootLayout({

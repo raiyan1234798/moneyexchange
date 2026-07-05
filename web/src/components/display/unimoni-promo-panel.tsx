@@ -7,6 +7,7 @@ import {
   UNIMONI_LOCATIONS,
   UNIMONI_WEBSITE,
 } from "@/lib/unimoni-signage";
+import { BRAND } from "@/lib/brand";
 
 const BRANDING_TEXT_SHADOW =
   "0 1px 2px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.5)";
@@ -82,7 +83,7 @@ export function UnimoniPromoPanel({
       >
         <div className="flex w-full max-w-[min(90%,42rem)] flex-col items-center gap-[clamp(0.5rem,1.2vh,1rem)]">
           <Image
-            src="/unimoni-logo.svg"
+            src={BRAND.logoPath}
             alt="unimoni"
             width={420}
             height={90}

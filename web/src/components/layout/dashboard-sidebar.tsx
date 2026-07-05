@@ -26,8 +26,10 @@ import {
   Video,
 } from "lucide-react";
 import { useTheme } from "next-themes";
+import { UnimoniMark } from "@/components/brand/unimoni-logo";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, ROLE_LABELS } from "@/lib/constants";
+import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/contexts/auth-context";
 import { RealtimeBadge } from "@/contexts/realtime-context";
 import { Button } from "@/components/ui/button";
@@ -70,15 +72,12 @@ function mobileNavForRole(role: string) {
 function BrandMark({ compact }: { compact?: boolean }) {
   return (
     <Link href="/dashboard" className="group flex items-center gap-3">
-      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-foreground text-background shadow-md transition-transform group-hover:scale-105 lg:h-11 lg:w-11">
-        <Coins className="h-5 w-5" />
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-white/20 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-      </div>
+      <UnimoniMark size={compact ? 36 : 40} />
       {!compact ? (
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-tight">MoneyExchange</p>
+          <p className="truncate text-sm font-semibold tracking-tight">{BRAND.name}</p>
           <p className="hidden text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground sm:block">
-            Enterprise Console
+            {BRAND.subtitle}
           </p>
         </div>
       ) : null}
@@ -104,20 +103,20 @@ function NavLinks({ onNavigate, className }: { onNavigate?: () => void; classNam
             onClick={onNavigate}
             className={cn(
               "group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-200",
-              active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+              active ? "text-white" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {active ? (
               <motion.span
                 layoutId="sidebar-active"
-                className="absolute inset-0 rounded-xl bg-foreground shadow-md shadow-foreground/10"
+                className="absolute inset-0 rounded-xl bg-[var(--unimoni-blue)] shadow-md shadow-[var(--unimoni-blue)]/25"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
               />
             ) : (
-              <span className="absolute inset-0 rounded-xl bg-transparent transition-colors group-hover:bg-muted/60" />
+              <span className="absolute inset-0 rounded-xl bg-transparent transition-colors group-hover:bg-[var(--unimoni-gold)]/10" />
             )}
-            <Icon className={cn("relative z-10 h-4 w-4 shrink-0", active && "text-background")} />
-            <span className={cn("relative z-10", active && "text-background")}>{item.label}</span>
+            <Icon className={cn("relative z-10 h-4 w-4 shrink-0", active && "text-white")} />
+            <span className={cn("relative z-10", active && "text-white")}>{item.label}</span>
           </Link>
         );
       })}
@@ -132,8 +131,8 @@ function UserPanel({ onAction }: { onAction?: () => void }) {
   return (
     <div className="rounded-2xl border border-border/40 bg-card/50 p-4 backdrop-blur-sm">
       <div className="mb-4 flex items-center gap-3">
-        <Avatar className="h-10 w-10 rounded-xl ring-2 ring-border/30">
-          <AvatarFallback className="rounded-xl bg-foreground/8 text-xs font-semibold">
+        <Avatar className="h-10 w-10 rounded-xl ring-2 ring-[var(--unimoni-blue)]/20">
+          <AvatarFallback className="rounded-xl bg-[var(--unimoni-blue)]/10 text-xs font-semibold text-[var(--unimoni-navy)] dark:text-foreground">
             {(profile?.displayName || profile?.email || "U").slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
@@ -280,13 +279,15 @@ export function DashboardMobileBottomNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[10px] font-medium transition-colors",
-                active ? "text-foreground" : "text-muted-foreground",
+                active ? "text-[var(--unimoni-blue)]" : "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
-                  active ? "bg-foreground text-background shadow-md" : "bg-transparent",
+                  active
+                    ? "bg-[var(--unimoni-blue)] text-white shadow-md shadow-[var(--unimoni-blue)]/25"
+                    : "bg-transparent",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -322,7 +323,7 @@ export function DashboardHeader({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div className={cn("min-w-0", accentClass)}>
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground sm:text-[11px]">
-            Control Panel
+            {BRAND.name} Console
           </p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:mt-2 sm:text-3xl lg:text-[2.25rem]">
             {title}

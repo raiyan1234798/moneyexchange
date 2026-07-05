@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Image from "next/image";
+import { BRAND } from "@/lib/brand";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 interface BreakingNewsTickerProps {
@@ -26,6 +27,7 @@ function BreakingNewsTickerInner({
   const duration = Math.max(scrollSpeedSeconds, 8);
   const [cycle, setCycle] = useState(0);
   const [scrolling, setScrolling] = useState(!paused);
+  const resolvedLogo = logoUrl || BRAND.logoPath;
 
   const handleAnimationEnd = useCallback(() => {
     setScrolling(false);
@@ -41,31 +43,23 @@ function BreakingNewsTickerInner({
     <footer className="relative shrink-0">
       <div
         className="relative flex h-[clamp(3rem,6vh,4.5rem)] overflow-hidden"
-        style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
+        style={{ backgroundColor: UNIMONI_COLORS.navy }}
       >
         <div
-          className="relative z-20 flex w-[clamp(4.5rem,10vw,7rem)] shrink-0 items-center justify-center border-r-2 border-yellow-400 shadow-[0_0_12px_rgba(250,204,21,0.35)]"
-          style={{ backgroundColor: "#CC0000" }}
+          className="relative z-20 flex w-[clamp(4.5rem,10vw,7rem)] shrink-0 items-center justify-center border-r-2 shadow-[0_0_12px_rgba(201,162,39,0.35)]"
+          style={{
+            backgroundColor: UNIMONI_COLORS.panelBlue,
+            borderColor: UNIMONI_COLORS.gold,
+          }}
         >
-          {logoUrl ? (
-            <Image
-              src={logoUrl}
-              alt="Branch logo"
-              width={80}
-              height={80}
-              className="h-[70%] w-[70%] object-contain drop-shadow-md animate-[logo-glow_2.5s_ease-in-out_infinite]"
-              unoptimized
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center px-1 text-center animate-[logo-glow_2.5s_ease-in-out_infinite]">
-              <span className="text-[clamp(0.55rem,1vw,0.75rem)] font-black uppercase leading-none text-white">
-                NEWS
-              </span>
-              <span className="mt-0.5 text-[clamp(0.45rem,0.8vw,0.6rem)] font-bold uppercase text-yellow-300">
-                LIVE
-              </span>
-            </div>
-          )}
+          <Image
+            src={resolvedLogo}
+            alt={BRAND.name}
+            width={80}
+            height={80}
+            className="h-[75%] w-[85%] object-contain drop-shadow-md animate-[logo-glow_2.5s_ease-in-out_infinite]"
+            unoptimized
+          />
         </div>
 
         <div
@@ -90,7 +84,7 @@ function BreakingNewsTickerInner({
         </div>
       </div>
 
-      <div className="h-1 w-full bg-yellow-400" />
+      <div className="h-1 w-full" style={{ backgroundColor: UNIMONI_COLORS.gold }} />
 
       <style jsx global>{`
         @keyframes breaking-scroll-once {
@@ -108,7 +102,7 @@ function BreakingNewsTickerInner({
             opacity: 1;
           }
           50% {
-            filter: drop-shadow(0 0 8px rgba(255, 235, 59, 0.85));
+            filter: drop-shadow(0 0 8px rgba(201, 162, 39, 0.85));
             opacity: 0.92;
           }
         }

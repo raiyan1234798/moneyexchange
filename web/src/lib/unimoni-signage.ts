@@ -1,35 +1,33 @@
 import type { ExchangeRate } from "@/lib/types";
+import { BRAND, BRAND_COLORS } from "@/lib/brand";
 
-/** Unimoni digital signage palette (from branch display reference). */
+/** Unimoney digital signage palette. */
 export const UNIMONI_COLORS = {
-  panelBlue: "#0078D4",
-  navy: "#0a1628",
-  headerBlue: "#33B5E5",
-  tickerBlack: "#000000",
+  panelBlue: BRAND_COLORS.primaryLight,
+  navy: BRAND_COLORS.primary,
+  headerBlue: BRAND_COLORS.accent,
+  gold: BRAND_COLORS.accent,
+  goldBright: BRAND_COLORS.accentBright,
+  tickerBlack: "#060912",
   white: "#ffffff",
-  darkText: "#001f3f",
-  /** @deprecated Use panelBlue */
-  accentBlue: "#0078D4",
-  /** @deprecated Use white for both rate boxes */
+  darkText: BRAND_COLORS.primary,
+  accentBlue: BRAND_COLORS.primaryLight,
   sellBox: "#ffffff",
-  /** @deprecated Use darkText */
-  promoText: "#001f3f",
+  promoText: BRAND_COLORS.primary,
 } as const;
 
-export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONI KISEMENT";
+export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONEY";
 
-export const UNIMONI_CONTACT_LINE = "Dial 0759207000/001/002 & 0772207001";
+export const UNIMONI_CONTACT_LINE = BRAND.tagline;
 
-export const UNIMONI_WEBSITE = "www.unimoni.com";
+export const UNIMONI_WEBSITE = "unimoney.com";
 
 export const UNIMONI_LOCATIONS = [
-  "Lugogo Mall | Amber House | Arua Park | Kampala Road",
-  "Imperial Mall - Entebbe | Nabugabo | Bugolobi | Nakivubo",
+  "Trusted Exchange · Real-Time Signage",
 ] as const;
 
-export const UNIMONI_USD_NOTE = "WE BUY USD 20, 10, 5, 2 & 1 @ 3400";
+export const UNIMONI_USD_NOTE = "Rates update in real time from your branch dashboard";
 
-/** Reference rates from Unimoni signage (UGX quote style). */
 export const UNIMONI_DEFAULT_RATES: Array<{
   currencyCode: string;
   buyRate: number;
@@ -65,7 +63,7 @@ export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
 
   const now = new Date();
   return UNIMONI_DEFAULT_RATES.map((rate, index) => ({
-    id: `unimoni-${rate.currencyCode.toLowerCase()}`,
+    id: `unimoney-${rate.currencyCode.toLowerCase()}`,
     branchId: "default",
     currencyCode: rate.currencyCode,
     buyRate: rate.buyRate,

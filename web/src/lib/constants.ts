@@ -27,7 +27,7 @@ export const COLLECTIONS = {
 export const DEFAULT_BRANCH_SETTINGS = {
   timezone: "Asia/Dubai",
   defaultLanguage: "en",
-  slogan: "Your trusted exchange partner",
+  slogan: "A WIZ Group Financial",
   tickerSpeed: 50,
   tickerFontSize: 18,
   tickerFontColor: "#FFFFFF",
@@ -57,8 +57,8 @@ export const RECOMMENDED_VIDEO_FORMATS = [
 ];
 
 export const DEFAULT_SYSTEM_SETTINGS = {
-  companyName: "MoneyExchange",
-  supportEmail: "support@moneyexchange.com",
+  companyName: "Unimoni",
+  supportEmail: "support@unimoni.com",
   defaultTimezone: "Asia/Dubai",
   emergencyRateEnabled: true,
   offlineCacheEnabled: true,
