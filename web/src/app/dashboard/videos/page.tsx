@@ -417,7 +417,7 @@ export default function VideosPage() {
                 </div>
                 {uploading ? (
                   <div className="space-y-2">
-                    <Progress value={progress} className="h-2" />
+                    <Progress value={uploading ? Math.max(progress, 1) : progress} className="h-2" />
                     <p className="text-xs text-muted-foreground">Uploading {Math.round(progress)}%…</p>
                   </div>
                 ) : null}

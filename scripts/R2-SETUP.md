@@ -11,6 +11,15 @@ Unimoni stores uploaded signage videos in **Cloudflare R2** (fast, cheap object 
 | **Firebase Storage** | Fallback if R2 unavailable but Storage enabled | Medium |
 | **Firestore chunks** | Last resort, files ≤ 10 MB only | Slow — avoid |
 
+## 0. Enable R2 on your Cloudflare account
+
+Before `wrangler r2 bucket create` or deploying the upload worker, turn on R2 in the dashboard:
+
+1. [Cloudflare Dashboard](https://dash.cloudflare.com/) → **R2 Object Storage**
+2. Complete **Enable R2** (payment method / terms if prompted)
+
+If R2 is not enabled, Wrangler returns **code 10042** (`Please enable R2 through the Cloudflare Dashboard`). Until then, use **Paste video link** in the dashboard — no R2 required.
+
 ## 1. Create R2 bucket
 
 1. Open [Cloudflare Dashboard](https://dash.cloudflare.com/) → **R2 Object Storage**
