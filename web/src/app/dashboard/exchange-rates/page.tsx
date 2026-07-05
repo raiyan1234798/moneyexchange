@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { doc, onSnapshot } from "firebase/firestore";
 import {
   ArrowDown,
   ArrowUp,
+  Check,
   Coins,
   Download,
   Eye,
@@ -13,6 +15,7 @@ import {
   TrendingUp,
   RefreshCw,
   Upload,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -40,6 +43,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { db } from "@/lib/firebase/client";
+import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
 import {
   createCurrency,
   subscribeCurrencies,
@@ -57,11 +62,19 @@ import {
   updateExchangeRate,
 } from "@/lib/services/exchange-rate-service";
 import {
+  approvePendingRate,
+  rejectPendingRate,
+  subscribePendingApprovals,
+} from "@/lib/services/pending-approval-service";
+import {
   downloadRateTemplateCsv,
   downloadRateTemplateXlsx,
   parseRateFile,
+  TEMPLATE_CURRENCIES,
 } from "@/lib/rate-import";
-import type { Currency, ExchangeRate } from "@/lib/types";
+import type { Currency, ExchangeRate, PendingApproval, SystemSettings } from "@/lib/types";
+
+const SETTINGS_ID = "global";
 
 const emptyCurrencyForm = {
   currencyCode: "",
@@ -71,11 +84,15 @@ const emptyCurrencyForm = {
 };
 
 export default function ExchangeRatesPage() {
-  const { user, profile, hasPermission } = useAuth();
-  const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin, isAdmin } = useBranchScope();
+  const { user, profile, hasPermission, isBranchUser, isSuperAdmin, isAdmin } = useAuth();
+  const { branches, effectiveBranchId, setSelectedBranchId } = useBranchScope();
   const { canManageRates } = useContentPermissions();
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [requireApproval, setRequireApproval] = useState<boolean>(
+    DEFAULT_SYSTEM_SETTINGS.requireApprovalForChanges,
+  );
   const [drafts, setDrafts] = useState<Record<string, { buyRate: number; sellRate: number }>>({});
   const [addOpen, setAddOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -93,6 +110,25 @@ export default function ExchangeRatesPage() {
       toast.error(error.message || "Failed to load currencies");
     });
   }, []);
+
+  useEffect(() => {
+    const ref = doc(db, COLLECTIONS.settings, SETTINGS_ID);
+    return onSnapshot(ref, (snapshot) => {
+      const data = snapshot.data() as SystemSettings | undefined;
+      setRequireApproval(
+        data?.requireApprovalForChanges ?? DEFAULT_SYSTEM_SETTINGS.requireApprovalForChanges,
+      );
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!isSuperAdmin && !isAdmin) return;
+    return subscribePendingApprovals(
+      isSuperAdmin ? null : effectiveBranchId ?? null,
+      setPendingApprovals,
+      (error) => toast.error(error.message || "Failed to load pending approvals"),
+    );
+  }, [isSuperAdmin, isAdmin, effectiveBranchId]);
 
   useEffect(() => {
     if (!effectiveBranchId) return;
@@ -134,12 +170,19 @@ export default function ExchangeRatesPage() {
     const draft = drafts[rate.id];
     if (!draft) return;
     try {
-      await updateExchangeRate(rate, draft.buyRate, draft.sellRate, {
+      const result = await updateExchangeRate(rate, draft.buyRate, draft.sellRate, {
         userId: user.uid,
         userName: profile.displayName || profile.email,
         branchName: branch?.name || effectiveBranchId,
+      }, "manual", {
+        requireApproval,
+        actorRole: profile.role,
       });
-      toast.success(`${rate.currencyCode} rate published to displays`);
+      if (result === "pending") {
+        toast.success(`${rate.currencyCode} submitted for admin approval`);
+      } else {
+        toast.success(`${rate.currencyCode} rate published to displays`);
+      }
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to publish rate");
@@ -279,9 +322,17 @@ export default function ExchangeRatesPage() {
           userName: profile.displayName || profile.email,
           branchName: branch?.name || effectiveBranchId,
         },
-        { autoCreateCurrencies: canCreateCatalog },
+        {
+          autoCreateCurrencies: canCreateCatalog,
+          requireApproval,
+          actorRole: profile.role,
+        },
       );
-      toast.success(`Updated ${count} rates for branch ${branch?.name ?? effectiveBranchId}`);
+      toast.success(
+        requireApproval && isBranchUser
+          ? `Submitted ${count} rates for admin approval`
+          : `Updated ${count} rates for branch ${branch?.name ?? effectiveBranchId}`,
+      );
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to import rates");
@@ -318,8 +369,7 @@ export default function ExchangeRatesPage() {
         {canManageRates && effectiveBranchId ? (
           <ContentPanel
             title="Bulk Excel Upload"
-            description="Upload CURRENCY | WE BUY | WE SELL — rates publish instantly to this branch's display."
-            className="border-[var(--brand-accent)]/25 bg-gradient-to-br from-[var(--brand-accent)]/8 via-transparent to-transparent"
+            description="Upload CURRENCY | WE BUY | WE SELL — rates publish to this branch's display in real time."
           >
             <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-center">
               <input
@@ -334,7 +384,7 @@ export default function ExchangeRatesPage() {
               />
               <Button
                 size="lg"
-                className="btn-gradient h-12 rounded-xl px-6"
+                className="h-12 rounded-xl px-6"
                 disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -353,13 +403,79 @@ export default function ExchangeRatesPage() {
               </div>
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              9 currencies: USD, GBP, EUR, KES, ZAR, CAD, AUD, HKD, CNY — columns: CURRENCY | WE BUY | WE SELL
+              14 currencies: {TEMPLATE_CURRENCIES.join(", ")} — columns: CURRENCY | WE BUY | WE SELL
             </p>
           </ContentPanel>
         ) : isAdmin && effectiveBranchId ? (
           <p className="text-sm text-muted-foreground">
             View-only access — you can see rates but cannot edit them.
           </p>
+        ) : null}
+
+        {(isSuperAdmin || isAdmin) && pendingApprovals.length > 0 ? (
+          <ContentPanel
+            title="Pending Rate Approvals"
+            description={`${pendingApprovals.length} change${pendingApprovals.length === 1 ? "" : "s"} awaiting review`}
+          >
+            <div className="space-y-2">
+              {pendingApprovals.map((approval) => (
+                <div
+                  key={approval.id}
+                  className="flex flex-col gap-3 rounded-xl border border-border/50 bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-medium">
+                      {approval.currencyCode} — {approval.branchName ?? approval.branchId}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Buy {approval.previousBuyRate} → {approval.proposedBuyRate} · Sell{" "}
+                      {approval.previousSellRate} → {approval.proposedSellRate}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Requested by {approval.requestedByName}
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() =>
+                        void approvePendingRate(approval, {
+                          userId: user!.uid,
+                          userName: profile!.displayName || profile!.email,
+                        })
+                          .then(() => toast.success(`${approval.currencyCode} approved`))
+                          .catch((e) =>
+                            toast.error(e instanceof Error ? e.message : "Approval failed"),
+                          )
+                      }
+                    >
+                      <Check className="mr-1 h-3.5 w-3.5" />
+                      Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-lg"
+                      onClick={() =>
+                        void rejectPendingRate(approval, {
+                          userId: user!.uid,
+                          userName: profile!.displayName || profile!.email,
+                        })
+                          .then(() => toast.success(`${approval.currencyCode} rejected`))
+                          .catch((e) =>
+                            toast.error(e instanceof Error ? e.message : "Reject failed"),
+                          )
+                      }
+                    >
+                      <X className="mr-1 h-3.5 w-3.5" />
+                      Reject
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ContentPanel>
         ) : null}
 
         {canCreateCatalog ? (

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
+import { UnimoniMark } from "@/components/brand/unimoni-logo";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 interface BreakingNewsTickerProps {
@@ -93,13 +94,8 @@ function BreakingNewsTickerInner({
               unoptimized
             />
           ) : (
-            <div className="flex flex-col items-center justify-center px-1 text-center">
-              <span className="text-[clamp(0.55rem,1vw,0.75rem)] font-black uppercase leading-none text-white">
-                NEWS
-              </span>
-              <span className="mt-0.5 text-[clamp(0.45rem,0.8vw,0.6rem)] font-bold uppercase text-[#F5B942]">
-                LIVE
-              </span>
+            <div className="flex h-full w-full items-center justify-center">
+              <UnimoniMark size={48} className="shadow-md" />
             </div>
           )}
         </div>

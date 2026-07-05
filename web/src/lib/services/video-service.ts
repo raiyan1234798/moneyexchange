@@ -10,6 +10,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { db, storage } from "@/lib/firebase/client";
 import { COLLECTIONS, MAX_CHUNKED_VIDEO_BYTES } from "@/lib/constants";
+import { assertBranchId } from "@/lib/branch-isolation";
 import { isChunkedVideo, loadChunkedVideoBlobUrl, uploadVideoChunks } from "@/lib/video-chunk-utils";
 import {
   inferVideoMimeType,
@@ -128,21 +129,24 @@ async function removeChunkedVideoData(videoId: string): Promise<void> {
 }
 
 export async function listVideos(branchId: string): Promise<VideoAsset[]> {
+  const scopedBranchId = assertBranchId(branchId, "listVideos");
   const videos = await listDocuments<VideoAsset>(COLLECTIONS.videos, [
-    where("branchId", "==", branchId),
+    where("branchId", "==", scopedBranchId),
   ]);
   return sortVideos(videos);
 }
 
+/** Signage playback: active videos scoped to one branch — no cross-branch bleed. */
 export function subscribeVideos(
   branchId: string,
   onData: (videos: VideoAsset[]) => void,
   onError?: (error: Error) => void,
 ) {
+  const scopedBranchId = assertBranchId(branchId, "subscribeVideos");
   return subscribeCollection<VideoAsset>(
     COLLECTIONS.videos,
     [
-      where("branchId", "==", branchId),
+      where("branchId", "==", scopedBranchId),
       where("status", "==", "active"),
     ],
     (items) => onData(sortVideos(items)),

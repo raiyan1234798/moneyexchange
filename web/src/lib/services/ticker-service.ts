@@ -9,11 +9,13 @@ import {
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
+import { assertBranchId } from "@/lib/branch-isolation";
 import type { TickerMessage } from "@/lib/types";
 
 export async function listTickers(branchId: string): Promise<TickerMessage[]> {
+  const scopedBranchId = assertBranchId(branchId, "listTickers");
   return listDocuments<TickerMessage>(COLLECTIONS.tickerMessages, [
-    where("branchId", "==", branchId),
+    where("branchId", "==", scopedBranchId),
     where("status", "==", "active"),
     orderBy("updatedAt", "desc"),
   ]);
@@ -34,10 +36,11 @@ export function subscribeTickers(
   onData: (tickers: TickerMessage[]) => void,
   onError?: (error: Error) => void,
 ) {
+  const scopedBranchId = assertBranchId(branchId, "subscribeTickers");
   return subscribeCollection<TickerMessage>(
     COLLECTIONS.tickerMessages,
     [
-      where("branchId", "==", branchId),
+      where("branchId", "==", scopedBranchId),
       where("status", "==", "active"),
     ],
     (items) => onData(sortTickers(items)),

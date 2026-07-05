@@ -83,11 +83,15 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   useEffect(() => {
     if (!branchId) return;
 
-    const unsubBranch = subscribeBranch(branchId, setBranch);
-    const unsubRates = subscribeExchangeRates(branchId, setRates);
-    const unsubTickers = subscribeTickers(branchId, setTickers);
-    const unsubVideos = subscribeVideos(branchId, setVideos);
-    const unsubImages = subscribeImageAdverts(branchId, setImages);
+    // BRANCH ISOLATION: every subscription is scoped to this branchId only.
+    // Videos, rates, and tickers from other branches never appear here unless
+    // an admin explicitly used "Apply to all branches" (creates per-branch copies).
+    const scopedBranchId = branchId;
+    const unsubBranch = subscribeBranch(scopedBranchId, setBranch);
+    const unsubRates = subscribeExchangeRates(scopedBranchId, setRates);
+    const unsubTickers = subscribeTickers(scopedBranchId, setTickers);
+    const unsubVideos = subscribeVideos(scopedBranchId, setVideos);
+    const unsubImages = subscribeImageAdverts(scopedBranchId, setImages);
 
     return () => {
       unsubBranch();
@@ -260,7 +264,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         <button
           type="button"
           onClick={() => void toggleFullscreen()}
-          className="absolute right-3 top-3 z-50 flex items-center gap-2 rounded-lg border border-[#D4A853]/40 bg-[#0B1F3A]/90 px-4 py-2.5 text-sm font-semibold text-[#F5B942] shadow-lg shadow-black/40 backdrop-blur-sm transition-colors hover:bg-[#1E3A5F]/95"
+          className="absolute right-3 top-3 z-50 flex items-center gap-2 rounded-lg border border-white/20 bg-[#0B1F3A]/90 px-4 py-2.5 text-sm font-medium text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-[#1A4D8F]/95"
         >
           <Maximize2 className="h-3.5 w-3.5" />
           Fullscreen
@@ -276,18 +280,13 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         </button>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        {rateCardPosition === "left" ? (
-          <>
-            {ratesPanel}
-            {promoPanel}
-          </>
-        ) : (
-          <>
-            {promoPanel}
-            {ratesPanel}
-          </>
-        )}
+      <div
+        className={`display-main-area flex min-h-0 flex-1 flex-col ${
+          rateCardPosition === "left" ? "lg:flex-row-reverse" : "lg:flex-row"
+        }`}
+      >
+        {promoPanel}
+        {ratesPanel}
       </div>
 
       <BreakingNewsTicker
@@ -309,6 +308,19 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         }
         .display-kiosk:hover {
           cursor: default;
+        }
+        .display-main-area .display-promo-panel {
+          min-height: clamp(12rem, 38vh, 28rem);
+        }
+        @media (min-width: 1024px) {
+          .display-main-area .display-promo-panel {
+            min-height: 0;
+          }
+        }
+        @media (max-width: 1023px) {
+          .display-main-area .display-rates-panel {
+            max-height: clamp(14rem, 42vh, 22rem);
+          }
         }
       `}</style>
     </div>

@@ -6,10 +6,26 @@ export interface RateImportRow {
   sellRate: number;
 }
 
-const TEMPLATE_CURRENCIES = ["USD", "GBP", "EUR", "KES", "ZAR", "CAD", "AUD", "HKD", "CNY"] as const;
+/** Default 14 currencies for Unimoni branch signage template. */
+export const TEMPLATE_CURRENCIES = [
+  "USD",
+  "GBP",
+  "EUR",
+  "KES",
+  "ZAR",
+  "CAD",
+  "AUD",
+  "HKD",
+  "CNY",
+  "INR",
+  "SAR",
+  "QAR",
+  "OMR",
+  "BHD",
+] as const;
 
 const TEMPLATE_SAMPLE_RATES: Record<string, { buy: number; sell: number }> = {
-  USD: { buy: 3625, sell: 3685 },
+  USD: { buy: 3650, sell: 3680 },
   GBP: { buy: 4725, sell: 4975 },
   EUR: { buy: 4095, sell: 4315 },
   KES: { buy: 27.3, sell: 30 },
@@ -18,6 +34,11 @@ const TEMPLATE_SAMPLE_RATES: Record<string, { buy: number; sell: number }> = {
   AUD: { buy: 2060, sell: 2700 },
   HKD: { buy: 450, sell: 480 },
   CNY: { buy: 500, sell: 520 },
+  INR: { buy: 44, sell: 46 },
+  SAR: { buy: 830, sell: 1120 },
+  QAR: { buy: 900, sell: 1180 },
+  OMR: { buy: 9200, sell: 9600 },
+  BHD: { buy: 9600, sell: 9900 },
 };
 
 function normalizeHeader(value: unknown): string {

@@ -245,6 +245,33 @@ export interface SystemSettings {
   defaultTickerSpeed?: number;
   maintenanceMode?: boolean;
   auditRetentionDays?: number;
+  /** When true, branchUser rate publishes require admin approval before going live. */
+  requireApprovalForChanges?: boolean;
+  updatedAt: Timestamp | Date;
+}
+
+export type PendingApprovalStatus = "pending" | "approved" | "rejected";
+
+export interface PendingApproval {
+  id: string;
+  type: "rate_change";
+  branchId: string;
+  branchName?: string;
+  entityType: "exchange_rate";
+  entityId: string;
+  currencyCode: string;
+  proposedBuyRate: number;
+  proposedSellRate: number;
+  previousBuyRate: number;
+  previousSellRate: number;
+  status: PendingApprovalStatus;
+  requestedBy: string;
+  requestedByName: string;
+  reviewedBy?: string | null;
+  reviewedByName?: string | null;
+  reviewedAt?: Timestamp | Date | null;
+  rejectReason?: string | null;
+  createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }
 

@@ -214,6 +214,8 @@ export default function SettingsPage() {
         defaultTickerSpeed: settings.defaultTickerSpeed ?? DEFAULT_SYSTEM_SETTINGS.defaultTickerSpeed,
         maintenanceMode: settings.maintenanceMode ?? false,
         auditRetentionDays: settings.auditRetentionDays ?? DEFAULT_SYSTEM_SETTINGS.auditRetentionDays,
+        requireApprovalForChanges:
+          settings.requireApprovalForChanges ?? DEFAULT_SYSTEM_SETTINGS.requireApprovalForChanges,
       };
       await createDocument(COLLECTIONS.settings, payload, SETTINGS_ID);
       toast.success("System settings saved");
@@ -347,6 +349,20 @@ export default function SettingsPage() {
               </div>
               <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
                 <div>
+                  <p className="font-medium">Require approval for branch user rate edits</p>
+                  <p className="text-sm text-muted-foreground">
+                    When enabled, branch users submit rate changes for admin review before displays update.
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.requireApprovalForChanges ?? false}
+                  onCheckedChange={(checked) =>
+                    setSettings({ ...settings, requireApprovalForChanges: checked })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+                <div>
                   <p className="font-medium">Maintenance Mode</p>
                   <p className="text-sm text-muted-foreground">Show maintenance notice on public displays.</p>
                 </div>
@@ -377,7 +393,7 @@ export default function SettingsPage() {
               key={branch.id}
               branchName={branch.name}
               initialLogoUrl={branch.logoUrl ?? ""}
-              initialColor={branch.brandingColor ?? "#6366f1"}
+              initialColor={branch.brandingColor ?? "#0066B3"}
               initialSettings={branch.settings}
               saving={saving}
               onSave={saveBranchSettings}

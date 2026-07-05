@@ -295,5 +295,16 @@ service cloud.firestore {
       allow delete: if isSuperAdmin() ||
         canManageBranchContent(resource.data.branchId);
     }
+
+    match /pending_approvals/{approvalId} {
+      allow read: if isSuperAdmin() || isAdmin() ||
+        (isBranchManager() && resource.data.branchId == managerBranchId());
+      allow create: if isActiveUser() &&
+        request.resource.data.branchId is string &&
+        canManageBranchRates(request.resource.data.branchId);
+      allow update: if isSuperAdmin() || isAdmin() ||
+        (isBranchManager() && resource.data.branchId == managerBranchId());
+      allow delete: if isSuperAdmin();
+    }
   }
 }

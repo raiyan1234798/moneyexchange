@@ -53,7 +53,7 @@ const emptyForm = {
   email: "",
   workingHours: "09:00 - 21:00",
   slogan: "Your trusted exchange partner",
-  brandingColor: "#6366f1",
+  brandingColor: "#0066B3",
 };
 
 const fieldLabels: Record<keyof typeof emptyForm, string> = {

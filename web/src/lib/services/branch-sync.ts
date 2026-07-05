@@ -1,4 +1,5 @@
 import type { Branch } from "@/lib/types";
+import { resolveBranchTargets, canApplyToAllBranches } from "@/lib/branch-isolation";
 import { addExternalVideo } from "@/lib/services/video-service";
 import { createTicker } from "@/lib/services/ticker-service";
 import { addImageAdvertUrl } from "@/lib/services/image-advert-service";
@@ -13,13 +14,10 @@ export function getActiveBranchTargets(
   sourceBranchId: string,
   applyToAll: boolean,
 ): Branch[] {
-  const active = branches.filter((b) => b.status === "active");
-  if (!applyToAll) {
-    const source = active.find((b) => b.id === sourceBranchId);
-    return source ? [source] : [];
-  }
-  return active;
+  return resolveBranchTargets(branches, sourceBranchId, applyToAll);
 }
+
+export { canApplyToAllBranches };
 
 async function deactivatePreviousBranchVideos(branchId: string): Promise<void> {
   const activeVideos = await listDocuments<VideoAsset>(COLLECTIONS.videos, [

@@ -1,16 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
-import {
-  UNIMONI_COLORS,
-  UNIMONI_CONTACT_LINE,
-  UNIMONI_LOCATIONS,
-  UNIMONI_WEBSITE,
-} from "@/lib/unimoni-signage";
-
-const BRANDING_TEXT_SHADOW =
-  "0 1px 2px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.5)";
+import { UnimoniMark } from "@/components/brand/unimoni-logo";
+import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 interface UnimoniPromoPanelProps {
   videoUrl?: string | null;
@@ -20,26 +12,29 @@ interface UnimoniPromoPanelProps {
   onVideoLoaded?: () => void;
   onVideoError?: () => void;
   onVideoEnded?: () => void;
+  className?: string;
 }
 
 export function UnimoniPromoPanel({
   videoUrl,
   imageUrl,
+  videoLoaded = false,
   loopVideo = true,
   onVideoLoaded,
   onVideoError,
   onVideoEnded,
+  className = "",
 }: UnimoniPromoPanelProps) {
   const showVideo = Boolean(videoUrl);
   const showImage = Boolean(imageUrl) && !showVideo;
+  const showPlaceholder = !showVideo && !showImage;
+  const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
 
   return (
     <section
-      className="relative flex h-full w-[70%] shrink-0 flex-col overflow-hidden bg-black"
+      className={`display-promo-panel relative flex h-full w-full min-h-0 shrink-0 flex-col overflow-hidden bg-black lg:w-[65%] xl:w-[68%] ${className}`}
       style={
-        showVideo || showImage
-          ? undefined
-          : { backgroundColor: UNIMONI_COLORS.panelBlue }
+        showVideo || showImage ? undefined : { backgroundColor: UNIMONI_COLORS.panelBlue }
       }
     >
       {showVideo ? (
@@ -66,49 +61,27 @@ export function UnimoniPromoPanel({
           unoptimized
           priority
         />
-      ) : (
-        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-3 bg-black/40 px-8 text-center backdrop-blur-[2px]">
-          <p className="text-[clamp(1rem,1.6vw,1.35rem)] font-semibold tracking-wide text-white/90">
-            No video configured
-          </p>
-          <p className="max-w-md text-[clamp(0.8rem,1.2vw,1rem)] leading-relaxed text-white/60">
-            Upload a video in Dashboard → Videos to display promotional content on this screen.
-          </p>
-        </div>
-      )}
+      ) : null}
 
-      <div
-        className="pointer-events-none relative z-10 flex h-full flex-col items-center justify-between px-[clamp(1.5rem,4vw,3rem)] py-[clamp(1.5rem,3vh,2.5rem)] text-center font-[Arial,Helvetica,sans-serif] text-white"
-        style={{ textShadow: BRANDING_TEXT_SHADOW }}
-      >
-        <div className="flex w-full max-w-[min(90%,42rem)] flex-col items-center gap-[clamp(0.5rem,1.2vh,1rem)]">
-          <UnimoniLogoImage
-            variant="onDark"
-            className="h-[clamp(3rem,8vh,5.5rem)] w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
-            priority
-          />
-          <p className="text-[clamp(1rem,1.8vw,1.5rem)] font-medium tracking-wide">
-            {UNIMONI_WEBSITE}
+      {showPlaceholder ? (
+        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-3 bg-[#0B1F3A]/80 px-6 text-center">
+          <UnimoniMark size={72} className="shadow-lg" />
+          <p className="text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium tracking-wide text-white/90">
+            Branch promotional video
           </p>
-          <p className="text-[clamp(0.85rem,1.4vw,1.15rem)] font-medium leading-snug">
-            {UNIMONI_CONTACT_LINE}
+          <p className="max-w-md text-[clamp(0.75rem,1.1vw,0.9rem)] leading-relaxed text-white/55">
+            Upload content in Dashboard → Videos for this branch.
           </p>
         </div>
+      ) : null}
 
-        <div className="w-full max-w-[min(95%,48rem)] space-y-[clamp(0.35rem,0.8vh,0.65rem)]">
-          <p className="text-[clamp(0.9rem,1.35vw,1.1rem)] font-semibold uppercase tracking-wide">
-            Visit us at
+      {showBrandingOverlay && showImage ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-6 py-4">
+          <p className="text-center font-[Arial,Helvetica,sans-serif] text-[clamp(0.7rem,1.1vw,0.9rem)] font-medium text-white/90">
+            unimoni.com
           </p>
-          {UNIMONI_LOCATIONS.map((line) => (
-            <p
-              key={line}
-              className="text-[clamp(0.75rem,1.15vw,0.95rem)] leading-snug"
-            >
-              {line}
-            </p>
-          ))}
         </div>
-      </div>
+      ) : null}
     </section>
   );
 }

@@ -313,6 +313,30 @@
   .stagger-3 { animation-delay: 0.15s; }
   .stagger-4 { animation-delay: 0.2s; }
   .stagger-5 { animation-delay: 0.25s; }
+
+  .breaking-ticker-text {
+    animation-name: ticker-scroll-rtl;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
+
+  .ticker-logo-pulse {
+    animation: ticker-logo-subtle 3s ease-in-out infinite;
+  }
+}
+
+@keyframes ticker-scroll-rtl {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - 100vw));
+  }
+}
+
+@keyframes ticker-logo-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.88; }
 }
 
 @keyframes blob {

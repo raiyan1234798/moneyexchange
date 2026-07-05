@@ -22,6 +22,7 @@ export const COLLECTIONS = {
   scheduledContent: "scheduled_content",
   tvPairingCodes: "tv_pairing_codes",
   imageAdverts: "image_adverts",
+  pendingApprovals: "pending_approvals",
 } as const;
 
 export const DEFAULT_BRANCH_SETTINGS = {
@@ -66,6 +67,7 @@ export const DEFAULT_SYSTEM_SETTINGS = {
   defaultTickerSpeed: 30,
   maintenanceMode: false,
   auditRetentionDays: 90,
+  requireApprovalForChanges: false,
 } as const;
 
 export const NAV_ITEMS: Array<{

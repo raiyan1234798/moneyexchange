@@ -11,8 +11,10 @@ import {
 } from "@/lib/firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
+import { assertBranchId } from "@/lib/branch-isolation";
 import { createCurrency, listCurrencies } from "@/lib/services/currency-service";
-import type { Currency, ExchangeRate, RateHistoryEntry } from "@/lib/types";
+import { createRatePendingApproval } from "@/lib/services/pending-approval-service";
+import type { Currency, ExchangeRate, RateHistoryEntry, UserRole } from "@/lib/types";
 
 function sortRates(rates: ExchangeRate[]): ExchangeRate[] {
   return [...rates].sort(
@@ -21,8 +23,9 @@ function sortRates(rates: ExchangeRate[]): ExchangeRate[] {
 }
 
 export async function listExchangeRates(branchId: string): Promise<ExchangeRate[]> {
+  const scopedBranchId = assertBranchId(branchId, "listExchangeRates");
   const rates = await listDocuments<ExchangeRate>(COLLECTIONS.exchangeRates, [
-    where("branchId", "==", branchId),
+    where("branchId", "==", scopedBranchId),
   ]);
   return sortRates(rates);
 }
@@ -32,23 +35,26 @@ export function subscribeBranchExchangeRates(
   onData: (rates: ExchangeRate[]) => void,
   onError?: (error: Error) => void,
 ) {
+  const scopedBranchId = assertBranchId(branchId, "subscribeBranchExchangeRates");
   return subscribeCollection<ExchangeRate>(
     COLLECTIONS.exchangeRates,
-    [where("branchId", "==", branchId)],
+    [where("branchId", "==", scopedBranchId)],
     (items) => onData(sortRates(items)),
     onError,
   );
 }
 
+/** Display signage: published rates for one branch only — never cross-branch. */
 export function subscribeExchangeRates(
   branchId: string,
   onData: (rates: ExchangeRate[]) => void,
   onError?: (error: Error) => void,
 ) {
+  const scopedBranchId = assertBranchId(branchId, "subscribeExchangeRates");
   return subscribeCollection<ExchangeRate>(
     COLLECTIONS.exchangeRates,
     [
-      where("branchId", "==", branchId),
+      where("branchId", "==", scopedBranchId),
       where("status", "==", "published"),
     ],
     (items) => onData(sortRates(items.filter((rate) => rate.isHidden !== true))),
@@ -183,7 +189,34 @@ export async function updateExchangeRate(
   newSellRate: number,
   actor: { userId: string; userName: string; branchName: string },
   changeType: RateHistoryEntry["changeType"] = "manual",
-): Promise<void> {
+  options?: { requireApproval?: boolean; actorRole?: UserRole },
+): Promise<"published" | "pending"> {
+  const needsApproval =
+    options?.requireApproval === true && options.actorRole === "branchUser";
+
+  if (needsApproval) {
+    await updateDocument(COLLECTIONS.exchangeRates, rate.id, {
+      status: "pending",
+      updatedBy: actor.userId,
+      updatedByName: actor.userName,
+    });
+    await createRatePendingApproval(rate, newBuyRate, newSellRate, actor);
+    await writeAuditLog({
+      action: "rate_change_pending",
+      entityType: "exchange_rate",
+      entityId: rate.id,
+      userId: actor.userId,
+      userName: actor.userName,
+      branchId: rate.branchId,
+      metadata: {
+        currencyCode: rate.currencyCode,
+        proposedBuyRate: newBuyRate,
+        proposedSellRate: newSellRate,
+      },
+    });
+    return "pending";
+  }
+
   const nextVersion = (rate.version ?? 0) + 1;
   await updateDocument(COLLECTIONS.exchangeRates, rate.id, {
     buyRate: newBuyRate,
@@ -225,16 +258,18 @@ export async function updateExchangeRate(
       version: nextVersion,
     },
   });
+  return "published";
 }
 
 export async function bulkUpdateRates(
   branchId: string,
   updates: Array<{ currencyCode: string; buyRate: number; sellRate: number }>,
   actor: { userId: string; userName: string; branchName: string },
-  options?: { autoCreateCurrencies?: boolean },
+  options?: { autoCreateCurrencies?: boolean; requireApproval?: boolean; actorRole?: UserRole },
 ): Promise<number> {
+  const scopedBranchId = assertBranchId(branchId, "bulkUpdateRates");
   const autoCreate = options?.autoCreateCurrencies !== false;
-  let existing = await listExchangeRates(branchId);
+  let existing = await listExchangeRates(scopedBranchId);
   const catalog = autoCreate ? await listCurrencies() : [];
   const catalogByCode = new Map(catalog.map((c) => [c.currencyCode.toUpperCase(), c]));
 
@@ -270,7 +305,7 @@ export async function bulkUpdateRates(
     }
   }
 
-  existing = await listExchangeRates(branchId);
+  existing = await listExchangeRates(scopedBranchId);
 
   await Promise.all(
     updates.map(async (update) => {
@@ -278,7 +313,7 @@ export async function bulkUpdateRates(
       const rate = existing.find((item) => item.currencyCode.toUpperCase() === code);
       if (!rate) {
         await createDocument(COLLECTIONS.exchangeRates, {
-          branchId,
+          branchId: scopedBranchId,
           currencyCode: code,
           buyRate: update.buyRate,
           sellRate: update.sellRate,
@@ -292,7 +327,10 @@ export async function bulkUpdateRates(
         });
         return;
       }
-      await updateExchangeRate(rate, update.buyRate, update.sellRate, actor, "bulk");
+      await updateExchangeRate(rate, update.buyRate, update.sellRate, actor, "bulk", {
+        requireApproval: options?.requireApproval,
+        actorRole: options?.actorRole,
+      });
     }),
   );
 
@@ -301,7 +339,7 @@ export async function bulkUpdateRates(
     entityType: "exchange_rate",
     userId: actor.userId,
     userName: actor.userName,
-    branchId,
+    branchId: scopedBranchId,
     metadata: { count: updates.length },
   });
 

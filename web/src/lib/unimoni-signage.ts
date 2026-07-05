@@ -22,23 +22,28 @@ export const UNIMONI_WEBSITE = "unimoni.com";
 export const UNIMONI_LOCATIONS = [BRAND.tagline] as const;
 export const UNIMONI_USD_NOTE = "Rates update in real time from your branch dashboard";
 
+/** Max rows visible without scrolling on 1080p signage (landscape). */
+export const SIGNAGE_MAX_VISIBLE_RATES = 14;
+
 export const UNIMONI_DEFAULT_RATES: Array<{
   currencyCode: string;
   buyRate: number;
   sellRate: number;
 }> = [
-  { currencyCode: "USD", buyRate: 3625, sellRate: 3685 },
+  { currencyCode: "USD", buyRate: 3650, sellRate: 3680 },
   { currencyCode: "GBP", buyRate: 4725, sellRate: 4975 },
   { currencyCode: "EUR", buyRate: 4095, sellRate: 4315 },
-  { currencyCode: "AUD", buyRate: 2060, sellRate: 2700 },
-  { currencyCode: "CAD", buyRate: 2200, sellRate: 3600 },
-  { currencyCode: "CHF", buyRate: 3010, sellRate: 4500 },
   { currencyCode: "KES", buyRate: 27.3, sellRate: 30 },
   { currencyCode: "ZAR", buyRate: 195, sellRate: 350 },
-  { currencyCode: "TZS", buyRate: 1.3, sellRate: 1.65 },
-  { currencyCode: "RWF", buyRate: 1.55, sellRate: 4.0 },
+  { currencyCode: "CAD", buyRate: 2200, sellRate: 3600 },
+  { currencyCode: "AUD", buyRate: 2060, sellRate: 2700 },
+  { currencyCode: "HKD", buyRate: 450, sellRate: 480 },
+  { currencyCode: "CNY", buyRate: 500, sellRate: 520 },
+  { currencyCode: "INR", buyRate: 44, sellRate: 46 },
   { currencyCode: "SAR", buyRate: 830, sellRate: 1120 },
-  { currencyCode: "AED", buyRate: 870, sellRate: 1250 },
+  { currencyCode: "QAR", buyRate: 900, sellRate: 1180 },
+  { currencyCode: "OMR", buyRate: 9200, sellRate: 9600 },
+  { currencyCode: "BHD", buyRate: 9600, sellRate: 9900 },
 ];
 
 export function formatUnimoniRate(value: number): string {
