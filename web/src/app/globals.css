@@ -56,37 +56,38 @@
 }
 
 :root {
-  /* Unimoni fintech palette */
-  --unimoni-blue: #0066CC;
-  --unimoni-blue-light: #00A3E0;
-  --unimoni-cyan: #4AB3E2;
-  --unimoni-navy: #0F1B2D;
-  --unimoni-navy-mid: #1a4d8f;
-  --unimoni-gold: #C9A227;
-  --unimoni-gold-bright: #D4A017;
-  --unimoni-off-white: #F8FAFC;
-
-  --brand-primary: var(--unimoni-navy);
-  --brand-primary-light: var(--unimoni-navy-mid);
-  --brand-surface: #152238;
-  --brand-accent: var(--unimoni-gold);
-  --brand-accent-bright: var(--unimoni-gold-bright);
+  /* Unimoney fintech palette */
+  --brand-primary: #0B1F3A;
+  --brand-primary-light: #1E3A5F;
+  --brand-surface: #0F2847;
+  --brand-accent: #D4A853;
+  --brand-accent-bright: #F5B942;
   --brand-live: #10B981;
 
+  /* Legacy aliases used by mesh/grid utilities */
+  --unimoni-blue: var(--brand-primary-light);
+  --unimoni-blue-light: var(--brand-accent-bright);
+  --unimoni-cyan: #14B8A6;
+  --unimoni-navy: var(--brand-primary);
+  --unimoni-navy-mid: var(--brand-primary-light);
+  --unimoni-gold: var(--brand-accent);
+  --unimoni-gold-bright: var(--brand-accent-bright);
+  --unimoni-off-white: #F4F6F8;
+
   --background: var(--unimoni-off-white);
-  --foreground: var(--unimoni-navy);
+  --foreground: var(--brand-primary);
   --card: oklch(1 0.002 240 / 0.92);
-  --card-foreground: var(--unimoni-navy);
+  --card-foreground: var(--brand-primary);
   --popover: oklch(1 0.002 240 / 0.97);
-  --popover-foreground: var(--unimoni-navy);
-  --primary: var(--unimoni-blue);
+  --popover-foreground: var(--brand-primary);
+  --primary: var(--brand-primary-light);
   --primary-foreground: #ffffff;
   --secondary: oklch(0.965 0.018 240 / 0.88);
-  --secondary-foreground: var(--unimoni-navy);
+  --secondary-foreground: var(--brand-primary);
   --muted: oklch(0.955 0.012 240 / 0.75);
   --muted-foreground: oklch(0.48 0.028 240);
-  --accent: color-mix(in srgb, var(--unimoni-gold) 20%, transparent);
-  --accent-foreground: var(--unimoni-navy);
+  --accent: color-mix(in srgb, var(--brand-accent) 20%, transparent);
+  --accent-foreground: var(--brand-primary);
   --destructive: oklch(0.55 0.22 25);
   --success: oklch(0.62 0.16 160);
   --success-foreground: oklch(0.98 0.01 160);
@@ -94,47 +95,47 @@
   --warning-foreground: oklch(0.28 0.06 75);
   --border: oklch(0.9 0.014 240 / 0.55);
   --input: oklch(0.94 0.01 240 / 0.88);
-  --ring: var(--unimoni-blue-light);
-  --chart-1: var(--unimoni-blue);
-  --chart-2: var(--unimoni-gold);
+  --ring: var(--brand-accent);
+  --chart-1: var(--brand-primary-light);
+  --chart-2: var(--brand-accent);
   --chart-3: oklch(0.62 0.16 160);
-  --chart-4: var(--unimoni-blue-light);
+  --chart-4: var(--brand-accent-bright);
   --chart-5: oklch(0.64 0.16 340);
   --radius: 1rem;
   --sidebar: oklch(0.995 0.006 240 / 0.72);
-  --sidebar-foreground: var(--unimoni-navy);
-  --sidebar-primary: var(--unimoni-blue);
+  --sidebar-foreground: var(--brand-primary);
+  --sidebar-primary: var(--brand-primary-light);
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: oklch(0.955 0.018 240 / 0.78);
-  --sidebar-accent-foreground: var(--unimoni-navy);
+  --sidebar-accent-foreground: var(--brand-primary);
   --sidebar-border: oklch(0.9 0.012 240 / 0.45);
-  --sidebar-ring: var(--unimoni-blue-light);
-  --gradient-brand: linear-gradient(135deg, var(--unimoni-blue) 0%, var(--unimoni-blue-light) 100%);
-  --gradient-hero: linear-gradient(135deg, var(--unimoni-navy) 0%, var(--unimoni-navy-mid) 45%, var(--unimoni-blue) 100%);
-  --gradient-gold: linear-gradient(135deg, var(--unimoni-gold) 0%, var(--unimoni-gold-bright) 100%);
+  --sidebar-ring: var(--brand-accent);
+  --gradient-brand: linear-gradient(135deg, var(--brand-primary-light) 0%, var(--brand-primary) 50%, var(--brand-accent) 100%);
+  --gradient-hero: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-light) 45%, var(--brand-accent) 100%);
+  --gradient-gold: linear-gradient(135deg, var(--brand-accent) 0%, var(--brand-accent-bright) 100%);
   --gradient-mesh-light:
-    radial-gradient(ellipse 80% 60% at 10% 0%, color-mix(in srgb, var(--unimoni-blue) 12%, transparent), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 90% 10%, color-mix(in srgb, var(--unimoni-blue-light) 10%, transparent), transparent 50%),
-    radial-gradient(ellipse 60% 40% at 50% 100%, color-mix(in srgb, var(--unimoni-gold) 8%, transparent), transparent 55%);
-  --shadow-premium: 0 1px 2px color-mix(in srgb, var(--unimoni-navy) 5%, transparent), 0 8px 32px color-mix(in srgb, var(--unimoni-blue) 8%, transparent);
-  --shadow-elevated: 0 4px 6px color-mix(in srgb, var(--unimoni-navy) 6%, transparent), 0 24px 64px color-mix(in srgb, var(--unimoni-blue) 12%, transparent);
-  --shadow-glow: 0 0 40px color-mix(in srgb, var(--unimoni-blue-light) 25%, transparent);
+    radial-gradient(ellipse 80% 60% at 10% 0%, color-mix(in srgb, var(--brand-primary-light) 12%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 10%, color-mix(in srgb, var(--brand-accent) 10%, transparent), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, color-mix(in srgb, var(--brand-live) 8%, transparent), transparent 55%);
+  --shadow-premium: 0 1px 2px color-mix(in srgb, var(--brand-primary) 5%, transparent), 0 8px 32px color-mix(in srgb, var(--brand-primary-light) 8%, transparent);
+  --shadow-elevated: 0 4px 6px color-mix(in srgb, var(--brand-primary) 6%, transparent), 0 24px 64px color-mix(in srgb, var(--brand-primary-light) 12%, transparent);
+  --shadow-glow: 0 0 40px color-mix(in srgb, var(--brand-accent) 25%, transparent);
 }
 
 .dark {
-  --background: var(--unimoni-navy);
+  --background: var(--brand-primary);
   --foreground: oklch(0.96 0.008 240);
   --card: oklch(0.2 0.035 240 / 0.65);
   --card-foreground: oklch(0.96 0.008 240);
   --popover: oklch(0.16 0.04 240 / 0.95);
   --popover-foreground: oklch(0.96 0.008 240);
-  --primary: var(--unimoni-blue-light);
-  --primary-foreground: #ffffff;
+  --primary: var(--brand-accent);
+  --primary-foreground: var(--brand-primary);
   --secondary: oklch(0.22 0.04 240 / 0.75);
   --secondary-foreground: oklch(0.96 0.008 240);
   --muted: oklch(0.2 0.035 240 / 0.55);
   --muted-foreground: oklch(0.68 0.022 240);
-  --accent: color-mix(in srgb, var(--unimoni-gold) 18%, transparent);
+  --accent: color-mix(in srgb, var(--brand-accent) 18%, transparent);
   --accent-foreground: oklch(0.96 0.008 240);
   --destructive: oklch(0.65 0.2 25);
   --success: oklch(0.68 0.16 160);
@@ -143,27 +144,27 @@
   --warning-foreground: oklch(0.18 0.04 75);
   --border: oklch(1 0.01 240 / 11%);
   --input: oklch(1 0.01 240 / 9%);
-  --ring: var(--unimoni-blue-light);
-  --chart-1: var(--unimoni-blue-light);
-  --chart-2: var(--unimoni-gold);
+  --ring: var(--brand-accent-bright);
+  --chart-1: var(--brand-accent);
+  --chart-2: var(--brand-primary-light);
   --chart-3: oklch(0.72 0.16 160);
-  --chart-4: var(--unimoni-gold-bright);
+  --chart-4: var(--brand-accent-bright);
   --chart-5: oklch(0.7 0.16 340);
   --sidebar: oklch(0.12 0.04 240 / 0.78);
   --sidebar-foreground: oklch(0.96 0.008 240);
-  --sidebar-primary: var(--unimoni-blue-light);
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: var(--brand-accent);
+  --sidebar-primary-foreground: var(--brand-primary);
   --sidebar-accent: oklch(0.2 0.04 240 / 0.65);
   --sidebar-accent-foreground: oklch(0.96 0.008 240);
   --sidebar-border: oklch(1 0.01 240 / 10%);
-  --sidebar-ring: var(--unimoni-blue-light);
+  --sidebar-ring: var(--brand-accent-bright);
   --gradient-mesh-dark:
-    radial-gradient(ellipse 80% 60% at 15% 0%, color-mix(in srgb, var(--unimoni-blue) 22%, transparent), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 85% 20%, color-mix(in srgb, var(--unimoni-blue-light) 15%, transparent), transparent 50%),
-    radial-gradient(ellipse 60% 40% at 40% 100%, color-mix(in srgb, var(--unimoni-gold) 10%, transparent), transparent 55%);
+    radial-gradient(ellipse 80% 60% at 15% 0%, color-mix(in srgb, var(--brand-primary-light) 22%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 85% 20%, color-mix(in srgb, var(--brand-accent) 15%, transparent), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 40% 100%, color-mix(in srgb, var(--brand-live) 10%, transparent), transparent 55%);
   --shadow-premium: 0 1px 2px oklch(0 0 0 / 0.25), 0 8px 32px oklch(0 0 0 / 0.35);
   --shadow-elevated: 0 4px 6px oklch(0 0 0 / 0.3), 0 24px 64px oklch(0 0 0 / 0.45);
-  --shadow-glow: 0 0 60px color-mix(in srgb, var(--unimoni-blue) 30%, transparent);
+  --shadow-glow: 0 0 60px color-mix(in srgb, var(--brand-accent) 30%, transparent);
 }
 
 @layer base {
@@ -257,13 +258,13 @@
     @apply space-y-6 p-4 sm:space-y-7 sm:p-6 lg:p-8 xl:p-10;
   }
 
-  .section-accent-navy { --section-accent: var(--unimoni-blue); }
-  .section-accent-gold { --section-accent: var(--unimoni-gold); }
+  .section-accent-navy { --section-accent: var(--brand-primary); }
+  .section-accent-gold { --section-accent: var(--brand-accent); }
   .section-accent-emerald { --section-accent: var(--brand-live); }
   .section-accent-teal { --section-accent: #14B8A6; }
-  .section-accent-amber { --section-accent: var(--unimoni-gold-bright); }
+  .section-accent-amber { --section-accent: var(--brand-accent-bright); }
   .section-accent-rose { --section-accent: oklch(0.62 0.18 15); }
-  .section-accent-violet { --section-accent: var(--unimoni-blue-light); }
+  .section-accent-violet { --section-accent: var(--brand-primary-light); }
   .section-accent-sky { --section-accent: var(--unimoni-cyan); }
 
   .section-header-accent::before {
@@ -298,7 +299,7 @@
   }
 
   .spinner-brand {
-    @apply animate-spin text-[var(--unimoni-gold)];
+    @apply animate-spin text-[var(--brand-accent)];
   }
 
   .stagger-1 { animation-delay: 0.05s; }

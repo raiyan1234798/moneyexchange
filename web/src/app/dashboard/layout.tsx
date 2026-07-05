@@ -13,7 +13,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <AuthGuard>
       <DashboardRouteGuard>
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen bg-background mesh-background">
           <DashboardSidebarDesktop />
           <div className="flex min-w-0 flex-1 flex-col">
             <DashboardUnifiedHeader />

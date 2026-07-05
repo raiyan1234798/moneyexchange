@@ -100,20 +100,20 @@ function NavLinks({ onNavigate, className }: { onNavigate?: () => void; classNam
             onClick={onNavigate}
             className={cn(
               "group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-200",
-              active ? "text-[var(--brand-accent)]" : "text-muted-foreground hover:text-foreground",
+              active ? "text-[var(--unimoni-blue-light)]" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {active ? (
               <motion.span
                 layoutId="sidebar-active"
-                className="absolute inset-0 rounded-xl border-l-[3px] border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 shadow-[inset_0_0_20px_rgba(212,168,83,0.08)]"
+                className="absolute inset-0 rounded-xl border-l-[3px] border-[var(--unimoni-blue-light)] bg-[var(--unimoni-blue)]/10 shadow-[inset_0_0_20px_rgba(0,102,204,0.08)]"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
               />
             ) : (
-              <span className="absolute inset-0 rounded-xl bg-transparent transition-colors group-hover:bg-[var(--brand-accent)]/8" />
+              <span className="absolute inset-0 rounded-xl bg-transparent transition-colors group-hover:bg-[var(--unimoni-blue)]/8" />
             )}
-            <Icon className={cn("relative z-10 h-4 w-4 shrink-0", active && "text-[var(--brand-accent-bright)]")} />
-            <span className={cn("relative z-10", active && "text-[var(--brand-accent-bright)]")}>{item.label}</span>
+            <Icon className={cn("relative z-10 h-4 w-4 shrink-0", active && "text-[var(--unimoni-blue-light)]")} />
+            <span className={cn("relative z-10", active && "text-[var(--unimoni-blue-light)]")}>{item.label}</span>
           </Link>
         );
       })}
@@ -276,14 +276,14 @@ export function DashboardMobileBottomNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[10px] font-medium transition-colors",
-                active ? "text-[var(--brand-accent)]" : "text-muted-foreground",
+                active ? "text-[var(--unimoni-blue-light)]" : "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
                   active
-                    ? "bg-[var(--brand-accent)]/15 text-[var(--brand-accent-bright)] ring-1 ring-[var(--brand-accent)]/30"
+                    ? "bg-[var(--unimoni-blue)]/15 text-[var(--unimoni-blue-light)] ring-1 ring-[var(--unimoni-blue)]/30"
                     : "bg-transparent",
                 )}
               >
@@ -312,7 +312,7 @@ export function DashboardHeader({
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -8 }}
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
       className="border-b border-border/30 px-4 py-6 sm:px-6 sm:py-7 lg:px-10 lg:py-8"

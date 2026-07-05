@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const fadeIn = {
-  initial: { opacity: 0, y: 12 },
+  initial: false as const,
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const },
 };
@@ -17,11 +17,11 @@ const fadeIn = {
 export type SectionAccent = "violet" | "emerald" | "sky" | "amber" | "rose" | "default";
 
 const accentMap: Record<SectionAccent, string> = {
-  default: "from-[var(--brand-primary-light)]/10 to-transparent",
-  violet: "from-[var(--brand-primary-light)]/18 via-[var(--brand-primary-light)]/5 to-transparent",
+  default: "from-[var(--unimoni-blue)]/12 to-transparent",
+  violet: "from-[var(--unimoni-blue)]/18 via-[var(--unimoni-blue-light)]/5 to-transparent",
   emerald: "from-[var(--brand-live)]/18 via-[var(--brand-live)]/5 to-transparent",
-  sky: "from-[#14B8A6]/18 via-[#14B8A6]/5 to-transparent",
-  amber: "from-[var(--brand-accent)]/18 via-[var(--brand-accent)]/5 to-transparent",
+  sky: "from-[var(--unimoni-cyan)]/18 via-[var(--unimoni-cyan)]/5 to-transparent",
+  amber: "from-[var(--unimoni-gold)]/18 via-[var(--unimoni-gold)]/5 to-transparent",
   rose: "from-rose-500/18 via-rose-500/5 to-transparent",
 };
 
@@ -78,8 +78,8 @@ export function StatCard({
             {title}
           </CardTitle>
           {Icon ? (
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--brand-accent)]/10">
-              <Icon className="h-4 w-4 text-[var(--brand-accent)]" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--unimoni-gold)]/10">
+              <Icon className="h-4 w-4 text-[var(--unimoni-gold)]" />
             </div>
           ) : null}
         </CardHeader>

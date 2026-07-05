@@ -24,7 +24,7 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: `${BRAND.displayName} | ${BRAND.subtitle}`,
   description:
-    "Unimoney money exchange platform — branch administration, browser-based digital signage, and real-time exchange rate synchronization.",
+    "Unimoni money exchange platform — branch administration, browser-based digital signage, and real-time exchange rate synchronization.",
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },

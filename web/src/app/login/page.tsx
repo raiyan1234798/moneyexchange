@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { UnimoneyLogo } from "@/components/brand/unimoney-logo";
+import { UnimoniLogo } from "@/components/brand/unimoni-logo";
+import { HeroReveal } from "@/components/motion/reveal";
 import { PublicShell } from "@/components/layout/public-shell";
 import { useAuth } from "@/contexts/auth-context";
 import { getPostLoginPath } from "@/components/auth/role-guard";
@@ -38,6 +38,12 @@ function GoogleIcon() {
     </svg>
   );
 }
+
+const highlights = [
+  { icon: Zap, text: "Real-time rate sync to every display" },
+  { icon: ShieldCheck, text: "Role-based access for branch teams" },
+  { icon: Sparkles, text: "Premium signage without hardware" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -80,89 +86,110 @@ export default function LoginPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="flex min-h-screen items-center justify-center bg-background mesh-background">
         <Loader2 className="spinner-brand h-8 w-8" />
       </div>
     );
   }
 
   return (
-    <PublicShell showNav={false}>
-      <div className="flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-          className="glass-panel-elevated w-full max-w-md border-[var(--brand-accent)]/15 p-6 sm:p-8 lg:p-10"
-        >
-          <div className="mb-6 flex flex-col items-center text-center">
-            <UnimoneyLogo size="lg" />
+    <PublicShell showNav={false} showFooter={false}>
+      <div className="grid min-h-screen lg:grid-cols-2">
+        <div className="relative hidden flex-col justify-between overflow-hidden p-10 lg:flex xl:p-14">
+          <div className="pointer-events-none absolute inset-0 bg-[var(--gradient-hero)] opacity-95" />
+          <div className="pointer-events-none absolute inset-0 grid-pattern opacity-30" />
+          <div className="relative z-10">
+            <UnimoniLogo size="lg" variant="onDark" />
           </div>
-          <h1 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">Sign in</h1>
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            Access your {BRAND.displayName} console
-          </p>
+          <div className="relative z-10 space-y-6">
+            <h2 className="max-w-md text-3xl font-semibold tracking-tight text-white xl:text-4xl">
+              Your command center for exchange rates and digital signage.
+            </h2>
+            <ul className="space-y-4">
+              {highlights.map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-center gap-3 text-sm text-white/85">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/20">
+                    <Icon className="h-4 w-4 text-[var(--unimoni-gold)]" />
+                  </span>
+                  {text}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="relative z-10 text-xs text-white/50">© {new Date().getFullYear()} {BRAND.displayName}</p>
+        </div>
 
-          <form onSubmit={handleSubmit} className="mt-7 space-y-4 sm:space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                className="h-11 rounded-xl"
-                autoComplete="email"
-                required
-              />
+        <div className="flex items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
+          <HeroReveal className="glass-panel-elevated gradient-border w-full max-w-md p-6 sm:p-8 lg:p-10">
+            <div className="mb-6 flex flex-col items-center text-center lg:hidden">
+              <UnimoniLogo size="lg" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="h-11 rounded-xl"
-                autoComplete="current-password"
-                required
-              />
+            <h1 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">Sign in</h1>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              Access your {BRAND.displayName} console
+            </p>
+
+            <form onSubmit={handleSubmit} className="mt-7 space-y-4 sm:space-y-5">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@example.com"
+                  className="h-11 rounded-xl border-[var(--unimoni-blue)]/15 bg-background/80"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="h-11 rounded-xl border-[var(--unimoni-blue)]/15 bg-background/80"
+                  autoComplete="current-password"
+                  required
+                />
+              </div>
+              <Button type="submit" className="btn-gradient h-11 w-full rounded-xl" disabled={submitting || googleSubmitting}>
+                {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Sign in
+              </Button>
+            </form>
+
+            <div className="relative my-6">
+              <Separator />
+              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs uppercase text-muted-foreground">
+                or
+              </span>
             </div>
-            <Button type="submit" className="h-11 w-full rounded-xl" disabled={submitting || googleSubmitting}>
-              {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Sign in
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full rounded-xl border-[var(--unimoni-blue)]/20 hover:bg-[var(--unimoni-blue)]/5"
+              disabled={submitting || googleSubmitting}
+              onClick={() => void handleGoogleSignIn()}
+            >
+              {googleSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <GoogleIcon />
+              )}
+              Continue with Google
             </Button>
-          </form>
 
-          <div className="relative my-6">
-            <Separator />
-            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs uppercase text-muted-foreground">
-              or
-            </span>
-          </div>
-
-          <Button
-            type="button"
-            variant="outline"
-            className="h-11 w-full rounded-xl"
-            disabled={submitting || googleSubmitting}
-            onClick={() => void handleGoogleSignIn()}
-          >
-            {googleSubmitting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <GoogleIcon />
-            )}
-            Continue with Google
-          </Button>
-
-          <p className="mt-7 text-center text-sm text-muted-foreground">
-            <Link href="/" className="underline underline-offset-4 transition-colors hover:text-[var(--brand-accent)]">
-              Back to home
-            </Link>
-          </p>
-        </motion.div>
+            <p className="mt-7 text-center text-sm text-muted-foreground">
+              <Link href="/" className="underline underline-offset-4 transition-colors hover:text-[var(--unimoni-blue-light)]">
+                Back to home
+              </Link>
+            </p>
+          </HeroReveal>
+        </div>
       </div>
     </PublicShell>
   );
