@@ -262,6 +262,33 @@ Review and verify the rules before broad production rollout. They are designed f
 
 ## CI/CD
 
+### Cloudflare Pages (recommended for static frontend)
+
+The Next.js app lives in `web/` and exports static HTML to `web/out`. Configure the **unimoni** Pages project (rename **temp-app** in the dashboard if needed):
+
+| Setting | Value |
+|---------|-------|
+| Framework preset | Next.js (Static HTML Export) or **None** |
+| Root directory | `web` |
+| Build command | `npm ci && npm run build` |
+| Build output directory | `out` |
+| Node version | **22** (or 20) |
+
+**Environment variables** — copy from `web/.env.production.example` into Pages → **Settings → Environment variables** (Production + Preview). All `NEXT_PUBLIC_FIREBASE_*` values come from Firebase Console → Project settings → Your apps.
+
+If the build root is the **repo root** instead of `web`, use `npm run build` at root (installs `web` dependencies first). Prefer **root directory `web`** so Cloudflare runs `npm ci` where Next.js is declared.
+
+Deploy from CLI:
+
+```bash
+npm run deploy:pages
+# or: cd web && npm ci && npm run build && npx wrangler pages deploy out --project-name=unimoni --no-bundle
+```
+
+See `cloudflare.json` for a machine-readable copy of these settings. Legacy project name: `moneyexchange`.
+
+### Firebase / GitHub Actions
+
 Use GitHub Actions or your preferred pipeline to:
 
 1. Install dependencies

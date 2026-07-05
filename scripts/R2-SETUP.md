@@ -11,14 +11,17 @@ Unimoni stores uploaded signage videos in **Cloudflare R2** (fast, cheap object 
 | **Firebase Storage** | Fallback if R2 unavailable but Storage enabled | Medium |
 | **Firestore chunks** | Last resort, files ≤ 10 MB only | Slow — avoid |
 
-## 0. Enable R2 on your Cloudflare account
+## 0. Enable R2 on your Cloudflare account (required — cannot be done via API)
 
-Before `wrangler r2 bucket create` or deploying the upload worker, turn on R2 in the dashboard:
+R2 must be enabled manually in the dashboard before Wrangler can create buckets or deploy the upload worker. The API returns **code 10042** (`Please enable R2 through the Cloudflare Dashboard`) until you accept terms.
+
+Before `wrangler r2 bucket create` or deploying the upload worker:
 
 1. [Cloudflare Dashboard](https://dash.cloudflare.com/) → **R2 Object Storage**
-2. Complete **Enable R2** (payment method / terms if prompted)
+2. Click **Purchase R2** / **Enable R2** and complete payment method + terms if prompted
+3. Confirm the R2 overview page loads (no “enable” banner)
 
-If R2 is not enabled, Wrangler returns **code 10042** (`Please enable R2 through the Cloudflare Dashboard`). Until then, use **Paste video link** in the dashboard — no R2 required.
+Until R2 is enabled, use **Paste video link** in the dashboard — no R2 required.
 
 ## 1. Create R2 bucket
 
@@ -72,7 +75,7 @@ Copy the worker URL (e.g. `https://unimoni-video-upload.<account>.workers.dev`).
 
 ### Cloudflare Pages (dashboard app)
 
-Add in **Pages → moneyexchange → Settings → Environment variables**:
+Add in **Pages → unimoni** (or legacy **moneyexchange**) → **Settings → Environment variables**:
 
 | Variable | Example | Description |
 |----------|---------|-------------|
@@ -103,7 +106,8 @@ When a video is replaced or deleted, the app requests deletion of the old R2 obj
 
 | Issue | Fix |
 |-------|-----|
-| Upload stuck at 0% | Set `NEXT_PUBLIC_R2_UPLOAD_URL` and redeploy; or use **Paste video link** tab |
+| Upload stuck at 0% | Set `NEXT_PUBLIC_R2_UPLOAD_URL` and redeploy Pages; or use **Paste video link** tab |
+| Wrangler 10042 | Enable R2 in dashboard (section 0) — not available via API until terms accepted |
 | 401 Unauthorized | Sign out and back in; check `FIREBASE_API_KEY` secret on worker |
 | Video won't play | Confirm `R2_PUBLIC_URL` matches your public/custom domain |
 | CORS errors on display | Enable CORS on bucket or use custom domain on same zone |
