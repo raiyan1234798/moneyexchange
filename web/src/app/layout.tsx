@@ -22,9 +22,17 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} | ${BRAND.tagline}`,
+  title: `${BRAND.displayName} | ${BRAND.subtitle}`,
   description:
     "Unimoney money exchange platform — branch administration, browser-based digital signage, and real-time exchange rate synchronization.",
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: "/icon-192.png",
+  },
 };
 
 export default function RootLayout({

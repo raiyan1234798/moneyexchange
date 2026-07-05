@@ -1,19 +1,22 @@
 /** Unimoni brand tokens — shared across app and signage. */
 export const BRAND = {
-  name: "Unimoni",
+  name: "unimoni",
+  displayName: "Unimoni",
   fullName: "Unimoni Money Exchange",
-  tagline: "A WIZ Group Financial",
   subtitle: "Money Exchange · Digital Signage",
   supportEmail: "support@unimoni.com",
-  logoPath: "/unimoni-logo.png",
+  logoPath: "/unimoni-logo.svg",
+  logoOnDarkPath: "/unimoni-logo-on-dark.svg",
+  faviconPath: "/favicon.svg",
 } as const;
 
 export const BRAND_COLORS = {
   blue: "#0066CC",
   blueLight: "#4AB3E2",
+  navy: "#1a4d8f",
+  cyan: "#00a3e0",
   gold: "#C9A227",
   goldBright: "#D4A017",
-  navy: "#1A2B4A",
   live: "#10B981",
   liveMuted: "#059669",
   textOnDark: "#F4F6F8",

@@ -139,18 +139,22 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   }, [activeImage, activeVideos.length, videoError, videoLoaded]);
 
   const activeTicker = tickers[0];
-  const tickerText = useMemo(() => {
+  const tickerMessages = useMemo(() => {
     if (activeTicker?.messages?.length) {
-      return activeTicker.messages.map((line) => line.text).join("   •   ");
+      return activeTicker.messages.map((line) => line.text);
     }
-    if (branch?.settings?.slogan) return branch.settings.slogan.toUpperCase();
-    return UNIMONI_DEFAULT_TICKER;
+    if (branch?.settings?.slogan) return [branch.settings.slogan.toUpperCase()];
+    return [UNIMONI_DEFAULT_TICKER];
   }, [activeTicker, branch]);
 
   const tickerSpeed = activeTicker?.scrollSpeed || branchSettings.tickerSpeed || 35;
   const tickerPaused = activeTicker?.paused === true;
   const tickerLogoUrl =
-    activeTicker?.logoUrl || branchSettings.tickerLogoUrl || branch?.logoUrl || null;
+    branch?.logoUrl || branchSettings.tickerLogoUrl || activeTicker?.logoUrl || null;
+  const tickerHeadline =
+    activeTicker?.messages?.[0]?.text?.slice(0, 24).toUpperCase() ||
+    branch?.name?.toUpperCase() ||
+    "BIG BREAKING";
   const tickerFontColor = activeTicker?.fontColor || branchSettings.tickerFontColor || "#FFFFFF";
   const tickerFontSize = activeTicker?.fontSize || branchSettings.tickerFontSize;
 
@@ -256,7 +260,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         <button
           type="button"
           onClick={() => void toggleFullscreen()}
-          className="absolute right-3 top-3 z-50 flex items-center gap-2 rounded-lg border border-white/15 bg-black/60 px-3 py-2 text-xs font-medium text-white/80 backdrop-blur-sm transition-colors hover:bg-black/80"
+          className="absolute right-3 top-3 z-50 flex items-center gap-2 rounded-lg border border-[#D4A853]/40 bg-[#0B1F3A]/90 px-4 py-2.5 text-sm font-semibold text-[#F5B942] shadow-lg shadow-black/40 backdrop-blur-sm transition-colors hover:bg-[#1E3A5F]/95"
         >
           <Maximize2 className="h-3.5 w-3.5" />
           Fullscreen
@@ -287,12 +291,13 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       </div>
 
       <BreakingNewsTicker
-        text={tickerText}
+        messages={tickerMessages}
         logoUrl={tickerLogoUrl}
         scrollSpeedSeconds={tickerSpeed}
         fontColor={tickerFontColor}
         fontSize={tickerFontSize}
         paused={tickerPaused}
+        headline={tickerHeadline}
       />
 
       <style jsx global>{`

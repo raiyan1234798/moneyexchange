@@ -1,46 +1,83 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 interface BreakingNewsTickerProps {
-  text: string;
+  /** Single line (legacy) — use `messages` when multiple lines should cycle. */
+  text?: string;
+  messages?: string[];
   logoUrl?: string | null;
   scrollSpeedSeconds: number;
   fontColor?: string;
   fontSize?: number;
   paused?: boolean;
+  /** Tab above the blue bar — defaults to "BIG BREAKING". */
+  headline?: string;
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
 
 function BreakingNewsTickerInner({
   text,
+  messages: messagesProp,
   logoUrl,
   scrollSpeedSeconds,
   fontColor = "#FFFFFF",
   fontSize,
   paused = false,
+  headline = "BIG BREAKING",
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
+  const resolvedLogo = logoUrl || BRAND.logoOnDarkPath;
+
+  const messages = useMemo(() => {
+    const fromProp = messagesProp?.map((line) => line.trim()).filter(Boolean);
+    if (fromProp && fromProp.length > 0) return fromProp;
+    if (text?.trim()) return [text.trim()];
+    return [];
+  }, [messagesProp, text]);
+
+  const [messageIndex, setMessageIndex] = useState(0);
   const [cycle, setCycle] = useState(0);
   const [scrolling, setScrolling] = useState(!paused);
-  const resolvedLogo = logoUrl || BRAND.logoPath;
+
+  const activeText = messages[messageIndex] ?? "";
+
+  useEffect(() => {
+    setMessageIndex(0);
+    setCycle(0);
+    setScrolling(!paused);
+  }, [messages, paused]);
 
   const handleAnimationEnd = useCallback(() => {
     setScrolling(false);
     window.setTimeout(() => {
-      if (!paused) {
-        setCycle((prev) => prev + 1);
-        setScrolling(true);
+      if (paused) return;
+      if (messages.length > 1) {
+        setMessageIndex((prev) => (prev + 1) % messages.length);
       }
+      setCycle((prev) => prev + 1);
+      setScrolling(true);
     }, PAUSE_BETWEEN_CYCLES_MS);
-  }, [paused]);
+  }, [messages.length, paused]);
 
   return (
     <footer className="relative shrink-0">
+      {headline ? (
+        <div
+          className="absolute left-[clamp(4.5rem,10vw,7rem)] top-0 z-30 -translate-y-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
+          style={{
+            backgroundColor: UNIMONI_COLORS.gold,
+            color: UNIMONI_COLORS.navy,
+          }}
+        >
+          {headline}
+        </div>
+      ) : null}
+
       <div
         className="relative flex h-[clamp(3rem,6vh,4.5rem)] overflow-hidden"
         style={{ backgroundColor: UNIMONI_COLORS.navy }}
@@ -54,10 +91,10 @@ function BreakingNewsTickerInner({
         >
           <Image
             src={resolvedLogo}
-            alt={BRAND.name}
+            alt="unimoni"
             width={80}
             height={80}
-            className="h-[75%] w-[85%] object-contain drop-shadow-md animate-[logo-glow_2.5s_ease-in-out_infinite]"
+            className="ticker-logo-pulse h-[75%] w-[85%] object-contain drop-shadow-md"
             unoptimized
           />
         </div>
@@ -66,18 +103,18 @@ function BreakingNewsTickerInner({
           className="relative min-w-0 flex-1 overflow-hidden"
           style={{ backgroundColor: UNIMONI_COLORS.panelBlue }}
         >
-          {scrolling && text ? (
-            <div key={cycle} className="absolute inset-y-0 flex items-center">
+          {scrolling && activeText ? (
+            <div key={`${messageIndex}-${cycle}`} className="absolute inset-y-0 flex w-full items-center">
               <span
-                className="inline-block whitespace-nowrap pl-[100%] font-[Arial,Helvetica,sans-serif] font-bold uppercase tracking-[0.08em] will-change-transform"
+                className="breaking-ticker-text inline-block whitespace-nowrap pl-[100%] font-[Arial,Helvetica,sans-serif] font-bold uppercase tracking-[0.08em] will-change-transform"
                 style={{
                   color: fontColor,
                   fontSize: fontSize ? `${fontSize}px` : "clamp(1.1rem, 2.2vw, 2rem)",
-                  animation: `breaking-scroll-once ${duration}s linear forwards`,
+                  animationDuration: `${duration}s`,
                 }}
                 onAnimationEnd={handleAnimationEnd}
               >
-                {text}
+                {activeText}
               </span>
             </div>
           ) : null}
@@ -85,32 +122,11 @@ function BreakingNewsTickerInner({
       </div>
 
       <div className="h-1 w-full" style={{ backgroundColor: UNIMONI_COLORS.gold }} />
-
-      <style jsx global>{`
-        @keyframes breaking-scroll-once {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-100%);
-          }
-        }
-        @keyframes logo-glow {
-          0%,
-          100% {
-            filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.4));
-            opacity: 1;
-          }
-          50% {
-            filter: drop-shadow(0 0 8px rgba(201, 162, 39, 0.85));
-            opacity: 0.92;
-          }
-        }
-      `}</style>
     </footer>
   );
 }
 
 export function BreakingNewsTicker(props: BreakingNewsTickerProps) {
-  return <BreakingNewsTickerInner key={`${props.text}|${props.paused}`} {...props} />;
+  const messagesKey = props.messages?.join("|") ?? props.text ?? "";
+  return <BreakingNewsTickerInner key={`${messagesKey}|${props.paused}|${props.headline}`} {...props} />;
 }

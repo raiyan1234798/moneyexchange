@@ -26,7 +26,7 @@ import {
   Video,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { UnimoniMark } from "@/components/brand/unimoni-logo";
+import { UnimoneyMark } from "@/components/brand/unimoney-logo";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS, ROLE_LABELS } from "@/lib/constants";
 import { BRAND } from "@/lib/brand";
@@ -72,14 +72,11 @@ function mobileNavForRole(role: string) {
 function BrandMark({ compact }: { compact?: boolean }) {
   return (
     <Link href="/dashboard" className="group flex items-center gap-3">
-      <UnimoniMark size={compact ? 36 : 40} />
+      <UnimoneyMark size={compact ? 36 : 40} />
       {!compact ? (
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold tracking-tight">{BRAND.name}</p>
-          <p className="hidden text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground sm:block">
-            {BRAND.subtitle}
-          </p>
-        </div>
+        <p className="brand-wordmark truncate text-sm font-semibold tracking-tight text-[var(--unimoni-navy)] dark:text-foreground">
+          {BRAND.name}
+        </p>
       ) : null}
     </Link>
   );
@@ -103,20 +100,20 @@ function NavLinks({ onNavigate, className }: { onNavigate?: () => void; classNam
             onClick={onNavigate}
             className={cn(
               "group relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors duration-200",
-              active ? "text-white" : "text-muted-foreground hover:text-foreground",
+              active ? "text-[var(--brand-accent)]" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {active ? (
               <motion.span
                 layoutId="sidebar-active"
-                className="absolute inset-0 rounded-xl bg-[var(--unimoni-blue)] shadow-md shadow-[var(--unimoni-blue)]/25"
+                className="absolute inset-0 rounded-xl border-l-[3px] border-[var(--brand-accent)] bg-[var(--brand-accent)]/10 shadow-[inset_0_0_20px_rgba(212,168,83,0.08)]"
                 transition={{ type: "spring", stiffness: 380, damping: 32 }}
               />
             ) : (
-              <span className="absolute inset-0 rounded-xl bg-transparent transition-colors group-hover:bg-[var(--unimoni-gold)]/10" />
+              <span className="absolute inset-0 rounded-xl bg-transparent transition-colors group-hover:bg-[var(--brand-accent)]/8" />
             )}
-            <Icon className={cn("relative z-10 h-4 w-4 shrink-0", active && "text-white")} />
-            <span className={cn("relative z-10", active && "text-white")}>{item.label}</span>
+            <Icon className={cn("relative z-10 h-4 w-4 shrink-0", active && "text-[var(--brand-accent-bright)]")} />
+            <span className={cn("relative z-10", active && "text-[var(--brand-accent-bright)]")}>{item.label}</span>
           </Link>
         );
       })}
@@ -131,8 +128,8 @@ function UserPanel({ onAction }: { onAction?: () => void }) {
   return (
     <div className="rounded-2xl border border-border/40 bg-card/50 p-4 backdrop-blur-sm">
       <div className="mb-4 flex items-center gap-3">
-        <Avatar className="h-10 w-10 rounded-xl ring-2 ring-[var(--unimoni-blue)]/20">
-          <AvatarFallback className="rounded-xl bg-[var(--unimoni-blue)]/10 text-xs font-semibold text-[var(--unimoni-navy)] dark:text-foreground">
+        <Avatar className="h-10 w-10 rounded-xl ring-2 ring-[var(--brand-accent)]/25">
+          <AvatarFallback className="rounded-xl bg-[var(--brand-primary-light)]/30 text-xs font-semibold text-[var(--brand-accent)]">
             {(profile?.displayName || profile?.email || "U").slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
@@ -279,14 +276,14 @@ export function DashboardMobileBottomNav() {
               href={item.href}
               className={cn(
                 "flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-[10px] font-medium transition-colors",
-                active ? "text-[var(--unimoni-blue)]" : "text-muted-foreground",
+                active ? "text-[var(--brand-accent)]" : "text-muted-foreground",
               )}
             >
               <span
                 className={cn(
                   "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
                   active
-                    ? "bg-[var(--unimoni-blue)] text-white shadow-md shadow-[var(--unimoni-blue)]/25"
+                    ? "bg-[var(--brand-accent)]/15 text-[var(--brand-accent-bright)] ring-1 ring-[var(--brand-accent)]/30"
                     : "bg-transparent",
                 )}
               >

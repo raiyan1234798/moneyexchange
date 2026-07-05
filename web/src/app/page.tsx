@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Building2, Monitor, ShieldCheck, TrendingUp, Zap } from "lucide-react";
-import { UnimoniLogo } from "@/components/brand/unimoni-logo";
+import { UnimoneyLogo } from "@/components/brand/unimoney-logo";
 import { PublicCtaButton, PublicHeroBadge, PublicShell } from "@/components/layout/public-shell";
 import { BRAND } from "@/lib/brand";
 
@@ -11,13 +11,13 @@ const features = [
     icon: Building2,
     title: "Multi-Branch Control",
     description: "Centralized admin with branch-scoped managers, rates, videos, and brand identity per location.",
-    accent: "from-[var(--unimoni-blue)]/20 via-[var(--unimoni-blue)]/5 to-transparent",
+    accent: "from-[var(--brand-primary-light)]/20 via-[var(--brand-primary-light)]/5 to-transparent",
   },
   {
     icon: Monitor,
     title: "Browser Signage",
     description: "Open a URL in Chrome fullscreen on any display. Rates, videos, and tickers sync in real time.",
-    accent: "from-[var(--unimoni-blue-light)]/20 via-[var(--unimoni-blue-light)]/5 to-transparent",
+    accent: "from-[#14B8A6]/20 via-[#14B8A6]/5 to-transparent",
   },
   {
     icon: TrendingUp,
@@ -29,7 +29,7 @@ const features = [
     icon: ShieldCheck,
     title: "Enterprise Security",
     description: "Role-based access, audit logs, and hardened Firebase rules across every operation.",
-    accent: "from-[var(--unimoni-gold)]/20 via-[var(--unimoni-gold)]/5 to-transparent",
+    accent: "from-[var(--brand-accent)]/20 via-[var(--brand-accent)]/5 to-transparent",
   },
 ];
 
@@ -43,7 +43,7 @@ export default function HomePage() {
   return (
     <PublicShell>
       <div className="relative flex flex-col justify-center px-4 py-14 sm:px-6 sm:py-20 lg:px-10 lg:py-28">
-        <PublicHeroBadge>{BRAND.tagline}</PublicHeroBadge>
+        <PublicHeroBadge>{BRAND.subtitle}</PublicHeroBadge>
 
         <motion.div
           initial={{ opacity: 0, y: 16 }}
@@ -51,7 +51,7 @@ export default function HomePage() {
           transition={{ duration: 0.5, delay: 0.05 }}
           className="mb-6"
         >
-          <UnimoniLogo size="xl" />
+          <UnimoneyLogo size="xl" />
         </motion.div>
 
         <motion.h1
@@ -94,8 +94,8 @@ export default function HomePage() {
         >
           {stats.map((stat) => (
             <div key={stat.label} className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--unimoni-blue)]/10">
-                <Zap className="h-4 w-4 text-[var(--unimoni-blue)]" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--brand-accent)]/10 ring-1 ring-[var(--brand-accent)]/20">
+                <Zap className="h-4 w-4 text-[var(--brand-accent)]" />
               </div>
               <div>
                 <p className="text-lg font-semibold tabular-nums">{stat.value}</p>
@@ -114,7 +114,7 @@ export default function HomePage() {
               transition={{ duration: 0.45, delay: 0.15 + index * 0.08 }}
               className={`glass-panel-elevated bg-gradient-to-br p-6 ${feature.accent}`}
             >
-              <feature.icon className="mb-4 h-7 w-7 text-[var(--unimoni-blue)] sm:h-8 sm:w-8" />
+              <feature.icon className="mb-4 h-7 w-7 text-[var(--brand-accent)] sm:h-8 sm:w-8" />
               <h2 className="text-base font-semibold sm:text-lg">{feature.title}</h2>
               <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
             </motion.div>

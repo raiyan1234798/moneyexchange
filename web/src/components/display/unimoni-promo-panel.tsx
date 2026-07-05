@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { UnimoneyLogoImage } from "@/components/brand/unimoney-logo";
 import {
   UNIMONI_COLORS,
   UNIMONI_CONTACT_LINE,
   UNIMONI_LOCATIONS,
   UNIMONI_WEBSITE,
 } from "@/lib/unimoni-signage";
-import { BRAND } from "@/lib/brand";
 
 const BRANDING_TEXT_SHADOW =
   "0 1px 2px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.5)";
@@ -82,14 +82,10 @@ export function UnimoniPromoPanel({
         style={{ textShadow: BRANDING_TEXT_SHADOW }}
       >
         <div className="flex w-full max-w-[min(90%,42rem)] flex-col items-center gap-[clamp(0.5rem,1.2vh,1rem)]">
-          <Image
-            src={BRAND.logoPath}
-            alt="unimoni"
-            width={420}
-            height={90}
+          <UnimoneyLogoImage
+            variant="onDark"
             className="h-[clamp(3rem,8vh,5.5rem)] w-auto drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
             priority
-            unoptimized
           />
           <p className="text-[clamp(1rem,1.8vw,1.5rem)] font-medium tracking-wide">
             {UNIMONI_WEBSITE}

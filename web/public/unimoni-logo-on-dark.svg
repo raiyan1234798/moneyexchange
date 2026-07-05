@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 72" fill="none" role="img" aria-label="unimoni">
   <defs>
-    <linearGradient id="unimoni-wordmark" x1="0%" y1="50%" x2="100%" y2="50%">
-      <stop offset="0%" stop-color="#1a4d8f"/>
-      <stop offset="55%" stop-color="#0078c8"/>
-      <stop offset="100%" stop-color="#00a3e0"/>
+    <linearGradient id="unimoni-wordmark-light" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="45%" stop-color="#e8f6fc"/>
+      <stop offset="100%" stop-color="#7dd3f0"/>
     </linearGradient>
   </defs>
   <text
     x="0"
     y="56"
-    fill="url(#unimoni-wordmark)"
+    fill="url(#unimoni-wordmark-light)"
     font-family="'Nunito', 'Varela Round', 'Quicksand', 'Avenir Next', 'Segoe UI', system-ui, sans-serif"
     font-size="58"
     font-weight="700"

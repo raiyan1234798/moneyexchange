@@ -27,7 +27,7 @@ export const COLLECTIONS = {
 export const DEFAULT_BRANCH_SETTINGS = {
   timezone: "Asia/Dubai",
   defaultLanguage: "en",
-  slogan: "A WIZ Group Financial",
+  slogan: "Trusted Exchange · Real-Time Signage",
   tickerSpeed: 50,
   tickerFontSize: 18,
   tickerFontColor: "#FFFFFF",
