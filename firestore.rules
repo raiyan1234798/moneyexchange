@@ -6,6 +6,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function authEmailLower() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
     function userDocPath() {
       return /databases/$(database)/documents/users/$(request.auth.uid);
     }
@@ -25,7 +33,7 @@ service cloud.firestore {
     function isSuperAdmin() {
       return isActiveUser() && (
         userDoc().role == 'superAdmin' ||
-        request.auth.token.email.lower() == 'abubackerraiyan@gmail.com'
+        authEmailLower() == 'abubackerraiyan@gmail.com'
       );
     }
 
@@ -98,30 +106,90 @@ service cloud.firestore {
     }
 
     function isSuperAdminEmail() {
-      return isAuthenticated() &&
-        request.auth.token.email.lower() == 'abubackerraiyan@gmail.com';
+      return isAuthenticated() && authEmailLower() == 'abubackerraiyan@gmail.com';
+    }
+
+    function inviteDocPath(inviteEmail) {
+      return /databases/$(database)/documents/user_invites/$(inviteEmail);
     }
 
     function isValidInvite(inviteEmail) {
-      return exists(/databases/$(database)/documents/user_invites/$(inviteEmail));
+      return inviteEmail != ''
+        && exists(inviteDocPath(inviteEmail))
+        && inviteData(inviteEmail).email.lower() == inviteEmail;
     }
 
     function inviteData(inviteEmail) {
-      return get(/databases/$(database)/documents/user_invites/$(inviteEmail)).data;
+      return get(inviteDocPath(inviteEmail)).data;
     }
 
-    function isSelfRegistrationFromInvite() {
-      let email = request.auth.token.email.lower();
-      let invite = inviteData(email);
+    function branchExists(branchId) {
+      return branchId != null
+        && branchId != ''
+        && exists(/databases/$(database)/documents/branches/$(branchId));
+    }
+
+    function branchIsActive(branchId) {
+      return branchExists(branchId)
+        && get(/databases/$(database)/documents/branches/$(branchId)).data.status == 'active';
+    }
+
+    function inviteRole(inviteEmail) {
+      let invite = inviteData(inviteEmail);
+      return invite.keys().hasAny(['role']) && invite.role != null
+        ? invite.role
+        : 'branchManager';
+    }
+
+    function inviteBranchId(inviteEmail) {
+      let invite = inviteData(inviteEmail);
+      let role = inviteRole(inviteEmail);
+      return role == 'admin'
+        ? null
+        : (invite.keys().hasAny(['branchId']) && invite.branchId != null && invite.branchId != ''
+            ? invite.branchId
+            : null);
+    }
+
+    function normalizedBranchId(branchId) {
+      return branchId != null && branchId != '' ? branchId : null;
+    }
+
+    function branchIdsMatch(profileBranchId, inviteEmail) {
+      return normalizedBranchId(profileBranchId) == inviteBranchId(inviteEmail);
+    }
+
+    function inviteIsOpen(inviteEmail) {
+      let invite = inviteData(inviteEmail);
+      return !invite.keys().hasAny(['status'])
+        || invite.status == 'pending'
+        || invite.status == 'approved';
+    }
+
+    function hasInviteForAuthEmail() {
+      let email = authEmailLower();
+      return email != '' && exists(inviteDocPath(email));
+    }
+
+    function hasValidPendingInvite() {
+      let email = authEmailLower();
       let data = request.resource.data;
-      return request.auth.uid == userId
-        && isValidInvite(email)
+      let role = inviteRole(email);
+      return isAuthenticated()
+        && request.auth.uid == userId
+        && !exists(/databases/$(database)/documents/users/$(userId))
+        && hasInviteForAuthEmail()
+        && inviteIsOpen(email)
         && data.email.lower() == email
         && data.displayName is string
-        && data.role == invite.role
-        && data.branchId == invite.branchId
         && data.isActive == true
-        && data.role in ['admin', 'branchManager', 'branchUser'];
+        && data.role == role
+        && role in ['admin', 'branchManager', 'branchUser']
+        && (role == 'admin'
+          || (data.branchId is string
+            && data.branchId != ''
+            && branchExists(data.branchId)
+            && branchIdsMatch(data.branchId, email)));
     }
 
     function isSuperAdminBootstrap() {
@@ -134,29 +202,62 @@ service cloud.firestore {
         && data.displayName is string;
     }
 
+    function canReadOwnInvite() {
+      return isAuthenticated() && authEmailLower() != '' && (
+        inviteEmail.lower() == authEmailLower() ||
+        (resource != null && resource.data.keys().hasAny(['email']) &&
+          resource.data.email.lower() == authEmailLower())
+      );
+    }
+
+    function canManageInvite() {
+      return isSuperAdmin() || isAdmin() ||
+        (isBranchManager() &&
+          resource != null &&
+          resource.data.branchId == managerBranchId());
+    }
+
     match /users/{userId} {
-      allow get: if isAuthenticated() && (request.auth.uid == userId || isSuperAdmin());
-      allow list: if isSuperAdmin();
+      allow get: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        isAdmin() ||
+        (isBranchManager() && resource.data.branchId == managerBranchId())
+      );
+      allow list: if isSuperAdmin() || isAdmin();
       allow create: if (isSuperAdmin() && isValidUserCreate()) ||
-        isSelfRegistrationFromInvite() ||
+        hasValidPendingInvite() ||
         isSuperAdminBootstrap();
       allow update: if (isSuperAdmin() && isValidUserUpdate()) ||
+        (isAdmin() && isValidUserUpdate()
+          && resource.data.role != 'superAdmin'
+          && request.resource.data.role != 'superAdmin') ||
         (request.auth.uid == userId && request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastLoginAt', 'updatedAt', 'displayName', 'photoURL'])) ||
         (request.auth.uid == userId && isSuperAdminEmail() && isValidUserUpdate());
       allow delete: if isSuperAdmin();
     }
 
     match /user_invites/{inviteEmail} {
-      allow get: if isSuperAdmin() ||
-        (isAuthenticated() && request.auth.token.email.lower() == inviteEmail.lower());
-      allow list: if isSuperAdmin();
-      allow create, update: if isSuperAdmin();
-      allow delete: if isSuperAdmin() ||
-        (isAuthenticated() && request.auth.token.email.lower() == inviteEmail.lower());
+      allow read: if canManageInvite() || canReadOwnInvite();
+      allow create: if isSuperAdmin() || isAdmin() ||
+        (isBranchManager() &&
+          request.resource.data.role == 'branchUser' &&
+          request.resource.data.branchId == managerBranchId());
+      allow update: if isSuperAdmin() || isAdmin() ||
+        (isBranchManager() &&
+          resource.data.branchId == managerBranchId() &&
+          request.resource.data.role == 'branchUser' &&
+          request.resource.data.branchId == managerBranchId()) ||
+        (canReadOwnInvite() &&
+          request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'updatedAt']));
+      allow delete: if isSuperAdmin() || isAdmin() || canManageInvite() || canReadOwnInvite();
     }
 
     match /branches/{branchId} {
-      allow read: if isActiveUser() || resource.data.status == 'active';
+      allow get: if resource.data.status == 'active' ||
+        (isActiveUser() && (isSuperAdmin() || isAdmin() || canAccessBranch(branchId)));
+      allow list: if resource.data.status == 'active' ||
+        (isActiveUser() && (isSuperAdmin() || isAdmin() || isBranchManager() || isBranchUser()));
       allow create, delete: if isSuperAdmin();
       allow update: if isSuperAdmin() ||
         isAdmin() ||
@@ -252,7 +353,7 @@ service cloud.firestore {
     }
 
     match /audit_logs/{logId} {
-      allow read: if isSuperAdmin() ||
+      allow read: if isSuperAdmin() || isAdmin() ||
         (isBranchManager() && resource.data.branchId == managerBranchId());
       allow create: if isActiveUser();
       allow update, delete: if false;

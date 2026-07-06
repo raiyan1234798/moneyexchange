@@ -24,11 +24,15 @@ export async function listTvDevices(branchId?: string): Promise<TvDevice[]> {
   return listDocuments<TvDevice>(COLLECTIONS.tvDevices, constraints);
 }
 
-export function subscribeTvDevices(onData: (devices: TvDevice[]) => void, branchId?: string) {
+export function subscribeTvDevices(
+  onData: (devices: TvDevice[]) => void,
+  branchId?: string,
+  onError?: (error: Error) => void,
+) {
   const constraints = branchId
     ? [where("branchId", "==", branchId), orderBy("name", "asc")]
     : [orderBy("name", "asc")];
-  return subscribeCollection<TvDevice>(COLLECTIONS.tvDevices, constraints, onData);
+  return subscribeCollection<TvDevice>(COLLECTIONS.tvDevices, constraints, onData, onError);
 }
 
 export async function createTvDevice(

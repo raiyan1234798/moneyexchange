@@ -6,6 +6,7 @@ import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 
 const fadeIn = {
@@ -156,24 +157,37 @@ export function EmptyState({
   );
 }
 
+export function FirestoreSetupNotice({ message }: { message?: string | null }) {
+  if (!message) return null;
+  return (
+    <motion.div {...fadeIn}>
+      <Alert className="rounded-2xl border-amber-500/30 bg-amber-500/10">
+        <AlertDescription className="text-sm text-foreground">{message}</AlertDescription>
+      </Alert>
+    </motion.div>
+  );
+}
+
 export function ContentPanel({
   title,
   description,
   children,
   action,
   className,
+  contentClassName,
 }: {
   title?: string;
   description?: string;
   children: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
+  contentClassName?: string;
 }) {
   return (
     <motion.div {...fadeIn}>
       <Card className={cn("glass-panel", className)}>
         {title ? (
-          <CardHeader className="flex flex-col gap-1 border-b border-border/30 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <CardHeader className="flex flex-col gap-1 border-b border-border/30 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div>
               <CardTitle className="text-lg font-semibold">{title}</CardTitle>
               {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
@@ -181,7 +195,9 @@ export function ContentPanel({
             {action}
           </CardHeader>
         ) : null}
-        <CardContent className={cn(title ? "pt-6" : "p-4 sm:p-6", "overflow-x-auto")}>{children}</CardContent>
+        <CardContent className={cn(title ? "pt-4" : "p-4 sm:p-6", "overflow-x-auto", contentClassName)}>
+          {children}
+        </CardContent>
       </Card>
     </motion.div>
   );
@@ -269,6 +285,8 @@ export type DataTableColumn<T> = {
   header: string;
   cell: (row: T) => React.ReactNode;
   className?: string;
+  headerClassName?: string;
+  width?: string;
   hideOnMobile?: boolean;
 };
 
@@ -310,15 +328,16 @@ export function DataTable<T>({
       </div>
 
       <div className="data-table-scroll hidden md:block">
-        <table className="w-full min-w-[640px] caption-bottom text-sm">
+        <table className="w-full table-fixed caption-bottom text-sm">
           <thead>
             <tr className="border-b border-border/40">
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={cn(
-                    "h-11 px-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground",
-                    col.className,
+                    "h-10 px-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+                    col.width,
+                    col.headerClassName ?? col.className,
                   )}
                 >
                   {col.header}
@@ -330,10 +349,17 @@ export function DataTable<T>({
             {data.map((row) => (
               <tr
                 key={keyExtractor(row)}
-                className="border-b border-border/25 transition-colors hover:bg-muted/30"
+                className="h-11 border-b border-border/25 transition-colors hover:bg-muted/30"
               >
                 {columns.map((col) => (
-                  <td key={col.key} className={cn("px-3 py-3.5 align-middle", col.className)}>
+                  <td
+                    key={col.key}
+                    className={cn(
+                      "overflow-hidden px-3 py-2 align-middle text-sm",
+                      col.width,
+                      col.className,
+                    )}
+                  >
                     {col.cell(row)}
                   </td>
                 ))}

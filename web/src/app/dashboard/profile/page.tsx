@@ -24,7 +24,7 @@ const profileSchema = z.object({
 type ProfileForm = z.infer<typeof profileSchema>;
 
 export default function ProfilePage() {
-  const { user, profile } = useAuth();
+  const { user, profile, isSuperAdmin } = useAuth();
   const { branches, managerBranchId } = useBranchScope();
   const branch = branches.find((b) => b.id === (profile?.branchId ?? managerBranchId));
 
@@ -66,13 +66,12 @@ export default function ProfilePage() {
               <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Email</p>
               <p className="text-sm font-medium">{profile?.email ?? user?.email}</p>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Role</p>
-              <StatusBadge
-                status={profile?.role === "superAdmin" ? "Super Admin" : "Branch Manager"}
-                variant="info"
-              />
-            </div>
+            {isSuperAdmin ? (
+              <div className="space-y-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Role</p>
+                <StatusBadge status="Super Admin" variant="info" />
+              </div>
+            ) : null}
             {branch ? (
               <div className="space-y-1">
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Assigned Branch</p>

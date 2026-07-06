@@ -10,6 +10,7 @@ import {
   ContentPanel,
   DataTable,
   EmptyState,
+  FirestoreSetupNotice,
   FormSection,
   PageActions,
   PageShell,
@@ -39,8 +40,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import { normalizeEmail } from "@/lib/auth/user-profile";
 import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
+import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { createBranch, disableBranch, subscribeBranches } from "@/lib/services/branch-service";
+import { createUserInvite } from "@/lib/services/manager-service";
 import type { Branch } from "@/lib/types";
 
 const emptyForm = {
@@ -54,6 +58,8 @@ const emptyForm = {
   workingHours: "09:00 - 21:00",
   slogan: "Your trusted exchange partner",
   brandingColor: "#0066B3",
+  managerEmail: "",
+  managerName: "",
 };
 
 const fieldLabels: Record<keyof typeof emptyForm, string> = {
@@ -67,6 +73,8 @@ const fieldLabels: Record<keyof typeof emptyForm, string> = {
   workingHours: "Working Hours",
   slogan: "Slogan",
   brandingColor: "Brand Color",
+  managerEmail: "Manager Gmail (optional)",
+  managerName: "Manager display name",
 };
 
 export default function BranchesPage() {
@@ -86,17 +94,24 @@ export default function BranchesPage() {
       ? displayBranchId
       : (activeBranches[0]?.id ?? "");
   const displayBranch = activeBranches.find((b) => b.id === resolvedDisplayBranchId);
+  const { notice, onError, clearNotice } = useFirestoreNotice("branches");
 
   useEffect(() => {
-    return subscribeBranches(setBranches);
-  }, []);
+    return subscribeBranches(
+      (items) => {
+        setBranches(items);
+        clearNotice();
+      },
+      onError,
+    );
+  }, [clearNotice, onError]);
 
   async function handleCreate() {
     if (!user || !profile) return;
     setSaving(true);
     try {
-      const { slogan, brandingColor, ...branchFields } = form;
-      await createBranch(
+      const { slogan, brandingColor, managerEmail, managerName, ...branchFields } = form;
+      const branchId = await createBranch(
         {
           ...branchFields,
           brandingColor,
@@ -105,7 +120,21 @@ export default function BranchesPage() {
         },
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
-      toast.success("Branch created successfully");
+
+      const normalizedManagerEmail = managerEmail.trim() ? normalizeEmail(managerEmail) : "";
+      if (normalizedManagerEmail) {
+        await createUserInvite({
+          email: normalizedManagerEmail,
+          displayName: managerName.trim() || normalizedManagerEmail.split("@")[0] || "Branch Manager",
+          role: "branchManager",
+          branchId,
+          createdBy: user.uid,
+        });
+        toast.success("Branch created and manager invited — they can sign in at /login with Google");
+      } else {
+        toast.success("Branch created successfully");
+      }
+
       setOpen(false);
       setForm(emptyForm);
     } catch (error) {
@@ -133,6 +162,7 @@ export default function BranchesPage() {
     <>
       <DashboardHeader title="Branches" description="Create and manage branch locations, hours, and branding." accent="violet" />
       <PageShell accent="violet">
+        <FirestoreSetupNotice message={notice} />
         {hasPermission("createBranch") ? (
           <PageActions>
             <Dialog open={open} onOpenChange={setOpen}>
@@ -143,7 +173,7 @@ export default function BranchesPage() {
                 </DialogHeader>
                 <FormSection title="Location Details" description="Basic branch information">
                   {(Object.keys(emptyForm) as Array<keyof typeof emptyForm>)
-                    .filter((key) => !["slogan", "brandingColor", "workingHours"].includes(key))
+                    .filter((key) => !["slogan", "brandingColor", "workingHours", "managerEmail", "managerName"].includes(key))
                     .map((key) => (
                       <div key={key} className="space-y-2">
                         <Label>{fieldLabels[key]}</Label>
@@ -198,6 +228,27 @@ export default function BranchesPage() {
                         style={{ backgroundColor: form.brandingColor }}
                       />
                     </div>
+                  </div>
+                </FormSection>
+                <FormSection title="Branch Manager" description="Optional — invite a manager by Gmail for first-time Google sign-in">
+                  <div className="space-y-2">
+                    <Label>{fieldLabels.managerEmail}</Label>
+                    <Input
+                      type="email"
+                      placeholder="manager@gmail.com"
+                      value={form.managerEmail}
+                      onChange={(event) => setForm((prev) => ({ ...prev, managerEmail: event.target.value }))}
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{fieldLabels.managerName}</Label>
+                    <Input
+                      value={form.managerName}
+                      onChange={(event) => setForm((prev) => ({ ...prev, managerName: event.target.value }))}
+                      placeholder="Shown in the dashboard"
+                      className="rounded-xl"
+                    />
                   </div>
                 </FormSection>
                 <DialogFooter>

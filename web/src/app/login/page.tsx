@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import { Loader2, RefreshCw, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { UnimoniLogo } from "@/components/brand/unimoni-logo";
 import { HeroReveal } from "@/components/motion/reveal";
@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { BRAND } from "@/lib/brand";
+
+const LOGIN_LOADING_TIMEOUT_MS = 15_000;
 
 function GoogleIcon() {
   return (
@@ -45,19 +47,48 @@ const highlights = [
   { icon: Sparkles, text: "Premium signage without hardware" },
 ];
 
+function loginLoadingMessage(loadingPhase: "auth" | "profile" | "redirect" | null): string {
+  if (loadingPhase === "redirect") return "Finishing sign-in…";
+  if (loadingPhase === "profile") return "Setting up your account…";
+  return "Signing in…";
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const { login, loginWithGoogle, user, profile, loading } = useAuth();
+  const { login, loginWithGoogle, user, profile, loading, loadingPhase, profileError, refreshProfile } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     if (!loading && user && profile) {
-      router.replace(getPostLoginPath(profile.role));
+      router.replace(getPostLoginPath());
     }
   }, [loading, user, profile, router]);
+
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => setTimedOut(true), LOGIN_LOADING_TIMEOUT_MS);
+    // Reset transient sign-in state when this loading cycle ends (or unmount).
+    return () => {
+      clearTimeout(timer);
+      setTimedOut(false);
+      setGoogleSubmitting(false);
+    };
+  }, [loading]);
+
+  async function handleRetry() {
+    setRetrying(true);
+    setTimedOut(false);
+    try {
+      await refreshProfile();
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -76,18 +107,39 @@ export default function LoginPage() {
     setGoogleSubmitting(true);
     try {
       await loginWithGoogle();
-      toast.success("Welcome back");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Google sign-in failed");
-    } finally {
+      const message = error instanceof Error ? error.message : "Google sign-in failed";
+      toast.error(message);
       setGoogleSubmitting(false);
     }
   }
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background mesh-background">
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background mesh-background px-6 text-center">
         <Loader2 className="spinner-brand h-8 w-8" />
+        <p className="text-sm text-muted-foreground">{loginLoadingMessage(loadingPhase)}</p>
+        {loadingPhase === "redirect" ? (
+          <p className="max-w-sm text-xs text-muted-foreground">
+            Completing Google sign-in. This may take a few seconds after you return from Google.
+          </p>
+        ) : null}
+        {profileError ? (
+          <p className="max-w-sm rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {profileError}
+          </p>
+        ) : null}
+        {timedOut ? (
+          <div className="mt-2 flex flex-col items-center gap-2">
+            <p className="max-w-sm text-xs text-muted-foreground">
+              Sign-in is taking longer than expected. You can retry or go back and try Google again.
+            </p>
+            <Button onClick={() => void handleRetry()} disabled={retrying} className="rounded-xl" size="sm">
+              {retrying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Retry
+            </Button>
+          </div>
+        ) : null}
       </div>
     );
   }
@@ -128,6 +180,14 @@ export default function LoginPage() {
             <p className="mt-2 text-center text-sm text-muted-foreground">
               Access your {BRAND.displayName} console
             </p>
+            <p className="mt-1 text-center text-xs text-muted-foreground">
+              Invited users: click <strong>Continue with Google</strong> using the exact Gmail address your admin invited.
+            </p>
+            {profileError ? (
+              <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-center text-xs text-destructive">
+                {profileError}
+              </p>
+            ) : null}
 
             <form onSubmit={handleSubmit} className="mt-7 space-y-4 sm:space-y-5">
               <div className="space-y-2">

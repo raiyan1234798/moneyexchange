@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   FileSpreadsheet,
+  Pencil,
   Plus,
   Trash2,
   TrendingUp,
@@ -26,12 +27,14 @@ import {
   ContentPanel,
   DataTable,
   EmptyState,
+  FirestoreSetupNotice,
   FormSection,
   PageShell,
   StatusBadge,
 } from "@/components/shared/page-elements";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
+import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,7 +49,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
-import { subscribeCollection, orderBy } from "@/lib/firebase/firestore";
+import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
 import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import {
   createCurrency,
@@ -75,7 +78,17 @@ import {
   parseRateFile,
   TEMPLATE_CURRENCIES,
 } from "@/lib/rate-import";
+import { getRateDisplayLabel } from "@/lib/unimoni-signage";
+import {
+  buildCurrencyPayload,
+  getCurrencyMeta,
+  isValidCurrencyCode,
+  resolveCurrencyFields,
+  titleCaseName,
+} from "@/lib/currency-utils";
 import type { AuditLog, Currency, ExchangeRate, PendingApproval, SystemSettings } from "@/lib/types";
+
+type RateDraft = { buyRate: number; sellRate: number; displayName: string };
 
 const SETTINGS_ID = "global";
 
@@ -87,7 +100,7 @@ const emptyCurrencyForm = {
 };
 
 export default function ExchangeRatesPage() {
-  const { user, profile, hasPermission, isBranchUser, isSuperAdmin, isAdmin } = useAuth();
+  const { user, profile, hasPermission, isBranchUser, isSuperAdmin, isAdmin, isBranchManager } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId } = useBranchScope();
   const { canManageRates } = useContentPermissions();
   const [rates, setRates] = useState<ExchangeRate[]>([]);
@@ -96,13 +109,16 @@ export default function ExchangeRatesPage() {
   const [requireApproval, setRequireApproval] = useState<boolean>(
     DEFAULT_SYSTEM_SETTINGS.requireApprovalForChanges,
   );
-  const [drafts, setDrafts] = useState<Record<string, { buyRate: number; sellRate: number }>>({});
+  const [drafts, setDrafts] = useState<Record<string, RateDraft>>({});
   const [addOpen, setAddOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [loadingInit, setLoadingInit] = useState(false);
   const [currencyForm, setCurrencyForm] = useState(emptyCurrencyForm);
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const { notice: loadNotice, onError, clearNotice } = useFirestoreNotice("exchange rates");
   const [lastImport, setLastImport] = useState<{ count: number; at: Date } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -110,10 +126,14 @@ export default function ExchangeRatesPage() {
   const canCreateCatalog = hasPermission("manageCurrencies");
 
   useEffect(() => {
-    return subscribeCurrencies(setCurrencies, (error) => {
-      toast.error(error.message || "Failed to load currencies");
-    });
-  }, []);
+    return subscribeCurrencies(
+      (items) => {
+        setCurrencies(items);
+        clearNotice();
+      },
+      onError,
+    );
+  }, [clearNotice, onError]);
 
   useEffect(() => {
     const ref = doc(db, COLLECTIONS.settings, SETTINGS_ID);
@@ -126,13 +146,13 @@ export default function ExchangeRatesPage() {
   }, []);
 
   useEffect(() => {
-    if (!isSuperAdmin && !isAdmin) return;
+    if (!isSuperAdmin && !isAdmin && !isBranchManager) return;
     return subscribePendingApprovals(
       isSuperAdmin ? null : effectiveBranchId ?? null,
       setPendingApprovals,
-      (error) => toast.error(error.message || "Failed to load pending approvals"),
+      onError,
     );
-  }, [isSuperAdmin, isAdmin, effectiveBranchId]);
+  }, [isSuperAdmin, isAdmin, isBranchManager, effectiveBranchId, onError]);
 
   useEffect(() => {
     if (!effectiveBranchId) return;
@@ -140,22 +160,32 @@ export default function ExchangeRatesPage() {
       effectiveBranchId,
       (items) => {
         setRates(items);
+        clearNotice();
         setDrafts(
           Object.fromEntries(
-            items.map((rate) => [rate.id, { buyRate: rate.buyRate, sellRate: rate.sellRate }]),
+            items.map((rate) => [
+              rate.id,
+              {
+                buyRate: rate.buyRate,
+                sellRate: rate.sellRate,
+                displayName: getRateDisplayLabel(rate),
+              },
+            ]),
           ),
         );
       },
-      (error) => toast.error(error.message || "Failed to load rates"),
+      onError,
     );
     return unsubscribe;
-  }, [effectiveBranchId]);
+  }, [effectiveBranchId, clearNotice, onError]);
 
   useEffect(() => {
     if (!effectiveBranchId) return;
     return subscribeCollection<AuditLog>(
       COLLECTIONS.auditLogs,
-      [orderBy("timestamp", "desc")],
+      effectiveBranchId
+        ? [where("branchId", "==", effectiveBranchId), orderBy("timestamp", "desc")]
+        : [orderBy("timestamp", "desc")],
       (logs) => {
         const hit = logs.find(
           (log) => log.action === "rate_bulk_import" && log.branchId === effectiveBranchId,
@@ -204,6 +234,11 @@ export default function ExchangeRatesPage() {
     if (!user || !profile || !effectiveBranchId) return;
     const draft = drafts[rate.id];
     if (!draft) return;
+    const label = getRateDisplayLabel(rate);
+    const hasRateChange = draft.buyRate !== rate.buyRate || draft.sellRate !== rate.sellRate;
+    const hasNameChange = draft.displayName.trim() !== label;
+    if (!hasRateChange && !hasNameChange) return;
+
     try {
       const result = await updateExchangeRate(rate, draft.buyRate, draft.sellRate, {
         userId: user.uid,
@@ -212,15 +247,20 @@ export default function ExchangeRatesPage() {
       }, "manual", {
         requireApproval,
         actorRole: profile.role,
+        displayName: draft.displayName.trim(),
       });
+      const name = draft.displayName.trim() || rate.currencyCode;
       if (result === "pending") {
-        toast.success(`${rate.currencyCode} submitted for admin approval`);
+        toast.success(`${name} submitted for manager approval`);
+      } else if (hasNameChange && !hasRateChange) {
+        toast.success(`Display name updated to "${name}" — visible on TV now`);
       } else {
-        toast.success(`${rate.currencyCode} rate published to displays`);
+        toast.success(`${name} published to your TV displays`);
       }
+      setEditingNameId(null);
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to publish rate");
+      toast.error(e instanceof Error ? e.message : "Could not save changes — please try again");
     }
   }
 
@@ -241,15 +281,24 @@ export default function ExchangeRatesPage() {
   }
 
   async function handleCreateCurrency() {
-    if (!user || !profile || !effectiveBranchId || !currencyForm.currencyCode || !currencyForm.currencyName) {
+    const code = currencyForm.currencyCode.trim().toUpperCase();
+    if (!user || !profile || !effectiveBranchId || !isValidCurrencyCode(code) || !currencyForm.currencyName.trim()) {
+      if (!isValidCurrencyCode(code)) {
+        toast.error("Currency code must be exactly 3 letters (e.g. USD, CAD)");
+      }
       return;
     }
     setCreating(true);
     try {
+      const payload = buildCurrencyPayload({
+        currencyCode: code,
+        currencyName: currencyForm.currencyName,
+        country: currencyForm.country,
+        flag: currencyForm.flag,
+      });
       const currencyId = await createCurrency(
         {
-          ...currencyForm,
-          currencyCode: currencyForm.currencyCode.toUpperCase(),
+          ...payload,
           sortOrder: currencies.length + 1,
           status: "active",
           isHidden: false,
@@ -260,10 +309,7 @@ export default function ExchangeRatesPage() {
         effectiveBranchId,
         {
           id: currencyId,
-          currencyCode: currencyForm.currencyCode.toUpperCase(),
-          currencyName: currencyForm.currencyName,
-          country: currencyForm.country,
-          flag: currencyForm.flag,
+          ...payload,
           sortOrder: currencies.length + 1,
           status: "active",
           isHidden: false,
@@ -276,7 +322,7 @@ export default function ExchangeRatesPage() {
           branchName: branch?.name || effectiveBranchId,
         },
       );
-      toast.success(`${currencyForm.currencyCode.toUpperCase()} created and added to branch`);
+      toast.success(`${payload.currencyCode} created and added to branch`);
       setCreateOpen(false);
       setCurrencyForm(emptyCurrencyForm);
       setRates(await listExchangeRates(effectiveBranchId));
@@ -285,6 +331,44 @@ export default function ExchangeRatesPage() {
     } finally {
       setCreating(false);
     }
+  }
+
+  function handleCurrencyCodeChange(raw: string) {
+    const code = raw.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+    const meta = getCurrencyMeta(code);
+    setCurrencyForm((prev) => ({
+      ...prev,
+      currencyCode: code,
+      ...(meta && code.length === 3
+        ? {
+            currencyName: prev.currencyName || meta.name,
+            country: prev.country || meta.country,
+            flag: prev.flag || meta.flag,
+          }
+        : {}),
+    }));
+  }
+
+  function getCatalogCurrency(currency: Currency) {
+    return resolveCurrencyFields(currency);
+  }
+
+  function getBranchRateLabel(rate: ExchangeRate) {
+    const catalog = currencies.find((c) => c.currencyCode === rate.currencyCode);
+    const resolved = catalog
+      ? resolveCurrencyFields(catalog)
+      : resolveCurrencyFields({
+          currencyCode: rate.currencyCode,
+          currencyName: "",
+          country: "",
+          flag: "",
+        });
+    const displayLabel = rate.displayName?.trim() || getRateDisplayLabel(rate);
+    const primary =
+      displayLabel && displayLabel.toUpperCase() !== rate.currencyCode
+        ? displayLabel
+        : resolved.name;
+    return { primary, resolved, displayLabel };
   }
 
   async function handleRemove(rateId: string) {
@@ -349,6 +433,10 @@ export default function ExchangeRatesPage() {
         effectiveBranchId,
         rows.map((r) => ({
           currencyCode: r.currencyCode,
+          displayName: r.displayName,
+          currencyName: r.currencyName,
+          country: r.country,
+          flag: r.flag,
           buyRate: r.buyRate,
           sellRate: r.sellRate,
         })),
@@ -363,14 +451,15 @@ export default function ExchangeRatesPage() {
           actorRole: profile.role,
         },
       );
+      const branchLabel = branch?.name ?? effectiveBranchId;
       toast.success(
         requireApproval && isBranchUser
-          ? `Submitted ${count} rates for admin approval`
-          : `Updated ${count} rates for branch ${branch?.name ?? effectiveBranchId}`,
+          ? `${count} rates submitted for admin approval`
+          : `${count} currencies updated for ${branchLabel} — live on your displays`,
       );
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to import rates");
+      toast.error(e instanceof Error ? e.message : "Could not import file — check the template columns");
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -391,41 +480,56 @@ export default function ExchangeRatesPage() {
         accent="emerald"
       />
       <PageShell accent="emerald">
+        <FirestoreSetupNotice message={loadNotice} />
+
+        {isSuperAdmin || isAdmin ? (
+          <BranchSelector
+            branches={branches}
+            value={effectiveBranchId}
+            onChange={setSelectedBranchId}
+            label="Step 1: Select branch"
+            helperText="Choose which shop location you are updating — rates are saved per branch."
+          />
+        ) : branch ? (
+          <p className="text-sm text-muted-foreground">
+            Managing rates for: <strong>{branch.name}</strong>
+          </p>
+        ) : null}
+
         {canManageRates && effectiveBranchId ? (
           <div className="overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent p-5 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-xl">
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
                   <FileSpreadsheet className="h-5 w-5" />
-                  <p className="text-sm font-semibold">Import Rates from Excel</p>
+                  <p className="text-sm font-semibold">Step 2: Import rates from Excel</p>
                 </div>
                 <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
                   Update all currencies in one upload
                 </h2>
                 <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                   <li>
-                    <strong className="text-foreground">Step 1:</strong> Download the template (14 currencies)
+                    <strong className="text-foreground">Download</strong> the template below
                   </li>
                   <li>
-                    <strong className="text-foreground">Step 2:</strong> Fill in <strong>WE BUY</strong> and{" "}
-                    <strong>WE SELL</strong> columns in Excel
+                    <strong className="text-foreground">Fill in</strong> the CURRENCY name, <strong>WE BUY</strong>, and{" "}
+                    <strong>WE SELL</strong> columns
                   </li>
                   <li>
-                    <strong className="text-foreground">Step 3:</strong> Upload the file — rates appear on every
-                    display instantly
+                    <strong className="text-foreground">Upload</strong> the file — rates appear on your TV instantly
                   </li>
                 </ol>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Columns: CURRENCY | WE BUY | WE SELL — {TEMPLATE_CURRENCIES.join(", ")}
+                  Template columns: CURRENCY | WE BUY | WE SELL — e.g. {TEMPLATE_CURRENCIES.slice(0, 4).join(", ")}…
                 </p>
                 {lastImport ? (
                   <p className="mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">
-                    Last import: {lastImport.count} currencies ·{" "}
+                    Last import: {lastImport.count} currencies for {branch?.name ?? "this branch"} ·{" "}
                     {safeFormatDistanceToNow(lastImport.at, { addSuffix: true })}
                   </p>
                 ) : null}
               </div>
-              <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col">
+              <div className="flex w-full shrink-0 flex-col gap-3 lg:max-w-sm">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -436,15 +540,33 @@ export default function ExchangeRatesPage() {
                     if (file) void handleBulkUpload(file);
                   }}
                 />
-                <Button
-                  size="lg"
-                  className="h-12 rounded-xl px-6"
+                <button
+                  type="button"
                   disabled={uploading}
                   onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setDragOver(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) void handleBulkUpload(file);
+                  }}
+                  className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                    dragOver
+                      ? "border-emerald-500 bg-emerald-500/10"
+                      : "border-emerald-500/40 bg-background/60 hover:border-emerald-500/60 hover:bg-emerald-500/5"
+                  } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
                 >
-                  <Upload className="mr-2 h-5 w-5" />
-                  {uploading ? "Importing..." : "Upload Excel File"}
-                </Button>
+                  <Upload className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-medium">
+                    {uploading ? "Importing your file…" : "Drop Excel file here or click to browse"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">.xlsx, .xls, or .csv</span>
+                </button>
                 <Button
                   size="lg"
                   variant="outline"
@@ -468,14 +590,6 @@ export default function ExchangeRatesPage() {
           </div>
         ) : null}
 
-        {isSuperAdmin || isAdmin ? (
-          <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
-        ) : branch ? (
-          <p className="text-sm text-muted-foreground">
-            Managing rates for: <strong>{branch.name}</strong>
-          </p>
-        ) : null}
-
         <PreviewDisplayLink branchCode={branch?.code} />
 
         {isAdmin && effectiveBranchId && !canManageRates ? (
@@ -484,7 +598,7 @@ export default function ExchangeRatesPage() {
           </p>
         ) : null}
 
-        {(isSuperAdmin || isAdmin) && pendingApprovals.length > 0 ? (
+        {(isSuperAdmin || isAdmin || isBranchManager) && pendingApprovals.length > 0 ? (
           <ContentPanel
             title="Pending Rate Approvals"
             description={`${pendingApprovals.length} change${pendingApprovals.length === 1 ? "" : "s"} awaiting review`}
@@ -554,12 +668,11 @@ export default function ExchangeRatesPage() {
           <ContentPanel
             title="Currency Catalog"
             description="Global currencies available to all branches"
-          >
-            <div className="mb-4 flex flex-wrap gap-2">
+            action={
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogTrigger
                   render={
-                    <Button className="rounded-xl" disabled={!effectiveBranchId}>
+                    <Button className="rounded-xl" disabled={!effectiveBranchId} size="sm">
                       <Plus className="mr-2 h-4 w-4" />
                       New Currency + Branch Rate
                     </Button>
@@ -569,23 +682,27 @@ export default function ExchangeRatesPage() {
                   <DialogHeader>
                     <DialogTitle>Add Currency</DialogTitle>
                   </DialogHeader>
-                  <FormSection title="Currency Details">
-                    <div className="space-y-2">
+                  <FormSection title="Currency Details" className="sm:grid-cols-1">
+                    <div className="space-y-2 sm:col-span-2">
                       <Label>Code</Label>
                       <Input
                         value={currencyForm.currencyCode}
-                        onChange={(e) =>
-                          setCurrencyForm((p) => ({ ...p, currencyCode: e.target.value.toUpperCase() }))
-                        }
+                        onChange={(e) => handleCurrencyCodeChange(e.target.value)}
                         placeholder="USD"
-                        className="rounded-xl"
+                        maxLength={3}
+                        className="rounded-xl uppercase"
                       />
+                      <p className="text-xs text-muted-foreground">Exactly 3 letters (ISO code)</p>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-2">
                       <Label>Name</Label>
                       <Input
                         value={currencyForm.currencyName}
                         onChange={(e) => setCurrencyForm((p) => ({ ...p, currencyName: e.target.value }))}
+                        onBlur={(e) =>
+                          setCurrencyForm((p) => ({ ...p, currencyName: titleCaseName(e.target.value) }))
+                        }
+                        placeholder="US Dollar"
                         className="rounded-xl"
                       />
                     </div>
@@ -594,6 +711,7 @@ export default function ExchangeRatesPage() {
                       <Input
                         value={currencyForm.country}
                         onChange={(e) => setCurrencyForm((p) => ({ ...p, country: e.target.value }))}
+                        placeholder="United States"
                         className="rounded-xl"
                       />
                     </div>
@@ -610,7 +728,12 @@ export default function ExchangeRatesPage() {
                   <DialogFooter>
                     <Button
                       onClick={() => void handleCreateCurrency()}
-                      disabled={creating || !currencyForm.currencyCode || !currencyForm.currencyName || !effectiveBranchId}
+                      disabled={
+                        creating ||
+                        !isValidCurrencyCode(currencyForm.currencyCode) ||
+                        !currencyForm.currencyName.trim() ||
+                        !effectiveBranchId
+                      }
                       className="rounded-xl"
                     >
                       {creating ? "Creating..." : "Create & Add to Branch"}
@@ -618,8 +741,8 @@ export default function ExchangeRatesPage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            </div>
-
+            }
+          >
             {currencies.length === 0 ? (
               <EmptyState
                 title="No currencies yet"
@@ -630,23 +753,57 @@ export default function ExchangeRatesPage() {
               <DataTable
                 data={currencies}
                 keyExtractor={(c) => c.id}
-                mobileTitle={(c) => `${c.flag} ${c.currencyCode}`}
+                mobileTitle={(c) => {
+                  const row = getCatalogCurrency(c);
+                  return `${row.flag} ${row.code}`;
+                }}
                 columns={[
                   {
                     key: "code",
                     header: "Code",
+                    width: "w-[88px]",
+                    cell: (c) => {
+                      const row = getCatalogCurrency(c);
+                      return (
+                        <span className="inline-flex items-center gap-1.5 font-mono font-semibold tabular-nums">
+                          <span className="text-base leading-none">{row.flag}</span>
+                          {row.code}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "name",
+                    header: "Name",
                     cell: (c) => (
-                      <span className="font-medium">
-                        {c.flag} {c.currencyCode}
-                      </span>
+                      <span className="block truncate font-medium">{getCatalogCurrency(c).name}</span>
                     ),
                   },
-                  { key: "name", header: "Name", cell: (c) => c.currencyName },
-                  { key: "country", header: "Country", cell: (c) => c.country, hideOnMobile: true },
-                  { key: "status", header: "Status", cell: (c) => <StatusBadge status={c.status} /> },
+                  {
+                    key: "country",
+                    header: "Country",
+                    width: "w-[160px]",
+                    hideOnMobile: true,
+                    cell: (c) => {
+                      const country = getCatalogCurrency(c).country;
+                      return (
+                        <span className="block truncate text-muted-foreground">
+                          {country || "—"}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "status",
+                    header: "Status",
+                    width: "w-[100px]",
+                    cell: (c) => <StatusBadge status={c.status} />,
+                  },
                   {
                     key: "actions",
                     header: "Actions",
+                    width: "w-[100px]",
+                    headerClassName: "text-right",
                     className: "text-right",
                     cell: (c) => (
                       <Button
@@ -702,20 +859,23 @@ export default function ExchangeRatesPage() {
                     All catalog currencies are already on this branch.
                   </p>
                 ) : (
-                  availableCurrencies.map((currency) => (
+                  availableCurrencies.map((currency) => {
+                    const row = resolveCurrencyFields(currency);
+                    return (
                     <button
                       key={currency.id}
                       type="button"
                       onClick={() => void handleAddCurrency(currency)}
                       className="flex w-full items-center gap-3 rounded-xl border border-border/30 p-3 text-left transition-colors hover:bg-muted/40"
                     >
-                      <span className="text-2xl">{currency.flag}</span>
+                      <span className="text-2xl">{row.flag}</span>
                       <div>
-                        <p className="font-medium">{currency.currencyCode}</p>
-                        <p className="text-xs text-muted-foreground">{currency.currencyName}</p>
+                        <p className="font-medium">{row.code}</p>
+                        <p className="text-xs text-muted-foreground">{row.name}</p>
                       </div>
                     </button>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </DialogContent>
@@ -723,93 +883,151 @@ export default function ExchangeRatesPage() {
         ) : null}
 
         {!effectiveBranchId ? (
-          <EmptyState title="Select a branch" description="Choose a branch to manage its exchange rates." />
+          <EmptyState
+            title="Select a branch first"
+            description="Choose your shop location above, then upload Excel rates or edit buy/sell values below."
+          />
         ) : rates.length === 0 ? (
           <EmptyState
-            title="No rates for this branch"
+            title="No rates for this branch yet"
             description={
               currencies.length === 0
-                ? "Step 2: Add currencies using New Currency + Branch Rate above, then set buy/sell values."
-                : "Step 2: Click Initialize rates from catalog, edit buy/sell values, then Publish each currency."
+                ? "Add currencies using New Currency above, then set buy/sell values and click Publish."
+                : "Download the Excel template above, fill in your rates, and upload — or click Initialize from catalog."
             }
           />
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>{branch?.name ?? "Branch"} Rates</CardTitle>
+              <CardTitle>Step 3: Edit rates for {branch?.name ?? "branch"}</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Click the pencil to rename how a currency appears on your TV (e.g. change &quot;CANADA CAD&quot; to &quot;CAD&quot;).
+                Edit buy/sell values, then click Publish.
+              </p>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
+            <CardContent className="pt-4">
+              <div className="space-y-2">
                 {rates.map((rate, index) => {
                   const draft = drafts[rate.id];
+                  const savedLabel = getRateDisplayLabel(rate);
+                  const { primary, resolved } = getBranchRateLabel(rate);
                   const isChanged =
                     draft &&
-                    (draft.buyRate !== rate.buyRate || draft.sellRate !== rate.sellRate);
+                    (draft.buyRate !== rate.buyRate ||
+                      draft.sellRate !== rate.sellRate ||
+                      draft.displayName.trim() !== savedLabel);
+                  const isEditingName = editingNameId === rate.id;
 
                   return (
                     <div
                       key={rate.id}
-                      className={`flex flex-col gap-3 rounded-xl border p-4 transition-colors sm:flex-row sm:items-center sm:gap-4 ${
+                      className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
                         rate.isHidden
                           ? "border-dashed border-border/50 bg-muted/25 opacity-60"
                           : "border-border/60 bg-card"
                       }`}
                     >
-                      <div className="flex min-w-[100px] items-center gap-2.5">
-                        <span className="text-xl">
-                          {currencies.find((c) => c.currencyCode === rate.currencyCode)?.flag ?? "💱"}
-                        </span>
-                        <div>
-                          <span className="text-sm font-bold">{rate.currencyCode}</span>
-                          <span className="ml-2 text-[10px] text-muted-foreground">v{rate.version}</span>
+                      <div className="flex min-w-0 items-start gap-2">
+                        <span className="shrink-0 text-xl leading-none">{resolved.flag}</span>
+                        <div className="min-w-0 flex-1">
+                          {isEditingName && canManageRates ? (
+                            <div className="space-y-1">
+                              <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Display name
+                              </Label>
+                              <Input
+                                value={draft?.displayName ?? savedLabel}
+                                autoFocus
+                                onChange={(e) =>
+                                  setDrafts((prev) => ({
+                                    ...prev,
+                                    [rate.id]: { ...prev[rate.id], displayName: e.target.value },
+                                  }))
+                                }
+                                onBlur={() => setEditingNameId(null)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") setEditingNameId(null);
+                                  if (e.key === "Escape") {
+                                    setDrafts((prev) => ({
+                                      ...prev,
+                                      [rate.id]: { ...prev[rate.id], displayName: savedLabel },
+                                    }));
+                                    setEditingNameId(null);
+                                  }
+                                }}
+                                className="h-9 rounded-lg text-sm font-bold uppercase"
+                              />
+                              <p className="text-[10px] text-muted-foreground">Code: {rate.currencyCode}</p>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <span className="truncate text-sm font-bold">{primary}</span>
+                              {canManageRates ? (
+                                <button
+                                  type="button"
+                                  title="Edit display name on TV"
+                                  aria-label="Edit display name"
+                                  onClick={() => setEditingNameId(rate.id)}
+                                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </button>
+                              ) : null}
+                            </div>
+                          )}
+                          {!isEditingName ? (
+                            <span className="text-[10px] text-muted-foreground">
+                              {rate.currencyCode}
+                              {resolved.name !== primary ? ` · ${resolved.name}` : ""} · v{rate.version}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
 
-                      <div className="flex flex-1 gap-3">
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                            Buy
-                          </Label>
-                          <Input
-                            type="number"
-                            step="0.0001"
-                            value={draft?.buyRate ?? rate.buyRate}
-                            disabled={!canManageRates}
-                            onChange={(e) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [rate.id]: { ...prev[rate.id], buyRate: Number(e.target.value) },
-                              }))
-                            }
-                            className="h-10 rounded-lg border-emerald-600/25 bg-emerald-500/5 text-foreground dark:text-emerald-400"
-                          />
-                        </div>
-                        <div className="flex-1 space-y-1">
-                          <Label className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                            Sell
-                          </Label>
-                          <Input
-                            type="number"
-                            step="0.0001"
-                            value={draft?.sellRate ?? rate.sellRate}
-                            disabled={!canManageRates}
-                            onChange={(e) =>
-                              setDrafts((prev) => ({
-                                ...prev,
-                                [rate.id]: { ...prev[rate.id], sellRate: Number(e.target.value) },
-                              }))
-                            }
-                            className="h-10 rounded-lg border-amber-600/25 bg-amber-500/5 text-foreground dark:text-amber-400"
-                          />
-                        </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                          We Buy
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          value={draft?.buyRate ?? rate.buyRate}
+                          disabled={!canManageRates}
+                          onChange={(e) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [rate.id]: { ...prev[rate.id], buyRate: Number(e.target.value) },
+                            }))
+                          }
+                          className="h-10 w-full rounded-lg border-emerald-600/25 bg-emerald-500/5 text-foreground tabular-nums dark:text-emerald-400"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                          We Sell
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          value={draft?.sellRate ?? rate.sellRate}
+                          disabled={!canManageRates}
+                          onChange={(e) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [rate.id]: { ...prev[rate.id], sellRate: Number(e.target.value) },
+                            }))
+                          }
+                          className="h-10 w-full rounded-lg border-amber-600/25 bg-amber-500/5 text-foreground tabular-nums dark:text-amber-400"
+                        />
                       </div>
 
                       {canManageRates ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                           <Button
                             size="sm"
                             onClick={() => void saveRate(rate)}
                             disabled={!isChanged}
+                            title="Save changes to TV displays"
                             className={`rounded-lg ${isChanged ? "" : "opacity-50"}`}
                           >
                             <TrendingUp className="mr-1 h-3 w-3" />
@@ -817,38 +1035,54 @@ export default function ExchangeRatesPage() {
                           </Button>
                           <Button
                             variant="outline"
-                            size="icon"
-                            className="rounded-lg"
+                            size="sm"
+                            className="rounded-lg px-2"
                             onClick={() => void handleMove(rate, "up")}
                             disabled={index === 0}
+                            title="Move up on display"
                           >
-                            <ArrowUp className="h-3 w-3" />
+                            <ArrowUp className="mr-1 h-3 w-3" />
+                            Up
                           </Button>
                           <Button
                             variant="outline"
-                            size="icon"
-                            className="rounded-lg"
+                            size="sm"
+                            className="rounded-lg px-2"
                             onClick={() => void handleMove(rate, "down")}
                             disabled={index === rates.length - 1}
+                            title="Move down on display"
                           >
-                            <ArrowDown className="h-3 w-3" />
+                            <ArrowDown className="mr-1 h-3 w-3" />
+                            Down
                           </Button>
                           <Button
                             variant="outline"
-                            size="icon"
-                            className="rounded-lg"
+                            size="sm"
+                            className="rounded-lg px-2"
                             onClick={() => void handleToggleVisibility(rate)}
-                            title={rate.isHidden ? "Show on display" : "Hide from display"}
+                            title={rate.isHidden ? "Show on TV display" : "Hide from TV display"}
                           >
-                            {rate.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                            {rate.isHidden ? (
+                              <>
+                                <EyeOff className="mr-1 h-3 w-3" />
+                                Show
+                              </>
+                            ) : (
+                              <>
+                                <Eye className="mr-1 h-3 w-3" />
+                                Hide
+                              </>
+                            )}
                           </Button>
                           <Button
                             variant="outline"
-                            size="icon"
-                            className="rounded-lg text-destructive hover:text-destructive"
+                            size="sm"
+                            className="rounded-lg px-2 text-destructive hover:text-destructive"
                             onClick={() => void handleRemove(rate.id)}
+                            title="Remove from branch rates"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Remove
                           </Button>
                         </div>
                       ) : null}

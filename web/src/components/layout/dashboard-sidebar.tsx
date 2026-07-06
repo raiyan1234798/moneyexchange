@@ -26,15 +26,14 @@ import {
   Video,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { UnimoniMark } from "@/components/brand/unimoni-logo";
+import { UnimoniLogo } from "@/components/brand/unimoni-logo";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS, ROLE_LABELS } from "@/lib/constants";
+import { NAV_ITEMS } from "@/lib/constants";
 import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/contexts/auth-context";
 import { RealtimeBadge } from "@/contexts/realtime-context";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { StatusBadge } from "@/components/shared/page-elements";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 
 const iconMap = {
@@ -72,12 +71,7 @@ function mobileNavForRole(role: string) {
 function BrandMark({ compact }: { compact?: boolean }) {
   return (
     <Link href="/dashboard" className="group flex items-center gap-3">
-      <UnimoniMark size={compact ? 36 : 40} />
-      {!compact ? (
-        <p className="truncate text-sm font-semibold lowercase tracking-tight text-[var(--brand-primary)] dark:text-foreground">
-          {BRAND.name}
-        </p>
-      ) : null}
+      <UnimoniLogo size={compact ? "xs" : "sm"} className="min-w-0" />
     </Link>
   );
 }
@@ -159,11 +153,7 @@ function UserPanel({ onAction }: { onAction?: () => void }) {
         </Avatar>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{profile?.displayName || "User"}</p>
-          <StatusBadge
-            status={ROLE_LABELS[profile?.role ?? ""] ?? profile?.role ?? "User"}
-            variant="info"
-            className="mt-1.5"
-          />
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">{profile?.email}</p>
         </div>
       </div>
       <div className="flex gap-2">
@@ -228,17 +218,17 @@ function MobileNavSheet({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DashboardSidebarDesktop() {
   return (
-    <aside className="hidden w-[272px] shrink-0 flex-col border-r border-border/35 bg-sidebar/80 p-4 backdrop-blur-2xl lg:flex">
-      <div className="mb-5 px-1">
+    <aside className="sticky top-0 hidden h-screen w-[272px] shrink-0 flex-col border-r border-border/35 bg-sidebar/80 p-4 backdrop-blur-2xl lg:flex">
+      <div className="mb-5 shrink-0 px-1">
         <BrandMark />
       </div>
-      <div className="mb-3 px-1">
+      <div className="mb-3 shrink-0 px-1">
         <RealtimeBadge />
       </div>
-      <div className="flex-1 overflow-y-auto px-1 pr-0.5">
+      <div className="min-h-0 flex-1 overflow-hidden px-1">
         <NavLinks />
       </div>
-      <div className="mt-4">
+      <div className="mt-4 shrink-0">
         <UserPanel />
       </div>
     </aside>

@@ -2,30 +2,54 @@
 
 import { useEffect, useState } from "react";
 import { ScrollText } from "lucide-react";
-import { toast } from "sonner";
 import { safeFormatDate } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
-import { ContentPanel, DataTable, EmptyState, PageShell } from "@/components/shared/page-elements";
-import { subscribeCollection, orderBy } from "@/lib/firebase/firestore";
+import { ContentPanel, DataTable, EmptyState, FirestoreSetupNotice, PageShell } from "@/components/shared/page-elements";
+import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
+import { useAuth } from "@/contexts/auth-context";
+import { useBranchScope } from "@/lib/hooks/use-branch-scope";
+import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import type { AuditLog } from "@/lib/types";
 
 export default function AuditLogsPage() {
+  const { isSuperAdmin, isAdmin } = useAuth();
+  const { effectiveBranchId } = useBranchScope();
   const [logs, setLogs] = useState<AuditLog[]>([]);
+  const isPlatformAdmin = isSuperAdmin || isAdmin;
+  const { notice, onError, clearNotice } = useFirestoreNotice("activity");
 
   useEffect(() => {
+    const constraints = isPlatformAdmin
+      ? [orderBy("timestamp", "desc")]
+      : effectiveBranchId
+        ? [where("branchId", "==", effectiveBranchId), orderBy("timestamp", "desc")]
+        : [orderBy("timestamp", "desc")];
+
     return subscribeCollection<AuditLog>(
       COLLECTIONS.auditLogs,
-      [orderBy("timestamp", "desc")],
-      setLogs,
-      (error) => toast.error(error.message || "Failed to load audit logs"),
+      constraints,
+      (items) => {
+        setLogs(items);
+        clearNotice();
+      },
+      onError,
     );
-  }, []);
+  }, [clearNotice, effectiveBranchId, isPlatformAdmin, onError]);
 
   return (
     <>
-      <DashboardHeader title="Audit Logs" description="Immutable activity trail for compliance and operations." accent="default" />
+      <DashboardHeader
+        title="Activity"
+        description={
+          isPlatformAdmin
+            ? "Immutable activity trail for compliance and operations."
+            : "Activity from your branch team — rate edits, uploads, and sign-ins."
+        }
+        accent="default"
+      />
       <PageShell>
+        <FirestoreSetupNotice message={notice} />
         {logs.length === 0 ? (
           <EmptyState title="No audit events yet" description="User actions and system events will be recorded here automatically." icon={ScrollText} />
         ) : (

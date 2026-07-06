@@ -11,12 +11,14 @@ import {
   ContentPanel,
   DataTable,
   EmptyState,
+  FirestoreSetupNotice,
   PageActions,
   PageShell,
   StatusBadge,
 } from "@/components/shared/page-elements";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
+import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -41,15 +43,19 @@ export default function TickersPage() {
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
+  const { notice, onError, clearNotice } = useFirestoreNotice("display messages");
 
   useEffect(() => {
     if (!effectiveBranchId) return;
     return subscribeTickers(
       effectiveBranchId,
-      setTickers,
-      (error) => toast.error(error.message || "Failed to load messages"),
+      (items) => {
+        setTickers(items);
+        clearNotice();
+      },
+      onError,
     );
-  }, [effectiveBranchId]);
+  }, [clearNotice, effectiveBranchId, onError]);
 
   async function handleCreateTicker() {
     if (!user || !profile || !effectiveBranchId) return;
@@ -106,8 +112,14 @@ export default function TickersPage() {
         accent="sky"
       />
       <PageShell accent="sky">
+        <FirestoreSetupNotice message={notice} />
         {isSuperAdmin || isAdmin ? (
-          <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
+          <BranchSelector
+            branches={branches}
+            value={effectiveBranchId}
+            onChange={setSelectedBranchId}
+            helperText="Messages scroll on the footer of your branch TV display."
+          />
         ) : branch ? (
           <p className="text-sm text-muted-foreground">
             Managing messages for: <strong>{branch.name}</strong>
@@ -119,18 +131,21 @@ export default function TickersPage() {
         {canManageTickers && effectiveBranchId ? (
           <PageActions>
             <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add Scrolling Messages</Button>} />
+              <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add scrolling text</Button>} />
               <DialogContent className="rounded-2xl sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Scrolling Display Text</DialogTitle>
+                  <DialogTitle>Scrolling display text</DialogTitle>
                 </DialogHeader>
+                <p className="text-sm text-muted-foreground">
+                  Type one message per line — they scroll right-to-left on your TV footer.
+                </p>
                 <div className="space-y-4 py-2">
                   <div className="space-y-2">
-                    <Label>Messages (one per line)</Label>
+                    <Label>Your messages (one per line)</Label>
                     <Textarea
                       value={messages}
                       onChange={(e) => setMessages(e.target.value)}
-                      placeholder={"Best rates in town\nFast service · Trusted exchange"}
+                      placeholder={"Best rates in town\nFast service · Trusted exchange\nOpen 7 days a week"}
                       rows={4}
                       className="rounded-xl"
                     />

@@ -31,9 +31,13 @@ export function subscribeImageAdverts(
   onData: (images: ImageAdvert[]) => void,
   onError?: (error: Error) => void,
 ) {
+  // Public/unauthenticated TV kiosks can only read image_adverts with
+  // status == 'active' (firestore.rules). The status filter is required for the
+  // listen to be accepted; without it Firestore rejects the whole query and
+  // image adverts silently never render on public displays.
   return subscribeCollection<ImageAdvert>(
     COLLECTIONS.imageAdverts,
-    [where("branchId", "==", branchId)],
+    [where("branchId", "==", branchId), where("status", "==", "active")],
     (items) => onData(sortImages(items)),
     onError,
   );

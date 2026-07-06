@@ -13,11 +13,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <AuthGuard>
       <DashboardRouteGuard>
-        <div className="flex min-h-screen bg-background mesh-background">
+        <div className="flex h-screen overflow-hidden bg-background mesh-background">
           <DashboardSidebarDesktop />
-          <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <DashboardUnifiedHeader />
-            <PolymorphicBackground>
+            <PolymorphicBackground className="min-h-0 flex-1 overflow-y-auto">
               <main className="mx-auto w-full max-w-[1600px] pb-24 lg:pb-0">{children}</main>
             </PolymorphicBackground>
             <DashboardMobileBottomNav />

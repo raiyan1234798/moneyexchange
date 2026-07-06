@@ -3,26 +3,44 @@
 import { useEffect, useState } from "react";
 import { Bell } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
-import { ContentPanel, EmptyState, PageShell, StatusBadge } from "@/components/shared/page-elements";
-import { subscribeCollection, orderBy } from "@/lib/firebase/firestore";
+import { ContentPanel, EmptyState, FirestoreSetupNotice, PageShell, StatusBadge } from "@/components/shared/page-elements";
+import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
+import { useAuth } from "@/contexts/auth-context";
+import { useBranchScope } from "@/lib/hooks/use-branch-scope";
+import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import type { AppNotification } from "@/lib/types";
 
 export default function NotificationsPage() {
+  const { isSuperAdmin, isAdmin } = useAuth();
+  const { effectiveBranchId } = useBranchScope();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const isPlatformAdmin = isSuperAdmin || isAdmin;
+  const { notice, onError, clearNotice } = useFirestoreNotice("notifications");
 
   useEffect(() => {
+    const constraints = isPlatformAdmin
+      ? [orderBy("createdAt", "desc")]
+      : effectiveBranchId
+        ? [where("branchId", "==", effectiveBranchId), orderBy("createdAt", "desc")]
+        : [orderBy("createdAt", "desc")];
+
     return subscribeCollection<AppNotification>(
       COLLECTIONS.notifications,
-      [orderBy("createdAt", "desc")],
-      setNotifications,
+      constraints,
+      (items) => {
+        setNotifications(items);
+        clearNotice();
+      },
+      onError,
     );
-  }, []);
+  }, [clearNotice, effectiveBranchId, isPlatformAdmin, onError]);
 
   return (
     <>
       <DashboardHeader title="Notifications" description="Operational alerts for TVs, rates, and content." accent="amber" />
       <PageShell accent="amber">
+        <FirestoreSetupNotice message={notice} />
         {notifications.length === 0 ? (
           <EmptyState
             title="No notifications"

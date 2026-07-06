@@ -14,8 +14,8 @@ function normalizePath(pathname: string): string {
   return pathname;
 }
 
-function getDefaultPath(role: UserRole): string {
-  return role === "branchUser" ? "/dashboard/exchange-rates" : "/dashboard";
+function getDefaultPath(): string {
+  return "/dashboard";
 }
 
 function isPathAllowed(pathname: string, role: UserRole): boolean {
@@ -43,7 +43,7 @@ export function DashboardRouteGuard({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (loading || !profile) return;
     if (!isPathAllowed(pathname, profile.role)) {
-      router.replace(getDefaultPath(profile.role));
+      router.replace(getDefaultPath());
     }
   }, [loading, pathname, profile, router]);
 
@@ -68,6 +68,6 @@ export function DashboardRouteGuard({ children }: { children: React.ReactNode })
   return <>{children}</>;
 }
 
-export function getPostLoginPath(role: UserRole): string {
-  return getDefaultPath(role);
+export function getPostLoginPath(): string {
+  return getDefaultPath();
 }

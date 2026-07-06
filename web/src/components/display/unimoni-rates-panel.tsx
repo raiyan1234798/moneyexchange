@@ -3,8 +3,8 @@
 import {
   UNIMONI_COLORS,
   UNIMONI_USD_NOTE,
-  SIGNAGE_MAX_VISIBLE_RATES,
   formatUnimoniRate,
+  getRateDisplayLabel,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
@@ -24,11 +24,13 @@ export function UnimoniRatesPanel({
   className = "",
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
-  const hasScroll = rows.length > SIGNAGE_MAX_VISIBLE_RATES;
+  // Android TV signage: every currency stays fixed on screen — the panel never
+  // scrolls. Rows share the panel height equally and the type auto-scales down
+  // (container-query units) so all currencies always fit, however many there are.
 
   return (
     <aside
-      className={`display-rates-panel flex h-full w-full min-h-0 shrink-0 flex-col lg:w-[35%] xl:w-[32%] ${className}`}
+      className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
       style={{ backgroundColor: UNIMONI_COLORS.navy }}
     >
       <div
@@ -58,46 +60,37 @@ export function UnimoniRatesPanel({
         {showSellRate ? <span className="text-center">We Sell</span> : <span />}
       </div>
 
-      <div
-        className={`min-h-0 flex-1 px-2 py-1 ${hasScroll ? "overflow-y-auto overscroll-contain" : "overflow-hidden"}`}
-        style={
-          hasScroll
-            ? { maxHeight: `calc(${SIGNAGE_MAX_VISIBLE_RATES} * clamp(1.6rem, 2.4vh, 2.1rem))` }
-            : undefined
-        }
-      >
-        <div className="flex flex-col gap-[0.12rem]">
-          {rows.map((rate) => (
-            <div
-              key={rate.id}
-              className="grid grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 font-[Arial,Helvetica,sans-serif]"
-            >
-              <span className="pl-1 text-[clamp(0.8rem,1.25vw,1.05rem)] font-bold uppercase text-white">
-                {rate.currencyCode}
+      <div className="display-rates-body min-h-0 flex-1 basis-0 overflow-hidden px-2 py-1">
+        {rows.map((rate) => (
+          <div
+            key={rate.id}
+            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-stretch gap-x-2 font-[Arial,Helvetica,sans-serif]"
+          >
+            <span className="display-rate-currency flex min-h-0 min-w-0 items-center pl-1 font-bold uppercase text-white">
+              <span className="truncate">{getRateDisplayLabel(rate)}</span>
+            </span>
+            {showBuyRate ? (
+              <span
+                className="display-rate-value flex h-full w-full items-center justify-center rounded-[3px] px-1 text-center font-bold tabular-nums"
+                style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
+              >
+                {formatUnimoniRate(rate.buyRate)}
               </span>
-              {showBuyRate ? (
-                <span
-                  className="rounded-[3px] px-1 py-[0.1rem] text-center text-[clamp(0.75rem,1.15vw,0.95rem)] font-bold tabular-nums"
-                  style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
-                >
-                  {formatUnimoniRate(rate.buyRate)}
-                </span>
-              ) : (
-                <span />
-              )}
-              {showSellRate ? (
-                <span
-                  className="rounded-[3px] px-1 py-[0.1rem] text-center text-[clamp(0.75rem,1.15vw,0.95rem)] font-bold tabular-nums"
-                  style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
-                >
-                  {formatUnimoniRate(rate.sellRate)}
-                </span>
-              ) : (
-                <span />
-              )}
-            </div>
-          ))}
-        </div>
+            ) : (
+              <span />
+            )}
+            {showSellRate ? (
+              <span
+                className="display-rate-value flex h-full w-full items-center justify-center rounded-[3px] px-1 text-center font-bold tabular-nums"
+                style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
+              >
+                {formatUnimoniRate(rate.sellRate)}
+              </span>
+            ) : (
+              <span />
+            )}
+          </div>
+        ))}
       </div>
 
       <div className="h-0.5 shrink-0" style={{ backgroundColor: UNIMONI_COLORS.gold }} />

@@ -1,5 +1,10 @@
 export const SUPER_ADMIN_EMAIL = "abubackerraiyan@gmail.com";
 
+/** Recommended team size per branch (soft target shown in UI). */
+export const RECOMMENDED_BRANCH_USERS = 8;
+/** Hard cap to prevent accidental bulk invites. */
+export const MAX_BRANCH_USERS = 50;
+
 export const COLLECTIONS = {
   users: "users",
   userInvites: "user_invites",
@@ -79,9 +84,9 @@ export const NAV_ITEMS: Array<{
   icon: string;
   roles: readonly ("superAdmin" | "admin" | "branchManager" | "branchUser")[];
 }> = [
-  { href: "/dashboard", label: "Overview", icon: "LayoutDashboard", roles: ["superAdmin", "admin", "branchManager"] },
+  { href: "/dashboard", label: "Overview", icon: "LayoutDashboard", roles: ["superAdmin", "admin", "branchManager", "branchUser"] },
   { href: "/dashboard/branches", label: "Branches", icon: "Building2", roles: ["superAdmin"] },
-  { href: "/dashboard/managers", label: "Managers", icon: "Users", roles: ["superAdmin"] },
+  { href: "/dashboard/users", label: "Users", icon: "Users", roles: ["superAdmin", "admin", "branchManager"] },
   {
     href: "/dashboard/exchange-rates",
     label: "Exchange Rates",
@@ -97,12 +102,23 @@ export const NAV_ITEMS: Array<{
   },
   { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "admin", "branchManager"] },
   {
+    href: "/dashboard/notifications",
+    label: "Notifications",
+    icon: "Bell",
+    roles: ["superAdmin", "admin", "branchManager"],
+  },
+  {
     href: "/dashboard/profile",
     label: "Profile",
     icon: "User",
     roles: ["superAdmin", "admin", "branchManager", "branchUser"],
   },
-  { href: "/dashboard/audit-logs", label: "Audit Logs", icon: "ScrollText", roles: ["superAdmin"] },
+  {
+    href: "/dashboard/audit-logs",
+    label: "Activity",
+    icon: "ScrollText",
+    roles: ["superAdmin", "admin", "branchManager"],
+  },
 ];
 
 export const SUPER_ADMIN_PERMISSIONS = [
@@ -126,6 +142,7 @@ export const SUPER_ADMIN_PERMISSIONS = [
 ] as const;
 
 export const ADMIN_PERMISSIONS = [
+  "manageUsers",
   "manageVideos",
   "managePlaylists",
   "manageTickers",
@@ -133,6 +150,7 @@ export const ADMIN_PERMISSIONS = [
   "viewExchangeRates",
   "manageAllBranches",
   "viewTVStatus",
+  "viewAuditLogs",
   "manageBranchDisplaySettings",
 ] as const;
 
@@ -145,6 +163,7 @@ export const BRANCH_MANAGER_PERMISSIONS = [
   "manageImageAdverts",
   "viewOwnBranchAnalytics",
   "viewOwnBranchAuditLogs",
+  "inviteBranchUsers",
 ] as const;
 
 export const BRANCH_USER_PERMISSIONS = ["manageOwnBranchRates"] as const;
@@ -154,4 +173,61 @@ export const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   branchManager: "Branch Manager",
   branchUser: "Branch User (rates only)",
+};
+
+/** ISO currency code → display metadata for catalog normalization and import. */
+export const CURRENCY_METADATA: Record<
+  string,
+  { name: string; country: string; flag: string }
+> = {
+  USD: { name: "US Dollar", country: "United States", flag: "🇺🇸" },
+  GBP: { name: "British Pound", country: "United Kingdom", flag: "🇬🇧" },
+  EUR: { name: "Euro", country: "European Union", flag: "🇪🇺" },
+  KES: { name: "Kenyan Shilling", country: "Kenya", flag: "🇰🇪" },
+  ZAR: { name: "South African Rand", country: "South Africa", flag: "🇿🇦" },
+  CAD: { name: "Canadian Dollar", country: "Canada", flag: "🇨🇦" },
+  AUD: { name: "Australian Dollar", country: "Australia", flag: "🇦🇺" },
+  HKD: { name: "Hong Kong Dollar", country: "Hong Kong", flag: "🇭🇰" },
+  CNY: { name: "Chinese Yuan", country: "China", flag: "🇨🇳" },
+  INR: { name: "Indian Rupee", country: "India", flag: "🇮🇳" },
+  SAR: { name: "Saudi Riyal", country: "Saudi Arabia", flag: "🇸🇦" },
+  QAR: { name: "Qatari Riyal", country: "Qatar", flag: "🇶🇦" },
+  OMR: { name: "Omani Rial", country: "Oman", flag: "🇴🇲" },
+  BHD: { name: "Bahraini Dinar", country: "Bahrain", flag: "🇧🇭" },
+  AED: { name: "UAE Dirham", country: "United Arab Emirates", flag: "🇦🇪" },
+  JPY: { name: "Japanese Yen", country: "Japan", flag: "🇯🇵" },
+  CHF: { name: "Swiss Franc", country: "Switzerland", flag: "🇨🇭" },
+  NZD: { name: "New Zealand Dollar", country: "New Zealand", flag: "🇳🇿" },
+  SGD: { name: "Singapore Dollar", country: "Singapore", flag: "🇸🇬" },
+  ZMW: { name: "Zambian Kwacha", country: "Zambia", flag: "🇿🇲" },
+  UGX: { name: "Ugandan Shilling", country: "Uganda", flag: "🇺🇬" },
+  TZS: { name: "Tanzanian Shilling", country: "Tanzania", flag: "🇹🇿" },
+  NGN: { name: "Nigerian Naira", country: "Nigeria", flag: "🇳🇬" },
+  EGP: { name: "Egyptian Pound", country: "Egypt", flag: "🇪🇬" },
+  PKR: { name: "Pakistani Rupee", country: "Pakistan", flag: "🇵🇰" },
+  BDT: { name: "Bangladeshi Taka", country: "Bangladesh", flag: "🇧🇩" },
+  LKR: { name: "Sri Lankan Rupee", country: "Sri Lanka", flag: "🇱🇰" },
+  NPR: { name: "Nepalese Rupee", country: "Nepal", flag: "🇳🇵" },
+  THB: { name: "Thai Baht", country: "Thailand", flag: "🇹🇭" },
+  MYR: { name: "Malaysian Ringgit", country: "Malaysia", flag: "🇲🇾" },
+  IDR: { name: "Indonesian Rupiah", country: "Indonesia", flag: "🇮🇩" },
+  PHP: { name: "Philippine Peso", country: "Philippines", flag: "🇵🇭" },
+  KRW: { name: "South Korean Won", country: "South Korea", flag: "🇰🇷" },
+  TRY: { name: "Turkish Lira", country: "Turkey", flag: "🇹🇷" },
+  RUB: { name: "Russian Ruble", country: "Russia", flag: "🇷🇺" },
+  SEK: { name: "Swedish Krona", country: "Sweden", flag: "🇸🇪" },
+  NOK: { name: "Norwegian Krone", country: "Norway", flag: "🇳🇴" },
+  DKK: { name: "Danish Krone", country: "Denmark", flag: "🇩🇰" },
+  PLN: { name: "Polish Zloty", country: "Poland", flag: "🇵🇱" },
+  CZK: { name: "Czech Koruna", country: "Czech Republic", flag: "🇨🇿" },
+  HUF: { name: "Hungarian Forint", country: "Hungary", flag: "🇭🇺" },
+  ILS: { name: "Israeli Shekel", country: "Israel", flag: "🇮🇱" },
+  JOD: { name: "Jordanian Dinar", country: "Jordan", flag: "🇯🇴" },
+  KWD: { name: "Kuwaiti Dinar", country: "Kuwait", flag: "🇰🇼" },
+  LBP: { name: "Lebanese Pound", country: "Lebanon", flag: "🇱🇧" },
+  MAD: { name: "Moroccan Dirham", country: "Morocco", flag: "🇲🇦" },
+  TND: { name: "Tunisian Dinar", country: "Tunisia", flag: "🇹🇳" },
+  GHS: { name: "Ghanaian Cedi", country: "Ghana", flag: "🇬🇭" },
+  XOF: { name: "West African CFA Franc", country: "West Africa", flag: "🌍" },
+  XAF: { name: "Central African CFA Franc", country: "Central Africa", flag: "🌍" },
 };

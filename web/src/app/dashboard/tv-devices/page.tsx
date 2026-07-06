@@ -10,12 +10,14 @@ import {
   ContentPanel,
   DataTable,
   EmptyState,
+  FirestoreSetupNotice,
   PageActions,
   PageShell,
   StatusBadge,
 } from "@/components/shared/page-elements";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
+import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -83,11 +85,19 @@ export default function TvDevicesPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [newDevice, setNewDevice] = useState<TvDevice | null>(null);
+  const { notice, onError, clearNotice } = useFirestoreNotice("TV devices");
 
   useEffect(() => {
-    if (!effectiveBranchId && !isSuperAdmin) return;
-    return subscribeTvDevices(setDevices, isSuperAdmin ? undefined : effectiveBranchId);
-  }, [effectiveBranchId, isSuperAdmin]);
+    if (!effectiveBranchId) return;
+    return subscribeTvDevices(
+      (items) => {
+        setDevices(items);
+        clearNotice();
+      },
+      effectiveBranchId,
+      onError,
+    );
+  }, [clearNotice, effectiveBranchId, onError]);
 
   async function handleCreate() {
     if (!user || !profile || !effectiveBranchId || !name) return;
@@ -116,6 +126,7 @@ export default function TvDevicesPage() {
         accent="sky"
       />
       <PageShell accent="sky">
+        <FirestoreSetupNotice message={notice} />
         {isSuperAdmin ? (
           <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
         ) : null}

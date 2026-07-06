@@ -10,8 +10,12 @@ export interface UserInvite {
   displayName: string;
   role: UserRole;
   branchId: string | null;
+  branchName?: string | null;
+  status?: "pending" | "approved";
   createdBy: string;
   createdAt: Timestamp | Date;
+  approvedAt?: Timestamp | Date;
+  updatedAt?: Timestamp | Date;
 }
 
 export interface AppUser {
@@ -82,6 +86,8 @@ export interface ExchangeRate {
   id: string;
   branchId: string;
   currencyCode: string;
+  /** Branch-specific label shown on dashboard and TV display (defaults to currency code). */
+  displayName?: string;
   buyRate: number;
   sellRate: number;
   version: number;

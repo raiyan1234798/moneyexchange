@@ -17,7 +17,10 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
+import { normalizeFirestoreError } from "@/lib/firebase/firestore-errors";
 import type { AuditLog } from "@/lib/types";
+
+export { getFirestoreErrorMessage, isFirestoreIndexBuildingError, isFirestoreIndexError } from "@/lib/firebase/firestore-errors";
 
 export function timestampNow() {
   return serverTimestamp();
@@ -33,9 +36,13 @@ export async function listDocuments<T>(
   collectionName: string,
   constraints: QueryConstraint[] = [],
 ): Promise<T[]> {
-  const q = query(collection(db, collectionName), ...constraints);
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as T);
+  try {
+    const q = query(collection(db, collectionName), ...constraints);
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as T);
+  } catch (error) {
+    throw normalizeFirestoreError(error, `Failed to load ${collectionName}`);
+  }
 }
 
 export async function createDocument<T extends DocumentData>(
@@ -86,7 +93,7 @@ export function subscribeCollection<T>(
     (snapshot) => {
       onData(snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as T));
     },
-    (error) => onError?.(error),
+    (error) => onError?.(normalizeFirestoreError(error, `Failed to load ${collectionName}`)),
   );
 }
 

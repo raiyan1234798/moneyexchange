@@ -13,9 +13,10 @@ import {
 import { FirebaseError } from "firebase/app";
 import {
   GoogleAuthProvider,
+  getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from "firebase/auth";
@@ -40,7 +41,10 @@ import {
   SUPER_ADMIN_PERMISSIONS,
 } from "@/lib/constants";
 
-export type AuthLoadingPhase = "auth" | "profile" | null;
+export type AuthLoadingPhase = "auth" | "profile" | "redirect" | null;
+
+const GOOGLE_SIGN_IN_PENDING_KEY = "googleSignInPending";
+const LOG_PREFIX = "[unimoni-auth]";
 
 interface AuthContextValue {
   user: User | null;
@@ -62,8 +66,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const PROFILE_LOAD_TIMEOUT_MS = 8_000;
-const AUTH_LOADING_SAFETY_MS = 8_000;
+const PROFILE_LOAD_TIMEOUT_MS = 15_000;
+const REDIRECT_BOOTSTRAP_TIMEOUT_MS = 15_000;
+const AUTH_LOADING_SAFETY_MS = 15_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -98,7 +103,7 @@ async function finalizeLogin(firebaseUser: User, profile: AppUser): Promise<void
   }).catch(() => undefined);
 }
 
-async function resolveUserProfile(firebaseUser: User): Promise<AppUser> {
+async function resolveUserProfile(firebaseUser: User): Promise<{ profile: AppUser; acceptedInvite: boolean }> {
   try {
     return await withTimeout(
       ensureUserProfile(firebaseUser),
@@ -108,8 +113,8 @@ async function resolveUserProfile(firebaseUser: User): Promise<AppUser> {
   } catch (error) {
     const email = firebaseUser.email ?? "";
     if (email && isSuperAdminEmail(email)) {
-      console.warn("Profile load failed for super admin, using fallback", error);
-      return buildSuperAdminFallbackProfile(firebaseUser);
+      console.warn(`${LOG_PREFIX} profile load failed for super admin, using fallback`, error);
+      return { profile: buildSuperAdminFallbackProfile(firebaseUser), acceptedInvite: false };
     }
     throw error;
   }
@@ -121,7 +126,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [loadingPhase, setLoadingPhase] = useState<AuthLoadingPhase>("auth");
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [redirectReady, setRedirectReady] = useState(false);
   const authGenerationRef = useRef(0);
+  const pendingLoginFinalizeRef = useRef<Set<string>>(new Set());
 
   const loadProfileForUser = useCallback(async (firebaseUser: User) => {
     const generation = ++authGenerationRef.current;
@@ -129,25 +136,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoadingPhase("profile");
     setProfileError(null);
 
+    console.info(`${LOG_PREFIX} loading profile`, { uid: firebaseUser.uid, email: firebaseUser.email });
+
     try {
-      const userProfile = await resolveUserProfile(firebaseUser);
+      const { profile: userProfile, acceptedInvite } = await resolveUserProfile(firebaseUser);
       if (generation !== authGenerationRef.current) return;
       setProfile(userProfile);
+
+      const wasGoogleRedirect = sessionStorage.getItem(GOOGLE_SIGN_IN_PENDING_KEY) === "1";
+      if (wasGoogleRedirect) {
+        sessionStorage.removeItem(GOOGLE_SIGN_IN_PENDING_KEY);
+        toast.success(
+          acceptedInvite ? "Welcome! Your account is ready." : "Welcome back",
+        );
+      }
+
+      if (pendingLoginFinalizeRef.current.delete(firebaseUser.uid)) {
+        await finalizeLogin(firebaseUser, userProfile).catch(() => undefined);
+      }
+
+      console.info(`${LOG_PREFIX} profile ready`, {
+        uid: userProfile.uid,
+        role: userProfile.role,
+        acceptedInvite,
+      });
     } catch (error) {
       if (generation !== authGenerationRef.current) return;
-      console.error("Failed to load user profile", error);
+      sessionStorage.removeItem(GOOGLE_SIGN_IN_PENDING_KEY);
+      console.error(`${LOG_PREFIX} failed to load user profile`, error);
       const message =
         error instanceof ProfileAccessError
           ? error.message
           : error instanceof Error && error.message === "Profile load timed out"
             ? "Sign-in timed out. Check your connection and try again."
             : "Could not load your profile. Please try again.";
+
       setProfileError(message);
       if (error instanceof ProfileAccessError) {
         toast.error(error.message);
       } else if (error instanceof Error && error.message === "Profile load timed out") {
         toast.error(message);
       }
+
       await signOutIfProfileDenied(error);
       setProfile(null);
     } finally {
@@ -159,6 +189,88 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function handleRedirectResult() {
+      const pendingGoogle = sessionStorage.getItem(GOOGLE_SIGN_IN_PENDING_KEY) === "1";
+      if (pendingGoogle) {
+        setLoading(true);
+        setLoadingPhase("redirect");
+      }
+
+      console.info(`${LOG_PREFIX} awaiting getRedirectResult`, { pendingGoogle });
+
+      try {
+        const result = await withTimeout(
+          getRedirectResult(auth),
+          REDIRECT_BOOTSTRAP_TIMEOUT_MS,
+          "Redirect sign-in timed out",
+        );
+        if (result?.user) {
+          console.info(`${LOG_PREFIX} redirect sign-in completed`, {
+            uid: result.user.uid,
+            email: result.user.email,
+          });
+          pendingLoginFinalizeRef.current.add(result.user.uid);
+        } else if (auth.currentUser) {
+          console.info(`${LOG_PREFIX} no redirect result but auth.currentUser exists — continuing`, {
+            uid: auth.currentUser.uid,
+            email: auth.currentUser.email,
+          });
+          if (pendingGoogle) {
+            pendingLoginFinalizeRef.current.add(auth.currentUser.uid);
+          }
+        } else {
+          console.info(`${LOG_PREFIX} no redirect result (normal page load)`);
+        }
+      } catch (error) {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          console.warn(`${LOG_PREFIX} redirect bootstrap error but user signed in — continuing`, error);
+          if (pendingGoogle) {
+            pendingLoginFinalizeRef.current.add(currentUser.uid);
+          }
+        } else {
+          sessionStorage.removeItem(GOOGLE_SIGN_IN_PENDING_KEY);
+          if (error instanceof FirebaseError) {
+            if (error.code === "auth/popup-closed-by-user") return;
+            if (error.code === "auth/cancelled-popup-request") return;
+          }
+          console.error(`${LOG_PREFIX} Google redirect sign-in failed`, error);
+          const message =
+            error instanceof FirebaseError && error.code === "auth/account-exists-with-different-credential"
+              ? "This email was set up with a password. Ask your admin to delete the old account and re-invite you for Google sign-in."
+              : error instanceof Error && error.message === "Redirect sign-in timed out"
+                ? "Google sign-in timed out. Check your connection and try again."
+                : error instanceof Error
+                  ? error.message
+                  : "Google sign-in failed";
+          setProfileError(message);
+          setLoading(false);
+          setLoadingPhase(null);
+          toast.error(message);
+        }
+      } finally {
+        if (!cancelled) {
+          console.info(`${LOG_PREFIX} redirect bootstrap complete`, {
+            hasUser: Boolean(auth.currentUser),
+          });
+          setRedirectReady(true);
+        }
+      }
+    }
+
+    void handleRedirectResult();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!redirectReady) return;
+
+    console.info(`${LOG_PREFIX} subscribing to onAuthStateChanged`);
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       if (!firebaseUser) {
@@ -174,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return unsubscribe;
-  }, [loadProfileForUser]);
+  }, [loadProfileForUser, redirectReady]);
 
   useEffect(() => {
     if (!loading) return;
@@ -215,11 +327,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
+    pendingLoginFinalizeRef.current.add(credential.user.uid);
     try {
-      const userProfile = await resolveUserProfile(credential.user);
-      setProfile(userProfile);
-      await finalizeLogin(credential.user, userProfile);
+      await resolveUserProfile(credential.user);
     } catch (error) {
+      pendingLoginFinalizeRef.current.delete(credential.user.uid);
       await signOutIfProfileDenied(error);
       throw error instanceof ProfileAccessError
         ? error
@@ -230,38 +342,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = useCallback(async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-
-    let credential;
-    try {
-      credential = await signInWithPopup(auth, provider);
-    } catch (error) {
-      if (error instanceof FirebaseError) {
-        if (error.code === "auth/popup-blocked") {
-          const message =
-            "Google sign-in pop-up was blocked. Allow pop-ups for this site in your browser settings, then try again.";
-          toast.error(message);
-          throw new Error(message);
-        }
-        if (error.code === "auth/popup-closed-by-user") {
-          throw new Error("Sign-in cancelled");
-        }
-        if (error.code === "auth/cancelled-popup-request") {
-          return;
-        }
-      }
-      throw error instanceof Error ? error : new Error("Google sign-in failed");
-    }
-
-    try {
-      const userProfile = await resolveUserProfile(credential.user);
-      setProfile(userProfile);
-      await finalizeLogin(credential.user, userProfile);
-    } catch (error) {
-      await signOutIfProfileDenied(error);
-      throw error instanceof ProfileAccessError
-        ? error
-        : new Error(error instanceof Error ? error.message : "Google sign-in failed");
-    }
+    sessionStorage.setItem(GOOGLE_SIGN_IN_PENDING_KEY, "1");
+    console.info(`${LOG_PREFIX} starting Google redirect sign-in`);
+    await signInWithRedirect(auth, provider);
   }, []);
 
   const logout = useCallback(async () => {

@@ -37,9 +37,10 @@ function TimedRatesPanel({ rates, displaySeconds, showBuyRate, showSellRate }: T
 
   if (displaySeconds > 0 && !visible) return null;
 
-  return (
-    <UnimoniRatesPanel rates={rates} showBuyRate={showBuyRate} showSellRate={showSellRate} />
-  );
+  // Return the panel directly — it already carries its own lg:w-[35%] flex-none
+  // width. Wrapping it in a flex-1 div made it render at 35% of 35% (~12% of the
+  // screen) with a black gap on desktop/TV.
+  return <UnimoniRatesPanel rates={rates} showBuyRate={showBuyRate} showSellRate={showSellRate} />;
 }
 
 export function DisplayScreen({ branchId }: DisplayScreenProps) {
@@ -281,7 +282,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       )}
 
       <div
-        className={`display-main-area flex min-h-0 flex-1 flex-col ${
+        className={`display-main-area flex h-full min-h-0 flex-1 flex-col lg:items-stretch ${
           rateCardPosition === "left" ? "lg:flex-row-reverse" : "lg:flex-row"
         }`}
       >
@@ -309,17 +310,14 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         .display-kiosk:hover {
           cursor: default;
         }
-        .display-main-area .display-promo-panel {
-          min-height: clamp(12rem, 38vh, 28rem);
-        }
-        @media (min-width: 1024px) {
-          .display-main-area .display-promo-panel {
-            min-height: 0;
-          }
-        }
         @media (max-width: 1023px) {
+          .display-main-area .display-promo-panel {
+            flex: 1 1 0%;
+            min-height: clamp(10rem, 34vh, 24rem);
+          }
           .display-main-area .display-rates-panel {
-            max-height: clamp(14rem, 42vh, 22rem);
+            flex: 1 1 0%;
+            min-height: clamp(12rem, 36vh, 18rem);
           }
         }
       `}</style>

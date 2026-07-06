@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, RefreshCw } from "lucide-react";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth, type AuthLoadingPhase } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 
 const LOADING_TIMEOUT_MS = 8_000;
 
-function loadingMessage(loadingPhase: "auth" | "profile" | null): string {
+function loadingMessage(loadingPhase: AuthLoadingPhase): string {
   if (loadingPhase === "profile") return "Loading profile…";
+  if (loadingPhase === "redirect") return "Completing Google sign-in…";
   return "Signing in…";
 }
 

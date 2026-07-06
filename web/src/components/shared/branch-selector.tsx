@@ -16,17 +16,40 @@ export function BranchSelector({
   value,
   onChange,
   label = "Branch",
+  helperText,
   className,
 }: {
   branches: Branch[];
   value: string;
   onChange: (branchId: string) => void;
   label?: string;
+  helperText?: string;
   className?: string;
 }) {
   if (branches.length === 0) return null;
 
   const selected = branches.find((b) => b.id === value);
+
+  if (branches.length === 1 && selected) {
+    return (
+      <div className={cn("space-y-2", className)}>
+        <Label>{label}</Label>
+        <div className="flex h-11 max-w-md items-center gap-2.5 rounded-xl border border-border/40 bg-muted/20 px-3.5">
+          <div
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+            style={{ backgroundColor: `${selected.brandingColor ?? "#6366f1"}22` }}
+          >
+            <Building2 className="h-3.5 w-3.5" style={{ color: selected.brandingColor ?? "#6366f1" }} />
+          </div>
+          <span className="truncate text-sm font-medium">
+            {selected.name}
+            <span className="ml-1.5 text-muted-foreground">({selected.code})</span>
+          </span>
+        </div>
+        {helperText ? <p className="text-xs text-muted-foreground">{helperText}</p> : null}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -70,6 +93,7 @@ export function BranchSelector({
           ))}
         </SelectContent>
       </Select>
+      {helperText ? <p className="text-xs text-muted-foreground">{helperText}</p> : null}
     </div>
   );
 }

@@ -10,11 +10,13 @@ import {
   ContentPanel,
   DataTable,
   EmptyState,
+  FirestoreSetupNotice,
   PageShell,
   StatusBadge,
 } from "@/components/shared/page-elements";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
+import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,24 +87,31 @@ export default function VideosPage() {
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
   const actor = user && profile ? { userId: user.uid, userName: profile.displayName || profile.email } : null;
+  const { notice, onError, clearNotice } = useFirestoreNotice("videos and images");
 
   useEffect(() => {
     if (!effectiveBranchId) return;
     const unsubVideos = subscribeVideos(
       effectiveBranchId,
-      setVideos,
-      (error) => toast.error(error.message || "Failed to load videos"),
+      (items) => {
+        setVideos(items);
+        clearNotice();
+      },
+      onError,
     );
     const unsubImages = subscribeImageAdverts(
       effectiveBranchId,
-      setImages,
-      (error) => toast.error(error.message || "Failed to load images"),
+      (items) => {
+        setImages(items);
+        clearNotice();
+      },
+      onError,
     );
     return () => {
       unsubVideos();
       unsubImages();
     };
-  }, [effectiveBranchId]);
+  }, [clearNotice, effectiveBranchId, onError]);
 
   async function handleExternalAdd() {
     if (!user || !profile || !effectiveBranchId || !externalUrl.trim() || !actor) {
@@ -302,8 +311,14 @@ export default function VideosPage() {
         accent="rose"
       />
       <PageShell accent="rose">
+        <FirestoreSetupNotice message={notice} />
         {isSuperAdmin || isAdmin ? (
-          <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
+          <BranchSelector
+            branches={branches}
+            value={effectiveBranchId}
+            onChange={setSelectedBranchId}
+            helperText="Each branch has its own videos and display content."
+          />
         ) : branch ? (
           <p className="text-sm text-muted-foreground">
             Managing videos for: <strong>{branch.name}</strong>
@@ -321,7 +336,7 @@ export default function VideosPage() {
         </Alert>
 
         {canManageVideos && effectiveBranchId ? (
-          <ContentPanel title="Add Video" description="Choose how to add your promo video">
+          <ContentPanel title="Add Video" description="Pick the easiest option — pasting a link is usually fastest">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
                 checked={applyToAll}
@@ -333,15 +348,17 @@ export default function VideosPage() {
             <Tabs defaultValue="external">
               <TabsList className="rounded-xl">
                 <TabsTrigger value="external" className="gap-2 rounded-lg">
-                  Paste video link
-                  <Badge className="bg-emerald-600 text-[10px] text-white hover:bg-emerald-600">Fastest</Badge>
+                  Paste link
+                  <Badge className="bg-emerald-600 text-[10px] text-white hover:bg-emerald-600">Easiest</Badge>
                 </TabsTrigger>
                 <TabsTrigger value="upload" className="rounded-lg">Upload file</TabsTrigger>
                 <TabsTrigger value="drive" className="rounded-lg">Google Drive</TabsTrigger>
               </TabsList>
               <TabsContent value="external" className="mt-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Paste a direct MP4 or WebM link — no upload needed. Your display starts playing it right away.
+                  <strong className="text-foreground">Step 1:</strong> Copy a direct MP4 or WebM link from your hosting.
+                  <br />
+                  <strong className="text-foreground">Step 2:</strong> Paste below and click Save — your TV starts playing it immediately.
                 </p>
                 <div className="space-y-2">
                   <Label>Title (optional)</Label>

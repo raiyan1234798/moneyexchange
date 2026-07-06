@@ -1,9 +1,50 @@
 import * as XLSX from "xlsx";
+import { buildCurrencyPayload, getCurrencyMeta, normalizeCurrencyCode } from "@/lib/currency-utils";
 
 export interface RateImportRow {
   currencyCode: string;
+  /** Label from the CURRENCY column — shown on signage (e.g. "CANADA CAD" or "USD"). */
+  displayName: string;
+  /** Catalog name derived from metadata when available. */
+  currencyName?: string;
+  country?: string;
+  flag?: string;
   buyRate: number;
   sellRate: number;
+}
+
+/** Derive ISO-style code and human label from an Excel CURRENCY cell. */
+export function parseCurrencyCell(raw: string): {
+  currencyCode: string;
+  displayName: string;
+  currencyName?: string;
+  country?: string;
+  flag?: string;
+} {
+  const trimmed = raw.trim();
+  if (!trimmed) return { currencyCode: "", displayName: "" };
+
+  const currencyCode = normalizeCurrencyCode(trimmed);
+  if (!currencyCode || !/^[A-Z]{3}$/.test(currencyCode)) {
+    return { currencyCode: currencyCode || trimmed.toUpperCase(), displayName: trimmed };
+  }
+
+  const meta = getCurrencyMeta(currencyCode);
+  const catalog = buildCurrencyPayload({ currencyCode, currencyName: meta?.name });
+
+  const upper = trimmed.toUpperCase();
+  const displayName =
+    upper === currencyCode || (TEMPLATE_CURRENCIES as readonly string[]).includes(upper as (typeof TEMPLATE_CURRENCIES)[number])
+      ? currencyCode
+      : trimmed;
+
+  return {
+    currencyCode,
+    displayName,
+    currencyName: catalog.currencyName,
+    country: catalog.country,
+    flag: catalog.flag,
+  };
 }
 
 /** Default 14 currencies for Unimoni branch signage template. */
@@ -59,6 +100,7 @@ function findColumnIndex(headers: string[], candidates: string[]): number {
 export function buildRateTemplateRows(): RateImportRow[] {
   return TEMPLATE_CURRENCIES.map((code) => ({
     currencyCode: code,
+    displayName: code,
     buyRate: TEMPLATE_SAMPLE_RATES[code]?.buy ?? 1,
     sellRate: TEMPLATE_SAMPLE_RATES[code]?.sell ?? 1,
   }));
@@ -137,23 +179,24 @@ export function parseRateFile(file: File): Promise<RateImportRow[]> {
         const parsed: RateImportRow[] = [];
         for (let i = 1; i < rawRows.length; i++) {
           const row = rawRows[i] as unknown[];
-          const currencyCode = String(row[currencyIdx] ?? "")
-            .trim()
-            .toUpperCase();
-          if (!currencyCode || currencyCode === "CURRENCY") continue;
+          const rawCurrency = String(row[currencyIdx] ?? "").trim();
+          if (!rawCurrency || rawCurrency.toUpperCase() === "CURRENCY") continue;
+
+          const { currencyCode, displayName, currencyName, country, flag } = parseCurrencyCell(rawCurrency);
+          if (!currencyCode) continue;
 
           const buyRate = Number(row[buyIdx]);
           const sellRate = Number(row[sellIdx]);
           if (!Number.isFinite(buyRate) || !Number.isFinite(sellRate)) {
-            reject(new Error(`Invalid rates for ${currencyCode} on row ${i + 1}`));
+            reject(new Error(`Invalid rates for ${displayName} on row ${i + 1}`));
             return;
           }
           if (buyRate <= 0 || sellRate <= 0) {
-            reject(new Error(`Rates must be positive for ${currencyCode}`));
+            reject(new Error(`Rates must be positive for ${displayName}`));
             return;
           }
 
-          parsed.push({ currencyCode, buyRate, sellRate });
+          parsed.push({ currencyCode, displayName, currencyName, country, flag, buyRate, sellRate });
         }
 
         if (parsed.length === 0) {

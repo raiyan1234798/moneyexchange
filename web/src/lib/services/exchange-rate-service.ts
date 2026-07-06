@@ -11,6 +11,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
+import { buildCurrencyPayload, normalizeCurrencyCode } from "@/lib/currency-utils";
 import { assertBranchId } from "@/lib/branch-isolation";
 import { createCurrency, listCurrencies } from "@/lib/services/currency-service";
 import { createRatePendingApproval } from "@/lib/services/pending-approval-service";
@@ -77,6 +78,7 @@ export async function initializeBranchRates(
     await createDocument(COLLECTIONS.exchangeRates, {
       branchId,
       currencyCode: currency.currencyCode,
+      displayName: currency.currencyName || currency.currencyCode,
       buyRate: 1.0,
       sellRate: 1.0,
       version: 1,
@@ -110,6 +112,7 @@ export async function addBranchRate(
   await createDocument(COLLECTIONS.exchangeRates, {
     branchId,
     currencyCode: currency.currencyCode,
+    displayName: currency.currencyName || currency.currencyCode,
     buyRate: 1.0,
     sellRate: 1.0,
     version: 1,
@@ -189,10 +192,18 @@ export async function updateExchangeRate(
   newSellRate: number,
   actor: { userId: string; userName: string; branchName: string },
   changeType: RateHistoryEntry["changeType"] = "manual",
-  options?: { requireApproval?: boolean; actorRole?: UserRole },
+  options?: { requireApproval?: boolean; actorRole?: UserRole; displayName?: string },
 ): Promise<"published" | "pending"> {
+  const nextDisplayName = options?.displayName?.trim() || rate.displayName || rate.currencyCode;
+  const ratesChanged = newBuyRate !== rate.buyRate || newSellRate !== rate.sellRate;
+  const nameChanged = nextDisplayName !== (rate.displayName || rate.currencyCode);
+
+  if (!ratesChanged && !nameChanged) {
+    return "published";
+  }
+
   const needsApproval =
-    options?.requireApproval === true && options.actorRole === "branchUser";
+    ratesChanged && options?.requireApproval === true && options.actorRole === "branchUser";
 
   if (needsApproval) {
     await updateDocument(COLLECTIONS.exchangeRates, rate.id, {
@@ -217,10 +228,10 @@ export async function updateExchangeRate(
     return "pending";
   }
 
-  const nextVersion = (rate.version ?? 0) + 1;
+  const nextVersion = ratesChanged ? (rate.version ?? 0) + 1 : (rate.version ?? 1);
   await updateDocument(COLLECTIONS.exchangeRates, rate.id, {
-    buyRate: newBuyRate,
-    sellRate: newSellRate,
+    ...(ratesChanged ? { buyRate: newBuyRate, sellRate: newSellRate } : {}),
+    ...(nameChanged ? { displayName: nextDisplayName } : {}),
     version: nextVersion,
     status: "published",
     updatedBy: actor.userId,
@@ -228,22 +239,24 @@ export async function updateExchangeRate(
     publishedAt: new Date(),
   });
 
-  await addDoc(collection(db, COLLECTIONS.rateHistory), {
-    branchId: rate.branchId,
-    currencyCode: rate.currencyCode,
-    oldBuyRate: rate.buyRate,
-    oldSellRate: rate.sellRate,
-    newBuyRate,
-    newSellRate,
-    updatedBy: actor.userId,
-    updatedByName: actor.userName,
-    branchName: actor.branchName,
-    changeType,
-    timestamp: new Date(),
-  });
+  if (ratesChanged) {
+    await addDoc(collection(db, COLLECTIONS.rateHistory), {
+      branchId: rate.branchId,
+      currencyCode: rate.currencyCode,
+      oldBuyRate: rate.buyRate,
+      oldSellRate: rate.sellRate,
+      newBuyRate,
+      newSellRate,
+      updatedBy: actor.userId,
+      updatedByName: actor.userName,
+      branchName: actor.branchName,
+      changeType,
+      timestamp: new Date(),
+    });
+  }
 
   await writeAuditLog({
-    action: "rate_change",
+    action: ratesChanged ? "rate_change" : "rate_display_name_change",
     entityType: "exchange_rate",
     entityId: rate.id,
     userId: actor.userId,
@@ -251,10 +264,15 @@ export async function updateExchangeRate(
     branchId: rate.branchId,
     metadata: {
       currencyCode: rate.currencyCode,
-      oldBuyRate: rate.buyRate,
-      oldSellRate: rate.sellRate,
-      newBuyRate,
-      newSellRate,
+      ...(ratesChanged
+        ? {
+            oldBuyRate: rate.buyRate,
+            oldSellRate: rate.sellRate,
+            newBuyRate,
+            newSellRate,
+          }
+        : {}),
+      ...(nameChanged ? { displayName: nextDisplayName } : {}),
       version: nextVersion,
     },
   });
@@ -263,7 +281,15 @@ export async function updateExchangeRate(
 
 export async function bulkUpdateRates(
   branchId: string,
-  updates: Array<{ currencyCode: string; buyRate: number; sellRate: number }>,
+  updates: Array<{
+    currencyCode: string;
+    displayName?: string;
+    currencyName?: string;
+    country?: string;
+    flag?: string;
+    buyRate: number;
+    sellRate: number;
+  }>,
   actor: { userId: string; userName: string; branchName: string },
   options?: { autoCreateCurrencies?: boolean; requireApproval?: boolean; actorRole?: UserRole },
 ): Promise<number> {
@@ -274,15 +300,21 @@ export async function bulkUpdateRates(
   const catalogByCode = new Map(catalog.map((c) => [c.currencyCode.toUpperCase(), c]));
 
   for (const update of updates) {
-    const code = update.currencyCode.toUpperCase();
+    const code = normalizeCurrencyCode(update.currencyCode) || update.currencyCode.toUpperCase();
+    const catalogFields = buildCurrencyPayload({
+      currencyCode: code,
+      currencyName: update.currencyName,
+      country: update.country,
+      flag: update.flag,
+    });
     if (!catalogByCode.has(code) && autoCreate) {
       const sortOrder = catalog.length + 1;
       const currencyId = await createCurrency(
         {
-          currencyCode: code,
-          currencyName: code,
-          country: "",
-          flag: "💱",
+          currencyCode: catalogFields.currencyCode,
+          currencyName: catalogFields.currencyName,
+          country: catalogFields.country,
+          flag: catalogFields.flag,
           sortOrder,
           status: "active",
           isHidden: false,
@@ -291,10 +323,10 @@ export async function bulkUpdateRates(
       );
       catalog.push({
         id: currencyId,
-        currencyCode: code,
-        currencyName: code,
-        country: "",
-        flag: "💱",
+        currencyCode: catalogFields.currencyCode,
+        currencyName: catalogFields.currencyName,
+        country: catalogFields.country,
+        flag: catalogFields.flag,
         sortOrder,
         status: "active",
         isHidden: false,
@@ -309,12 +341,14 @@ export async function bulkUpdateRates(
 
   await Promise.all(
     updates.map(async (update) => {
-      const code = update.currencyCode.toUpperCase();
+      const code = normalizeCurrencyCode(update.currencyCode) || update.currencyCode.toUpperCase();
+      const label = update.displayName?.trim() || code;
       const rate = existing.find((item) => item.currencyCode.toUpperCase() === code);
       if (!rate) {
         await createDocument(COLLECTIONS.exchangeRates, {
           branchId: scopedBranchId,
           currencyCode: code,
+          displayName: label,
           buyRate: update.buyRate,
           sellRate: update.sellRate,
           version: 1,
@@ -330,6 +364,7 @@ export async function bulkUpdateRates(
       await updateExchangeRate(rate, update.buyRate, update.sellRate, actor, "bulk", {
         requireApproval: options?.requireApproval,
         actorRole: options?.actorRole,
+        displayName: label,
       });
     }),
   );

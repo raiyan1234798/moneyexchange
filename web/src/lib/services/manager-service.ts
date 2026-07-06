@@ -1,5 +1,16 @@
 import { httpsCallable } from "firebase/functions";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+} from "firebase/firestore";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { db, functions } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
@@ -13,6 +24,24 @@ function mapFirestoreError(error: unknown, fallback: string): Error {
   return new Error(fallback);
 }
 
+async function removeDuplicateInvites(email: string): Promise<void> {
+  const duplicates = await getDocs(
+    query(collection(db, COLLECTIONS.userInvites), where("email", "==", email)),
+  );
+  await Promise.all(
+    duplicates.docs
+      .filter((snapshot) => snapshot.id !== email)
+      .map((snapshot) => deleteDoc(snapshot.ref)),
+  );
+}
+
+async function resolveBranchName(branchId: string | null): Promise<string | null> {
+  if (!branchId) return null;
+  const branchSnap = await getDoc(doc(db, COLLECTIONS.branches, branchId));
+  if (!branchSnap.exists()) return null;
+  return (branchSnap.data() as { name?: string }).name ?? null;
+}
+
 export async function createUserInvite(params: {
   email: string;
   displayName: string;
@@ -21,7 +50,25 @@ export async function createUserInvite(params: {
   createdBy: string;
 }): Promise<void> {
   const email = normalizeEmail(params.email);
+  if (!email) {
+    throw new Error("A valid email address is required.");
+  }
+
+  if (params.role !== "admin" && !params.branchId) {
+    throw new Error("A branch is required for this role.");
+  }
+
+  if (params.branchId) {
+    const branchSnap = await getDoc(doc(db, COLLECTIONS.branches, params.branchId));
+    if (!branchSnap.exists()) {
+      throw new Error("Selected branch does not exist. Refresh and try again.");
+    }
+  }
+
+  const branchName = await resolveBranchName(params.branchId);
+
   try {
+    await removeDuplicateInvites(email);
     await setDoc(
       doc(db, COLLECTIONS.userInvites, email),
       {
@@ -29,13 +76,87 @@ export async function createUserInvite(params: {
         displayName: params.displayName.trim(),
         role: params.role,
         branchId: params.branchId,
+        branchName,
+        status: "pending",
         createdBy: params.createdBy,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       },
       { merge: true },
     );
   } catch (error) {
     throw mapFirestoreError(error, "Failed to create user invite");
+  }
+}
+
+export async function updateUserInvite(params: {
+  inviteId: string;
+  email: string;
+  displayName: string;
+  role: "admin" | "branchManager" | "branchUser";
+  branchId: string | null;
+}): Promise<void> {
+  const email = normalizeEmail(params.inviteId || params.email);
+  if (!email) {
+    throw new Error("Invalid invite.");
+  }
+
+  if (params.role !== "admin" && !params.branchId) {
+    throw new Error("A branch is required for this role.");
+  }
+
+  if (params.branchId) {
+    const branchSnap = await getDoc(doc(db, COLLECTIONS.branches, params.branchId));
+    if (!branchSnap.exists()) {
+      throw new Error("Selected branch does not exist. Refresh and try again.");
+    }
+  }
+
+  const branchName = await resolveBranchName(params.branchId);
+
+  try {
+    await updateDoc(doc(db, COLLECTIONS.userInvites, email), {
+      email,
+      displayName: params.displayName.trim(),
+      role: params.role,
+      branchId: params.branchId,
+      branchName,
+      status: "pending",
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    throw mapFirestoreError(error, "Failed to update invite");
+  }
+}
+
+export async function approveUserInvite(inviteId: string): Promise<void> {
+  const email = normalizeEmail(inviteId);
+  if (!email) {
+    throw new Error("Invalid invite.");
+  }
+
+  try {
+    await updateDoc(doc(db, COLLECTIONS.userInvites, email), {
+      status: "approved",
+      approvedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    throw mapFirestoreError(error, "Failed to approve invite");
+  }
+}
+
+export async function deleteUserInvite(inviteId: string): Promise<void> {
+  const email = normalizeEmail(inviteId);
+  if (!email) {
+    throw new Error("Invalid invite.");
+  }
+
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.userInvites, email));
+    await removeDuplicateInvites(email);
+  } catch (error) {
+    throw mapFirestoreError(error, "Failed to delete invite");
   }
 }
 

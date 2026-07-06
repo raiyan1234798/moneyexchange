@@ -53,6 +53,10 @@ export function formatUnimoniRate(value: number): string {
   return text;
 }
 
+export function getRateDisplayLabel(rate: ExchangeRate): string {
+  return rate.displayName?.trim() || rate.currencyCode;
+}
+
 export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
   if (rates.length > 0) {
     return [...rates]

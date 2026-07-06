@@ -2,13 +2,20 @@
 
 import { usePathname } from "next/navigation";
 import { getPageBackground } from "@/lib/page-themes";
+import { cn } from "@/lib/utils";
 
-export function PolymorphicBackground({ children }: { children: React.ReactNode }) {
+export function PolymorphicBackground({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   const pathname = usePathname();
   const bg = getPageBackground(pathname);
 
   return (
-    <div className="relative min-h-full flex-1 overflow-hidden">
+    <div className={cn("relative min-h-0 flex-1 overflow-hidden", className)}>
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
         <div
           className="animate-blob absolute -left-24 top-0 h-[420px] w-[420px] rounded-[40%_60%_70%_30%/40%_50%_60%_50%] blur-3xl"
