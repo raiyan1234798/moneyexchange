@@ -255,6 +255,20 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     />
   );
 
+  // When a branch has no video or image advert, fill the whole screen with a
+  // fixed rate board instead of leaving a large empty black area beside a
+  // 35%-wide panel.
+  const hasPromo = activeVideos.length > 0 || activeImages.length > 0;
+  const ratesBoard = (
+    <UnimoniRatesPanel
+      variant="board"
+      rates={rates}
+      showBuyRate={branchSettings.showBuyRate}
+      showSellRate={branchSettings.showSellRate}
+      branchName={branch?.name}
+    />
+  );
+
   return (
     <div
       className={`flex h-screen w-screen flex-col overflow-hidden bg-black text-white select-none ${
@@ -286,8 +300,14 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           rateCardPosition === "left" ? "lg:flex-row-reverse" : "lg:flex-row"
         }`}
       >
-        {promoPanel}
-        {ratesPanel}
+        {hasPromo ? (
+          <>
+            {promoPanel}
+            {ratesPanel}
+          </>
+        ) : (
+          ratesBoard
+        )}
       </div>
 
       <BreakingNewsTicker
