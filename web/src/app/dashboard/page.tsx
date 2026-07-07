@@ -50,6 +50,9 @@ export default function DashboardOverviewPage() {
   const scopedBranch = branches.find((b) => b.id === effectiveBranchId);
   const isPlatformAdmin = isSuperAdmin || isAdmin;
   const canReviewApprovals = isPlatformAdmin || isBranchManager;
+  // Admins can VIEW pending rate changes but cannot write rates (Firestore
+  // rules) — only the branch manager or super admin approves them.
+  const canApproveRates = isSuperAdmin || isBranchManager;
   const { notice, onError, clearNotice } = useFirestoreNotice("dashboard data");
 
   useEffect(() => {
@@ -113,41 +116,47 @@ export default function DashboardOverviewPage() {
       onError,
     );
 
+    // Only admins and branch managers may read audit_logs (Firestore rules).
+    // Branch users skip this — otherwise the query is rejected and they see a
+    // "permission denied" toast on their own landing page every sign-in.
+    const canReadLogs = isPlatformAdmin || isBranchManager;
     const logConstraints = isPlatformAdmin
       ? [orderBy("timestamp", "desc")]
       : effectiveBranchId
         ? [where("branchId", "==", effectiveBranchId), orderBy("timestamp", "desc")]
         : [orderBy("timestamp", "desc")];
 
-    const unsubLogs = subscribeCollection<AuditLog>(
-      COLLECTIONS.auditLogs,
-      logConstraints,
-      (logs) => {
-        setRecentLogs(logs.slice(0, 6));
-        setStats((prev) =>
-          prev
-            ? { ...prev, recentAuditEvents: logs.length, totalBranches: branches.length }
-            : {
-                totalBranches: branches.length,
-                activeTvs: 0,
-                offlineTvs: 0,
-                totalCurrencies: currencies,
-                pendingRateApprovals: 0,
-                recentAuditEvents: logs.length,
-              },
-        );
-        setLoading(false);
-        clearNotice();
-      },
-      onError,
-    );
+    const unsubLogs = canReadLogs
+      ? subscribeCollection<AuditLog>(
+          COLLECTIONS.auditLogs,
+          logConstraints,
+          (logs) => {
+            setRecentLogs(logs.slice(0, 6));
+            setStats((prev) =>
+              prev
+                ? { ...prev, recentAuditEvents: logs.length, totalBranches: branches.length }
+                : {
+                    totalBranches: branches.length,
+                    activeTvs: 0,
+                    offlineTvs: 0,
+                    totalCurrencies: currencies,
+                    pendingRateApprovals: 0,
+                    recentAuditEvents: logs.length,
+                  },
+            );
+            setLoading(false);
+            clearNotice();
+          },
+          onError,
+        )
+      : () => undefined;
 
     return () => {
       unsubCurrencies();
       unsubRates();
       unsubLogs();
     };
-  }, [branches.length, clearNotice, effectiveBranchId, isPlatformAdmin, onError]);
+  }, [branches.length, clearNotice, effectiveBranchId, isBranchManager, isPlatformAdmin, onError]);
 
   useEffect(() => {
     if (!effectiveBranchId) return;
@@ -323,6 +332,7 @@ export default function DashboardOverviewPage() {
                       Requested by {approval.requestedByName}
                     </p>
                   </div>
+                  {canApproveRates ? (
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -360,6 +370,11 @@ export default function DashboardOverviewPage() {
                       Reject
                     </Button>
                   </div>
+                  ) : (
+                    <span className="shrink-0 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      Awaiting branch manager
+                    </span>
+                  )}
                 </div>
               ))}
               {pendingApprovals.length > 5 ? (

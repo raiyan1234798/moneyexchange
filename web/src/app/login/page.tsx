@@ -97,7 +97,17 @@ export default function LoginPage() {
       await login(email, password);
       toast.success("Welcome back");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Login failed");
+      const raw = error instanceof Error ? error.message : "";
+      const friendly = /invalid-credential|wrong-password|user-not-found|invalid-email/i.test(raw)
+        ? "Incorrect email or password. Invited staff: use “Continue with Google” instead."
+        : /too-many-requests/i.test(raw)
+          ? "Too many attempts. Please wait a minute and try again."
+          : /network/i.test(raw)
+            ? "Network error — check your connection and try again."
+            : raw && !raw.toLowerCase().includes("firebase")
+              ? raw
+              : "Could not sign in. Please try again.";
+      toast.error(friendly);
     } finally {
       setSubmitting(false);
     }

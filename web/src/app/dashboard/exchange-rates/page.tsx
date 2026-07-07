@@ -621,6 +621,7 @@ export default function ExchangeRatesPage() {
                       Requested by {approval.requestedByName}
                     </p>
                   </div>
+                  {isSuperAdmin || isBranchManager ? (
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -658,6 +659,11 @@ export default function ExchangeRatesPage() {
                       Reject
                     </Button>
                   </div>
+                  ) : (
+                    <span className="shrink-0 rounded-lg bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      Awaiting branch manager
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
@@ -1074,16 +1080,18 @@ export default function ExchangeRatesPage() {
                               </>
                             )}
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-lg px-2 text-destructive hover:text-destructive"
-                            onClick={() => void handleRemove(rate.id)}
-                            title="Remove from branch rates"
-                          >
-                            <Trash2 className="mr-1 h-3 w-3" />
-                            Remove
-                          </Button>
+                          {isSuperAdmin || isBranchManager ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg px-2 text-destructive hover:text-destructive"
+                              onClick={() => void handleRemove(rate.id)}
+                              title="Remove from branch rates"
+                            >
+                              <Trash2 className="mr-1 h-3 w-3" />
+                              Remove
+                            </Button>
+                          ) : null}
                         </div>
                       ) : null}
                     </div>

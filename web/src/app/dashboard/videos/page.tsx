@@ -349,7 +349,7 @@ export default function VideosPage() {
     <>
       <DashboardHeader
         title="Videos"
-        description="Add a promo video for your shop display. Pasting a link is fastest — uploads go to Cloudflare when configured."
+        description="Add a promo video for your shop display. Pasting a direct video link is the fastest, most reliable option."
         accent="rose"
       />
       <PageShell accent="rose">
@@ -431,9 +431,7 @@ export default function VideosPage() {
               </TabsContent>
               <TabsContent value="upload" className="mt-4 space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  {isR2UploadConfigured()
-                    ? "Upload goes to fast Cloudflare storage. Having trouble? Paste a direct video link instead."
-                    : "Upload a video file from your computer. Having trouble? Paste a direct video link instead."}
+                  Upload a video file from your computer. Having trouble? Paste a direct video link instead.
                 </p>
                 <div className="space-y-2">
                   <Label>Title (optional)</Label>
@@ -472,7 +470,8 @@ export default function VideosPage() {
                       ) : null}
                       {file.size > MAX_CHUNKED_VIDEO_BYTES && !isR2UploadConfigured() ? (
                         <span className="mt-1 block text-amber-600 dark:text-amber-400">
-                          Files over {MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB need Cloudflare R2 or a direct link.
+                          This file is too large to upload ({MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB max).
+                          Compress it or paste a direct video link instead.
                         </span>
                       ) : null}
                     </p>

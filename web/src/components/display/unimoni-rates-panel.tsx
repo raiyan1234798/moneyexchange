@@ -2,7 +2,6 @@
 
 import {
   UNIMONI_COLORS,
-  UNIMONI_USD_NOTE,
   formatUnimoniRate,
   getRateDisplayLabel,
   resolveSignageRates,

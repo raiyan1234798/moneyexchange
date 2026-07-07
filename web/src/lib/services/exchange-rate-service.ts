@@ -206,11 +206,9 @@ export async function updateExchangeRate(
     ratesChanged && options?.requireApproval === true && options.actorRole === "branchUser";
 
   if (needsApproval) {
-    await updateDocument(COLLECTIONS.exchangeRates, rate.id, {
-      status: "pending",
-      updatedBy: actor.userId,
-      updatedByName: actor.userName,
-    });
+    // Do NOT touch the live exchange_rates doc — it must keep showing its
+    // current published rate on the TV until a manager approves. The proposed
+    // change lives only in pending_approvals until then.
     await createRatePendingApproval(rate, newBuyRate, newSellRate, actor);
     await writeAuditLog({
       action: "rate_change_pending",

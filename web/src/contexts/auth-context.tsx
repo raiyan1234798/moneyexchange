@@ -400,9 +400,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
         }
         if (error.code === "auth/unauthorized-domain") {
-          throw new Error(
-            "This domain is not authorized for sign-in. Add unimoni.pages.dev under Firebase Console → Authentication → Settings → Authorized domains.",
-          );
+          throw new Error("Sign-in isn't available on this address. Please contact your administrator.");
         }
       }
       throw error;

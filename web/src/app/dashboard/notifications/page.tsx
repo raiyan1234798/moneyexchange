@@ -43,11 +43,23 @@ function describeLog(log: AuditLog): FeedEntry {
   const meta = (log.metadata ?? {}) as Record<string, unknown>;
   const currency = typeof meta.currencyCode === "string" ? meta.currencyCode : "";
   const contentTitle = typeof meta.title === "string" ? meta.title : "";
-  const buy = meta.buyRate ?? meta.proposedBuyRate;
-  const sell = meta.sellRate ?? meta.proposedSellRate;
+  const buy = meta.buyRate ?? meta.newBuyRate ?? meta.proposedBuyRate;
+  const sell = meta.sellRate ?? meta.newSellRate ?? meta.proposedSellRate;
   const rateLine = buy != null && sell != null ? `Buy ${buy} / Sell ${sell}` : "";
 
   switch (log.action) {
+    case "rate_change":
+      return {
+        icon: TrendingUp,
+        title: `Rate updated${currency ? ` — ${currency}` : ""}`,
+        detail: rateLine || "Exchange rate changed",
+      };
+    case "rate_display_name_change":
+      return {
+        icon: TrendingUp,
+        title: `Currency renamed${currency ? ` — ${currency}` : ""}`,
+        detail: typeof meta.displayName === "string" ? `Now shows as "${meta.displayName}"` : "",
+      };
     case "update":
       if (log.entityType === "exchange_rate") {
         return {
@@ -190,7 +202,11 @@ export default function NotificationsPage() {
         <FirestoreSetupNotice message={notice} />
         {logs.length === 0 ? (
           <EmptyState
-            title={loaded ? "No activity yet" : "Loading notifications…"}
+            title={
+              loaded || (!isPlatformAdmin && !managerBranchId)
+                ? "No activity yet"
+                : "Loading notifications…"
+            }
             description="Rate updates, video changes, display messages, and user changes appear here in real time."
             icon={Bell}
           />
