@@ -445,7 +445,11 @@ export default function VideosPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Video file (MP4 recommended — max {MAX_VIDEO_UPLOAD_BYTES / (1024 * 1024)} MB)</Label>
+                  <Label>
+                    Video file (MP4 recommended — max{" "}
+                    {(isR2UploadConfigured() ? MAX_VIDEO_UPLOAD_BYTES : MAX_CHUNKED_VIDEO_BYTES) / (1024 * 1024)}{" "}
+                    MB)
+                  </Label>
                   <Input
                     type="file"
                     accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.webm"

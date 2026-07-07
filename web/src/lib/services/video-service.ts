@@ -1,5 +1,5 @@
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { deleteDoc, doc } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
 import {
   createDocument,
   listDocuments,
@@ -166,11 +166,28 @@ async function deactivatePreviousBranchVideos(branchId: string, excludeVideoId?:
     activeVideos
       // Never deactivate the video that was just uploaded/activated.
       .filter((video) => video.id !== excludeVideoId)
-      .map((video) => updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" })),
+      .map(async (video) => {
+        await updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" });
+        // Replaced chunked videos can't be re-activated from the UI — purge
+        // their ~1.3x-size chunk data so Firestore storage doesn't fill up.
+        if (video.sourceType === "chunked") {
+          await removeChunkedVideoData(video.id);
+        }
+      }),
   );
 }
 
 async function removeChunkedVideoData(videoId: string): Promise<void> {
+  // Firestore does NOT cascade-delete subcollections: deleting only the meta
+  // doc would orphan every ~1MB chunk part forever (and exhaust the free
+  // 1 GiB quota). Delete parts first — the parts rules resolve branch access
+  // via get() on the parent meta doc, so it must still exist at that point.
+  const partsSnap = await getDocs(
+    collection(db, COLLECTIONS.videoChunks, videoId, "parts"),
+  ).catch(() => null);
+  if (partsSnap) {
+    await Promise.all(partsSnap.docs.map((part) => deleteDoc(part.ref).catch(() => undefined)));
+  }
   await deleteDoc(doc(db, COLLECTIONS.videoChunks, videoId)).catch(() => undefined);
 }
 
