@@ -86,14 +86,14 @@ export function UnimoniRatesPanel({
         {rows.map((rate) => (
           <div
             key={rate.id}
-            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-stretch gap-x-2 border-b border-white/15 py-1 last:border-0 font-[Arial,Helvetica,sans-serif]"
+            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 border-b border-white/15 py-[0.6vh] last:border-0 font-[Arial,Helvetica,sans-serif]"
           >
             <span className="display-rate-currency flex min-h-0 min-w-0 items-center pl-1 font-bold uppercase text-white">
               <span className="truncate">{getRateDisplayLabel(rate)}</span>
             </span>
             {showBuyRate ? (
               <span
-                className="display-rate-value flex h-full w-full items-center justify-center rounded-[3px] px-1 text-center font-bold tabular-nums"
+                className="display-rate-value flex w-full items-center justify-center rounded-[4px] py-[0.4vh] px-1 text-center font-bold tabular-nums"
                 style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
               >
                 {formatUnimoniRate(rate.buyRate)}
@@ -103,7 +103,7 @@ export function UnimoniRatesPanel({
             )}
             {showSellRate ? (
               <span
-                className="display-rate-value flex h-full w-full items-center justify-center rounded-[3px] px-1 text-center font-bold tabular-nums"
+                className="display-rate-value flex w-full items-center justify-center rounded-[4px] py-[0.4vh] px-1 text-center font-bold tabular-nums"
                 style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
               >
                 {formatUnimoniRate(rate.sellRate)}

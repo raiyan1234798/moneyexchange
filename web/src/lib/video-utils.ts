@@ -128,6 +128,9 @@ export function validateExternalVideoUrl(url: string): void {
   }
 
   if (isGoogleDriveUrl(trimmed)) {
+    if (trimmed.includes("docs.google.com/videos")) {
+      throw new Error("Google Vids links are not supported because they are web documents, not video files. Please export the video as an MP4 and upload it directly.");
+    }
     if (!extractGoogleDriveFileId(trimmed)) {
       throw new Error("Could not read Google Drive file ID — use a share link like drive.google.com/file/d/…/view");
     }
