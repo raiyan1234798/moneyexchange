@@ -265,9 +265,11 @@ service cloud.firestore {
 
     match /exchange_rates/{rateId} {
       allow read: if isActiveUser() || resource.data.status == 'published';
-      allow create, update: if isSuperAdmin() ||
+      // Admins manage rates across ALL branches; managers/branch users only
+      // their own branch (canManageBranchRates).
+      allow create, update: if isSuperAdmin() || isAdmin() ||
         canManageBranchRates(request.resource.data.branchId);
-      allow delete: if isSuperAdmin() ||
+      allow delete: if isSuperAdmin() || isAdmin() ||
         (isBranchManager() && canAccessBranch(resource.data.branchId));
     }
 

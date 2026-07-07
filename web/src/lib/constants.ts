@@ -148,6 +148,7 @@ export const ADMIN_PERMISSIONS = [
   "manageTickers",
   "manageImageAdverts",
   "viewExchangeRates",
+  "manageExchangeRates",
   "manageAllBranches",
   "viewTVStatus",
   "viewAuditLogs",

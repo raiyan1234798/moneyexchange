@@ -50,9 +50,8 @@ export default function DashboardOverviewPage() {
   const scopedBranch = branches.find((b) => b.id === effectiveBranchId);
   const isPlatformAdmin = isSuperAdmin || isAdmin;
   const canReviewApprovals = isPlatformAdmin || isBranchManager;
-  // Admins can VIEW pending rate changes but cannot write rates (Firestore
-  // rules) — only the branch manager or super admin approves them.
-  const canApproveRates = isSuperAdmin || isBranchManager;
+  // Admins, branch managers, and super admins can approve rate changes.
+  const canApproveRates = isPlatformAdmin || isBranchManager;
   const { notice, onError, clearNotice } = useFirestoreNotice("dashboard data");
 
   useEffect(() => {

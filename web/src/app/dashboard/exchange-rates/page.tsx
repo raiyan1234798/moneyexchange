@@ -621,7 +621,7 @@ export default function ExchangeRatesPage() {
                       Requested by {approval.requestedByName}
                     </p>
                   </div>
-                  {isSuperAdmin || isBranchManager ? (
+                  {isSuperAdmin || isAdmin || isBranchManager ? (
                   <div className="flex gap-2">
                     <Button
                       size="sm"
@@ -1080,7 +1080,7 @@ export default function ExchangeRatesPage() {
                               </>
                             )}
                           </Button>
-                          {isSuperAdmin || isBranchManager ? (
+                          {isSuperAdmin || isAdmin || isBranchManager ? (
                             <Button
                               variant="outline"
                               size="sm"
