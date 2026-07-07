@@ -16,6 +16,7 @@ import {
   getRedirectResult,
   onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signInWithRedirect,
   signOut,
   type User,
@@ -342,9 +343,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = useCallback(async () => {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    sessionStorage.setItem(GOOGLE_SIGN_IN_PENDING_KEY, "1");
-    console.info(`${LOG_PREFIX} starting Google redirect sign-in`);
-    await signInWithRedirect(auth, provider);
+
+    // Popup FIRST: signInWithRedirect silently loses the result on custom
+    // domains (unimoni.pages.dev != firebaseapp.com authDomain) in browsers
+    // with storage partitioning, leaving users stuck on "Finishing sign-in…".
+    // Popups complete in-page and are immune. Redirect stays as the fallback
+    // for browsers that block popups (some TV/embedded browsers).
+    try {
+      console.info(`${LOG_PREFIX} starting Google popup sign-in`);
+      const result = await signInWithPopup(auth, provider);
+      pendingLoginFinalizeRef.current.add(result.user.uid);
+      console.info(`${LOG_PREFIX} popup sign-in completed`, {
+        uid: result.user.uid,
+        email: result.user.email,
+      });
+      return;
+    } catch (error) {
+      if (error instanceof FirebaseError) {
+        if (error.code === "auth/popup-closed-by-user") {
+          throw new Error("Sign-in cancelled — click Continue with Google to try again.");
+        }
+        if (
+          error.code === "auth/popup-blocked" ||
+          error.code === "auth/cancelled-popup-request" ||
+          error.code === "auth/operation-not-supported-in-this-environment"
+        ) {
+          console.info(`${LOG_PREFIX} popup unavailable (${error.code}) — falling back to redirect`);
+          sessionStorage.setItem(GOOGLE_SIGN_IN_PENDING_KEY, "1");
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        if (error.code === "auth/account-exists-with-different-credential") {
+          throw new Error(
+            "This email was set up with a password. Ask your admin to delete the old account and re-invite you for Google sign-in.",
+          );
+        }
+        if (error.code === "auth/unauthorized-domain") {
+          throw new Error(
+            "This domain is not authorized for sign-in. Add unimoni.pages.dev under Firebase Console → Authentication → Settings → Authorized domains.",
+          );
+        }
+      }
+      throw error;
+    }
   }, []);
 
   const logout = useCallback(async () => {
