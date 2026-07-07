@@ -1,15 +1,11 @@
 import { httpsCallable } from "firebase/functions";
 import {
-  collection,
   deleteDoc,
   doc,
   getDoc,
-  getDocs,
-  query,
   serverTimestamp,
   setDoc,
   updateDoc,
-  where,
 } from "firebase/firestore";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { db, functions } from "@/lib/firebase/client";
@@ -22,17 +18,6 @@ function mapFirestoreError(error: unknown, fallback: string): Error {
   }
   if (error instanceof Error) return error;
   return new Error(fallback);
-}
-
-async function removeDuplicateInvites(email: string): Promise<void> {
-  const duplicates = await getDocs(
-    query(collection(db, COLLECTIONS.userInvites), where("email", "==", email)),
-  );
-  await Promise.all(
-    duplicates.docs
-      .filter((snapshot) => snapshot.id !== email)
-      .map((snapshot) => deleteDoc(snapshot.ref)),
-  );
 }
 
 async function resolveBranchName(branchId: string | null): Promise<string | null> {
@@ -68,7 +53,6 @@ export async function createUserInvite(params: {
   const branchName = await resolveBranchName(params.branchId);
 
   try {
-    await removeDuplicateInvites(email);
     await setDoc(
       doc(db, COLLECTIONS.userInvites, email),
       {
@@ -154,7 +138,6 @@ export async function deleteUserInvite(inviteId: string): Promise<void> {
 
   try {
     await deleteDoc(doc(db, COLLECTIONS.userInvites, email));
-    await removeDuplicateInvites(email);
   } catch (error) {
     throw mapFirestoreError(error, "Failed to delete invite");
   }

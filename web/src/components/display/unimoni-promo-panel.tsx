@@ -38,19 +38,30 @@ export function UnimoniPromoPanel({
       }
     >
       {showVideo ? (
-        <video
-          key={videoUrl}
-          src={videoUrl ?? undefined}
-          className="absolute inset-0 z-0 h-full w-full object-cover"
-          autoPlay
-          muted
-          loop={loopVideo}
-          playsInline
-          onLoadedData={onVideoLoaded}
-          onCanPlay={onVideoLoaded}
-          onError={onVideoError}
-          onEnded={onVideoEnded}
-        />
+        videoUrl?.includes("drive.google.com") ? (
+          <iframe
+            key={videoUrl}
+            src={videoUrl}
+            className="absolute inset-0 z-0 h-full w-full object-cover border-none"
+            allow="autoplay; fullscreen"
+            onLoad={onVideoLoaded}
+            onError={onVideoError}
+          />
+        ) : (
+          <video
+            key={videoUrl}
+            src={videoUrl ?? undefined}
+            className="absolute inset-0 z-0 h-full w-full object-cover"
+            autoPlay
+            muted
+            loop={loopVideo}
+            playsInline
+            onLoadedData={onVideoLoaded}
+            onCanPlay={onVideoLoaded}
+            onError={onVideoError}
+            onEnded={onVideoEnded}
+          />
+        )
       ) : showImage ? (
         <Image
           key={imageUrl}

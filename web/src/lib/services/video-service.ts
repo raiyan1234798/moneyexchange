@@ -156,14 +156,17 @@ function waitForUpload(
   });
 }
 
-async function deactivatePreviousBranchVideos(branchId: string): Promise<void> {
+async function deactivatePreviousBranchVideos(branchId: string, excludeVideoId?: string): Promise<void> {
   const activeVideos = await listDocuments<VideoAsset>(COLLECTIONS.videos, [
     where("branchId", "==", branchId),
     where("status", "==", "active"),
   ]);
 
   await Promise.all(
-    activeVideos.map((video) => updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" })),
+    activeVideos
+      // Never deactivate the video that was just uploaded/activated.
+      .filter((video) => video.id !== excludeVideoId)
+      .map((video) => updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" })),
   );
 }
 
@@ -379,14 +382,7 @@ async function uploadVideoViaChunks(
 
   const mimeType = inferVideoMimeType(file);
   const videoId = `video_${metadata.branchId}_${Date.now()}`;
-  const chunkCount = await uploadVideoChunks(
-    file,
-    videoId,
-    metadata.branchId,
-    mimeType,
-    onProgress,
-  );
-
+  
   await createDocument(
     COLLECTIONS.videos,
     {
@@ -398,12 +394,25 @@ async function uploadVideoViaChunks(
       downloadUrl: `chunked://${videoId}`,
       mimeType,
       fileSizeBytes: file.size,
-      chunkCount,
-      status: "active",
+      chunkCount: 0,
+      status: "uploading",
       createdBy: metadata.createdBy,
     },
     videoId,
   );
+
+  const actualChunkCount = await uploadVideoChunks(
+    file,
+    videoId,
+    metadata.branchId,
+    mimeType,
+    onProgress,
+  );
+
+  await updateDocument(COLLECTIONS.videos, videoId, { 
+    status: "active",
+    chunkCount: actualChunkCount 
+  });
 
   await writeAuditLog({
     action: "video_upload_chunked",
@@ -412,7 +421,7 @@ async function uploadVideoViaChunks(
     userId: actor.userId,
     userName: actor.userName,
     branchId: metadata.branchId,
-    metadata: { title: metadata.title, fileSizeBytes: file.size, chunkCount },
+    metadata: { title: metadata.title, fileSizeBytes: file.size, chunkCount: actualChunkCount },
   });
 
   return videoId;
@@ -473,11 +482,11 @@ export async function uploadVideo(
 ): Promise<{ id: string; usedChunkFallback: boolean }> {
   validateVideoFile(file);
   onProgress?.(1);
-  await deactivatePreviousBranchVideos(metadata.branchId);
 
   if (isR2UploadConfigured()) {
     try {
       const r2 = await uploadVideoToR2(file, metadata.branchId, onProgress);
+      await deactivatePreviousBranchVideos(metadata.branchId);
       const id = await saveUploadedVideoDoc(file, metadata, { ...r2, sourceType: "r2" }, actor);
       return { id, usedChunkFallback: false };
     } catch (error) {
@@ -492,11 +501,14 @@ export async function uploadVideo(
   // going straight to the chunked fallback saves ~30s of doomed CORS retries.
   if (!(await isFirebaseStorageAvailable())) {
     const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
+    // The new video is already active — exclude it or it would be deactivated too.
+    await deactivatePreviousBranchVideos(metadata.branchId, id);
     return { id, usedChunkFallback: true };
   }
 
   try {
     const firebase = await uploadVideoToStorage(file, metadata.branchId, onProgress);
+    await deactivatePreviousBranchVideos(metadata.branchId);
     const id = await saveUploadedVideoDoc(
       file,
       metadata,
@@ -514,6 +526,8 @@ export async function uploadVideo(
     }
 
     const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
+    // The new video is already active — exclude it or it would be deactivated too.
+    await deactivatePreviousBranchVideos(metadata.branchId, id);
     return { id, usedChunkFallback: true };
   }
 }

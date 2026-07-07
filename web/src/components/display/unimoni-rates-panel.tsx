@@ -86,7 +86,7 @@ export function UnimoniRatesPanel({
         {rows.map((rate) => (
           <div
             key={rate.id}
-            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-stretch gap-x-2 font-[Arial,Helvetica,sans-serif]"
+            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-stretch gap-x-2 border-b border-white/15 py-1 last:border-0 font-[Arial,Helvetica,sans-serif]"
           >
             <span className="display-rate-currency flex min-h-0 min-w-0 items-center pl-1 font-bold uppercase text-white">
               <span className="truncate">{getRateDisplayLabel(rate)}</span>

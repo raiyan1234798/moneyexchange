@@ -88,7 +88,7 @@ export function convertGoogleDriveToDirectUrl(url: string): string {
   if (!fileId) {
     throw new Error("Could not read Google Drive file ID — use a share link like drive.google.com/file/d/…/view");
   }
-  return `https://drive.google.com/uc?export=download&id=${fileId}`;
+  return `https://drive.google.com/file/d/${fileId}/preview?autoplay=1&mute=1`;
 }
 
 export interface NormalizedVideoUrl {

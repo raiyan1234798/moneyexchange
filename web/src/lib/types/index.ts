@@ -142,8 +142,12 @@ export interface VideoAsset {
   mimeType: string;
   durationSeconds?: number;
   fileSizeBytes?: number;
-  /** "pending" = proposed by a branch user, awaiting branch-manager approval. */
-  status: EntityStatus | "pending";
+  /**
+   * "pending" = proposed by a branch user, awaiting branch-manager approval.
+   * "uploading" = chunked upload in progress — hidden from TV and lists until
+   * the upload completes and flips it to "active".
+   */
+  status: EntityStatus | "pending" | "uploading";
   expiresAt?: Timestamp | Date | null;
   createdBy: string;
   createdAt: Timestamp | Date;
