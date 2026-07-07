@@ -357,6 +357,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         uid: result.user.uid,
         email: result.user.email,
       });
+      // Drive the profile load explicitly: if this user was ALREADY signed in
+      // (e.g. retrying after a profile timeout), onAuthStateChanged will not
+      // re-fire for the same uid and nothing else would load the profile.
+      // ensureUserProfile dedupes by uid, so a concurrent onAuthStateChanged
+      // load is harmless. The pending key reuses the welcome-toast logic.
+      sessionStorage.setItem(GOOGLE_SIGN_IN_PENDING_KEY, "1");
+      await loadProfileForUser(result.user);
       return;
     } catch (error) {
       if (error instanceof FirebaseError) {
@@ -386,7 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       throw error;
     }
-  }, []);
+  }, [loadProfileForUser]);
 
   const logout = useCallback(async () => {
     if (profile && user) {
