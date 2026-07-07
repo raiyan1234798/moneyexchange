@@ -203,6 +203,21 @@ service cloud.firestore {
           && data.displayName is string;
       }
 
+      // The client's password admin account (unique email, password-protected)
+      // self-provisions an 'admin' profile on first sign-in. The email is unique
+      // in Firebase Auth and can only be held by that account, so possession of
+      // a token for it proves ownership.
+      function isClientAdminBootstrap() {
+        let data = request.resource.data;
+        return request.auth.uid == userId
+          && request.auth.token.email != null
+          && request.auth.token.email.lower() == 'admin@unimoni-signage.com'
+          && data.email.lower() == 'admin@unimoni-signage.com'
+          && data.role == 'admin'
+          && data.isActive == true
+          && data.displayName is string;
+      }
+
       allow get: if isAuthenticated() && (
         request.auth.uid == userId ||
         isSuperAdmin() ||
@@ -212,7 +227,8 @@ service cloud.firestore {
       allow list: if isSuperAdmin() || isAdmin() || (isBranchManager() && resource.data.branchId == managerBranchId());
       allow create: if (isSuperAdmin() && isValidUserCreate()) ||
         hasValidPendingInvite() ||
-        isSuperAdminBootstrap();
+        isSuperAdminBootstrap() ||
+        isClientAdminBootstrap();
       allow update: if (isSuperAdmin() && isValidUserUpdate()) ||
         (isAdmin() && isValidUserUpdate()
           && resource.data.role != 'superAdmin'

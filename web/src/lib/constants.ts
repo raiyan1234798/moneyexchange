@@ -1,5 +1,12 @@
 export const SUPER_ADMIN_EMAIL = "abubackerraiyan@gmail.com";
 
+/**
+ * Password (non-Google) admin account handed to the client. It self-provisions
+ * an `admin` profile on first sign-in (no Google, no invite) — kept in sync
+ * with the `isClientAdminBootstrap()` rule in firestore.rules.
+ */
+export const CLIENT_ADMIN_EMAIL = "admin@unimoni-signage.com";
+
 /** Recommended team size per branch (soft target shown in UI). */
 export const RECOMMENDED_BRANCH_USERS = 8;
 /** Hard cap to prevent accidental bulk invites. */

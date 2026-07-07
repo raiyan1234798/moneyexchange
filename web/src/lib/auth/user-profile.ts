@@ -15,7 +15,7 @@ import { FirebaseError } from "firebase/app";
 import type { User } from "firebase/auth";
 import { bootstrapInvitedUserProfile } from "@/lib/auth/bootstrap-invited-user";
 import { auth, db } from "@/lib/firebase/client";
-import { COLLECTIONS, SUPER_ADMIN_EMAIL } from "@/lib/constants";
+import { CLIENT_ADMIN_EMAIL, COLLECTIONS, SUPER_ADMIN_EMAIL } from "@/lib/constants";
 import type { AppUser, UserRole } from "@/lib/types";
 
 const profileLoadByUid = new Map<string, Promise<ProfileLoadResult>>();
@@ -35,6 +35,10 @@ export function normalizeEmail(email: string): string {
 
 export function isSuperAdminEmail(email: string): boolean {
   return normalizeEmail(email) === normalizeEmail(SUPER_ADMIN_EMAIL);
+}
+
+export function isClientAdminEmail(email: string): boolean {
+  return normalizeEmail(email) === normalizeEmail(CLIENT_ADMIN_EMAIL);
 }
 
 function authLog(step: string, detail?: unknown): void {
@@ -258,6 +262,58 @@ async function loadSuperAdminProfile(firebaseUser: User): Promise<ProfileLoadRes
   }
 }
 
+/**
+ * The client's password (non-Google) admin account self-provisions an `admin`
+ * profile on first sign-in — no Google, no invite. Mirrors the super-admin
+ * bootstrap; the matching Firestore rule is isClientAdminBootstrap().
+ */
+async function bootstrapClientAdminProfile(
+  firebaseUser: User,
+  existingSnap: Awaited<ReturnType<typeof getDoc>>,
+): Promise<AppUser> {
+  const email = normalizeEmail(firebaseUser.email ?? "");
+  const uid = firebaseUser.uid;
+  const userRef = doc(db, COLLECTIONS.users, uid);
+  const existing = existingSnap.exists() ? (existingSnap.data() as Partial<AppUser>) : null;
+
+  const profileData = {
+    email,
+    displayName: firebaseUser.displayName || existing?.displayName || "Administrator",
+    role: "admin" as const,
+    branchId: null,
+    photoURL: firebaseUser.photoURL ?? existing?.photoURL ?? null,
+    isActive: true,
+    updatedAt: serverTimestamp(),
+    ...(existing ? {} : { createdAt: serverTimestamp() }),
+  };
+
+  await runFirestoreStep("Profile create", () => setDoc(userRef, profileData, { merge: true }));
+
+  return {
+    uid,
+    ...profileData,
+    createdAt: existing?.createdAt ?? profileData.createdAt,
+  } as AppUser;
+}
+
+async function loadClientAdminProfile(firebaseUser: User): Promise<ProfileLoadResult> {
+  const uid = firebaseUser.uid;
+  const userRef = doc(db, COLLECTIONS.users, uid);
+  const existingSnap = await runFirestoreStep("Profile read", () => getDoc(userRef));
+
+  // Respect an existing profile (e.g. if the super admin later changes its role).
+  if (existingSnap.exists()) {
+    const profile = { uid, ...existingSnap.data() } as AppUser;
+    if (!profile.isActive) {
+      throw new ProfileAccessError("Your account is inactive. Contact the administrator.", "inactive");
+    }
+    return { profile, acceptedInvite: false };
+  }
+
+  const profile = await bootstrapClientAdminProfile(firebaseUser, existingSnap);
+  return { profile, acceptedInvite: true };
+}
+
 function mapProfileFirestoreError(error: unknown, step: string): Error {
   if (error instanceof ProfileAccessError) return error;
   if (isPermissionDenied(error)) {
@@ -408,6 +464,11 @@ async function ensureUserProfileOnce(firebaseUser: User): Promise<ProfileLoadRes
       throw new ProfileAccessError("Your account is inactive. Contact the administrator.", "inactive");
     }
     return result;
+  }
+
+  if (isClientAdminEmail(email)) {
+    authLog("client admin path");
+    return loadClientAdminProfile(firebaseUser);
   }
 
   const uid = firebaseUser.uid;
