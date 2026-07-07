@@ -430,8 +430,8 @@ export default function DashboardOverviewPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
                 <div>
-                  <p className="text-sm font-medium">Firestore Sync</p>
-                  <p className="text-xs text-muted-foreground">Rates, tickers, playlists, branch settings</p>
+                  <p className="text-sm font-medium">Live Data Sync</p>
+                  <p className="text-xs text-muted-foreground">Rates, messages, and branch settings</p>
                 </div>
                 <StatusBadge status="live" variant="success" />
               </div>
