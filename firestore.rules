@@ -113,12 +113,6 @@ service cloud.firestore {
       return /databases/$(database)/documents/user_invites/$(inviteEmail);
     }
 
-    function isValidInvite(inviteEmail) {
-      return inviteEmail != ''
-        && exists(inviteDocPath(inviteEmail))
-        && inviteData(inviteEmail).email.lower() == inviteEmail;
-    }
-
     function inviteData(inviteEmail) {
       return get(inviteDocPath(inviteEmail)).data;
     }
@@ -127,11 +121,6 @@ service cloud.firestore {
       return branchId != null
         && branchId != ''
         && exists(/databases/$(database)/documents/branches/$(branchId));
-    }
-
-    function branchIsActive(branchId) {
-      return branchExists(branchId)
-        && get(/databases/$(database)/documents/branches/$(branchId)).data.status == 'active';
     }
 
     function inviteRole(inviteEmail) {
@@ -171,45 +160,6 @@ service cloud.firestore {
       return email != '' && exists(inviteDocPath(email));
     }
 
-    function hasValidPendingInvite() {
-      let email = authEmailLower();
-      let data = request.resource.data;
-      let role = inviteRole(email);
-      return isAuthenticated()
-        && request.auth.uid == userId
-        && !exists(/databases/$(database)/documents/users/$(userId))
-        && hasInviteForAuthEmail()
-        && inviteIsOpen(email)
-        && data.email.lower() == email
-        && data.displayName is string
-        && data.isActive == true
-        && data.role == role
-        && role in ['admin', 'branchManager', 'branchUser']
-        && (role == 'admin'
-          || (data.branchId is string
-            && data.branchId != ''
-            && branchExists(data.branchId)
-            && branchIdsMatch(data.branchId, email)));
-    }
-
-    function isSuperAdminBootstrap() {
-      let data = request.resource.data;
-      return request.auth.uid == userId
-        && isSuperAdminEmail()
-        && data.email.lower() == 'abubackerraiyan@gmail.com'
-        && data.role == 'superAdmin'
-        && data.isActive == true
-        && data.displayName is string;
-    }
-
-    function canReadOwnInvite() {
-      return isAuthenticated() && authEmailLower() != '' && (
-        inviteEmail.lower() == authEmailLower() ||
-        (resource != null && resource.data.keys().hasAny(['email']) &&
-          resource.data.email.lower() == authEmailLower())
-      );
-    }
-
     function canManageInvite() {
       return isSuperAdmin() || isAdmin() ||
         (isBranchManager() &&
@@ -218,6 +168,41 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
+      // Defined INSIDE this match block: rules functions can only access
+      // match variables (userId) from the scope where they are DEFINED.
+      // At the top level, `userId` fails to resolve, the condition errors,
+      // and every invited-user profile create is denied.
+      function hasValidPendingInvite() {
+        let email = authEmailLower();
+        let data = request.resource.data;
+        let role = inviteRole(email);
+        return isAuthenticated()
+          && request.auth.uid == userId
+          && !exists(/databases/$(database)/documents/users/$(userId))
+          && hasInviteForAuthEmail()
+          && inviteIsOpen(email)
+          && data.email.lower() == email
+          && data.displayName is string
+          && data.isActive == true
+          && data.role == role
+          && role in ['admin', 'branchManager', 'branchUser']
+          && (role == 'admin'
+            || (data.branchId is string
+              && data.branchId != ''
+              && branchExists(data.branchId)
+              && branchIdsMatch(data.branchId, email)));
+      }
+
+      function isSuperAdminBootstrap() {
+        let data = request.resource.data;
+        return request.auth.uid == userId
+          && isSuperAdminEmail()
+          && data.email.lower() == 'abubackerraiyan@gmail.com'
+          && data.role == 'superAdmin'
+          && data.isActive == true
+          && data.displayName is string;
+      }
+
       allow get: if isAuthenticated() && (
         request.auth.uid == userId ||
         isSuperAdmin() ||
@@ -238,6 +223,15 @@ service cloud.firestore {
     }
 
     match /user_invites/{inviteEmail} {
+      // Inside the match block so `inviteEmail` resolves (see note on /users).
+      function canReadOwnInvite() {
+        return isAuthenticated() && authEmailLower() != '' && (
+          inviteEmail.lower() == authEmailLower() ||
+          (resource != null && resource.data.keys().hasAny(['email']) &&
+            resource.data.email.lower() == authEmailLower())
+        );
+      }
+
       allow read: if canManageInvite() || canReadOwnInvite();
       allow create: if isSuperAdmin() || isAdmin() ||
         (isBranchManager() &&

@@ -362,7 +362,9 @@ async function createProfileFromInvite(
     } catch (bootstrapError) {
       console.error(`${LOG_PREFIX} bootstrapInvitedUser failed`, bootstrapError);
       const code = (bootstrapError as { code?: string }).code ?? "";
-      if (code === "functions/not-found" || code === "functions/unavailable") {
+      // "functions/internal" is how an undeployed callable surfaces (CORS
+      // preflight fails before any function code runs).
+      if (code === "functions/not-found" || code === "functions/unavailable" || code === "functions/internal") {
         throw new ProfileAccessError(
           "Could not finish sign-in — ask your admin to delete and re-send your invite, then try Google sign-in again.",
           "bootstrap-unavailable",
