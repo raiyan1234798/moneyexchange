@@ -56,7 +56,15 @@ export function deriveTitleFromUrl(url: string): string {
 export function isGoogleDriveUrl(url: string): boolean {
   try {
     const hostname = new URL(url.trim()).hostname;
-    return hostname === "drive.google.com" || hostname.endsWith(".drive.google.com");
+    // Drive share links now come from several Google hosts:
+    // drive.google.com/file/d/…, docs.google.com/videos/d/… (new Drive
+    // video player), drive.usercontent.google.com/download?id=…
+    return (
+      hostname === "drive.google.com" ||
+      hostname.endsWith(".drive.google.com") ||
+      hostname === "docs.google.com" ||
+      hostname === "drive.usercontent.google.com"
+    );
   } catch {
     return false;
   }
@@ -65,8 +73,9 @@ export function isGoogleDriveUrl(url: string): boolean {
 /** Extract Google Drive file ID from common share / open / uc link formats. */
 export function extractGoogleDriveFileId(url: string): string | null {
   const trimmed = url.trim();
-  const filePathMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-  if (filePathMatch) return filePathMatch[1];
+  // Matches /file/d/<id>, /videos/d/<id>, and any other /d/<id> path form.
+  const dPathMatch = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (dPathMatch) return dPathMatch[1];
 
   const openMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (openMatch) return openMatch[1];

@@ -8,6 +8,7 @@ import {
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { storage } from "@/lib/firebase/client";
+import { isFirebaseStorageAvailable } from "@/lib/services/video-service";
 import { COLLECTIONS } from "@/lib/constants";
 import type { ImageAdvert } from "@/lib/types";
 
@@ -99,6 +100,13 @@ export async function uploadImageAdvert(
   },
   actor: { userId: string; userName: string },
 ): Promise<string> {
+  // Fail fast when the Storage bucket doesn't exist (free plan) instead of
+  // letting the SDK spin on CORS retries.
+  if (!(await isFirebaseStorageAvailable())) {
+    throw new Error(
+      "File uploads need cloud storage, which isn't enabled on this project — use the Image URL tab instead (instant).",
+    );
+  }
   const path = `image-adverts/${params.branchId}/${Date.now()}_${params.file.name}`;
   const storageRef = ref(storage, path);
   await uploadBytes(storageRef, params.file, { contentType: params.file.type });

@@ -145,9 +145,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   const activeTicker = tickers[0];
   const tickerMessages = useMemo(() => {
-    if (activeTicker?.messages?.length) {
-      return activeTicker.messages.map((line) => line.text);
-    }
+    const lines = (activeTicker?.messages ?? [])
+      .map((line) => line.text?.trim())
+      .filter((text): text is string => Boolean(text));
+    if (lines.length > 0) return lines;
     if (branch?.settings?.slogan) return [branch.settings.slogan.toUpperCase()];
     return [UNIMONI_DEFAULT_TICKER];
   }, [activeTicker, branch]);
@@ -255,19 +256,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     />
   );
 
-  // When a branch has no video or image advert, fill the whole screen with a
-  // fixed rate board instead of leaving a large empty black area beside a
-  // 35%-wide panel.
-  const hasPromo = activeVideos.length > 0 || activeImages.length > 0;
-  const ratesBoard = (
-    <UnimoniRatesPanel
-      variant="board"
-      rates={rates}
-      showBuyRate={branchSettings.showBuyRate}
-      showSellRate={branchSettings.showSellRate}
-      branchName={branch?.name}
-    />
-  );
+  // Always the classic TV layout: video/promo area + fixed rate table.
+  // With no video, the promo panel shows the branded placeholder — the
+  // signage format never changes shape on the TV.
 
   return (
     <div
@@ -300,14 +291,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           rateCardPosition === "left" ? "lg:flex-row-reverse" : "lg:flex-row"
         }`}
       >
-        {hasPromo ? (
-          <>
-            {promoPanel}
-            {ratesPanel}
-          </>
-        ) : (
-          ratesBoard
-        )}
+        {promoPanel}
+        {ratesPanel}
       </div>
 
       <BreakingNewsTicker

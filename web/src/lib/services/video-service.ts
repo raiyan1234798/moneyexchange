@@ -44,6 +44,38 @@ export const STORAGE_UNAVAILABLE_MESSAGE =
 export const STORAGE_SETUP_URL =
   "https://console.firebase.google.com/project/moneyexchange-35c33/storage";
 
+let storageBucketAvailable: boolean | null = null;
+
+/**
+ * The Spark (free) plan cannot provision the default Storage bucket, so every
+ * upload to it fails as a CORS/404 error — but only after the SDK burns ~30s
+ * of retries. Probe the bucket once per session (an unauthenticated GET on a
+ * missing bucket returns 404; an existing bucket returns 401/403) so uploads
+ * can skip straight to the working fallback.
+ */
+export async function isFirebaseStorageAvailable(): Promise<boolean> {
+  if (storageBucketAvailable !== null) return storageBucketAvailable;
+  const bucket = storage.app.options.storageBucket;
+  if (!bucket) {
+    storageBucketAvailable = false;
+    return false;
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    const resp = await fetch(
+      `https://firebasestorage.googleapis.com/v0/b/${bucket}/o?maxResults=1`,
+      { signal: controller.signal },
+    );
+    clearTimeout(timer);
+    storageBucketAvailable = resp.status !== 404;
+  } catch {
+    // Network hiccup — don't cache a verdict; let the SDK try normally.
+    return true;
+  }
+  return storageBucketAvailable;
+}
+
 export { CHUNKED_UPLOAD_WARNING };
 
 function uploadTimeoutMs(fileSizeBytes: number): number {
@@ -454,6 +486,13 @@ export async function uploadVideo(
         console.warn("R2 upload failed, trying Firebase Storage:", error);
       }
     }
+  }
+
+  // Skip Firebase Storage entirely when the bucket doesn't exist (free plan) —
+  // going straight to the chunked fallback saves ~30s of doomed CORS retries.
+  if (!(await isFirebaseStorageAvailable())) {
+    const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
+    return { id, usedChunkFallback: true };
   }
 
   try {
