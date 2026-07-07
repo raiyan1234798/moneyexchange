@@ -221,6 +221,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (pendingGoogle) {
             pendingLoginFinalizeRef.current.add(auth.currentUser.uid);
           }
+        } else if (pendingGoogle) {
+          // Redirect fallback came back with no result and no signed-in user —
+          // a storage-partitioned browser (Safari, in-app webviews) lost it.
+          // Clear the stale flag and tell the user, otherwise they bounce back
+          // to the form with zero feedback and every later load in this tab
+          // flashes "Finishing sign-in…".
+          console.warn(`${LOG_PREFIX} pending Google sign-in but no redirect result — likely blocked`);
+          sessionStorage.removeItem(GOOGLE_SIGN_IN_PENDING_KEY);
+          const message =
+            "Sign-in could not complete in this browser. Allow popups for this site and try again, or open unimoni.pages.dev in Chrome.";
+          setProfileError(message);
+          setLoading(false);
+          setLoadingPhase(null);
+          toast.error(message);
         } else {
           console.info(`${LOG_PREFIX} no redirect result (normal page load)`);
         }
