@@ -337,7 +337,7 @@
   }
 
   .display-rate-currency {
-    font-size: clamp(0.65rem, 38cqh, 1.2rem);
+    font-size: clamp(0.6rem, 32cqh, 1.05rem);
     line-height: 1.1;
   }
 
