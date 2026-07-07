@@ -38,30 +38,23 @@ export function UnimoniPromoPanel({
       }
     >
       {showVideo ? (
-        videoUrl?.includes("drive.google.com") ? (
-          <iframe
-            key={videoUrl}
-            src={videoUrl}
-            className="absolute inset-0 z-0 h-full w-full object-cover border-none"
-            allow="autoplay; fullscreen"
-            onLoad={onVideoLoaded}
-            onError={onVideoError}
-          />
-        ) : (
-          <video
-            key={videoUrl}
-            src={videoUrl ?? undefined}
-            className="absolute inset-0 z-0 h-full w-full object-cover"
-            autoPlay
-            muted
-            loop={loopVideo}
-            playsInline
-            onLoadedData={onVideoLoaded}
-            onCanPlay={onVideoLoaded}
-            onError={onVideoError}
-            onEnded={onVideoEnded}
-          />
-        )
+        // Always the native <video> element — including Google Drive links
+        // (stored as direct-stream drive.usercontent.google.com URLs). The
+        // Drive /preview iframe cannot autoplay or loop, which strands an
+        // unattended TV on a play button / end screen.
+        <video
+          key={videoUrl}
+          src={videoUrl ?? undefined}
+          className="absolute inset-0 z-0 h-full w-full object-cover"
+          autoPlay
+          muted
+          loop={loopVideo}
+          playsInline
+          onLoadedData={onVideoLoaded}
+          onCanPlay={onVideoLoaded}
+          onError={onVideoError}
+          onEnded={onVideoEnded}
+        />
       ) : showImage ? (
         <Image
           key={imageUrl}

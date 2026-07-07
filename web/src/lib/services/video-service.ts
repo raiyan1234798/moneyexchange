@@ -409,11 +409,16 @@ async function uploadVideoViaChunks(
     onProgress,
   );
 
-  await updateDocument(COLLECTIONS.videos, videoId, { 
+  await updateDocument(COLLECTIONS.videos, videoId, {
     status: "active",
-    chunkCount: actualChunkCount 
+    chunkCount: actualChunkCount
   });
 
+  // Deactivate the previous video immediately after activation (excluding the
+  // new one) so no failure in between can leave two active videos rotating.
+  await deactivatePreviousBranchVideos(metadata.branchId, videoId);
+
+  // Audit logging must never fail the upload after the video is already live.
   await writeAuditLog({
     action: "video_upload_chunked",
     entityType: "video",
@@ -422,7 +427,7 @@ async function uploadVideoViaChunks(
     userName: actor.userName,
     branchId: metadata.branchId,
     metadata: { title: metadata.title, fileSizeBytes: file.size, chunkCount: actualChunkCount },
-  });
+  }).catch(() => undefined);
 
   return videoId;
 }
@@ -499,10 +504,9 @@ export async function uploadVideo(
 
   // Skip Firebase Storage entirely when the bucket doesn't exist (free plan) —
   // going straight to the chunked fallback saves ~30s of doomed CORS retries.
+  // (uploadVideoViaChunks handles activation + deactivating the previous video.)
   if (!(await isFirebaseStorageAvailable())) {
     const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
-    // The new video is already active — exclude it or it would be deactivated too.
-    await deactivatePreviousBranchVideos(metadata.branchId, id);
     return { id, usedChunkFallback: true };
   }
 
@@ -526,8 +530,6 @@ export async function uploadVideo(
     }
 
     const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
-    // The new video is already active — exclude it or it would be deactivated too.
-    await deactivatePreviousBranchVideos(metadata.branchId, id);
     return { id, usedChunkFallback: true };
   }
 }

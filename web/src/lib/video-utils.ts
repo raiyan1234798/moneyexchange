@@ -88,7 +88,12 @@ export function convertGoogleDriveToDirectUrl(url: string): string {
   if (!fileId) {
     throw new Error("Could not read Google Drive file ID — use a share link like drive.google.com/file/d/…/view");
   }
-  return `https://drive.google.com/file/d/${fileId}/preview?autoplay=1&mute=1`;
+  // Direct-stream URL for the native <video> element. The /preview iframe
+  // embed CANNOT autoplay (Drive's player ignores autoplay=1 — verified in
+  // headless Chrome), which would leave an unattended TV stuck on a play
+  // button. Native <video autoPlay muted loop> works with this host for
+  // public files under Drive's ~100MB virus-scan threshold.
+  return `https://drive.usercontent.google.com/download?id=${fileId}&export=download`;
 }
 
 export interface NormalizedVideoUrl {
