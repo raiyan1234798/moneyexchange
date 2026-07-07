@@ -30,10 +30,12 @@ function toMillis(value: VideoAsset["createdAt"]): number {
   return 0;
 }
 
+function sortByNewest(videos: VideoAsset[]): VideoAsset[] {
+  return [...videos].sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+}
+
 function sortVideos(videos: VideoAsset[]): VideoAsset[] {
-  return [...videos]
-    .filter((video) => video.status === "active")
-    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+  return sortByNewest(videos.filter((video) => video.status === "active"));
 }
 
 export const STORAGE_UNAVAILABLE_MESSAGE =
@@ -217,6 +219,97 @@ export async function addExternalVideo(
   });
 
   return { id, source: normalized.source };
+}
+
+/**
+ * Branch user proposes a video (by link) for their own branch. Saved as
+ * "pending" so it does NOT play on the TV and does NOT replace the current
+ * active video until a branch manager / admin approves it.
+ */
+export async function proposeExternalVideo(
+  data: { title: string; branchId: string; downloadUrl: string; createdBy: string },
+  actor: { userId: string; userName: string },
+): Promise<string> {
+  const scopedBranchId = assertBranchId(data.branchId, "proposeExternalVideo");
+  const normalized = normalizeExternalVideoUrl(data.downloadUrl);
+
+  const id = await createDocument(COLLECTIONS.videos, {
+    title: data.title,
+    description: "",
+    branchId: scopedBranchId,
+    sourceType: "external",
+    storagePath: null,
+    downloadUrl: normalized.url,
+    mimeType: "video/mp4",
+    status: "pending",
+    createdBy: data.createdBy,
+  });
+
+  await writeAuditLog({
+    action: "video_proposed",
+    entityType: "video",
+    entityId: id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: scopedBranchId,
+    metadata: { title: data.title, videoSource: normalized.source },
+  });
+
+  return id;
+}
+
+/** Videos awaiting approval for a branch (branch-user proposals). */
+export function subscribePendingVideos(
+  branchId: string,
+  onData: (videos: VideoAsset[]) => void,
+  onError?: (error: Error) => void,
+) {
+  const scopedBranchId = assertBranchId(branchId, "subscribePendingVideos");
+  return subscribeCollection<VideoAsset>(
+    COLLECTIONS.videos,
+    [where("branchId", "==", scopedBranchId), where("status", "==", "pending")],
+    // sortByNewest (NOT sortVideos) — sortVideos filters to active-only and would
+    // discard every pending doc, leaving the approval queue permanently empty.
+    (items) => onData(sortByNewest(items)),
+    onError,
+  );
+}
+
+/** Manager/admin approves a proposed video → it becomes the branch's active video. */
+export async function approveVideo(
+  video: VideoAsset,
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  const scopedBranchId = assertBranchId(video.branchId, "approveVideo");
+  await deactivatePreviousBranchVideos(scopedBranchId);
+  await updateDocument(COLLECTIONS.videos, video.id, { status: "active" });
+  await writeAuditLog({
+    action: "video_approved",
+    entityType: "video",
+    entityId: video.id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: scopedBranchId,
+    metadata: { title: video.title },
+  });
+}
+
+/** Manager/admin rejects a proposed video (kept off the display). */
+export async function rejectVideo(
+  video: VideoAsset,
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  const scopedBranchId = assertBranchId(video.branchId, "rejectVideo");
+  await updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" });
+  await writeAuditLog({
+    action: "video_rejected",
+    entityType: "video",
+    entityId: video.id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: scopedBranchId,
+    metadata: { title: video.title },
+  });
 }
 
 async function uploadVideoToStorage(

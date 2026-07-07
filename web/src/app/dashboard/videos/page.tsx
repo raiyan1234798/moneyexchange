@@ -38,9 +38,13 @@ import { MAX_VIDEO_UPLOAD_BYTES, MAX_CHUNKED_VIDEO_BYTES, RECOMMENDED_VIDEO_FORM
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import { Badge } from "@/components/ui/badge";
 import {
+  approveVideo,
   CHUNKED_UPLOAD_WARNING,
   deleteVideo,
   isR2UploadConfigured,
+  proposeExternalVideo,
+  rejectVideo,
+  subscribePendingVideos,
   subscribeVideos,
   uploadVideo,
 } from "@/lib/services/video-service";
@@ -69,9 +73,12 @@ import type { ImageAdvert, VideoAsset } from "@/lib/types";
 export default function VideosPage() {
   const { user, profile } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin, isAdmin } = useBranchScope();
-  const { canManageVideos, canManageImages } = useContentPermissions();
+  const { canManageVideos, canManageImages, canProposeVideos } = useContentPermissions();
   const [videos, setVideos] = useState<VideoAsset[]>([]);
+  const [pendingVideos, setPendingVideos] = useState<VideoAsset[]>([]);
   const [images, setImages] = useState<ImageAdvert[]>([]);
+  const [proposeUrl, setProposeUrl] = useState("");
+  const [proposing, setProposing] = useState(false);
   const [title, setTitle] = useState("");
   const [externalUrl, setExternalUrl] = useState("");
   const [driveUrl, setDriveUrl] = useState("");
@@ -107,11 +114,46 @@ export default function VideosPage() {
       },
       onError,
     );
+    const unsubPending = subscribePendingVideos(
+      effectiveBranchId,
+      (items) => {
+        setPendingVideos(items);
+        clearNotice();
+      },
+      onError,
+    );
     return () => {
       unsubVideos();
       unsubImages();
+      unsubPending();
     };
   }, [clearNotice, effectiveBranchId, onError]);
+
+  async function handlePropose() {
+    if (!user || !profile || !effectiveBranchId || !proposeUrl.trim() || !actor) {
+      toast.error("Paste a video link to propose");
+      return;
+    }
+    setProposing(true);
+    try {
+      await proposeExternalVideo(
+        {
+          title: resolveVideoTitle(title, deriveTitleFromUrl(proposeUrl)),
+          branchId: effectiveBranchId,
+          downloadUrl: proposeUrl.trim(),
+          createdBy: user.uid,
+        },
+        actor,
+      );
+      toast.success("Sent to your branch manager for approval");
+      setProposeUrl("");
+      setTitle("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send for approval");
+    } finally {
+      setProposing(false);
+    }
+  }
 
   async function handleExternalAdd() {
     if (!user || !profile || !effectiveBranchId || !externalUrl.trim() || !actor) {
@@ -485,6 +527,121 @@ export default function VideosPage() {
                 </Button>
               </TabsContent>
             </Tabs>
+          </ContentPanel>
+        ) : null}
+
+        {canProposeVideos && !canManageVideos && effectiveBranchId ? (
+          <ContentPanel
+            title="Propose a Video"
+            description="Paste a video link — your branch manager approves it before it plays on the TV"
+          >
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Title (optional)</Label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Defaults to filename from URL"
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Video URL (direct MP4/WebM)</Label>
+                <Input
+                  value={proposeUrl}
+                  onChange={(e) => setProposeUrl(e.target.value)}
+                  placeholder="https://example.com/promo.mp4"
+                  className="rounded-xl"
+                />
+              </div>
+              <Button
+                onClick={() => void handlePropose()}
+                disabled={proposing || !proposeUrl.trim()}
+                className="rounded-xl"
+              >
+                <Link2 className="mr-2 h-4 w-4" />
+                {proposing ? "Sending…" : "Send for approval"}
+              </Button>
+            </div>
+          </ContentPanel>
+        ) : null}
+
+        {pendingVideos.length > 0 ? (
+          <ContentPanel
+            title="Pending Approval"
+            description={
+              canManageVideos
+                ? "Videos proposed by branch users — approve to play them on the display"
+                : "Waiting for your branch manager to approve"
+            }
+          >
+            <DataTable
+              data={pendingVideos}
+              keyExtractor={(v) => v.id}
+              mobileTitle={(v) => v.title}
+              columns={[
+                { key: "title", header: "Title", cell: (v) => <span className="font-medium">{v.title}</span> },
+                {
+                  key: "status",
+                  header: "Status",
+                  cell: () => (
+                    <Badge className="bg-amber-500/15 text-amber-600 hover:bg-amber-500/15 dark:text-amber-400">
+                      Pending
+                    </Badge>
+                  ),
+                },
+                {
+                  key: "preview",
+                  header: "Preview",
+                  cell: (v) => (
+                    <a
+                      className="text-sm text-primary underline-offset-4 hover:underline"
+                      href={v.downloadUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open
+                    </a>
+                  ),
+                  hideOnMobile: true,
+                },
+                {
+                  key: "actions",
+                  header: "Actions",
+                  className: "text-right",
+                  cell: (v) =>
+                    canManageVideos && actor ? (
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() =>
+                            void approveVideo(v, actor)
+                              .then(() => toast.success("Approved — now playing on the display"))
+                              .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to approve"))
+                          }
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() =>
+                            void rejectVideo(v, actor)
+                              .then(() => toast.success("Rejected"))
+                              .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to reject"))
+                          }
+                        >
+                          Reject
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Awaiting approval</span>
+                    ),
+                },
+              ]}
+            />
           </ContentPanel>
         ) : null}
 

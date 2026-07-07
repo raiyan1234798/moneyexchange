@@ -93,7 +93,7 @@ export const NAV_ITEMS: Array<{
     icon: "TrendingUp",
     roles: ["superAdmin", "admin", "branchManager", "branchUser"],
   },
-  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "admin", "branchManager"] },
+  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "admin", "branchManager", "branchUser"] },
   {
     href: "/dashboard/tickers",
     label: "Display Messages",
@@ -166,7 +166,7 @@ export const BRANCH_MANAGER_PERMISSIONS = [
   "inviteBranchUsers",
 ] as const;
 
-export const BRANCH_USER_PERMISSIONS = ["manageOwnBranchRates"] as const;
+export const BRANCH_USER_PERMISSIONS = ["manageOwnBranchRates", "proposeOwnBranchVideos"] as const;
 
 export const ROLE_LABELS: Record<string, string> = {
   superAdmin: "Super Admin",

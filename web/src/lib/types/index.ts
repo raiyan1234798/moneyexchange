@@ -142,7 +142,8 @@ export interface VideoAsset {
   mimeType: string;
   durationSeconds?: number;
   fileSizeBytes?: number;
-  status: EntityStatus;
+  /** "pending" = proposed by a branch user, awaiting branch-manager approval. */
+  status: EntityStatus | "pending";
   expiresAt?: Timestamp | Date | null;
   createdBy: string;
   createdAt: Timestamp | Date;

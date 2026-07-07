@@ -285,7 +285,11 @@ service cloud.firestore {
 
     match /videos/{videoId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create: if canManageBranchContent(request.resource.data.branchId);
+      // Branch users may propose a video for their OWN branch, but only as
+      // "pending" (never active) — a manager/admin must approve it (update).
+      allow create: if canManageBranchContent(request.resource.data.branchId) ||
+        (belongsToBranchUserBranch(request.resource.data.branchId) &&
+          request.resource.data.status == 'pending');
       allow update: if canManageBranchContent(resource.data.branchId) &&
         canManageBranchContent(request.resource.data.branchId);
       allow delete: if isSuperAdmin() ||

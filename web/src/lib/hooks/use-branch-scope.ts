@@ -83,6 +83,10 @@ export function useContentPermissions() {
       hasPermission("manageExchangeRates") || hasPermission("manageOwnBranchRates"),
     canManageVideos:
       hasPermission("manageVideos") || hasPermission("manageOwnBranchVideos"),
+    canProposeVideos:
+      hasPermission("manageVideos") ||
+      hasPermission("manageOwnBranchVideos") ||
+      hasPermission("proposeOwnBranchVideos"),
     canManagePlaylists:
       hasPermission("managePlaylists") || hasPermission("manageOwnBranchPlaylists"),
     canManageTickers:
