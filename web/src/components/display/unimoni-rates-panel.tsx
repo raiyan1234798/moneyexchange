@@ -23,8 +23,10 @@ interface UnimoniRatesPanelProps {
   branchName?: string | null;
 }
 
-const BUY_COLOR = "#34d399"; // emerald
-const SELL_COLOR = "#38bdf8"; // sky
+const BUY_COLOR = "#34d399"; // emerald (board — on dark)
+const SELL_COLOR = "#38bdf8"; // sky (board — on dark)
+const BUY_TEXT = "#047857"; // emerald-700 (panel — on white box)
+const SELL_TEXT = "#0B3B7A"; // deep brand blue (panel — on white box)
 
 export function UnimoniRatesPanel({
   rates,
@@ -73,27 +75,32 @@ export function UnimoniRatesPanel({
       </div>
 
       <div
-        className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 border-b px-3 py-1.5 font-[Arial,Helvetica,sans-serif] text-[clamp(0.65rem,1vw,0.85rem)] font-bold uppercase tracking-wide text-white"
-        style={{ borderColor: `${UNIMONI_COLORS.gold}40` }}
+        className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 border-b-2 px-3 py-1.5 font-[Arial,Helvetica,sans-serif] text-[clamp(0.65rem,1vw,0.85rem)] font-bold uppercase tracking-wide text-white"
+        style={{ borderColor: UNIMONI_COLORS.gold }}
       >
-        <span>Currency</span>
+        <span className="pl-1">Currency</span>
         {showBuyRate ? <span className="text-center">We Buy</span> : <span />}
         {showSellRate ? <span className="text-center">We Sell</span> : <span />}
       </div>
 
       <div className="display-rates-body min-h-0 flex-1 basis-0 overflow-hidden px-2 py-1">
-        {rows.map((rate) => (
+        {rows.map((rate, i) => (
           <div
             key={rate.id}
-            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1fr_1fr_1fr] items-center gap-x-2 border-b border-white/15 py-[0.6vh] last:border-0 font-[Arial,Helvetica,sans-serif]"
+            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 rounded-[5px] px-1 py-[0.4vh] font-[Arial,Helvetica,sans-serif]"
+            style={{ backgroundColor: i % 2 === 1 ? "rgba(255,255,255,0.06)" : "transparent" }}
           >
-            <span className="display-rate-currency flex min-h-0 min-w-0 items-center pl-1 font-bold uppercase text-white">
+            <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.5vw] pl-1 font-bold uppercase text-white">
+              <span
+                className="hidden h-[1.4em] w-[3px] shrink-0 rounded-full sm:block"
+                style={{ backgroundColor: UNIMONI_COLORS.gold }}
+              />
               <span className="truncate">{getRateDisplayLabel(rate)}</span>
             </span>
             {showBuyRate ? (
               <span
-                className="display-rate-value flex w-full items-center justify-center rounded-[4px] py-[0.4vh] px-1 text-center font-bold tabular-nums"
-                style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
+                className="display-rate-value flex w-full items-center justify-center rounded-[5px] py-[0.4vh] px-1 text-center font-extrabold tabular-nums shadow-[0_1px_2px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
+                style={{ backgroundColor: UNIMONI_COLORS.white, color: BUY_TEXT }}
               >
                 {formatUnimoniRate(rate.buyRate)}
               </span>
@@ -102,8 +109,8 @@ export function UnimoniRatesPanel({
             )}
             {showSellRate ? (
               <span
-                className="display-rate-value flex w-full items-center justify-center rounded-[4px] py-[0.4vh] px-1 text-center font-bold tabular-nums"
-                style={{ backgroundColor: UNIMONI_COLORS.white, color: UNIMONI_COLORS.darkText }}
+                className="display-rate-value flex w-full items-center justify-center rounded-[5px] py-[0.4vh] px-1 text-center font-extrabold tabular-nums shadow-[0_1px_2px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
+                style={{ backgroundColor: UNIMONI_COLORS.white, color: SELL_TEXT }}
               >
                 {formatUnimoniRate(rate.sellRate)}
               </span>
@@ -114,7 +121,7 @@ export function UnimoniRatesPanel({
         ))}
       </div>
 
-      <div className="h-0.5 shrink-0" style={{ backgroundColor: UNIMONI_COLORS.gold }} />
+      <div className="h-1 shrink-0" style={{ backgroundColor: UNIMONI_COLORS.gold }} />
     </aside>
   );
 }
