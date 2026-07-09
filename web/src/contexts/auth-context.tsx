@@ -406,7 +406,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
         }
         if (error.code === "auth/unauthorized-domain") {
-          throw new Error("Sign-in isn't available on this address. Please contact your administrator.");
+          const host = typeof window !== "undefined" ? window.location.hostname : "this address";
+          console.error(
+            `${LOG_PREFIX} auth/unauthorized-domain — add "${host}" in Firebase Console → Authentication → Settings → Authorized domains`,
+          );
+          throw new Error(
+            `Google sign-in isn't enabled for ${host} yet. Your admin must add this exact domain in Firebase → Authentication → Settings → Authorized domains.`,
+          );
         }
       }
       throw error;
