@@ -52,9 +52,14 @@ interface Sheet {
 }
 
 function chunkRows(rows: ExchangeRate[], kind: Sheet["kind"]): Sheet[] {
+  if (rows.length === 0) return [];
+  // Balance currencies evenly across sheets so no page is left mostly empty
+  // (e.g. 17 → 9 + 8, not 12 + 5) — each sheet fills the card nicely.
+  const numSheets = Math.ceil(rows.length / RATES_PER_SHEET);
+  const perSheet = Math.ceil(rows.length / numSheets);
   const sheets: Sheet[] = [];
-  for (let i = 0; i < rows.length; i += RATES_PER_SHEET) {
-    sheets.push({ kind, rows: rows.slice(i, i + RATES_PER_SHEET) });
+  for (let i = 0; i < rows.length; i += perSheet) {
+    sheets.push({ kind, rows: rows.slice(i, i + perSheet) });
   }
   return sheets;
 }
@@ -96,11 +101,12 @@ export function UnimoniRatesPanel({
   }, [sheetCount]);
 
   const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
-  // Pad short sheets so every page keeps identical row heights.
+  // Pad short sheets up to the LARGEST sheet's row count (not a fixed 12) so
+  // every rotating page keeps identical row heights with minimal empty space.
+  const maxSheetRows = Math.max(1, ...sheets.map((s) => s.rows.length));
+  const padTo = Math.max(0, maxSheetRows - activeSheet.rows.length);
   const paddedRows: (ExchangeRate | null)[] =
-    sheetCount > 1
-      ? [...activeSheet.rows, ...Array(RATES_PER_SHEET - activeSheet.rows.length).fill(null)]
-      : activeSheet.rows;
+    sheetCount > 1 ? [...activeSheet.rows, ...Array(padTo).fill(null)] : activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
 
   if (variant === "board") {

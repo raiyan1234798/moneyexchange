@@ -345,11 +345,11 @@
 
   .display-rate-row {
     container-type: size;
-    /* Rows grow evenly to fill the panel height (no blue gap). A max height keeps
-       them from ballooning when a branch has only a few currencies. */
+    /* Rows grow evenly to fill the panel height (no empty gap). A generous max
+       keeps a handful of currencies filling the card without one row ballooning. */
     flex: 1 1 0;
     min-height: 0;
-    max-height: clamp(3.4rem, 8vh, 5.5rem);
+    max-height: clamp(3.4rem, 16vh, 11rem);
   }
 
   /* Compact, clear signage type per the reference — small and neat, never

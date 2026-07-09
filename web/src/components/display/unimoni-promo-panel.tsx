@@ -74,16 +74,29 @@ export function UnimoniPromoPanel({
           onEnded={onVideoEnded}
         />
       ) : showImage ? (
-        <Image
-          key={imageUrl}
-          src={imageUrl!}
-          alt="Branch advert"
-          fill
-          className={`absolute inset-0 z-0 ${objectFit}`}
-          unoptimized
-          priority
-          onError={() => setFailedImageUrl(imageUrl ?? null)}
-        />
+        // A blurred, zoomed copy fills the panel (no black bars); the real image
+        // shows in FULL on top (contain), so nothing is cropped/overlapping.
+        <>
+          <Image
+            key={`${imageUrl}-bg`}
+            src={imageUrl!}
+            alt=""
+            aria-hidden
+            fill
+            className="absolute inset-0 z-0 scale-110 object-cover blur-2xl brightness-[0.55]"
+            unoptimized
+          />
+          <Image
+            key={imageUrl}
+            src={imageUrl!}
+            alt="Branch advert"
+            fill
+            className="absolute inset-0 z-[1] object-contain"
+            unoptimized
+            priority
+            onError={() => setFailedImageUrl(imageUrl ?? null)}
+          />
+        </>
       ) : null}
 
       {showPlaceholder ? (
