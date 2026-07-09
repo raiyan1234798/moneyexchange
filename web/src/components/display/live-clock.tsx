@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 
 /**
- * Live date + time for TV signage. Renders nothing until mounted so the
- * statically-exported HTML never mismatches on hydration.
+ * Live clock for TV signage. Returns null until mounted so the statically-
+ * exported HTML never mismatches on hydration.
  */
-export function LiveClock({ className = "" }: { className?: string }) {
+export function useNow(): Date | null {
   const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -19,6 +19,20 @@ export function LiveClock({ className = "" }: { className?: string }) {
       window.clearInterval(timer);
     };
   }, []);
+
+  return now;
+}
+
+export function formatSignageDate(now: Date): string {
+  return now.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+export function formatSignageTime(now: Date): string {
+  return now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+export function LiveClock({ className = "" }: { className?: string }) {
+  const now = useNow();
 
   if (!now) return null;
 

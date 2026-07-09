@@ -7,7 +7,8 @@ import {
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
-import { LiveClock } from "@/components/display/live-clock";
+import { FlagChip } from "@/components/display/flag-chip";
+import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
 import type { ExchangeRate } from "@/lib/types";
 
 interface UnimoniRatesPanelProps {
@@ -26,8 +27,9 @@ interface UnimoniRatesPanelProps {
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
 const SELL_COLOR = "#38bdf8"; // sky (board — on dark)
-const BUY_TEXT = "#047857"; // emerald-700 (panel — on white box)
-const SELL_TEXT = "#0B3B7A"; // deep brand blue (panel — on white box)
+const NAVY_TEXT = "#0B3B7A"; // deep brand navy — codes and values on the light panel
+const STRIPE_LIGHT = "#FFFFFF";
+const STRIPE_BLUE = "#E4EFF9";
 
 export function UnimoniRatesPanel({
   rates,
@@ -38,6 +40,8 @@ export function UnimoniRatesPanel({
   branchName,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
+  // Hook must run unconditionally (before the board early-return).
+  const now = useNow();
 
   if (variant === "board") {
     return (
@@ -51,62 +55,83 @@ export function UnimoniRatesPanel({
     );
   }
 
-  // Android TV signage: every currency stays fixed on screen — the panel never
-  // scrolls. Rows share the panel height equally and the type auto-scales down
-  // (container-query units) so all currencies always fit, however many there are.
+  // Al Ansari-style board (per client reference), minus the TRANSFER column:
+  // white DATE | logo | TIME header, blue column band, alternating light
+  // stripes with rectangular flag chips + navy codes and boxed navy values.
+  // Every currency stays fixed on screen — the panel never scrolls; rows share
+  // the height equally and type auto-scales (container-query units).
   return (
     <aside
       className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
-      style={{ backgroundColor: UNIMONI_COLORS.navy }}
+      style={{ background: `linear-gradient(180deg, ${UNIMONI_COLORS.headerBlue} 0%, ${UNIMONI_COLORS.navy} 100%)` }}
     >
-      <div
-        className="relative flex shrink-0 flex-col items-center gap-1 px-3 py-2"
-        style={{ backgroundColor: UNIMONI_COLORS.headerBlue }}
-      >
-        <UnimoniLogoImage
-          variant="onDark"
-          width={180}
-          height={40}
-          className="h-[clamp(1.25rem,2.2vh,2rem)] w-auto object-contain"
-          priority
-        />
-        <p className="font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.8rem)] font-bold uppercase tracking-[0.14em] text-white">
-          Exchange Rates
-        </p>
-        <LiveClock className="absolute right-3 top-1/2 -translate-y-1/2" />
+      <div className="flex shrink-0 items-stretch justify-between gap-2 bg-white px-3 py-1.5 font-[Arial,Helvetica,sans-serif]">
+        <div className="flex min-w-0 flex-col justify-center">
+          <span
+            className="text-[clamp(0.5rem,0.8vw,0.7rem)] font-bold uppercase tracking-[0.18em]"
+            style={{ color: UNIMONI_COLORS.headerBlue }}
+          >
+            Date
+          </span>
+          <span className="whitespace-nowrap text-[clamp(0.6rem,1vw,0.9rem)] font-bold tabular-nums" style={{ color: NAVY_TEXT }}>
+            {now ? formatSignageDate(now) : "—"}
+          </span>
+        </div>
+        <div className="flex min-w-0 flex-col items-center justify-center">
+          <UnimoniLogoImage
+            variant="default"
+            width={180}
+            height={40}
+            className="h-[clamp(1.1rem,2vh,1.8rem)] w-auto object-contain"
+            priority
+          />
+          <p
+            className="text-[clamp(0.5rem,0.8vw,0.7rem)] font-bold uppercase tracking-[0.16em]"
+            style={{ color: UNIMONI_COLORS.headerBlue }}
+          >
+            Exchange Rates
+          </p>
+        </div>
+        <div className="flex min-w-0 flex-col items-end justify-center">
+          <span
+            className="text-[clamp(0.5rem,0.8vw,0.7rem)] font-bold uppercase tracking-[0.18em]"
+            style={{ color: UNIMONI_COLORS.headerBlue }}
+          >
+            Time
+          </span>
+          <span className="whitespace-nowrap text-[clamp(0.6rem,1vw,0.9rem)] font-bold tabular-nums" style={{ color: NAVY_TEXT }}>
+            {now ? formatSignageTime(now) : "—"}
+          </span>
+        </div>
       </div>
 
       <div
-        className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 border-b-2 px-3 py-1.5 font-[Arial,Helvetica,sans-serif] text-[clamp(0.65rem,1vw,0.85rem)] font-bold uppercase tracking-wide text-white"
-        style={{ borderColor: UNIMONI_COLORS.gold }}
+        className="grid shrink-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 px-3 py-1.5 font-[Arial,Helvetica,sans-serif] text-[clamp(0.65rem,1vw,0.85rem)] font-bold uppercase tracking-wide text-white"
+        style={{ backgroundColor: UNIMONI_COLORS.headerBlue, borderTop: `2px solid ${UNIMONI_COLORS.gold}` }}
       >
         <span className="pl-1">Currency</span>
         {showBuyRate ? <span className="text-center">We Buy</span> : <span />}
         {showSellRate ? <span className="text-center">We Sell</span> : <span />}
       </div>
 
-      <div className="display-rates-body min-h-0 flex-1 basis-0 overflow-hidden px-2 py-1">
+      <div className="display-rates-body min-h-0 flex-1 basis-0 gap-[0.35vh] overflow-hidden px-2 py-[0.5vh]">
         {rows.map((rate, i) => (
           <div
             key={rate.id}
-            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 rounded-[5px] px-1 py-[0.4vh] font-[Arial,Helvetica,sans-serif]"
-            style={{ backgroundColor: i % 2 === 1 ? "rgba(255,255,255,0.06)" : "transparent" }}
+            className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.1fr_1fr_1fr] items-center gap-x-2 rounded-[5px] px-1.5 py-[0.35vh] font-[Arial,Helvetica,sans-serif] shadow-[0_1px_2px_rgba(0,0,0,0.15)]"
+            style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT }}
           >
-            <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.5vw] pl-1 font-bold uppercase text-white">
-              {getRateFlag(rate) ? (
-                <span className="shrink-0 leading-none">{getRateFlag(rate)}</span>
-              ) : (
-                <span
-                  className="hidden h-[1.4em] w-[3px] shrink-0 rounded-full sm:block"
-                  style={{ backgroundColor: UNIMONI_COLORS.gold }}
-                />
-              )}
+            <span
+              className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.5vw] pl-1 font-extrabold uppercase"
+              style={{ color: NAVY_TEXT }}
+            >
+              {getRateFlag(rate) ? <FlagChip flag={getRateFlag(rate)!} /> : null}
               <span className="truncate">{rate.currencyCode}</span>
             </span>
             {showBuyRate ? (
               <span
-                className="display-rate-value flex w-full items-center justify-center rounded-[5px] py-[0.4vh] px-1 text-center font-extrabold tabular-nums shadow-[0_1px_2px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
-                style={{ backgroundColor: UNIMONI_COLORS.white, color: BUY_TEXT }}
+                className="display-rate-value flex w-full items-center justify-center rounded-[4px] border py-[0.3vh] px-1 text-center font-bold tabular-nums"
+                style={{ backgroundColor: "#FFFFFF", borderColor: "#C4D6E8", color: NAVY_TEXT }}
               >
                 {formatUnimoniRate(rate.buyRate)}
               </span>
@@ -115,8 +140,8 @@ export function UnimoniRatesPanel({
             )}
             {showSellRate ? (
               <span
-                className="display-rate-value flex w-full items-center justify-center rounded-[5px] py-[0.4vh] px-1 text-center font-extrabold tabular-nums shadow-[0_1px_2px_rgba(0,0,0,0.25)] ring-1 ring-black/5"
-                style={{ backgroundColor: UNIMONI_COLORS.white, color: SELL_TEXT }}
+                className="display-rate-value flex w-full items-center justify-center rounded-[4px] border py-[0.3vh] px-1 text-center font-bold tabular-nums"
+                style={{ backgroundColor: "#FFFFFF", borderColor: "#C4D6E8", color: NAVY_TEXT }}
               >
                 {formatUnimoniRate(rate.sellRate)}
               </span>
