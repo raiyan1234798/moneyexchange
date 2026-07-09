@@ -341,6 +341,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadProfileForUser]);
 
   const login = useCallback(async (email: string, password: string) => {
+    // If another tab left a DIFFERENT account signed in, clear it first so the
+    // fresh login's Firestore reads can't race against stale credentials.
+    const current = auth.currentUser;
+    if (current && (current.email ?? "").trim().toLowerCase() !== email.trim().toLowerCase()) {
+      await signOut(auth).catch(() => undefined);
+    }
     const credential = await signInWithEmailAndPassword(auth, email, password);
     pendingLoginFinalizeRef.current.add(credential.user.uid);
     try {

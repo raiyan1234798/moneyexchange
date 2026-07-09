@@ -299,11 +299,33 @@ async function bootstrapClientAdminProfile(
 async function loadClientAdminProfile(firebaseUser: User): Promise<ProfileLoadResult> {
   const uid = firebaseUser.uid;
   const userRef = doc(db, COLLECTIONS.users, uid);
-  const existingSnap = await runFirestoreStep("Profile read", () => getDoc(userRef));
+
+  let existingSnap: Awaited<ReturnType<typeof getDoc>>;
+  try {
+    existingSnap = await runFirestoreStep("Profile read", () => getDoc(userRef));
+  } catch (error) {
+    if (!isPermissionDenied(error)) throw error;
+    // Multi-tab race: another unimoni tab signing in/out with a different
+    // account can briefly attach the wrong credentials to this read. Wait for
+    // the auth state to settle and retry once before giving up.
+    authLog("client admin profile read denied — retrying once after auth settles");
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      existingSnap = await runFirestoreStep("Profile read (retry)", () => getDoc(userRef));
+    } catch (retryError) {
+      if (isPermissionDenied(retryError)) {
+        throw new ProfileAccessError(
+          "Sign-in conflict — another unimoni tab is signed in with a different account. Close other unimoni tabs and sign in again.",
+          "client-admin-read",
+        );
+      }
+      throw retryError;
+    }
+  }
 
   // Respect an existing profile (e.g. if the super admin later changes its role).
   if (existingSnap.exists()) {
-    const profile = { uid, ...existingSnap.data() } as AppUser;
+    const profile = { uid, ...(existingSnap.data() as Partial<AppUser>) } as AppUser;
     if (!profile.isActive) {
       throw new ProfileAccessError("Your account is inactive. Contact the administrator.", "inactive");
     }
