@@ -281,8 +281,8 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="contain">Fit whole video (no cropping)</SelectItem>
-                <SelectItem value="cover">Fill area (may crop edges)</SelectItem>
+                <SelectItem value="cover">Fill area — no black bars (may crop edges)</SelectItem>
+                <SelectItem value="contain">Fit whole video (letterboxed, no cropping)</SelectItem>
               </SelectContent>
             </Select>
           </div>

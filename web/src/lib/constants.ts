@@ -56,7 +56,9 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showTransferCard: true,
   transferLocalLabel: "UGX",
   videoWidthPercent: 65,
-  videoFit: "contain" as "contain" | "cover",
+  // Default to FILL (no black bars) — the whole promo area is covered; edges may
+  // crop. Switch to "contain" in Settings to show the entire frame (letterboxed).
+  videoFit: "cover" as "contain" | "cover",
   rateCardScale: 1,
   tickerScale: 1,
   logoScale: 1,

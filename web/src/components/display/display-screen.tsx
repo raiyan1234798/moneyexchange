@@ -89,7 +89,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // Independently resizable areas (each editable in Settings → Display sizing).
   const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 65));
   const rateWidthPercent = 100 - videoWidthPercent;
-  const videoFit = branchSettings.videoFit ?? "contain";
+  const videoFit = branchSettings.videoFit ?? "cover";
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
