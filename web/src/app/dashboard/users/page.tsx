@@ -108,11 +108,14 @@ export default function UsersPage() {
       ? [where("branchId", "==", managerBranchId)]
       : [where("role", "in", MANAGED_ROLES)];
 
-    const unsubUsers = subscribeCollection<AppUser>(
+    const unsubUsers = subscribeCollection<AppUser & { id?: string }>(
       COLLECTIONS.users,
       userConstraints,
       (items) => {
-        setUsers(items);
+        // Profile docs don't store a `uid` field — the doc id IS the uid.
+        // Without this mapping every row action (edit/deactivate/delete)
+        // crashes on doc(db, "users", undefined).
+        setUsers(items.map((m) => ({ ...m, uid: m.uid ?? m.id ?? "" })));
         clearNotice();
       },
       onError,
