@@ -21,7 +21,13 @@ export function FlagChip({ flag, className = "" }: { flag: string; className?: s
   const country = flagEmojiToCountryCode(flag);
 
   if (!country || failed) {
-    return <span className={`shrink-0 leading-none ${className}`}>{flag}</span>;
+    // Emoji fallback (custom currencies): size the glyph up so it matches the
+    // enlarged flag images rather than shrinking to text size.
+    return (
+      <span className={`inline-flex shrink-0 items-center justify-center text-[1.7em] leading-none ${className}`}>
+        {flag}
+      </span>
+    );
   }
 
   return (

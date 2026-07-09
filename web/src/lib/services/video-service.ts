@@ -390,6 +390,7 @@ async function uploadVideoViaChunks(
   },
   actor: { userId: string; userName: string },
   onProgress?: (progress: number) => void,
+  keepExisting?: boolean,
 ): Promise<string> {
   if (file.size > MAX_CHUNKED_VIDEO_BYTES) {
     throw new Error(
@@ -444,7 +445,10 @@ async function uploadVideoViaChunks(
 
   // Deactivate the previous video immediately after activation (excluding the
   // new one) so no failure in between can leave two active videos rotating.
-  await deactivatePreviousBranchVideos(metadata.branchId, videoId);
+  // Skipped for batch uploads (keepExisting) so several videos can rotate.
+  if (!keepExisting) {
+    await deactivatePreviousBranchVideos(metadata.branchId, videoId);
+  }
 
   // Audit logging must never fail the upload after the video is already live.
   await writeAuditLog({
@@ -512,14 +516,16 @@ export async function uploadVideo(
   },
   actor: { userId: string; userName: string },
   onProgress?: (progress: number) => void,
+  opts?: { keepExisting?: boolean },
 ): Promise<{ id: string; usedChunkFallback: boolean }> {
   validateVideoFile(file);
   onProgress?.(1);
+  const keepExisting = opts?.keepExisting === true;
 
   if (isR2UploadConfigured()) {
     try {
       const r2 = await uploadVideoToR2(file, metadata.branchId, onProgress);
-      await deactivatePreviousBranchVideos(metadata.branchId);
+      if (!keepExisting) await deactivatePreviousBranchVideos(metadata.branchId);
       const id = await saveUploadedVideoDoc(file, metadata, { ...r2, sourceType: "r2" }, actor);
       return { id, usedChunkFallback: false };
     } catch (error) {
@@ -534,13 +540,13 @@ export async function uploadVideo(
   // going straight to the chunked fallback saves ~30s of doomed CORS retries.
   // (uploadVideoViaChunks handles activation + deactivating the previous video.)
   if (!(await isFirebaseStorageAvailable())) {
-    const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
+    const id = await uploadVideoViaChunks(file, metadata, actor, onProgress, keepExisting);
     return { id, usedChunkFallback: true };
   }
 
   try {
     const firebase = await uploadVideoToStorage(file, metadata.branchId, onProgress);
-    await deactivatePreviousBranchVideos(metadata.branchId);
+    if (!keepExisting) await deactivatePreviousBranchVideos(metadata.branchId);
     const id = await saveUploadedVideoDoc(
       file,
       metadata,
@@ -557,9 +563,14 @@ export async function uploadVideo(
       throw error instanceof Error ? error : new Error("Upload failed");
     }
 
-    const id = await uploadVideoViaChunks(file, metadata, actor, onProgress);
+    const id = await uploadVideoViaChunks(file, metadata, actor, onProgress, keepExisting);
     return { id, usedChunkFallback: true };
   }
+}
+
+/** Deactivate every active video on a branch (used before a multi-file batch). */
+export async function deactivateBranchVideos(branchId: string): Promise<void> {
+  await deactivatePreviousBranchVideos(assertBranchId(branchId, "deactivateBranchVideos"));
 }
 
 export async function replaceVideo(

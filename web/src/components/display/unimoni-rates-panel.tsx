@@ -195,15 +195,14 @@ export function UnimoniRatesPanel({
               }`}
               style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT }}
             >
-              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.5vw] py-[0.25vh] pl-[0.3vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
-                {/* Every row gets the same navy flag pill (globe fallback for
-                    custom currencies) so newly added currencies look identical. */}
-                <span
-                  className="flex h-[94%] w-[3.4em] max-w-[42%] shrink-0 items-center justify-center rounded-[5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
-                  style={{ background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${NAVY_TEXT} 100%)` }}
-                >
-                  <FlagChip flag={getRateFlag(rate) ?? "🌍"} className="!h-[1.5em] !w-[2.3em]" />
-                </span>
+              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.25vh] pl-[0.5vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
+                {/* Flag shown bigger and bare (no box) — a thin ring keeps
+                    white flags visible on the light row. Globe fallback for
+                    custom currencies. */}
+                <FlagChip
+                  flag={getRateFlag(rate) ?? "🌍"}
+                  className="!h-[1.85em] !w-[2.75em] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
+                />
                 <span className="min-w-0 flex-1 truncate text-center">{rate.currencyCode}</span>
               </span>
               {isRemitSheet ? (

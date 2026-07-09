@@ -8,7 +8,7 @@ import { subscribeImageAdverts } from "@/lib/services/image-advert-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVideoBlobUrl } from "@/lib/services/video-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
-import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS, logoFontCss } from "@/lib/constants";
 import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { UnimoniPromoPanel } from "@/components/display/unimoni-promo-panel";
 import { UnimoniRatesPanel } from "@/components/display/unimoni-rates-panel";
@@ -181,6 +181,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerPaused = activeTicker?.paused === true;
   const tickerLogoUrl =
     branch?.logoUrl || branchSettings.tickerLogoUrl || activeTicker?.logoUrl || null;
+  const tickerLogoText = activeTicker?.logoText || branchSettings.tickerLogoText || null;
+  const tickerLogoFontCss = logoFontCss(activeTicker?.logoFont || branchSettings.tickerLogoFont);
   const tickerHeadline =
     activeTicker?.messages?.[0]?.text?.slice(0, 24).toUpperCase() ||
     branch?.name?.toUpperCase() ||
@@ -323,6 +325,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       <BreakingNewsTicker
         messages={tickerMessages}
         logoUrl={tickerLogoUrl}
+        logoText={tickerLogoText}
+        logoFontCss={tickerLogoFontCss}
         scrollSpeedSeconds={tickerSpeed}
         fontColor={tickerFontColor}
         fontSize={tickerFontSize}

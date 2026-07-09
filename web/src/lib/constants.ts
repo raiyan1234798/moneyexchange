@@ -45,6 +45,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerFontSize: 18,
   tickerFontColor: "#FFFFFF",
   tickerLogoUrl: null as string | null,
+  tickerLogoText: null as string | null,
+  tickerLogoFont: null as string | null,
   showBuyRate: true,
   showSellRate: true,
   rateCardPosition: "right" as const,
@@ -72,6 +74,19 @@ export const RECOMMENDED_VIDEO_FORMATS = [
   "WebM VP9",
   "MOV (QuickTime)",
 ];
+
+/** Font styles for a TEXT logo on the display ticker badge. */
+export const LOGO_FONTS: Array<{ key: string; label: string; css: string }> = [
+  { key: "sans-bold", label: "Bold Sans", css: "'Arial Black', Arial, Helvetica, sans-serif" },
+  { key: "serif", label: "Classic Serif", css: "Georgia, 'Times New Roman', serif" },
+  { key: "condensed", label: "Condensed", css: "'Arial Narrow', 'Helvetica Neue', sans-serif" },
+  { key: "rounded", label: "Rounded", css: "'Trebuchet MS', 'Segoe UI', sans-serif" },
+  { key: "mono", label: "Monospace", css: "'Courier New', monospace" },
+];
+
+export function logoFontCss(key: string | null | undefined): string {
+  return LOGO_FONTS.find((f) => f.key === key)?.css ?? LOGO_FONTS[0].css;
+}
 
 export const DEFAULT_SYSTEM_SETTINGS = {
   companyName: "unimoni",

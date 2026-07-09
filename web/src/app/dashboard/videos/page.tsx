@@ -47,6 +47,7 @@ import {
   subscribePendingVideos,
   subscribeVideos,
   uploadVideo,
+  deactivateBranchVideos,
 } from "@/lib/services/video-service";
 import {
   duplicateStorageVideoToBranch,
@@ -83,6 +84,8 @@ export default function VideosPage() {
   const [externalUrl, setExternalUrl] = useState("");
   const [driveUrl, setDriveUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [videoFiles, setVideoFiles] = useState<File[]>([]);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
@@ -222,7 +225,57 @@ export default function VideosPage() {
     }
   }
 
+  async function handleUploadMany(files: File[]) {
+    if (!user || !profile || !effectiveBranchId || !actor) return;
+    for (const f of files) {
+      try {
+        validateVideoFile(f);
+      } catch (error) {
+        toast.error(`${f.name}: ${error instanceof Error ? error.message : "invalid video"}`);
+        return;
+      }
+    }
+    setUploading(true);
+    setProgress(1);
+    let done = 0;
+    let chunked = false;
+    try {
+      // Replace the current set once, then add every selected video as active
+      // so they rotate on the display (one every 60s).
+      await deactivateBranchVideos(effectiveBranchId);
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const { usedChunkFallback } = await uploadVideo(
+          f,
+          { title: deriveTitleFromFile(f), branchId: effectiveBranchId, createdBy: user.uid },
+          { userId: user.uid, userName: profile.displayName || profile.email },
+          (p) => setProgress(Math.round(((i + p / 100) / files.length) * 100)),
+          { keepExisting: true },
+        );
+        chunked = chunked || usedChunkFallback;
+        done += 1;
+      }
+      toast.success(`${done} videos uploaded — they rotate on the display`);
+      if (chunked) toast.warning(CHUNKED_UPLOAD_WARNING, { duration: 9000 });
+      setTitle("");
+      setFile(null);
+      setVideoFiles([]);
+    } catch (error) {
+      toast.error(
+        `${done} of ${files.length} uploaded before an error: ${error instanceof Error ? error.message : "failed"}`,
+        { duration: 9000 },
+      );
+    } finally {
+      setUploading(false);
+      setProgress(0);
+    }
+  }
+
   async function handleUpload() {
+    if (videoFiles.length > 1) {
+      await handleUploadMany(videoFiles);
+      return;
+    }
     if (!user || !profile || !effectiveBranchId || !file) {
       toast.error("Select a video file to upload");
       return;
@@ -319,27 +372,41 @@ export default function VideosPage() {
   }
 
   async function handleImageUpload() {
-    if (!user || !profile || !effectiveBranchId || !imageFile) {
+    const files = imageFiles.length > 0 ? imageFiles : imageFile ? [imageFile] : [];
+    if (!user || !profile || !effectiveBranchId || files.length === 0) {
       toast.error("Select an image file");
       return;
     }
     setImageUploading(true);
+    let done = 0;
     try {
-      await uploadImageAdvert(
-        {
-          title: title.trim() || imageFile.name,
-          branchId: effectiveBranchId,
-          file: imageFile,
-          displayDurationSeconds: imageDuration,
-          createdBy: user.uid,
-        },
-        { userId: user.uid, userName: profile.displayName || profile.email },
+      for (let i = 0; i < files.length; i++) {
+        await uploadImageAdvert(
+          {
+            title: files[i].name,
+            branchId: effectiveBranchId,
+            file: files[i],
+            displayDurationSeconds: imageDuration,
+            createdBy: user.uid,
+          },
+          { userId: user.uid, userName: profile.displayName || profile.email },
+          // First image replaces the set; the rest accumulate so they rotate.
+          { keepExisting: i > 0 },
+        );
+        done += 1;
+      }
+      toast.success(
+        files.length > 1
+          ? `${done} images uploaded — they rotate when no video is playing`
+          : "Image uploaded — shows on display when no video is playing",
       );
-      toast.success("Image uploaded — shows on display when no video is playing");
       setImageFile(null);
+      setImageFiles([]);
       setTitle("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to upload image");
+      toast.error(
+        `${done} of ${files.length} uploaded before an error: ${error instanceof Error ? error.message : "failed"}`,
+      );
     } finally {
       setImageUploading(false);
     }
@@ -450,9 +517,12 @@ export default function VideosPage() {
                   </Label>
                   <Input
                     type="file"
+                    multiple
                     accept="video/mp4,video/webm,video/quicktime,.mp4,.mov,.webm"
                     onChange={(e) => {
-                      const selected = e.target.files?.[0] ?? null;
+                      const list = Array.from(e.target.files ?? []);
+                      setVideoFiles(list);
+                      const selected = list[0] ?? null;
                       setFile(selected);
                       if (selected && !title.trim()) {
                         setTitle(deriveTitleFromFile(selected));
@@ -460,6 +530,11 @@ export default function VideosPage() {
                     }}
                     className="rounded-xl"
                   />
+                  {videoFiles.length > 1 ? (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                      {videoFiles.length} videos selected — all will play in rotation on the display.
+                    </p>
+                  ) : null}
                   {file ? (
                     <p className="text-xs text-muted-foreground">
                       Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
@@ -702,9 +777,19 @@ export default function VideosPage() {
                   <Input
                     type="file"
                     accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                    onChange={(e) => setImageFile(e.target.files?.[0] ?? null)}
+                    multiple
+                    onChange={(e) => {
+                      const list = Array.from(e.target.files ?? []);
+                      setImageFiles(list);
+                      setImageFile(list[0] ?? null);
+                    }}
                     className="rounded-xl"
                   />
+                  {imageFiles.length > 1 ? (
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                      {imageFiles.length} images selected — they rotate when no video plays.
+                    </p>
+                  ) : null}
                 </div>
                 <Button
                   onClick={() => void handleImageUpload()}

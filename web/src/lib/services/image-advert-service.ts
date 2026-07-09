@@ -90,6 +90,11 @@ export async function addImageAdvertUrl(
   return id;
 }
 
+/** Deactivate every active image advert on a branch (before a multi-file batch). */
+export async function deactivateBranchImageAdverts(branchId: string): Promise<void> {
+  await deactivateBranchImages(branchId);
+}
+
 export async function uploadImageAdvert(
   params: {
     title: string;
@@ -99,13 +104,15 @@ export async function uploadImageAdvert(
     createdBy: string;
   },
   actor: { userId: string; userName: string },
+  opts?: { keepExisting?: boolean },
 ): Promise<string> {
   // No Storage bucket on this project (free plan): compress in the browser
   // (downscale + WebP) and store the image INSIDE the Firestore doc as a data
   // URL — displays render it like any other URL.
   const compressed = await compressImageToDataUrl(params.file, ADVERT_IMAGE_OPTIONS);
 
-  await deactivateBranchImages(params.branchId);
+  // Batch uploads keep prior images active so several rotate on the display.
+  if (opts?.keepExisting !== true) await deactivateBranchImages(params.branchId);
   const id = await createDocument(COLLECTIONS.imageAdverts, {
     title: params.title,
     branchId: params.branchId,

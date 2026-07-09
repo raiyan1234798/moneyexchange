@@ -60,6 +60,8 @@ export interface BranchSettings {
   tickerFontSize: number;
   tickerFontColor: string;
   tickerLogoUrl?: string | null;
+  tickerLogoText?: string | null;
+  tickerLogoFont?: string | null;
   showBuyRate: boolean;
   showSellRate: boolean;
   rateCardPosition: RateCardPosition;
@@ -181,6 +183,10 @@ export interface TickerMessage {
   fontSize: number;
   fontColor: string;
   logoUrl?: string | null;
+  /** Text logo shown in the pop-out badge instead of an image. */
+  logoText?: string | null;
+  /** Font family key for the text logo — see LOGO_FONTS. */
+  logoFont?: string | null;
   paused?: boolean;
   language: string;
   scheduleStart?: Timestamp | Date | null;

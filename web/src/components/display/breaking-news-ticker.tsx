@@ -11,6 +11,10 @@ interface BreakingNewsTickerProps {
   text?: string;
   messages?: string[];
   logoUrl?: string | null;
+  /** Text logo shown in the badge instead of an image. */
+  logoText?: string | null;
+  /** CSS font-family for the text logo. */
+  logoFontCss?: string;
   scrollSpeedSeconds: number;
   fontColor?: string;
   fontSize?: number;
@@ -25,6 +29,8 @@ function BreakingNewsTickerInner({
   text,
   messages: messagesProp,
   logoUrl,
+  logoText,
+  logoFontCss,
   scrollSpeedSeconds,
   fontColor = "#FFFFFF",
   fontSize,
@@ -32,7 +38,8 @@ function BreakingNewsTickerInner({
   headline = "BIG BREAKING",
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
-  const resolvedLogo = logoUrl?.trim() || null;
+  const resolvedText = logoText?.trim() || null;
+  const resolvedLogo = resolvedText ? null : logoUrl?.trim() || null;
 
   const messages = useMemo(() => {
     const fromProp = messagesProp?.map((line) => line.trim()).filter(Boolean);
@@ -86,7 +93,18 @@ function BreakingNewsTickerInner({
           borderColor: UNIMONI_COLORS.gold,
         }}
       >
-        {resolvedLogo && !logoFailed ? (
+        {resolvedText ? (
+          <span
+            className="px-[0.4vw] text-center font-extrabold uppercase leading-none tracking-tight text-white drop-shadow-md"
+            style={{
+              fontFamily: logoFontCss ?? "'Arial Black', Arial, sans-serif",
+              fontSize: "clamp(1rem, 2.2vw, 2.4rem)",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {resolvedText}
+          </span>
+        ) : resolvedLogo && !logoFailed ? (
           <Image
             src={resolvedLogo}
             alt={`${BRAND.name} logo`}

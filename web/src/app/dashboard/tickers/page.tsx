@@ -27,6 +27,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteTicker, subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
 import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { LOGO_FONTS, logoFontCss } from "@/lib/constants";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +57,9 @@ export default function TickersPage() {
   const [messages, setMessages] = useState("");
   const [scrollSpeed, setScrollSpeed] = useState(30);
   const [logoUrl, setLogoUrl] = useState("");
+  const [logoMode, setLogoMode] = useState<"image" | "text">("image");
+  const [logoText, setLogoText] = useState("");
+  const [logoFont, setLogoFont] = useState(LOGO_FONTS[0].key);
   const [fontColor, setFontColor] = useState("#FFFFFF");
   const [applyToAll, setApplyToAll] = useState(false);
   const [editTarget, setEditTarget] = useState<TickerMessage | null>(null);
@@ -74,6 +85,9 @@ export default function TickersPage() {
     setMessages(ticker.messages.map((m) => m.text).join("\n"));
     setScrollSpeed(ticker.scrollSpeed || 30);
     setLogoUrl(ticker.logoUrl ?? "");
+    setLogoText(ticker.logoText ?? "");
+    setLogoFont(ticker.logoFont ?? LOGO_FONTS[0].key);
+    setLogoMode(ticker.logoText ? "text" : "image");
     setFontColor(ticker.fontColor ?? "#FFFFFF");
     setApplyToAll(false);
     setEditTarget(ticker);
@@ -84,6 +98,9 @@ export default function TickersPage() {
     setOpen(false);
     setEditTarget(null);
     setMessages("");
+    setLogoUrl("");
+    setLogoText("");
+    setLogoMode("image");
     setApplyToAll(false);
   }
 
@@ -124,7 +141,9 @@ export default function TickersPage() {
             messages: lines,
             scrollSpeed,
             fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
-            logoUrl: logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
+            logoUrl: logoMode === "text" ? null : logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
+            logoText: logoMode === "text" ? logoText.trim() || null : null,
+            logoFont: logoMode === "text" ? logoFont : null,
             branchId: editTarget.branchId,
           },
           { userId: user.uid, userName: profile.displayName || profile.email },
@@ -143,7 +162,9 @@ export default function TickersPage() {
         scrollSpeed,
         fontSize: branch?.settings?.tickerFontSize ?? 18,
         fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
-        logoUrl: logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
+        logoUrl: logoMode === "text" ? null : logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
+        logoText: logoMode === "text" ? logoText.trim() || null : null,
+        logoFont: logoMode === "text" ? logoFont : null,
         language: "en" as const,
         status: "active" as const,
         createdBy: user.uid,
@@ -228,6 +249,63 @@ export default function TickersPage() {
                   </div>
                   <div className="space-y-2">
                     <Label>Logo on the bar (optional)</Label>
+                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/40 p-1">
+                      <Button
+                        type="button"
+                        variant={logoMode === "image" ? "default" : "ghost"}
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() => setLogoMode("image")}
+                      >
+                        Image logo
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={logoMode === "text" ? "default" : "ghost"}
+                        size="sm"
+                        className="rounded-lg"
+                        onClick={() => setLogoMode("text")}
+                      >
+                        Text logo
+                      </Button>
+                    </div>
+
+                    {logoMode === "text" ? (
+                      <div className="space-y-2">
+                        <Input
+                          value={logoText}
+                          onChange={(e) => setLogoText(e.target.value)}
+                          placeholder="e.g. UNIMONI"
+                          className="rounded-xl"
+                        />
+                        <Select value={logoFont} onValueChange={(v) => setLogoFont(v ?? LOGO_FONTS[0].key)}>
+                          <SelectTrigger className="rounded-xl">
+                            <SelectValue placeholder="Font style" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LOGO_FONTS.map((f) => (
+                              <SelectItem key={f.key} value={f.key}>
+                                {f.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {logoText.trim() ? (
+                          <div className="flex items-center justify-center rounded-lg bg-slate-900 py-3">
+                            <span
+                              className="text-xl font-extrabold uppercase tracking-tight text-white"
+                              style={{ fontFamily: logoFontCss(logoFont) }}
+                            >
+                              {logoText}
+                            </span>
+                          </div>
+                        ) : null}
+                        <p className="text-xs text-muted-foreground">
+                          Shows as a bigger pop-out badge on the left, separate from the scrolling text.
+                        </p>
+                      </div>
+                    ) : (
+                    <>
                     <Input
                       value={logoUrl.startsWith("data:") ? "" : logoUrl}
                       onChange={(e) => setLogoUrl(e.target.value)}
@@ -284,6 +362,8 @@ export default function TickersPage() {
                       Shows in the pop-out badge at the left of the scrolling bar. Leave empty for the
                       unimoni logo.
                     </p>
+                    </>
+                    )}
                   </div>
                   <div className="space-y-2">
                     <Label>Font Color</Label>
