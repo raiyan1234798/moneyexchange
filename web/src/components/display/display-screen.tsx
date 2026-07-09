@@ -25,9 +25,21 @@ interface TimedRatesPanelProps {
   showBuyRate: boolean;
   showSellRate: boolean;
   showRemittance: boolean;
+  showTransferColumn: boolean;
+  scale: number;
+  widthPercent: number;
 }
 
-function TimedRatesPanel({ rates, displaySeconds, showBuyRate, showSellRate, showRemittance }: TimedRatesPanelProps) {
+function TimedRatesPanel({
+  rates,
+  displaySeconds,
+  showBuyRate,
+  showSellRate,
+  showRemittance,
+  showTransferColumn,
+  scale,
+  widthPercent,
+}: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -38,15 +50,18 @@ function TimedRatesPanel({ rates, displaySeconds, showBuyRate, showSellRate, sho
 
   if (displaySeconds > 0 && !visible) return null;
 
-  // Return the panel directly — it already carries its own lg:w-[35%] flex-none
-  // width. Wrapping it in a flex-1 div made it render at 35% of 35% (~12% of the
-  // screen) with a black gap on desktop/TV.
+  // Return the panel directly — it already carries its own width. Wrapping it in
+  // a flex-1 div made it render at 35% of 35% (~12% of the screen) with a black
+  // gap on desktop/TV.
   return (
     <UnimoniRatesPanel
       rates={rates}
       showBuyRate={showBuyRate}
       showSellRate={showSellRate}
       showRemittance={showRemittance}
+      showTransferColumn={showTransferColumn}
+      scale={scale}
+      widthPercent={widthPercent}
     />
   );
 }
@@ -70,6 +85,16 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const branchSettings = branch?.settings ?? DEFAULT_BRANCH_SETTINGS;
   const rateCardPosition = branchSettings.rateCardPosition ?? "right";
   const rateCardDisplaySeconds = branchSettings.rateCardDisplaySeconds ?? 0;
+
+  // Independently resizable areas (each editable in Settings → Display sizing).
+  const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 65));
+  const rateWidthPercent = 100 - videoWidthPercent;
+  const videoFit = branchSettings.videoFit ?? "contain";
+  const rateCardScale = branchSettings.rateCardScale ?? 1;
+  const tickerScale = branchSettings.tickerScale ?? 1;
+  const logoScale = branchSettings.logoScale ?? 1;
+  const showTransferColumn = branchSettings.showTransferColumn ?? true;
+  const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -260,6 +285,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       imageUrl={branchImageUrl}
       videoLoaded={videoLoaded}
       loopVideo={activeVideos.length <= 1}
+      fit={videoFit}
+      widthPercent={videoWidthPercent}
       onVideoLoaded={() => {
         setVideoLoaded(true);
         setErroredVideoId("");
@@ -280,6 +307,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       showBuyRate={branchSettings.showBuyRate}
       showSellRate={branchSettings.showSellRate}
       showRemittance={branchSettings.showRemittanceScreen === true}
+      showTransferColumn={showTransferColumn}
+      scale={rateCardScale}
+      widthPercent={rateWidthPercent}
     />
   );
 
@@ -332,6 +362,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         fontSize={tickerFontSize}
         paused={tickerPaused}
         headline={tickerHeadline}
+        heightScale={tickerScale}
+        logoScale={logoScale}
+        logoAnimation={tickerLogoAnimation}
       />
 
       <style jsx global>{`
@@ -345,6 +378,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           cursor: default;
         }
         @media (max-width: 1023px) {
+          /* Stack vertically on phones/tablets — neutralise the desktop inline
+             widths so each area spans the full width, not a narrow column. */
+          .display-main-area .display-promo-panel,
+          .display-main-area .display-rates-panel {
+            width: 100% !important;
+          }
           .display-main-area .display-promo-panel {
             flex: 1 1 0%;
             min-height: clamp(10rem, 34vh, 24rem);

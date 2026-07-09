@@ -324,6 +324,15 @@
     animation: ticker-logo-subtle 3s ease-in-out infinite;
   }
 
+  /* Pop-out logo spins like a rotating shop sign: it holds still, then makes a
+     smooth full 3-D turn every few seconds. Reads clearly as "rotating" while
+     staying legible most of the time. */
+  .ticker-logo-spin {
+    animation: ticker-logo-flip 6s ease-in-out infinite;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
+  }
+
   /* Unimoni signage: rate rows fill panel height and scale type with row size */
   .display-rates-body {
     display: flex;
@@ -346,12 +355,12 @@
   /* Compact, clear signage type per the reference — small and neat, never
      oversized; scales down automatically as currencies are added. */
   .display-rate-currency {
-    font-size: clamp(0.7rem, 44cqh, 1.2rem);
+    font-size: calc(clamp(0.7rem, 44cqh, 1.2rem) * var(--rate-scale, 1));
     line-height: 1.05;
   }
 
   .display-rate-value {
-    font-size: clamp(0.65rem, 42cqh, 1.15rem);
+    font-size: calc(clamp(0.65rem, 42cqh, 1.15rem) * var(--rate-scale, 1));
     line-height: 1.05;
   }
 }
@@ -378,6 +387,11 @@
 @keyframes ticker-logo-subtle {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.88; }
+}
+
+@keyframes ticker-logo-flip {
+  0%, 80% { transform: perspective(600px) rotateY(0deg); }
+  100% { transform: perspective(600px) rotateY(360deg); }
 }
 
 @keyframes blob {

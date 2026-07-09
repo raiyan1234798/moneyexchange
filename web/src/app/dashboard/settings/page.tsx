@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
+import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
 
@@ -74,13 +75,56 @@ function BranchSettingsForm({
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Ticker Logo URL (breaking news box)</Label>
+        <Label>Ticker Logo (pop-out breaking-news badge)</Label>
+        <p className="text-xs text-muted-foreground">
+          Leave blank to show the real animated unimoni logo. Paste an image URL or upload a file to
+          use a custom logo.
+        </p>
         <Input
-          value={settings.tickerLogoUrl ?? ""}
+          value={settings.tickerLogoUrl?.startsWith("data:") ? "" : settings.tickerLogoUrl ?? ""}
           onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
-          placeholder="Leave blank for default unimoni logo (/unimoni-logo-on-dark.svg)"
+          placeholder="https://example.com/logo.png — or upload below"
+          disabled={settings.tickerLogoUrl?.startsWith("data:")}
           className="rounded-xl"
         />
+        <div className="flex items-center gap-3">
+          <Input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+            aria-label="Upload ticker logo image"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              try {
+                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                setSettings({ ...settings, tickerLogoUrl: dataUrl });
+                toast.success("Logo image ready — click Save Branch Settings to apply");
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not read image");
+              }
+            }}
+            className="rounded-xl"
+          />
+          {settings.tickerLogoUrl ? (
+            <div className="flex shrink-0 items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={settings.tickerLogoUrl}
+                alt="Logo preview"
+                className="h-9 w-14 shrink-0 rounded-md bg-slate-800 object-contain p-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => setSettings({ ...settings, tickerLogoUrl: null })}
+              >
+                Clear
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </div>
       <div className="space-y-2">
         <Label>Rate Card Position</Label>
@@ -163,6 +207,125 @@ function BranchSettingsForm({
           checked={settings.showRemittanceScreen === true}
           onCheckedChange={(checked) => setSettings({ ...settings, showRemittanceScreen: checked })}
         />
+      </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>TRANSFER column on rate card</Label>
+          <p className="text-xs text-muted-foreground">
+            Adds a TRANSFER (remittance) column as the last column of the rate table.
+          </p>
+        </div>
+        <Switch
+          checked={settings.showTransferColumn !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showTransferColumn: checked })}
+        />
+      </div>
+
+      {/* ---- Independent display sizing: each area resizes on its own ---- */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
+        <p className="mb-1 text-sm font-semibold">Display sizing</p>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Resize each area of the TV screen independently. 100% is the normal size.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Video area width (% of screen)</Label>
+            <Input
+              type="number"
+              min={40}
+              max={80}
+              step={1}
+              value={settings.videoWidthPercent ?? 65}
+              onChange={(event) =>
+                setSettings({ ...settings, videoWidthPercent: Number(event.target.value) })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Rate card takes the rest ({100 - (settings.videoWidthPercent ?? 65)}%).
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Video fit</Label>
+            <Select
+              value={settings.videoFit ?? "contain"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, videoFit: (value as "contain" | "cover") ?? "contain" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="contain">Fit whole video (no cropping)</SelectItem>
+                <SelectItem value="cover">Fill area (may crop edges)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Rate card size (%)</Label>
+            <Input
+              type="number"
+              min={70}
+              max={150}
+              step={5}
+              value={Math.round((settings.rateCardScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({ ...settings, rateCardScale: Number(event.target.value) / 100 })
+              }
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Ticker size (%)</Label>
+            <Input
+              type="number"
+              min={70}
+              max={160}
+              step={5}
+              value={Math.round((settings.tickerScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({ ...settings, tickerScale: Number(event.target.value) / 100 })
+              }
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Logo size (%)</Label>
+            <Input
+              type="number"
+              min={60}
+              max={200}
+              step={5}
+              value={Math.round((settings.logoScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({ ...settings, logoScale: Number(event.target.value) / 100 })
+              }
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Logo animation</Label>
+            <Select
+              value={settings.tickerLogoAnimation ?? "spin"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  tickerLogoAnimation: (value as "spin" | "pulse" | "none") ?? "spin",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="spin">Rotating flip</SelectItem>
+                <SelectItem value="pulse">Gentle pulse</SelectItem>
+                <SelectItem value="none">No animation</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
       </div>
       <Button
         onClick={() => void onSave({ logoUrl, brandingColor: color, settings })}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   UNIMONI_COLORS,
   formatUnimoniRate,
@@ -26,6 +26,12 @@ interface UnimoniRatesPanelProps {
   branchName?: string | null;
   /** Append a rotating remittance-rates sheet (rates with a remitRate set). */
   showRemittance?: boolean;
+  /** Show a TRANSFER column (remittance rate) as the last column of the table. */
+  showTransferColumn?: boolean;
+  /** Multiplier for the rate-card text/row size (default 1). */
+  scale?: number;
+  /** Width of the rate card as a % of the screen (desktop/TV only). */
+  widthPercent?: number;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -59,6 +65,9 @@ export function UnimoniRatesPanel({
   variant = "panel",
   branchName,
   showRemittance = false,
+  showTransferColumn = false,
+  scale = 1,
+  widthPercent,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -97,17 +106,38 @@ export function UnimoniRatesPanel({
     );
   }
 
-  // Faithful replica of the client's Al Ansari reference, minus the TRANSFER
-  // column: blue header band (DATE | logo | TIME in white), white rounded
-  // table with a light column-header row, alternating stripes, navy flag
-  // pills on the left, and plain navy values with thin column separators.
-  // Every currency stays fixed on screen — the panel never scrolls; rows share
-  // the height equally and type auto-scales (container-query units).
+  // Faithful replica of the client's Al Ansari reference: blue header band
+  // (DATE | logo | TIME in white), white rounded table with a light
+  // column-header row, alternating stripes, bare flags on the left, and plain
+  // navy values with thin column separators. The TRANSFER (remittance) rate is
+  // an optional LAST column. Every currency stays fixed on screen — the panel
+  // never scrolls; rows share the height equally and type auto-scales.
   const columnSeparator = { borderLeft: "1px solid #D3E2F0" };
+
+  // Value columns in display order — TRANSFER always comes last, per the board.
+  const valueColumns: {
+    key: string;
+    header: string;
+    get: (r: ExchangeRate) => number | null | undefined;
+    isTransfer?: boolean;
+  }[] = [];
+  if (showBuyRate) valueColumns.push({ key: "buy", header: "We Buy", get: (r) => r.buyRate });
+  if (showSellRate) valueColumns.push({ key: "sell", header: "We Sell", get: (r) => r.sellRate });
+  if (showTransferColumn)
+    valueColumns.push({ key: "transfer", header: "Transfer", get: (r) => r.remitRate, isTransfer: true });
+  const mainGridColumns = `1.25fr ${valueColumns.map(() => "1fr").join(" ")}`.trim();
+  const gridColumns = isRemitSheet ? "1.25fr 2fr" : mainGridColumns;
+
+  const asideStyle = {
+    background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
+    width: widthPercent ? `${widthPercent}%` : undefined,
+    "--rate-scale": scale,
+  } as CSSProperties;
+
   return (
     <aside
       className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
-      style={{ background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)` }}
+      style={asideStyle}
     >
       <div className="flex shrink-0 items-stretch justify-between gap-2 px-[1vw] py-[1vh] font-[Arial,Helvetica,sans-serif]">
         <div className="flex min-w-0 flex-col items-center justify-center">
@@ -144,10 +174,8 @@ export function UnimoniRatesPanel({
           exactly like the reference; shrinks rows evenly when there are many. */}
       <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
         <div
-          className={`grid shrink-0 items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide ${
-            isRemitSheet ? "grid-cols-[1.25fr_2fr]" : "grid-cols-[1.25fr_1fr_1fr]"
-          }`}
-          style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0" }}
+          className="grid shrink-0 items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide"
+          style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}
         >
           <span className="flex items-center justify-center">Currency</span>
           {isRemitSheet ? (
@@ -155,22 +183,11 @@ export function UnimoniRatesPanel({
               Remittance Rate
             </span>
           ) : (
-            <>
-              {showBuyRate ? (
-                <span className="flex items-center justify-center" style={columnSeparator}>
-                  We Buy
-                </span>
-              ) : (
-                <span />
-              )}
-              {showSellRate ? (
-                <span className="flex items-center justify-center" style={columnSeparator}>
-                  We Sell
-                </span>
-              ) : (
-                <span />
-              )}
-            </>
+            valueColumns.map((col) => (
+              <span key={col.key} className="flex items-center justify-center" style={columnSeparator}>
+                {col.header}
+              </span>
+            ))
           )}
         </div>
 
@@ -190,10 +207,8 @@ export function UnimoniRatesPanel({
             ) : (
             <div
               key={rate.id}
-              className={`display-rate-row grid min-h-0 items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif] ${
-                isRemitSheet ? "grid-cols-[1.25fr_2fr]" : "grid-cols-[1.25fr_1fr_1fr]"
-              }`}
-              style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT }}
+              className="display-rate-row grid min-h-0 items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif]"
+              style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT, gridTemplateColumns: gridColumns }}
             >
               <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.25vh] pl-[0.5vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
                 {/* Flag shown bigger and bare (no box) — a thin ring keeps
@@ -213,28 +228,23 @@ export function UnimoniRatesPanel({
                   {formatUnimoniRate(rate.remitRate ?? 0)}
                 </span>
               ) : (
-                <>
-                  {showBuyRate ? (
+                valueColumns.map((col) => {
+                  const value = col.get(rate);
+                  // TRANSFER cells are blank (—) for currencies with no remittance rate.
+                  const display =
+                    col.isTransfer && (value == null || value <= 0)
+                      ? "—"
+                      : formatUnimoniRate(value ?? 0);
+                  return (
                     <span
+                      key={col.key}
                       className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
                       style={{ color: NAVY_TEXT, ...columnSeparator }}
                     >
-                      {formatUnimoniRate(rate.buyRate)}
+                      {display}
                     </span>
-                  ) : (
-                    <span />
-                  )}
-                  {showSellRate ? (
-                    <span
-                      className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
-                      style={{ color: NAVY_TEXT, ...columnSeparator }}
-                    >
-                      {formatUnimoniRate(rate.sellRate)}
-                    </span>
-                  ) : (
-                    <span />
-                  )}
-                </>
+                  );
+                })
               )}
             </div>
             ),

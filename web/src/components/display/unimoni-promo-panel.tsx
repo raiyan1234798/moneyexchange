@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import Image from "next/image";
-import { UnimoniMark } from "@/components/brand/unimoni-logo";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 interface UnimoniPromoPanelProps {
@@ -10,6 +9,10 @@ interface UnimoniPromoPanelProps {
   imageUrl?: string | null;
   videoLoaded?: boolean;
   loopVideo?: boolean;
+  /** "contain" = whole video/image visible (letterbox); "cover" = fill & crop. */
+  fit?: "contain" | "cover";
+  /** Width of the promo area as a % of the screen (desktop/TV only). */
+  widthPercent?: number;
   onVideoLoaded?: () => void;
   onVideoError?: () => void;
   onVideoEnded?: () => void;
@@ -21,6 +24,8 @@ export function UnimoniPromoPanel({
   imageUrl,
   videoLoaded = false,
   loopVideo = true,
+  fit = "contain",
+  widthPercent,
   onVideoLoaded,
   onVideoError,
   onVideoEnded,
@@ -37,12 +42,18 @@ export function UnimoniPromoPanel({
   const showPlaceholder = !showVideo && !showImage;
   const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
 
+  // "cover" fills the area (edges may crop); "contain" keeps the whole frame
+  // visible (letterbox bars on the black panel). Chosen per-branch in Settings.
+  const objectFit = fit === "cover" ? "object-cover" : "object-contain";
+
+  const panelStyle: CSSProperties =
+    showVideo || showImage ? {} : { backgroundColor: UNIMONI_COLORS.panelBlue };
+  if (widthPercent) panelStyle.width = `${widthPercent}%`;
+
   return (
     <section
       className={`display-promo-panel relative flex h-full w-full min-h-0 shrink-0 flex-col overflow-hidden bg-black lg:w-[65%] xl:w-[68%] ${className}`}
-      style={
-        showVideo || showImage ? undefined : { backgroundColor: UNIMONI_COLORS.panelBlue }
-      }
+      style={panelStyle}
     >
       {showVideo ? (
         // Always the native <video> element — including Google Drive links
@@ -52,7 +63,7 @@ export function UnimoniPromoPanel({
         <video
           key={videoUrl}
           src={videoUrl ?? undefined}
-          className="absolute inset-0 z-0 h-full w-full object-contain"
+          className={`absolute inset-0 z-0 h-full w-full ${objectFit}`}
           autoPlay
           muted
           loop={loopVideo}
@@ -68,7 +79,7 @@ export function UnimoniPromoPanel({
           src={imageUrl!}
           alt="Branch advert"
           fill
-          className="absolute inset-0 z-0 object-contain"
+          className={`absolute inset-0 z-0 ${objectFit}`}
           unoptimized
           priority
           onError={() => setFailedImageUrl(imageUrl ?? null)}
@@ -76,8 +87,18 @@ export function UnimoniPromoPanel({
       ) : null}
 
       {showPlaceholder ? (
-        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-3 bg-[#0B1F3A]/80 px-6 text-center">
-          <UnimoniMark size={72} className="shadow-lg" />
+        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-[#0B1F3A]/80 px-6 text-center">
+          <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
+            <Image
+              src="/unimoni-logo-full.png"
+              alt="unimoni"
+              width={300}
+              height={97}
+              className="h-[clamp(2.5rem,7vh,5rem)] w-auto object-contain"
+              unoptimized
+              priority
+            />
+          </div>
           <p className="text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium tracking-wide text-white/90">
             Branch promotional video
           </p>

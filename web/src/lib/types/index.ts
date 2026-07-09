@@ -69,6 +69,22 @@ export interface BranchSettings {
   rateCardDisplaySeconds: number;
   /** Show a third rotating sheet with remittance/transfer rates on the TV. */
   showRemittanceScreen?: boolean;
+  /** Show a TRANSFER column (remittance rate) as the last column of the rate table. */
+  showTransferColumn?: boolean;
+
+  // --- Independent display sizing (each area is resizable on its own) ---
+  /** Width of the video/promo area as a % of the screen (40–80). Rate card takes the rest. Default 65. */
+  videoWidthPercent?: number;
+  /** How the video/image fills its area. "contain" = whole video visible (letterbox); "cover" = fill & crop. Default "contain". */
+  videoFit?: "contain" | "cover";
+  /** Multiplier for rate-card text/row size (0.7–1.5). Default 1. */
+  rateCardScale?: number;
+  /** Multiplier for ticker bar height + text (0.7–1.6). Default 1. */
+  tickerScale?: number;
+  /** Multiplier for the pop-out ticker logo badge size (0.6–2). Default 1. */
+  logoScale?: number;
+  /** Animation style for the pop-out ticker logo. Default "spin". */
+  tickerLogoAnimation?: "spin" | "pulse" | "none";
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";

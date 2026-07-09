@@ -3,8 +3,10 @@
 import { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
-import { UnimoniMark } from "@/components/brand/unimoni-logo";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
+
+/** The real unimoni brand wordmark — shown by default in the pop-out badge. */
+const DEFAULT_LOGO_SRC = "/unimoni-logo-full.png";
 
 interface BreakingNewsTickerProps {
   /** Single line (legacy) — use `messages` when multiple lines should cycle. */
@@ -21,6 +23,12 @@ interface BreakingNewsTickerProps {
   paused?: boolean;
   /** Tab above the blue bar — defaults to "BIG BREAKING". */
   headline?: string;
+  /** Multiplier for the whole ticker bar height + text size (default 1). */
+  heightScale?: number;
+  /** Multiplier for the pop-out logo badge size (default 1). */
+  logoScale?: number;
+  /** Animation applied to the pop-out logo badge. Default "spin". */
+  logoAnimation?: "spin" | "pulse" | "none";
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
@@ -36,10 +44,13 @@ function BreakingNewsTickerInner({
   fontSize,
   paused = false,
   headline = "BIG BREAKING",
+  heightScale = 1,
+  logoScale = 1,
+  logoAnimation = "spin",
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
   const resolvedText = logoText?.trim() || null;
-  const resolvedLogo = resolvedText ? null : logoUrl?.trim() || null;
+  const isTextLogo = Boolean(resolvedText);
 
   const messages = useMemo(() => {
     const fromProp = messagesProp?.map((line) => line.trim()).filter(Boolean);
@@ -52,8 +63,17 @@ function BreakingNewsTickerInner({
   const [cycle, setCycle] = useState(0);
   const [scrolling, setScrolling] = useState(!paused);
   // Bad logo URLs happen in the field (e.g. a Google Images PAGE link pasted
-  // instead of an image) — fall back to the brand mark instead of a broken img.
+  // instead of an image) — fall back to the real brand logo instead of a broken
+  // img.
   const [logoFailed, setLogoFailed] = useState(false);
+
+  // Not a text logo → show the uploaded image if it loads, otherwise the real
+  // unimoni brand wordmark. There is always a logo in the badge now.
+  const imageLogoSrc = isTextLogo
+    ? null
+    : logoUrl?.trim() && !logoFailed
+      ? logoUrl.trim()
+      : DEFAULT_LOGO_SRC;
 
   const activeText = messages[messageIndex] ?? "";
 
@@ -70,13 +90,26 @@ function BreakingNewsTickerInner({
   }, [messages.length, paused]);
 
   // Text logos get a wider badge and a font size that shrinks with length so a
-  // word like "UNIMONI" fits on ONE line instead of wrapping mid-word. The
-  // scrolling strip and headline tab shift right to clear the badge.
-  const badgeWidth = resolvedText ? "clamp(8rem,19vw,15rem)" : "clamp(6rem,13vw,9.5rem)";
-  const contentInset = resolvedText ? "clamp(9rem,21vw,16rem)" : "clamp(7rem,15vw,10.5rem)";
+  // word like "UNIMONI" fits on ONE line instead of wrapping mid-word. Image
+  // logos (the real wordmark) sit on a horizontal white card. The scrolling
+  // strip and headline tab shift right to clear the badge; the whole badge and
+  // the inset scale together with logoScale.
+  const baseBadgeWidth = isTextLogo ? "clamp(8rem,19vw,15rem)" : "clamp(8.5rem,18vw,13rem)";
+  const baseInset = isTextLogo ? "clamp(9rem,21vw,16rem)" : "clamp(9.5rem,20vw,14.5rem)";
+  const badgeWidth = `calc(${baseBadgeWidth} * ${logoScale})`;
+  const contentInset = `calc(${baseInset} * ${logoScale})`;
   const textLen = resolvedText?.length ?? 0;
   const textLogoSize =
     textLen <= 6 ? "clamp(1.1rem,2.4vw,2.5rem)" : textLen <= 10 ? "clamp(0.85rem,1.8vw,1.9rem)" : "clamp(0.6rem,1.3vw,1.35rem)";
+
+  // Independently resizable ticker: bar height and scrolling text both scale.
+  const barHeight = `calc(clamp(3rem,6vh,4.5rem) * ${heightScale})`;
+  const scrollFontSize = fontSize
+    ? `calc(${fontSize}px * ${heightScale})`
+    : `calc(clamp(1.1rem, 2.2vw, 2rem) * ${heightScale})`;
+
+  const spin = logoAnimation === "spin";
+  const pulse = logoAnimation === "pulse";
 
   return (
     <footer className="relative shrink-0">
@@ -95,16 +128,20 @@ function BreakingNewsTickerInner({
 
       {/* Pop-out logo badge (like the reference "BREAKING NEWS" shield):
           bigger than the bar, overlapping it from the left, visually separate
-          from the scrolling strip. Text slides behind it and disappears. */}
+          from the scrolling strip. Text slides behind it and disappears.
+          Image logos sit on a white card so the navy+gold wordmark reads. */}
       <div
-        className="ticker-logo-pulse absolute bottom-[12%] left-[0.6vw] z-40 flex h-[135%] items-center justify-center rounded-[10px] border-2 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)]"
+        className={`absolute bottom-[10%] left-[0.6vw] z-40 flex items-center justify-center overflow-hidden rounded-[10px] border-2 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+          pulse ? "ticker-logo-pulse" : ""
+        }`}
         style={{
           width: badgeWidth,
-          backgroundColor: UNIMONI_COLORS.tickerBlack,
+          height: `calc(${barHeight} * 1.5)`,
+          backgroundColor: isTextLogo ? UNIMONI_COLORS.tickerBlack : "#FFFFFF",
           borderColor: UNIMONI_COLORS.gold,
         }}
       >
-        {resolvedText ? (
+        {isTextLogo ? (
           <span
             className="whitespace-nowrap text-center font-extrabold uppercase leading-none tracking-tight text-white drop-shadow-md"
             style={{
@@ -114,24 +151,23 @@ function BreakingNewsTickerInner({
           >
             {resolvedText}
           </span>
-        ) : resolvedLogo && !logoFailed ? (
+        ) : (
           <Image
-            src={resolvedLogo}
+            src={imageLogoSrc!}
             alt={`${BRAND.name} logo`}
-            width={140}
-            height={140}
-            className="h-[80%] w-[88%] object-contain drop-shadow-md"
+            width={260}
+            height={84}
+            className={`h-[74%] w-[92%] object-contain drop-shadow-sm ${spin ? "ticker-logo-spin" : ""}`}
             unoptimized
+            priority
             onError={() => setLogoFailed(true)}
           />
-        ) : (
-          <UnimoniMark size={64} className="shadow-md" />
         )}
       </div>
 
       <div
-        className="relative flex h-[clamp(3rem,6vh,4.5rem)] overflow-hidden"
-        style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
+        className="relative flex overflow-hidden"
+        style={{ height: barHeight, backgroundColor: UNIMONI_COLORS.tickerBlack }}
       >
         <div
           className="relative min-w-0 flex-1 overflow-hidden"
@@ -146,7 +182,7 @@ function BreakingNewsTickerInner({
                 className="breaking-ticker-text inline-block whitespace-nowrap pl-[100%] font-[Arial,Helvetica,sans-serif] font-bold uppercase tracking-[0.08em] will-change-transform"
                 style={{
                   color: fontColor,
-                  fontSize: fontSize ? `${fontSize}px` : "clamp(1.1rem, 2.2vw, 2rem)",
+                  fontSize: scrollFontSize,
                   animationDuration: `${duration}s`,
                 }}
                 onAnimationEnd={handleAnimationEnd}

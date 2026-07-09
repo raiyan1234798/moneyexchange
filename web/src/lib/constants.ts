@@ -52,6 +52,13 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateCardPosition: "right" as const,
   rateCardDisplaySeconds: 0,
   showRemittanceScreen: false,
+  showTransferColumn: true,
+  videoWidthPercent: 65,
+  videoFit: "contain" as "contain" | "cover",
+  rateCardScale: 1,
+  tickerScale: 1,
+  logoScale: 1,
+  tickerLogoAnimation: "spin" as "spin" | "pulse" | "none",
 };
 
 /** Max Firebase Storage upload per file (matches storage.rules) */
