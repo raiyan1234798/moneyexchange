@@ -336,14 +336,16 @@
     container-type: size;
   }
 
+  /* Large signage type per the client's reference board: text fills about half
+     of each row's height and scales down automatically as currencies are added. */
   .display-rate-currency {
-    font-size: clamp(0.6rem, 32cqh, 1.05rem);
-    line-height: 1.1;
+    font-size: clamp(0.75rem, 50cqh, 2.5rem);
+    line-height: 1.05;
   }
 
   .display-rate-value {
-    font-size: clamp(0.6rem, 32cqh, 1.05rem);
-    line-height: 1.1;
+    font-size: clamp(0.7rem, 46cqh, 2.3rem);
+    line-height: 1.05;
   }
 }
 

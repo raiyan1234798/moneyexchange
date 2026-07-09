@@ -120,23 +120,23 @@ export function UnimoniRatesPanel({
           )}
         </div>
 
-        <div className="display-rates-body min-h-0 flex-1 basis-0 overflow-hidden">
+        <div className="display-rates-body min-h-0 flex-1 basis-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]">
           {rows.map((rate, i) => (
             <div
               key={rate.id}
-              className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.25fr_1fr_1fr] items-stretch font-[Arial,Helvetica,sans-serif]"
+              className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.25fr_1fr_1fr] items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif]"
               style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT }}
             >
-              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.35vh] pl-2 font-bold uppercase" style={{ color: NAVY_TEXT }}>
+              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.3vh] pl-[0.3vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
                 {getRateFlag(rate) ? (
                   <span
-                    className="flex h-[78%] max-h-[2.6em] shrink-0 items-center justify-center rounded-[5px] px-[0.55vw]"
+                    className="flex h-[92%] w-[34%] min-w-[2.4em] shrink-0 items-center justify-center rounded-[6px] shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
                     style={{ background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${NAVY_TEXT} 100%)` }}
                   >
-                    <FlagChip flag={getRateFlag(rate)!} className="!h-[1.15em] !w-[1.75em]" />
+                    <FlagChip flag={getRateFlag(rate)!} className="!h-[1.3em] !w-[2em]" />
                   </span>
                 ) : null}
-                <span className="truncate">{rate.currencyCode}</span>
+                <span className="flex-1 truncate text-center">{rate.currencyCode}</span>
               </span>
               {showBuyRate ? (
                 <span
