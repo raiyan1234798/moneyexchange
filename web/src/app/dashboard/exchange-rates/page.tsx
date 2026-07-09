@@ -98,6 +98,8 @@ const emptyCurrencyForm = {
   currencyName: "",
   country: "",
   flag: "",
+  buyRate: "",
+  sellRate: "",
 };
 
 export default function ExchangeRatesPage() {
@@ -302,6 +304,16 @@ export default function ExchangeRatesPage() {
       }
       return;
     }
+    const buyRate = Number(currencyForm.buyRate);
+    const sellRate = Number(currencyForm.sellRate);
+    if (!Number.isFinite(buyRate) || buyRate <= 0 || !Number.isFinite(sellRate) || sellRate <= 0) {
+      toast.error("Enter positive We Buy and We Sell values");
+      return;
+    }
+    if (rates.some((r) => r.currencyCode.toUpperCase() === code)) {
+      toast.error(`${code} is already on this branch — edit its rates below instead`);
+      return;
+    }
     setCreating(true);
 
     // Admins and branch managers can't write the global catalog (superAdmin
@@ -318,8 +330,8 @@ export default function ExchangeRatesPage() {
               currencyName: currencyForm.currencyName,
               country: currencyForm.country,
               flag: currencyForm.flag,
-              buyRate: 1,
-              sellRate: 1,
+              buyRate,
+              sellRate,
             },
           ],
           {
@@ -329,7 +341,7 @@ export default function ExchangeRatesPage() {
           },
           { autoCreateCurrencies: false, requireApproval, actorRole: profile.role },
         );
-        toast.success(`${code} added — set its buy/sell values below and Publish`);
+        toast.success(`${code} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`);
         setCreateOpen(false);
         setCurrencyForm(emptyCurrencyForm);
         setRates(await listExchangeRates(effectiveBranchId));
@@ -373,8 +385,11 @@ export default function ExchangeRatesPage() {
           userName: profile.displayName || profile.email,
           branchName: branch?.name || effectiveBranchId,
         },
+        { buyRate, sellRate },
       );
-      toast.success(`${payload.currencyCode} created and added to branch`);
+      toast.success(
+        `${payload.currencyCode} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`,
+      );
       setCreateOpen(false);
       setCurrencyForm(emptyCurrencyForm);
       setRates(await listExchangeRates(effectiveBranchId));
@@ -842,8 +857,8 @@ export default function ExchangeRatesPage() {
             }
           >
             <p className="text-sm text-muted-foreground">
-              Enter a 3-letter code (e.g. JPY) and a name — it appears on this branch with
-              placeholder rates that you edit and Publish below before customers see real values.
+              Enter a 3-letter code (e.g. JPY), its name, and your We Buy / We Sell values — one
+              click saves and publishes it straight to this branch&apos;s display.
             </p>
           </ContentPanel>
         ) : null}
@@ -896,6 +911,28 @@ export default function ExchangeRatesPage() {
                         className="rounded-xl"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Label>We Buy</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={currencyForm.buyRate}
+                        onChange={(e) => setCurrencyForm((p) => ({ ...p, buyRate: e.target.value }))}
+                        placeholder="e.g. 3625"
+                        className="rounded-xl tabular-nums"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>We Sell</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={currencyForm.sellRate}
+                        onChange={(e) => setCurrencyForm((p) => ({ ...p, sellRate: e.target.value }))}
+                        placeholder="e.g. 3685"
+                        className="rounded-xl tabular-nums"
+                      />
+                    </div>
                   </FormSection>
                   <DialogFooter>
                     <Button
@@ -904,11 +941,13 @@ export default function ExchangeRatesPage() {
                         creating ||
                         !isValidCurrencyCode(currencyForm.currencyCode) ||
                         !currencyForm.currencyName.trim() ||
+                        !(Number(currencyForm.buyRate) > 0) ||
+                        !(Number(currencyForm.sellRate) > 0) ||
                         !effectiveBranchId
                       }
                       className="rounded-xl"
                     >
-                      {creating ? "Creating..." : "Create & Add to Branch"}
+                      {creating ? "Publishing…" : "Save & Publish to Branch"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>

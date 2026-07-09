@@ -96,6 +96,7 @@ export async function addBranchRate(
   branchId: string,
   currency: Currency,
   actor: { userId: string; userName: string; branchName: string },
+  initialRates?: { buyRate: number; sellRate: number },
 ): Promise<void> {
   const existing = await listExchangeRates(branchId);
   const already = existing.find((r) => r.currencyCode === currency.currencyCode);
@@ -103,6 +104,7 @@ export async function addBranchRate(
     await updateDocument(COLLECTIONS.exchangeRates, already.id, {
       isHidden: false,
       status: "published",
+      ...(initialRates ? { buyRate: initialRates.buyRate, sellRate: initialRates.sellRate } : {}),
       updatedBy: actor.userId,
       updatedByName: actor.userName,
       updatedAt: new Date(),
@@ -113,8 +115,8 @@ export async function addBranchRate(
     branchId,
     currencyCode: currency.currencyCode,
     displayName: currency.currencyName || currency.currencyCode,
-    buyRate: 1.0,
-    sellRate: 1.0,
+    buyRate: initialRates?.buyRate ?? 1.0,
+    sellRate: initialRates?.sellRate ?? 1.0,
     version: 1,
     displayOrder: existing.length + 1,
     isHidden: false,
