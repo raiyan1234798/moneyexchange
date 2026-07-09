@@ -98,7 +98,9 @@ export function UnimoniRatesPanel({
         </div>
       </div>
 
-      <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
+      {/* White table card hugs its rows (blue shows below when few currencies),
+          exactly like the reference; shrinks rows evenly when there are many. */}
+      <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
         <div
           className="grid shrink-0 grid-cols-[1.25fr_1fr_1fr] items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide"
           style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0" }}
@@ -120,23 +122,23 @@ export function UnimoniRatesPanel({
           )}
         </div>
 
-        <div className="display-rates-body min-h-0 flex-1 basis-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]">
+        <div className="display-rates-body min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]">
           {rows.map((rate, i) => (
             <div
               key={rate.id}
-              className="display-rate-row grid min-h-0 flex-1 basis-0 grid-cols-[1.25fr_1fr_1fr] items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif]"
+              className="display-rate-row grid min-h-0 grid-cols-[1.25fr_1fr_1fr] items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif]"
               style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT }}
             >
-              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.3vh] pl-[0.3vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
-                {getRateFlag(rate) ? (
-                  <span
-                    className="flex h-[92%] w-[34%] min-w-[2.4em] shrink-0 items-center justify-center rounded-[6px] shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
-                    style={{ background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${NAVY_TEXT} 100%)` }}
-                  >
-                    <FlagChip flag={getRateFlag(rate)!} className="!h-[1.3em] !w-[2em]" />
-                  </span>
-                ) : null}
-                <span className="flex-1 truncate text-center">{rate.currencyCode}</span>
+              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.5vw] py-[0.25vh] pl-[0.3vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
+                {/* Every row gets the same navy flag pill (globe fallback for
+                    custom currencies) so newly added currencies look identical. */}
+                <span
+                  className="flex h-[88%] w-[3em] max-w-[38%] shrink-0 items-center justify-center rounded-[5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
+                  style={{ background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${NAVY_TEXT} 100%)` }}
+                >
+                  <FlagChip flag={getRateFlag(rate) ?? "🌍"} className="!h-[1.1em] !w-[1.65em]" />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-center">{rate.currencyCode}</span>
               </span>
               {showBuyRate ? (
                 <span
