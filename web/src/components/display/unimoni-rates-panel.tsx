@@ -36,6 +36,8 @@ interface UnimoniRatesPanelProps {
   widthPercent?: number;
   /** Custom brand logo (rebrand) for the header — overrides the unimoni logo. */
   headerLogoUrl?: string | null;
+  /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
+  rateCardNote?: string | null;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -83,6 +85,7 @@ export function UnimoniRatesPanel({
   scale = 1,
   widthPercent,
   headerLogoUrl,
+  rateCardNote,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -109,6 +112,10 @@ export function UnimoniRatesPanel({
   // similar length, so row heights stay consistent across the rotation).
   const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
+  // The note line shows on the FIRST rate screen only (page 0), never on later
+  // pages or the transfer card.
+  const isFirstSheet = sheetIndex % sheetCount === 0 && activeSheet.kind === "rates";
+  const noteText = rateCardNote?.trim() || "";
 
   if (variant === "board") {
     return (
@@ -260,6 +267,21 @@ export function UnimoniRatesPanel({
             ),
           )}
         </div>
+
+        {/* Custom note line — FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */}
+        {isFirstSheet && noteText ? (
+          <div
+            className="shrink-0 px-2 py-[0.7vh] text-center font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-tight tracking-wide"
+            style={{
+              color: NAVY_TEXT,
+              backgroundColor: "#FBEFC6",
+              borderTop: `2px solid ${UNIMONI_COLORS.gold}`,
+              fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)",
+            }}
+          >
+            {noteText}
+          </div>
+        ) : null}
 
         {sheetCount > 1 ? (
           <div className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh]">

@@ -97,6 +97,8 @@ export interface BranchSettings {
   headerLogoUrl?: string | null;
   /** Logo images that scroll right-to-left in the ticker alongside the messages. */
   scrollingLogos?: string[];
+  /** A note line shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
+  rateCardNote?: string | null;
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";

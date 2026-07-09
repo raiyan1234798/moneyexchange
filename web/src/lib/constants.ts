@@ -55,10 +55,11 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showTransferColumn: false,
   showTransferCard: true,
   transferLocalLabel: "UGX",
-  videoWidthPercent: 70,
-  // Default "contain" = show the WHOLE video/image with a blurred fill behind it
-  // (no cropping, no black bars). "cover" = fill & crop the edges (single element).
-  videoFit: "contain" as "contain" | "cover",
+  videoWidthPercent: 72,
+  // Default "cover" = the video/image FULLY fills the area (no black bars, no
+  // blurred backdrop); edges may crop. "contain" = show the whole frame with a
+  // blurred fill behind it (nothing cropped).
+  videoFit: "cover" as "contain" | "cover",
   rateCardScale: 1,
   tickerScale: 1,
   logoScale: 1,
@@ -67,6 +68,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showTickerHeadline: true,
   headerLogoUrl: null as string | null,
   scrollingLogos: [] as string[],
+  rateCardNote: null as string | null,
 };
 
 /** Cloudflare R2 free tier is 10 GB total — warn/stop uploads near the cap. */

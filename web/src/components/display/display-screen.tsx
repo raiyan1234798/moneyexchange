@@ -29,6 +29,7 @@ interface TimedRatesPanelProps {
   scale: number;
   widthPercent: number;
   headerLogoUrl: string | null;
+  rateCardNote: string | null;
 }
 
 function TimedRatesPanel({
@@ -41,6 +42,7 @@ function TimedRatesPanel({
   scale,
   widthPercent,
   headerLogoUrl,
+  rateCardNote,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -65,6 +67,7 @@ function TimedRatesPanel({
       scale={scale}
       widthPercent={widthPercent}
       headerLogoUrl={headerLogoUrl}
+      rateCardNote={rateCardNote}
     />
   );
 }
@@ -90,9 +93,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateCardDisplaySeconds = branchSettings.rateCardDisplaySeconds ?? 0;
 
   // Independently resizable areas (each editable in Settings → Display sizing).
-  const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 70));
+  const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 72));
   const rateWidthPercent = 100 - videoWidthPercent;
-  const videoFit = branchSettings.videoFit ?? "contain";
+  const videoFit = branchSettings.videoFit ?? "cover";
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
@@ -104,6 +107,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
+  const rateCardNote = branchSettings.rateCardNote?.trim() || null;
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -328,6 +332,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       scale={rateCardScale}
       widthPercent={rateWidthPercent}
       headerLogoUrl={headerLogoUrl}
+      rateCardNote={rateCardNote}
     />
   );
 

@@ -349,6 +349,19 @@ function BranchSettingsForm({
           always $ (USD).
         </p>
       </div>
+      <div className="space-y-2">
+        <Label>Rate card note — first screen only</Label>
+        <Input
+          value={settings.rateCardNote ?? ""}
+          onChange={(event) => setSettings({ ...settings, rateCardNote: event.target.value || null })}
+          placeholder="USD Small Bill BUY @ 3600"
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          Shows as a highlighted line at the bottom of the FIRST rate screen only (not on later pages
+          or the transfer card). Edit the rate here anytime. Leave blank to hide it.
+        </p>
+      </div>
 
       {/* ---- Independent display sizing: each area resizes on its own ---- */}
       <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
@@ -386,8 +399,8 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="contain">Whole video + blurred fill — no crop, no black (recommended)</SelectItem>
-                <SelectItem value="cover">Fill &amp; crop edges (single layer, lighter)</SelectItem>
+                <SelectItem value="cover">Fill the whole area — no bars (may crop edges) (recommended)</SelectItem>
+                <SelectItem value="contain">Show the whole frame + blurred fill (nothing cropped)</SelectItem>
               </SelectContent>
             </Select>
           </div>
