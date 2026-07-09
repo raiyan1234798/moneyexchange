@@ -52,7 +52,10 @@ import {
   approveUserInvite,
   createUserInvite,
   deleteUserInvite,
+  deleteUserProfile,
+  setUserActive,
   updateUserInvite,
+  updateUserProfile,
 } from "@/lib/services/manager-service";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import type { AppUser, UserInvite, UserRole } from "@/lib/types";
@@ -71,13 +74,20 @@ const MANAGED_ROLES: UserRole[] = ["admin", "branchManager", "branchUser"];
 type InviteForm = typeof emptyForm & { inviteId?: string };
 
 export default function UsersPage() {
-  const { user, profile, hasPermission, isBranchManager } = useAuth();
+  const { user, profile, hasPermission, isBranchManager, isSuperAdmin } = useAuth();
   const { branches, managerBranchId } = useBranchScope();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<UserInvite[]>([]);
   const [open, setOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserInvite | null>(null);
+  const [editUser, setEditUser] = useState<AppUser | null>(null);
+  const [editUserForm, setEditUserForm] = useState({
+    displayName: "",
+    role: "branchManager" as "admin" | "branchManager" | "branchUser",
+    branchId: "",
+  });
+  const [deleteUserTarget, setDeleteUserTarget] = useState<AppUser | null>(null);
   const [form, setForm] = useState<InviteForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -257,6 +267,74 @@ export default function UsersPage() {
       setDeleteTarget(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete invite");
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  function openEditUser(member: AppUser) {
+    setEditUserForm({
+      displayName: member.displayName,
+      role: (member.role === "superAdmin" ? "admin" : member.role) as
+        | "admin"
+        | "branchManager"
+        | "branchUser",
+      branchId: member.branchId ?? "",
+    });
+    setEditUser(member);
+  }
+
+  async function handleEditUser() {
+    if (!editUser || !user || !profile) return;
+    setActionId(editUser.uid);
+    try {
+      await updateUserProfile(
+        editUser.uid,
+        {
+          displayName: editUserForm.displayName,
+          role: editUserForm.role,
+          branchId: editUserForm.role === "admin" ? null : editUserForm.branchId || null,
+        },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success("User updated");
+      setEditUser(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update user");
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function handleToggleActive(member: AppUser) {
+    if (!user || !profile) return;
+    setActionId(member.uid);
+    try {
+      await setUserActive(
+        { uid: member.uid, branchId: member.branchId },
+        !member.isActive,
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success(member.isActive ? `${member.displayName} deactivated` : `${member.displayName} activated`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update status");
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function handleDeleteUser() {
+    if (!deleteUserTarget || !user || !profile) return;
+    setActionId(deleteUserTarget.uid);
+    try {
+      await deleteUserProfile(
+        { uid: deleteUserTarget.uid, email: deleteUserTarget.email, branchId: deleteUserTarget.branchId },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success("User removed");
+      setDeleteUserTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove user");
     } finally {
       setActionId(null);
     }
@@ -610,10 +688,133 @@ export default function UsersPage() {
                   header: "Status",
                   cell: (m) => <StatusBadge status={m.isActive ? "active" : "inactive"} />,
                 },
+                {
+                  key: "actions",
+                  header: "Actions",
+                  className: "text-right",
+                  cell: (m) => {
+                    // Rules: only manageUsers roles may edit; admins cannot touch
+                    // superAdmin accounts; nobody edits their own row (lockout guard).
+                    const canAct =
+                      hasPermission("manageUsers") &&
+                      m.uid !== user?.uid &&
+                      (m.role !== "superAdmin" || isSuperAdmin);
+                    if (!canAct) return null;
+                    return (
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          disabled={actionId === m.uid}
+                          onClick={() => openEditUser(m)}
+                        >
+                          <Pencil className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          disabled={actionId === m.uid}
+                          onClick={() => void handleToggleActive(m)}
+                        >
+                          {m.isActive ? "Deactivate" : "Activate"}
+                        </Button>
+                        {isSuperAdmin ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg text-destructive hover:text-destructive"
+                            disabled={actionId === m.uid}
+                            onClick={() => setDeleteUserTarget(m)}
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Delete
+                          </Button>
+                        ) : null}
+                      </div>
+                    );
+                  },
+                },
               ]}
             />
           </ContentPanel>
         ) : null}
+
+        <Dialog open={!!editUser} onOpenChange={(next) => !next && setEditUser(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit user</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">{editUser?.email}</p>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  value={editUserForm.displayName}
+                  onChange={(e) => setEditUserForm((f) => ({ ...f, displayName: e.target.value }))}
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Role</Label>
+                <Select
+                  value={editUserForm.role}
+                  onValueChange={(value) =>
+                    setEditUserForm((f) => ({ ...f, role: value as typeof f.role }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="admin">{ROLE_LABELS.admin}</SelectItem>
+                    <SelectItem value="branchManager">{ROLE_LABELS.branchManager}</SelectItem>
+                    <SelectItem value="branchUser">{ROLE_LABELS.branchUser}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {editUserForm.role !== "admin" ? (
+                <BranchSelector
+                  branches={branches}
+                  value={editUserForm.branchId}
+                  onChange={(branchId) => setEditUserForm((f) => ({ ...f, branchId }))}
+                  label="Assigned branch"
+                />
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                onClick={() => void handleEditUser()}
+                disabled={
+                  !editUserForm.displayName.trim() ||
+                  (editUserForm.role !== "admin" && !editUserForm.branchId) ||
+                  actionId === editUser?.uid
+                }
+                className="rounded-xl"
+              >
+                {actionId === editUser?.uid ? "Saving…" : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AlertDialog open={!!deleteUserTarget} onOpenChange={(open) => !open && setDeleteUserTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove {deleteUserTarget?.displayName}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                <strong>{deleteUserTarget?.email}</strong> will lose access immediately and can only
+                return if re-invited. Their past activity stays in the audit trail.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void handleDeleteUser()}>Remove user</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {users.length === 0 && invites.length === 0 ? (
           <EmptyState

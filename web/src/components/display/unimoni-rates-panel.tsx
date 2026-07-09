@@ -3,10 +3,11 @@
 import {
   UNIMONI_COLORS,
   formatUnimoniRate,
-  getRateDisplayLabel,
+  getRateFlag,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
+import { LiveClock } from "@/components/display/live-clock";
 import type { ExchangeRate } from "@/lib/types";
 
 interface UnimoniRatesPanelProps {
@@ -59,7 +60,7 @@ export function UnimoniRatesPanel({
       style={{ backgroundColor: UNIMONI_COLORS.navy }}
     >
       <div
-        className="flex shrink-0 flex-col items-center gap-1 px-3 py-2"
+        className="relative flex shrink-0 flex-col items-center gap-1 px-3 py-2"
         style={{ backgroundColor: UNIMONI_COLORS.headerBlue }}
       >
         <UnimoniLogoImage
@@ -72,6 +73,7 @@ export function UnimoniRatesPanel({
         <p className="font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.8rem)] font-bold uppercase tracking-[0.14em] text-white">
           Exchange Rates
         </p>
+        <LiveClock className="absolute right-3 top-1/2 -translate-y-1/2" />
       </div>
 
       <div
@@ -91,11 +93,15 @@ export function UnimoniRatesPanel({
             style={{ backgroundColor: i % 2 === 1 ? "rgba(255,255,255,0.06)" : "transparent" }}
           >
             <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.5vw] pl-1 font-bold uppercase text-white">
-              <span
-                className="hidden h-[1.4em] w-[3px] shrink-0 rounded-full sm:block"
-                style={{ backgroundColor: UNIMONI_COLORS.gold }}
-              />
-              <span className="truncate">{getRateDisplayLabel(rate)}</span>
+              {getRateFlag(rate) ? (
+                <span className="shrink-0 leading-none">{getRateFlag(rate)}</span>
+              ) : (
+                <span
+                  className="hidden h-[1.4em] w-[3px] shrink-0 rounded-full sm:block"
+                  style={{ backgroundColor: UNIMONI_COLORS.gold }}
+                />
+              )}
+              <span className="truncate">{rate.currencyCode}</span>
             </span>
             {showBuyRate ? (
               <span
@@ -159,12 +165,15 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className }: 
           className="h-[clamp(1.5rem,3.6vh,3.25rem)] w-auto object-contain"
           priority
         />
-        <p
-          className="truncate font-[Arial,Helvetica,sans-serif] font-bold uppercase tracking-[0.16em] text-white"
-          style={{ fontSize: "clamp(0.9rem,1.9vw,1.7rem)" }}
-        >
-          {branchName?.trim() ? branchName : "Exchange Rates"}
-        </p>
+        <div className="flex min-w-0 items-center gap-[2vw]">
+          <p
+            className="truncate font-[Arial,Helvetica,sans-serif] font-bold uppercase tracking-[0.16em] text-white"
+            style={{ fontSize: "clamp(0.9rem,1.9vw,1.7rem)" }}
+          >
+            {branchName?.trim() ? branchName : "Exchange Rates"}
+          </p>
+          <LiveClock className="shrink-0" />
+        </div>
       </div>
 
       <div
@@ -181,10 +190,11 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className }: 
             style={{ backgroundColor: UNIMONI_COLORS.panelBlue, borderColor: `${UNIMONI_COLORS.gold}33` }}
           >
             <span
-              className="min-w-0 truncate font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-none text-white"
+              className="flex min-w-0 items-center gap-[1vmin] truncate font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-none text-white"
               style={{ fontSize: "clamp(1.1rem,3.2vmin,3.4rem)" }}
             >
-              {getRateDisplayLabel(rate)}
+              {getRateFlag(rate) ? <span className="shrink-0">{getRateFlag(rate)}</span> : null}
+              <span className="truncate">{rate.currencyCode}</span>
             </span>
             <div className="flex shrink-0 items-stretch gap-[1.2vmin]">
               {showBuyRate ? <BoardValue label="Buy" value={rate.buyRate} color={BUY_COLOR} /> : null}

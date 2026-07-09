@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Building2, Copy, ExternalLink } from "lucide-react";
+import { Plus, Building2, Copy, ExternalLink, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
@@ -43,7 +43,7 @@ import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
-import { createBranch, disableBranch, subscribeBranches } from "@/lib/services/branch-service";
+import { createBranch, disableBranch, subscribeBranches, updateBranch } from "@/lib/services/branch-service";
 import { createUserInvite } from "@/lib/services/manager-service";
 import type { Branch } from "@/lib/types";
 
@@ -83,6 +83,7 @@ export default function BranchesPage() {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [editBranch, setEditBranch] = useState<Branch | null>(null);
   const [displayBranchId, setDisplayBranchId] = useState("");
 
   const activeBranches = useMemo(
@@ -106,9 +107,73 @@ export default function BranchesPage() {
     );
   }, [clearNotice, onError]);
 
+  function openEditBranch(branch: Branch) {
+    setForm({
+      name: branch.name,
+      code: branch.code,
+      address: branch.address ?? "",
+      city: branch.city ?? "",
+      country: branch.country ?? "",
+      phone: branch.phone ?? "",
+      email: branch.email ?? "",
+      workingHours: branch.workingHours ?? "09:00 - 21:00",
+      slogan: branch.settings?.slogan ?? "",
+      brandingColor: branch.brandingColor ?? "#0066B3",
+      managerEmail: "",
+      managerName: "",
+    });
+    setEditBranch(branch);
+    setOpen(true);
+  }
+
+  function closeDialog() {
+    setOpen(false);
+    setEditBranch(null);
+    setForm(emptyForm);
+  }
+
+  async function handleEnable(branch: Branch) {
+    if (!user || !profile) return;
+    try {
+      await updateBranch(
+        branch.id,
+        { status: "active" },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success(`${branch.name} is active again`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to enable branch");
+    }
+  }
+
   async function handleCreate() {
     if (!user || !profile) return;
     setSaving(true);
+
+    if (editBranch) {
+      try {
+        const { slogan, brandingColor, managerEmail, managerName, ...branchFields } = form;
+        void managerEmail;
+        void managerName;
+        await updateBranch(
+          editBranch.id,
+          {
+            ...branchFields,
+            brandingColor,
+            settings: { ...editBranch.settings, slogan },
+          },
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        toast.success(`${form.name} updated`);
+        closeDialog();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to update branch");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     try {
       const { slogan, brandingColor, managerEmail, managerName, ...branchFields } = form;
       const branchId = await createBranch(
@@ -165,11 +230,11 @@ export default function BranchesPage() {
         <FirestoreSetupNotice message={notice} />
         {hasPermission("createBranch") ? (
           <PageActions>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
               <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add Branch</Button>} />
               <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-lg">
                 <DialogHeader>
-                  <DialogTitle>Create Branch</DialogTitle>
+                  <DialogTitle>{editBranch ? `Edit ${editBranch.name}` : "Create Branch"}</DialogTitle>
                 </DialogHeader>
                 <FormSection title="Location Details" description="Basic branch information">
                   {(Object.keys(emptyForm) as Array<keyof typeof emptyForm>)
@@ -230,6 +295,7 @@ export default function BranchesPage() {
                     </div>
                   </div>
                 </FormSection>
+                {editBranch ? null : (
                 <FormSection title="Branch Manager" description="Optional — invite a manager by Gmail for first-time Google sign-in">
                   <div className="space-y-2">
                     <Label>{fieldLabels.managerEmail}</Label>
@@ -251,9 +317,10 @@ export default function BranchesPage() {
                     />
                   </div>
                 </FormSection>
+                )}
                 <DialogFooter>
                   <Button onClick={() => void handleCreate()} disabled={saving || !form.name || !form.code} className="rounded-xl">
-                    {saving ? "Creating..." : "Save Branch"}
+                    {saving ? "Saving..." : editBranch ? "Save Changes" : "Save Branch"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -352,26 +419,41 @@ export default function BranchesPage() {
                   key: "actions",
                   header: "Actions",
                   className: "text-right",
-                  cell: (b) =>
-                    hasPermission("deleteBranch") ? (
-                      <AlertDialog>
-                        <AlertDialogTrigger render={<Button variant="outline" size="sm" className="rounded-lg">Disable</Button>} />
-                        <AlertDialogContent className="rounded-2xl sm:max-w-md">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Disable {b.name}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This branch will no longer appear in active operations. Display signage and rates will remain but the branch status changes to disabled.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="rounded-xl" onClick={() => void handleDisable(b)}>
-                              Disable Branch
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    ) : null,
+                  cell: (b) => (
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {hasPermission("editBranch") ? (
+                        <Button variant="outline" size="sm" className="rounded-lg" onClick={() => openEditBranch(b)}>
+                          <Pencil className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
+                      ) : null}
+                      {hasPermission("deleteBranch") ? (
+                        b.status === "active" ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger render={<Button variant="outline" size="sm" className="rounded-lg">Disable</Button>} />
+                            <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Disable {b.name}?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This branch will no longer appear in active operations. Display signage and rates will remain but the branch status changes to disabled.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                                <AlertDialogAction className="rounded-xl" onClick={() => void handleDisable(b)}>
+                                  Disable Branch
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <Button variant="outline" size="sm" className="rounded-lg" onClick={() => void handleEnable(b)}>
+                            Enable
+                          </Button>
+                        )
+                      ) : null}
+                    </div>
+                  ),
                 },
               ]}
             />

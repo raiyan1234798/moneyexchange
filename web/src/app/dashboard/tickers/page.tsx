@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, TextCursorInput } from "lucide-react";
+import { Pencil, Plus, TextCursorInput, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
@@ -25,7 +25,17 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
+import { deleteTicker, subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { syncTickerToBranches } from "@/lib/services/branch-sync";
 import type { TickerMessage } from "@/lib/types";
 
@@ -40,6 +50,8 @@ export default function TickersPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [fontColor, setFontColor] = useState("#FFFFFF");
   const [applyToAll, setApplyToAll] = useState(false);
+  const [editTarget, setEditTarget] = useState<TickerMessage | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TickerMessage | null>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
@@ -57,6 +69,38 @@ export default function TickersPage() {
     );
   }, [clearNotice, effectiveBranchId, onError]);
 
+  function openEdit(ticker: TickerMessage) {
+    setMessages(ticker.messages.map((m) => m.text).join("\n"));
+    setScrollSpeed(ticker.scrollSpeed || 30);
+    setLogoUrl(ticker.logoUrl ?? "");
+    setFontColor(ticker.fontColor ?? "#FFFFFF");
+    setApplyToAll(false);
+    setEditTarget(ticker);
+    setOpen(true);
+  }
+
+  function closeDialog() {
+    setOpen(false);
+    setEditTarget(null);
+    setMessages("");
+    setApplyToAll(false);
+  }
+
+  async function handleDeleteTicker() {
+    if (!user || !profile || !deleteTarget) return;
+    try {
+      await deleteTicker(
+        deleteTarget.id,
+        { userId: user.uid, userName: profile.displayName || profile.email },
+        deleteTarget.branchId,
+      );
+      toast.success("Scrolling messages removed from display");
+      setDeleteTarget(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete messages");
+    }
+  }
+
   async function handleCreateTicker() {
     if (!user || !profile || !effectiveBranchId) return;
 
@@ -68,6 +112,27 @@ export default function TickersPage() {
 
     if (lines.length === 0) {
       toast.error("Enter at least one scrolling message");
+      return;
+    }
+
+    if (editTarget) {
+      try {
+        await updateTicker(
+          editTarget.id,
+          {
+            messages: lines,
+            scrollSpeed,
+            fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
+            logoUrl: logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
+            branchId: editTarget.branchId,
+          },
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        toast.success("Scrolling messages updated on display");
+        closeDialog();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to update messages");
+      }
       return;
     }
 
@@ -130,11 +195,11 @@ export default function TickersPage() {
 
         {canManageTickers && effectiveBranchId ? (
           <PageActions>
-            <Dialog open={open} onOpenChange={setOpen}>
+            <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
               <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add scrolling text</Button>} />
               <DialogContent className="rounded-2xl sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Scrolling display text</DialogTitle>
+                  <DialogTitle>{editTarget ? "Edit scrolling text" : "Scrolling display text"}</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
                   Type one message per line — they scroll right-to-left on your TV footer.
@@ -178,7 +243,7 @@ export default function TickersPage() {
                       className="rounded-xl"
                     />
                   </div>
-                  {canApplyToAll ? (
+                  {canApplyToAll && !editTarget ? (
                     <ApplyToAllCheckbox
                       checked={applyToAll}
                       onChange={setApplyToAll}
@@ -192,7 +257,7 @@ export default function TickersPage() {
                     disabled={!messages.trim()}
                     className="rounded-xl"
                   >
-                    Publish to Displays
+                    {editTarget ? "Save changes" : "Publish to Displays"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -253,10 +318,49 @@ export default function TickersPage() {
                       <span className="text-xs text-muted-foreground">{t.paused ? "Paused" : "Live"}</span>
                     ),
                 },
+                {
+                  key: "actions",
+                  header: "Actions",
+                  className: "text-right",
+                  cell: (t) =>
+                    canManageTickers ? (
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <Button variant="outline" size="sm" className="rounded-lg" onClick={() => openEdit(t)}>
+                          <Pencil className="mr-1 h-3 w-3" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget(t)}
+                        >
+                          <Trash2 className="mr-1 h-3 w-3" />
+                          Delete
+                        </Button>
+                      </div>
+                    ) : null,
+                },
               ]}
             />
           </ContentPanel>
         )}
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(next) => !next && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete scrolling messages?</AlertDialogTitle>
+              <AlertDialogDescription>
+                The messages will disappear from the branch display immediately. The display falls
+                back to the branch slogan or default welcome text.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => void handleDeleteTicker()}>Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </PageShell>
     </>
   );

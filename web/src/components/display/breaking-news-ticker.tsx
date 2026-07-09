@@ -75,12 +75,12 @@ function BreakingNewsTickerInner({
 
       <div
         className="relative flex h-[clamp(3rem,6vh,4.5rem)] overflow-hidden"
-        style={{ backgroundColor: UNIMONI_COLORS.navy }}
+        style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
       >
         <div
           className="relative z-20 flex w-[clamp(4.5rem,10vw,7rem)] shrink-0 items-center justify-center border-r-2 shadow-[0_0_12px_rgba(201,162,39,0.35)]"
           style={{
-            backgroundColor: UNIMONI_COLORS.panelBlue,
+            backgroundColor: UNIMONI_COLORS.tickerBlack,
             borderColor: UNIMONI_COLORS.gold,
           }}
         >
@@ -102,7 +102,9 @@ function BreakingNewsTickerInner({
 
         <div
           className="relative min-w-0 flex-1 overflow-hidden"
-          style={{ backgroundColor: UNIMONI_COLORS.panelBlue }}
+          // Scrolling strip is black with white text (per client) — the gold
+          // headline tab and underline stay for brand contrast.
+          style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
         >
           {scrolling && activeText ? (
             <div key={`${messageIndex}-${cycle}`} className="absolute inset-y-0 flex w-full items-center">

@@ -270,7 +270,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         <button
           type="button"
           onClick={() => void toggleFullscreen()}
-          className="absolute right-3 top-3 z-50 flex items-center gap-2 rounded-lg border border-white/20 bg-[#0B1F3A]/90 px-4 py-2.5 text-sm font-medium text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-[#1A4D8F]/95"
+          className="absolute left-3 top-3 z-50 flex items-center gap-2 rounded-lg border border-white/20 bg-[#0B1F3A]/90 px-4 py-2.5 text-sm font-medium text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-[#1A4D8F]/95"
         >
           <Maximize2 className="h-3.5 w-3.5" />
           Fullscreen
@@ -280,7 +280,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           type="button"
           onClick={() => void toggleFullscreen()}
           aria-label="Exit fullscreen"
-          className="absolute right-3 top-3 z-50 rounded-lg bg-black/40 p-2 text-zinc-500 opacity-0 transition-opacity hover:text-white focus:opacity-100"
+          className="absolute left-3 top-3 z-50 rounded-lg bg-black/40 p-2 text-zinc-500 opacity-0 transition-opacity hover:text-white focus:opacity-100"
         >
           <Minimize2 className="h-4 w-4" />
         </button>

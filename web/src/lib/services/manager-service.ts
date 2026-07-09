@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { db, functions } from "@/lib/firebase/client";
+import { writeAuditLog } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 
 function mapFirestoreError(error: unknown, fallback: string): Error {
@@ -140,6 +141,85 @@ export async function deleteUserInvite(inviteId: string): Promise<void> {
     await deleteDoc(doc(db, COLLECTIONS.userInvites, email));
   } catch (error) {
     throw mapFirestoreError(error, "Failed to delete invite");
+  }
+}
+
+/**
+ * Update an active user's profile (name / role / branch). Firestore rules:
+ * superAdmin may edit anyone; admin may edit non-superAdmin users only and
+ * cannot grant superAdmin.
+ */
+export async function updateUserProfile(
+  uid: string,
+  data: { displayName: string; role: "admin" | "branchManager" | "branchUser"; branchId: string | null },
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  if (data.role !== "admin" && !data.branchId) {
+    throw new Error("A branch is required for this role.");
+  }
+  try {
+    await updateDoc(doc(db, COLLECTIONS.users, uid), {
+      displayName: data.displayName.trim(),
+      role: data.role,
+      branchId: data.role === "admin" ? null : data.branchId,
+      updatedAt: serverTimestamp(),
+    });
+    await writeAuditLog({
+      action: "user_update",
+      entityType: "user",
+      entityId: uid,
+      userId: actor.userId,
+      userName: actor.userName,
+      branchId: data.role === "admin" ? null : data.branchId,
+      metadata: { role: data.role, displayName: data.displayName.trim() },
+    });
+  } catch (error) {
+    throw mapFirestoreError(error, "Failed to update user");
+  }
+}
+
+/** Activate / deactivate an account. Deactivated users cannot sign in. */
+export async function setUserActive(
+  target: { uid: string; branchId?: string | null },
+  isActive: boolean,
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  try {
+    await updateDoc(doc(db, COLLECTIONS.users, target.uid), {
+      isActive,
+      updatedAt: serverTimestamp(),
+    });
+    await writeAuditLog({
+      action: isActive ? "user_activated" : "user_deactivated",
+      entityType: "user",
+      entityId: target.uid,
+      userId: actor.userId,
+      userName: actor.userName,
+      branchId: target.branchId ?? null,
+    });
+  } catch (error) {
+    throw mapFirestoreError(error, "Failed to update user status");
+  }
+}
+
+/** Super admin only (rules): permanently remove a user profile. */
+export async function deleteUserProfile(
+  target: { uid: string; email: string; branchId?: string | null },
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  try {
+    await deleteDoc(doc(db, COLLECTIONS.users, target.uid));
+    await writeAuditLog({
+      action: "user_deleted",
+      entityType: "user",
+      entityId: target.uid,
+      userId: actor.userId,
+      userName: actor.userName,
+      branchId: target.branchId ?? null,
+      metadata: { email: target.email },
+    });
+  } catch (error) {
+    throw mapFirestoreError(error, "Failed to delete user");
   }
 }
 

@@ -1,5 +1,6 @@
 import type { ExchangeRate } from "@/lib/types";
 import { BRAND, BRAND_COLORS } from "@/lib/brand";
+import { getCurrencyMeta } from "@/lib/currency-utils";
 
 /** unimoni digital signage palette. */
 export const UNIMONI_COLORS = {
@@ -55,6 +56,14 @@ export function formatUnimoniRate(value: number): string {
 
 export function getRateDisplayLabel(rate: ExchangeRate): string {
   return rate.displayName?.trim() || rate.currencyCode;
+}
+
+/**
+ * Signage shows ONLY the currency code + its flag (per client), never long
+ * display names. Flag resolved from the currency catalog metadata by code.
+ */
+export function getRateFlag(rate: ExchangeRate): string | null {
+  return getCurrencyMeta(rate.currencyCode)?.flag ?? null;
 }
 
 export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
