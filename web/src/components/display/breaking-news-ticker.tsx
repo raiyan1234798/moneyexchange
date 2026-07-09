@@ -69,12 +69,22 @@ function BreakingNewsTickerInner({
     }, PAUSE_BETWEEN_CYCLES_MS);
   }, [messages.length, paused]);
 
+  // Text logos get a wider badge and a font size that shrinks with length so a
+  // word like "UNIMONI" fits on ONE line instead of wrapping mid-word. The
+  // scrolling strip and headline tab shift right to clear the badge.
+  const badgeWidth = resolvedText ? "clamp(8rem,19vw,15rem)" : "clamp(6rem,13vw,9.5rem)";
+  const contentInset = resolvedText ? "clamp(9rem,21vw,16rem)" : "clamp(7rem,15vw,10.5rem)";
+  const textLen = resolvedText?.length ?? 0;
+  const textLogoSize =
+    textLen <= 6 ? "clamp(1.1rem,2.4vw,2.5rem)" : textLen <= 10 ? "clamp(0.85rem,1.8vw,1.9rem)" : "clamp(0.6rem,1.3vw,1.35rem)";
+
   return (
     <footer className="relative shrink-0">
       {headline ? (
         <div
-          className="absolute left-[clamp(7rem,15vw,10.5rem)] top-0 z-30 -translate-y-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
+          className="absolute top-0 z-30 -translate-y-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
+            left: contentInset,
             backgroundColor: UNIMONI_COLORS.gold,
             color: UNIMONI_COLORS.navy,
           }}
@@ -87,19 +97,19 @@ function BreakingNewsTickerInner({
           bigger than the bar, overlapping it from the left, visually separate
           from the scrolling strip. Text slides behind it and disappears. */}
       <div
-        className="ticker-logo-pulse absolute bottom-[12%] left-[0.6vw] z-40 flex h-[135%] w-[clamp(6rem,13vw,9.5rem)] items-center justify-center rounded-[10px] border-2 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)]"
+        className="ticker-logo-pulse absolute bottom-[12%] left-[0.6vw] z-40 flex h-[135%] items-center justify-center rounded-[10px] border-2 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)]"
         style={{
+          width: badgeWidth,
           backgroundColor: UNIMONI_COLORS.tickerBlack,
           borderColor: UNIMONI_COLORS.gold,
         }}
       >
         {resolvedText ? (
           <span
-            className="px-[0.4vw] text-center font-extrabold uppercase leading-none tracking-tight text-white drop-shadow-md"
+            className="whitespace-nowrap text-center font-extrabold uppercase leading-none tracking-tight text-white drop-shadow-md"
             style={{
               fontFamily: logoFontCss ?? "'Arial Black', Arial, sans-serif",
-              fontSize: "clamp(1rem, 2.2vw, 2.4rem)",
-              overflowWrap: "anywhere",
+              fontSize: textLogoSize,
             }}
           >
             {resolvedText}
@@ -124,10 +134,11 @@ function BreakingNewsTickerInner({
         style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
       >
         <div
-          className="relative min-w-0 flex-1 overflow-hidden pl-[clamp(7rem,15vw,10.5rem)]"
+          className="relative min-w-0 flex-1 overflow-hidden"
           // Scrolling strip is black with white text (per client) — the gold
-          // headline tab and underline stay for brand contrast.
-          style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
+          // headline tab and underline stay for brand contrast. Left padding
+          // clears the pop-out badge (wider when it's a text logo).
+          style={{ backgroundColor: UNIMONI_COLORS.tickerBlack, paddingLeft: contentInset }}
         >
           {scrolling && activeText ? (
             <div key={`${messageIndex}-${cycle}`} className="absolute inset-y-0 flex w-full items-center">
