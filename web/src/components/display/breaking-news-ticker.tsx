@@ -66,7 +66,7 @@ function BreakingNewsTickerInner({
     <footer className="relative shrink-0">
       {headline ? (
         <div
-          className="absolute left-[clamp(4.5rem,10vw,7rem)] top-0 z-30 -translate-y-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
+          className="absolute left-[clamp(7rem,15vw,10.5rem)] top-0 z-30 -translate-y-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
             backgroundColor: UNIMONI_COLORS.gold,
             color: UNIMONI_COLORS.navy,
@@ -76,36 +76,37 @@ function BreakingNewsTickerInner({
         </div>
       ) : null}
 
+      {/* Pop-out logo badge (like the reference "BREAKING NEWS" shield):
+          bigger than the bar, overlapping it from the left, visually separate
+          from the scrolling strip. Text slides behind it and disappears. */}
+      <div
+        className="ticker-logo-pulse absolute bottom-[12%] left-[0.6vw] z-40 flex h-[135%] w-[clamp(6rem,13vw,9.5rem)] items-center justify-center rounded-[10px] border-2 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)]"
+        style={{
+          backgroundColor: UNIMONI_COLORS.tickerBlack,
+          borderColor: UNIMONI_COLORS.gold,
+        }}
+      >
+        {resolvedLogo && !logoFailed ? (
+          <Image
+            src={resolvedLogo}
+            alt={`${BRAND.name} logo`}
+            width={140}
+            height={140}
+            className="h-[80%] w-[88%] object-contain drop-shadow-md"
+            unoptimized
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <UnimoniMark size={64} className="shadow-md" />
+        )}
+      </div>
+
       <div
         className="relative flex h-[clamp(3rem,6vh,4.5rem)] overflow-hidden"
         style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
       >
         <div
-          className="relative z-20 flex w-[clamp(4.5rem,10vw,7rem)] shrink-0 items-center justify-center border-r-2 shadow-[0_0_12px_rgba(201,162,39,0.35)]"
-          style={{
-            backgroundColor: UNIMONI_COLORS.tickerBlack,
-            borderColor: UNIMONI_COLORS.gold,
-          }}
-        >
-          {resolvedLogo && !logoFailed ? (
-            <Image
-              src={resolvedLogo}
-              alt={`${BRAND.name} logo`}
-              width={80}
-              height={80}
-              className="ticker-logo-pulse h-[75%] w-[85%] object-contain drop-shadow-md"
-              unoptimized
-              onError={() => setLogoFailed(true)}
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <UnimoniMark size={48} className="shadow-md" />
-            </div>
-          )}
-        </div>
-
-        <div
-          className="relative min-w-0 flex-1 overflow-hidden"
+          className="relative min-w-0 flex-1 overflow-hidden pl-[clamp(7rem,15vw,10.5rem)]"
           // Scrolling strip is black with white text (per client) — the gold
           // headline tab and underline stay for brand contrast.
           style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}

@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteTicker, subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
+import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -226,13 +227,63 @@ export default function TickersPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Ticker Logo URL (optional)</Label>
+                    <Label>Logo on the bar (optional)</Label>
                     <Input
-                      value={logoUrl}
+                      value={logoUrl.startsWith("data:") ? "" : logoUrl}
                       onChange={(e) => setLogoUrl(e.target.value)}
-                      placeholder={branch?.settings?.tickerLogoUrl ?? "Leave blank for default unimoni logo (/unimoni-logo-on-dark.svg)"}
+                      placeholder={branch?.settings?.tickerLogoUrl ?? "Paste a logo URL — or upload a file below"}
                       className="rounded-xl"
+                      disabled={logoUrl.startsWith("data:")}
                     />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+                        aria-label="Upload logo image"
+                        className="rounded-xl"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          void (async () => {
+                            try {
+                              if (file.type === "image/svg+xml") {
+                                // SVGs are tiny vectors — store as-is.
+                                const text = await file.text();
+                                if (text.length > 120_000) throw new Error("SVG is too large — simplify it or use PNG.");
+                                setLogoUrl(`data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(text)))}`);
+                              } else {
+                                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                                setLogoUrl(dataUrl);
+                              }
+                              toast.success("Logo ready — it shows on the badge when you save");
+                            } catch (error) {
+                              toast.error(error instanceof Error ? error.message : "Could not read the logo file");
+                            } finally {
+                              e.target.value = "";
+                            }
+                          })();
+                        }}
+                      />
+                      {logoUrl.startsWith("data:") ? (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element -- tiny data-URL preview */}
+                          <img src={logoUrl} alt="Logo preview" className="h-9 w-9 shrink-0 rounded-md bg-slate-800 object-contain p-1" />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="shrink-0 rounded-lg"
+                            onClick={() => setLogoUrl("")}
+                          >
+                            Clear
+                          </Button>
+                        </>
+                      ) : null}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Shows in the pop-out badge at the left of the scrolling bar. Leave empty for the
+                      unimoni logo.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>Font Color</Label>

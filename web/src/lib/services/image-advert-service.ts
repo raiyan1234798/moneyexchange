@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, deleteObject } from "firebase/storage";
 import {
   createDocument,
   listDocuments,
@@ -8,7 +8,7 @@ import {
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { storage } from "@/lib/firebase/client";
-import { isFirebaseStorageAvailable } from "@/lib/services/video-service";
+import { ADVERT_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import { COLLECTIONS } from "@/lib/constants";
 import type { ImageAdvert } from "@/lib/types";
 
@@ -100,24 +100,17 @@ export async function uploadImageAdvert(
   },
   actor: { userId: string; userName: string },
 ): Promise<string> {
-  // Fail fast when the Storage bucket doesn't exist (free plan) instead of
-  // letting the SDK spin on CORS retries.
-  if (!(await isFirebaseStorageAvailable())) {
-    throw new Error(
-      "File uploads need cloud storage, which isn't enabled on this project — use the Image URL tab instead (instant).",
-    );
-  }
-  const path = `image-adverts/${params.branchId}/${Date.now()}_${params.file.name}`;
-  const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, params.file, { contentType: params.file.type });
-  const downloadUrl = await getDownloadURL(storageRef);
+  // No Storage bucket on this project (free plan): compress in the browser
+  // (downscale + WebP) and store the image INSIDE the Firestore doc as a data
+  // URL — displays render it like any other URL.
+  const compressed = await compressImageToDataUrl(params.file, ADVERT_IMAGE_OPTIONS);
 
   await deactivateBranchImages(params.branchId);
   const id = await createDocument(COLLECTIONS.imageAdverts, {
     title: params.title,
     branchId: params.branchId,
-    downloadUrl,
-    storagePath: path,
+    downloadUrl: compressed.dataUrl,
+    storagePath: null,
     displayDurationSeconds: params.displayDurationSeconds ?? 15,
     status: "active",
     createdBy: params.createdBy,
@@ -129,7 +122,13 @@ export async function uploadImageAdvert(
     userId: actor.userId,
     userName: actor.userName,
     branchId: params.branchId,
-    metadata: { title: params.title, fileSize: params.file.size },
+    metadata: {
+      title: params.title,
+      originalBytes: params.file.size,
+      storedBytes: compressed.bytes,
+      width: compressed.width,
+      height: compressed.height,
+    },
   });
   return id;
 }
