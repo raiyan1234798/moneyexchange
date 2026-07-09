@@ -77,6 +77,7 @@ import {
   downloadRateTemplateXlsx,
   parseRateFile,
   TEMPLATE_CURRENCIES,
+  type RateImportRow,
 } from "@/lib/rate-import";
 import { getRateDisplayLabel } from "@/lib/unimoni-signage";
 import {
@@ -116,6 +117,7 @@ export default function ExchangeRatesPage() {
   const [currencyForm, setCurrencyForm] = useState(emptyCurrencyForm);
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [importPreview, setImportPreview] = useState<RateImportRow[] | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const { notice: loadNotice, onError, clearNotice } = useFirestoreNotice("exchange rates");
@@ -301,6 +303,44 @@ export default function ExchangeRatesPage() {
       return;
     }
     setCreating(true);
+
+    // Admins and branch managers can't write the global catalog (superAdmin
+    // only) — create the branch rate directly instead; the flag/name resolve
+    // from currency metadata on the display.
+    if (!canCreateCatalog) {
+      try {
+        await bulkUpdateRates(
+          effectiveBranchId,
+          [
+            {
+              currencyCode: code,
+              displayName: code,
+              currencyName: currencyForm.currencyName,
+              country: currencyForm.country,
+              flag: currencyForm.flag,
+              buyRate: 1,
+              sellRate: 1,
+            },
+          ],
+          {
+            userId: user.uid,
+            userName: profile.displayName || profile.email,
+            branchName: branch?.name || effectiveBranchId,
+          },
+          { autoCreateCurrencies: false, requireApproval, actorRole: profile.role },
+        );
+        toast.success(`${code} added — set its buy/sell values below and Publish`);
+        setCreateOpen(false);
+        setCurrencyForm(emptyCurrencyForm);
+        setRates(await listExchangeRates(effectiveBranchId));
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to add currency");
+      } finally {
+        setCreating(false);
+      }
+      return;
+    }
+
     try {
       const payload = buildCurrencyPayload({
         currencyCode: code,
@@ -440,7 +480,30 @@ export default function ExchangeRatesPage() {
     if (!user || !profile || !effectiveBranchId) return;
     setUploading(true);
     try {
+      // Nothing is published yet — the parsed rows go to a review table where
+      // the user can edit or remove lines before publishing.
       const rows = await parseRateFile(file);
+      setImportPreview(rows);
+      toast.success(`${rows.length} rows read — review and edit below, then Publish`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not import file — check the template columns");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handlePublishImport() {
+    if (!user || !profile || !effectiveBranchId || !importPreview) return;
+    for (const row of importPreview) {
+      if (!Number.isFinite(row.buyRate) || !Number.isFinite(row.sellRate) || row.buyRate <= 0 || row.sellRate <= 0) {
+        toast.error(`Buy and sell must be positive numbers — check ${row.currencyCode}`);
+        return;
+      }
+    }
+    setUploading(true);
+    try {
+      const rows = importPreview;
       const result = await bulkUpdateRates(
         effectiveBranchId,
         rows.map((r) => ({
@@ -477,11 +540,11 @@ export default function ExchangeRatesPage() {
         );
       }
       setRates(await listExchangeRates(effectiveBranchId));
+      setImportPreview(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not import file — check the template columns");
+      toast.error(e instanceof Error ? e.message : "Could not publish the imported rates");
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -609,6 +672,84 @@ export default function ExchangeRatesPage() {
           </div>
         ) : null}
 
+        {importPreview ? (
+          <ContentPanel
+            title="Review imported rates"
+            description="Nothing is live yet — edit or remove rows, then publish"
+          >
+            <div className="space-y-2">
+              {importPreview.map((row, index) => (
+                <div
+                  key={`${row.currencyCode}-${index}`}
+                  className="grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                >
+                  <span className="font-mono font-semibold">{row.currencyCode}</span>
+                  <Input
+                    value={row.displayName}
+                    aria-label="Name shown on TV"
+                    placeholder="Name on TV"
+                    onChange={(e) =>
+                      setImportPreview((prev) =>
+                        prev ? prev.map((r, i) => (i === index ? { ...r, displayName: e.target.value } : r)) : prev,
+                      )
+                    }
+                    className="rounded-lg"
+                  />
+                  <Input
+                    type="number"
+                    value={Number.isFinite(row.buyRate) ? row.buyRate : ""}
+                    aria-label="We buy"
+                    placeholder="We buy"
+                    onChange={(e) =>
+                      setImportPreview((prev) =>
+                        prev ? prev.map((r, i) => (i === index ? { ...r, buyRate: Number(e.target.value) } : r)) : prev,
+                      )
+                    }
+                    className="rounded-lg tabular-nums"
+                  />
+                  <Input
+                    type="number"
+                    value={Number.isFinite(row.sellRate) ? row.sellRate : ""}
+                    aria-label="We sell"
+                    placeholder="We sell"
+                    onChange={(e) =>
+                      setImportPreview((prev) =>
+                        prev ? prev.map((r, i) => (i === index ? { ...r, sellRate: Number(e.target.value) } : r)) : prev,
+                      )
+                    }
+                    className="rounded-lg tabular-nums"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg text-destructive hover:text-destructive"
+                    onClick={() =>
+                      setImportPreview((prev) => (prev ? prev.filter((_, i) => i !== index) : prev))
+                    }
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))}
+              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                <Button variant="outline" className="rounded-xl" onClick={() => setImportPreview(null)}>
+                  Cancel import
+                </Button>
+                <Button
+                  className="rounded-xl"
+                  disabled={uploading || importPreview.length === 0}
+                  onClick={() => void handlePublishImport()}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  {uploading
+                    ? "Publishing…"
+                    : `Publish ${importPreview.length} rate${importPreview.length === 1 ? "" : "s"}`}
+                </Button>
+              </div>
+            </div>
+          </ContentPanel>
+        ) : null}
+
         <PreviewDisplayLink branchCode={branch?.code} />
 
         {isAdmin && effectiveBranchId && !canManageRates ? (
@@ -689,20 +830,26 @@ export default function ExchangeRatesPage() {
           </ContentPanel>
         ) : null}
 
-        {canCreateCatalog ? (
+        {canManageRates && !isBranchUser && effectiveBranchId ? (
           <ContentPanel
-            title="Currency Catalog"
-            description="Global currencies available to all branches"
+            title="Add New Currency"
+            description="Two ways: create one manually here, or upload the Excel file above and review before publishing"
             action={
+              <Button className="rounded-xl" size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                New Currency
+              </Button>
+            }
+          >
+            <p className="text-sm text-muted-foreground">
+              Enter a 3-letter code (e.g. JPY) and a name — it appears on this branch with
+              placeholder rates that you edit and Publish below before customers see real values.
+            </p>
+          </ContentPanel>
+        ) : null}
+
+        {canManageRates && !isBranchUser && effectiveBranchId ? (
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-                <DialogTrigger
-                  render={
-                    <Button className="rounded-xl" disabled={!effectiveBranchId} size="sm">
-                      <Plus className="mr-2 h-4 w-4" />
-                      New Currency + Branch Rate
-                    </Button>
-                  }
-                />
                 <DialogContent className="rounded-2xl sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>Add Currency</DialogTitle>
@@ -766,7 +913,12 @@ export default function ExchangeRatesPage() {
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
-            }
+        ) : null}
+
+        {canCreateCatalog ? (
+          <ContentPanel
+            title="Currency Catalog"
+            description="Global currencies available to all branches"
           >
             {currencies.length === 0 ? (
               <EmptyState
