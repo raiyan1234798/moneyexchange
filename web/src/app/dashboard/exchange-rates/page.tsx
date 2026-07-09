@@ -89,7 +89,13 @@ import {
 } from "@/lib/currency-utils";
 import type { AuditLog, Currency, ExchangeRate, PendingApproval, SystemSettings } from "@/lib/types";
 
-type RateDraft = { buyRate: number; sellRate: number; displayName: string };
+type RateDraft = {
+  buyRate: number;
+  sellRate: number;
+  displayName: string;
+  transferUsd: number | null;
+  transferLocal: number | null;
+};
 
 const SETTINGS_ID = "global";
 
@@ -130,6 +136,7 @@ export default function ExchangeRatesPage() {
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canCreateCatalog = hasPermission("manageCurrencies");
+  const transferLocalLabel = branch?.settings?.transferLocalLabel?.trim() || "UGX";
 
   useEffect(() => {
     return subscribeCurrencies(
@@ -173,17 +180,21 @@ export default function ExchangeRatesPage() {
         setDrafts((prev) =>
           Object.fromEntries(
             items.map((rate) => {
-              const server = {
+              const server: RateDraft = {
                 buyRate: rate.buyRate,
                 sellRate: rate.sellRate,
                 displayName: getRateDisplayLabel(rate),
+                transferUsd: rate.transferUsd ?? null,
+                transferLocal: rate.transferLocal ?? null,
               };
               const draft = prev[rate.id];
               const dirty =
                 draft &&
                 (draft.buyRate !== server.buyRate ||
                   draft.sellRate !== server.sellRate ||
-                  draft.displayName !== server.displayName);
+                  draft.displayName !== server.displayName ||
+                  (draft.transferUsd ?? null) !== server.transferUsd ||
+                  (draft.transferLocal ?? null) !== server.transferLocal);
               return [rate.id, dirty ? draft : server];
             }),
           ),
@@ -255,7 +266,10 @@ export default function ExchangeRatesPage() {
     const label = getRateDisplayLabel(rate);
     const hasRateChange = draft.buyRate !== rate.buyRate || draft.sellRate !== rate.sellRate;
     const hasNameChange = draft.displayName.trim() !== label;
-    if (!hasRateChange && !hasNameChange) return;
+    const hasTransferChange =
+      (draft.transferUsd ?? null) !== (rate.transferUsd ?? null) ||
+      (draft.transferLocal ?? null) !== (rate.transferLocal ?? null);
+    if (!hasRateChange && !hasNameChange && !hasTransferChange) return;
 
     try {
       const result = await updateExchangeRate(rate, draft.buyRate, draft.sellRate, {
@@ -266,6 +280,8 @@ export default function ExchangeRatesPage() {
         requireApproval,
         actorRole: profile.role,
         displayName: draft.displayName.trim(),
+        transferUsd: draft.transferUsd ?? null,
+        transferLocal: draft.transferLocal ?? null,
       });
       const name = draft.displayName.trim() || rate.currencyCode;
       if (result === "pending") {
@@ -1204,13 +1220,15 @@ export default function ExchangeRatesPage() {
                     draft &&
                     (draft.buyRate !== rate.buyRate ||
                       draft.sellRate !== rate.sellRate ||
-                      draft.displayName.trim() !== savedLabel);
+                      draft.displayName.trim() !== savedLabel ||
+                      (draft.transferUsd ?? null) !== (rate.transferUsd ?? null) ||
+                      (draft.transferLocal ?? null) !== (rate.transferLocal ?? null));
                   const isEditingName = editingNameId === rate.id;
 
                   return (
                     <div
                       key={rate.id}
-                      className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
+                      className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[minmax(130px,160px)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-3 ${
                         rate.isHidden
                           ? "border-dashed border-border/50 bg-muted/25 opacity-60"
                           : "border-border/60 bg-card"
@@ -1307,6 +1325,51 @@ export default function ExchangeRatesPage() {
                             }))
                           }
                           className="h-10 w-full rounded-lg border-amber-600/25 bg-amber-500/5 text-foreground tabular-nums dark:text-amber-400"
+                        />
+                      </div>
+                      {/* Transfer rates ($ USD + local) — shown on the separate TRANSFER card. */}
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+                          Transfer $
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          placeholder="—"
+                          value={draft?.transferUsd ?? ""}
+                          disabled={!canManageRates}
+                          onChange={(e) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [rate.id]: {
+                                ...prev[rate.id],
+                                transferUsd: e.target.value === "" ? null : Number(e.target.value),
+                              },
+                            }))
+                          }
+                          className="h-10 w-full rounded-lg border-sky-600/25 bg-sky-500/5 text-foreground tabular-nums dark:text-sky-400"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+                          Transfer {transferLocalLabel}
+                        </Label>
+                        <Input
+                          type="number"
+                          step="0.0001"
+                          placeholder="—"
+                          value={draft?.transferLocal ?? ""}
+                          disabled={!canManageRates}
+                          onChange={(e) =>
+                            setDrafts((prev) => ({
+                              ...prev,
+                              [rate.id]: {
+                                ...prev[rate.id],
+                                transferLocal: e.target.value === "" ? null : Number(e.target.value),
+                              },
+                            }))
+                          }
+                          className="h-10 w-full rounded-lg border-sky-600/25 bg-sky-500/5 text-foreground tabular-nums dark:text-sky-400"
                         />
                       </div>
 

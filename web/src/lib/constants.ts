@@ -55,7 +55,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showTransferColumn: false,
   showTransferCard: true,
   transferLocalLabel: "UGX",
-  videoWidthPercent: 65,
+  videoWidthPercent: 70,
   // Default "contain" = show the WHOLE video/image with a blurred fill behind it
   // (no cropping, no black bars). "cover" = fill & crop the edges (single element).
   videoFit: "contain" as "contain" | "cover",
