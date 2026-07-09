@@ -9,3 +9,13 @@
 # Pages Functions; Pages logs a harmless "No routes found … Skipping" for it.
 name = "unimoni"
 pages_build_output_dir = "web/out"
+
+# R2 for video/image uploads, handled by web/public/_worker.js at /api/upload.
+# Binding the bucket here activates R2 on deploy (no dashboard step). If the
+# bucket name differs, uploads fail cleanly and the app falls back to Firestore.
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "unimoni"
+
+[vars]
+R2_PUBLIC_URL = "https://pub-ad5465971a1b41bdb06b0b0d3dc8aa1f.r2.dev"

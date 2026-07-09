@@ -184,9 +184,9 @@ export function UnimoniRatesPanel({
         </div>
       </div>
 
-      {/* White table card hugs its rows (blue shows below when few currencies),
-          exactly like the reference; shrinks rows evenly when there are many. */}
-      <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
+      {/* White table card FILLS the panel height (no empty blue area below the
+          last row); rows grow evenly to share the space and the type auto-scales. */}
+      <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
         <div
           className="grid shrink-0 items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide"
           style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}

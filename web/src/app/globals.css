@@ -337,19 +337,19 @@
   .display-rates-body {
     display: flex;
     flex-direction: column;
-    /* Hug the rows (the white card ends after the last currency, like the
-       reference); shrink — never scroll — when space runs out. */
-    flex: 0 1 auto;
+    /* Fill the white card's height so there is no empty blue gap below the last
+       currency; rows share the space (never scroll). */
+    flex: 1 1 auto;
     min-height: 0;
   }
 
   .display-rate-row {
     container-type: size;
-    /* Neat constant row height like the client's reference board: rows never
-       balloon when a branch has few currencies, and shrink evenly to fit when
-       many are added (no scrolling). */
-    flex: 0 1 clamp(2.1rem, 5vh, 3.1rem);
+    /* Rows grow evenly to fill the panel height (no blue gap). A max height keeps
+       them from ballooning when a branch has only a few currencies. */
+    flex: 1 1 0;
     min-height: 0;
+    max-height: clamp(3.4rem, 8vh, 5.5rem);
   }
 
   /* Compact, clear signage type per the reference — small and neat, never
