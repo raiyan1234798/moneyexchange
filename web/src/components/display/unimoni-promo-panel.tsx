@@ -52,7 +52,7 @@ export function UnimoniPromoPanel({
         <video
           key={videoUrl}
           src={videoUrl ?? undefined}
-          className="absolute inset-0 z-0 h-full w-full object-cover"
+          className="absolute inset-0 z-0 h-full w-full object-contain"
           autoPlay
           muted
           loop={loopVideo}
@@ -68,7 +68,7 @@ export function UnimoniPromoPanel({
           src={imageUrl!}
           alt="Branch advert"
           fill
-          className="absolute inset-0 z-0 object-cover"
+          className="absolute inset-0 z-0 object-contain"
           unoptimized
           priority
           onError={() => setFailedImageUrl(imageUrl ?? null)}
