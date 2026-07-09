@@ -164,27 +164,30 @@ export function UnimoniRatesPanel({
 
   return (
     <aside
-      className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
+      className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col transition-[width] duration-500 ease-out lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
       style={asideStyle}
     >
-      {/* Header: a BIG centered logo, with date + time stacked together in the
-          right corner (no "DATE"/"TIME" labels — just the values). */}
-      <div className="relative flex shrink-0 items-center justify-center px-[1vw] py-[1.1vh] font-[Arial,Helvetica,sans-serif]">
-        <div className="flex flex-col items-center justify-center">
+      {/* Header: a BIG centered logo with date + time stacked in the right
+          corner (values only, no labels). Flex — not absolute — so the date
+          block can NEVER overlap the logo, even on a narrow card: the logo
+          just shifts left when space runs out. */}
+      <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.1vh] font-[Arial,Helvetica,sans-serif]">
+        <div className="min-w-0 flex-1" aria-hidden />
+        <div className="flex min-w-0 shrink-0 flex-col items-center justify-center">
           {headerLogoUrl ? (
             // Custom rebrand logo uploaded by an admin.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={headerLogoUrl}
               alt="Brand logo"
-              className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto object-contain"
+              className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
             />
           ) : (
             <UnimoniLogoImage
               variant="onDark"
               width={280}
               height={72}
-              className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto object-contain"
+              className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain"
               priority
             />
           )}
@@ -192,11 +195,11 @@ export function UnimoniRatesPanel({
             {headerSubLabel}
           </p>
         </div>
-        <div className="absolute right-[1.1vw] top-1/2 flex -translate-y-1/2 flex-col items-end leading-tight">
-          <span className="whitespace-nowrap text-[clamp(0.68rem,1.15vw,1.05rem)] font-bold tabular-nums text-white">
+        <div className="flex min-w-0 flex-1 flex-col items-end justify-center leading-tight">
+          <span className="whitespace-nowrap text-[clamp(0.6rem,1vw,1rem)] font-bold tabular-nums text-white">
             {now ? formatSignageDate(now) : "—"}
           </span>
-          <span className="whitespace-nowrap text-[clamp(0.68rem,1.15vw,1.05rem)] font-semibold tabular-nums text-white/85">
+          <span className="whitespace-nowrap text-[clamp(0.6rem,1vw,1rem)] font-semibold tabular-nums text-white/85">
             {now ? formatSignageTime(now) : "—"}
           </span>
         </div>

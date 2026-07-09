@@ -56,10 +56,10 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showTransferCard: true,
   transferLocalLabel: "UGX",
   videoWidthPercent: 72,
-  // Default "cover" = the video/image FULLY fills the area (no black bars, no
-  // blurred backdrop); edges may crop. "contain" = show the whole frame with a
-  // blurred fill behind it (nothing cropped).
-  videoFit: "cover" as "contain" | "cover",
+  // Default "auto" = the promo AREA resizes to each video/image's shape so the
+  // whole media fills it with no cropping and no bars. "cover" = fill a fixed
+  // area (crops edges). "contain" = whole frame + blurred fill.
+  videoFit: "auto" as "contain" | "cover" | "auto",
   rateCardScale: 1,
   tickerScale: 1,
   logoScale: 1,

@@ -9,10 +9,12 @@ interface UnimoniPromoPanelProps {
   imageUrl?: string | null;
   videoLoaded?: boolean;
   loopVideo?: boolean;
-  /** "contain" = whole video/image visible (letterbox); "cover" = fill & crop. */
-  fit?: "contain" | "cover";
+  /** "auto" = area resizes to the media; "contain" = whole media + blurred fill; "cover" = fill & crop. */
+  fit?: "contain" | "cover" | "auto";
   /** Width of the promo area as a % of the screen (desktop/TV only). */
   widthPercent?: number;
+  /** Reports the current media's aspect ratio (w/h) so "auto" can size the area to it. */
+  onMediaAspectChange?: (aspect: number | null) => void;
   onVideoLoaded?: () => void;
   onVideoError?: () => void;
   onVideoEnded?: () => void;
@@ -24,8 +26,9 @@ export function UnimoniPromoPanel({
   imageUrl,
   videoLoaded = false,
   loopVideo = true,
-  fit = "contain",
+  fit = "auto",
   widthPercent,
+  onMediaAspectChange,
   onVideoLoaded,
   onVideoError,
   onVideoEnded,
@@ -42,11 +45,12 @@ export function UnimoniPromoPanel({
   const showPlaceholder = !showVideo && !showImage;
   const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
 
-  // Default ("contain") = show the WHOLE video/image with NO black bars: the
-  // full media plays on top (object-contain) over a blurred, zoomed copy that
-  // fills the surrounding space. "cover" = a single element that fills & crops
-  // the edges (cheapest — no second decode). Chosen per-branch in Settings.
-  const useBackdrop = fit !== "cover";
+  // "auto" (default): the promo AREA is resized to the media's shape upstream,
+  // so a plain object-contain fills it with no crop and no bars. "contain":
+  // whole media on a blurred fill. "cover": fill a fixed area, cropping edges.
+  const isCover = fit === "cover";
+  const objectClass = isCover ? "object-cover" : "object-contain";
+  const useBackdrop = fit === "contain";
 
   const panelStyle: CSSProperties =
     showVideo || showImage ? {} : { backgroundColor: UNIMONI_COLORS.panelBlue };
@@ -54,7 +58,7 @@ export function UnimoniPromoPanel({
 
   return (
     <section
-      className={`display-promo-panel relative flex h-full w-full min-h-0 shrink-0 flex-col overflow-hidden bg-black lg:w-[65%] xl:w-[68%] ${className}`}
+      className={`display-promo-panel relative flex h-full w-full min-h-0 shrink-0 flex-col overflow-hidden bg-black transition-[width] duration-500 ease-out lg:w-[65%] xl:w-[68%] ${className}`}
       style={panelStyle}
     >
       {showVideo ? (
@@ -77,11 +81,15 @@ export function UnimoniPromoPanel({
           <video
             key={videoUrl}
             src={videoUrl ?? undefined}
-            className={`absolute inset-0 z-[1] h-full w-full ${useBackdrop ? "object-contain" : "object-cover"}`}
+            className={`absolute inset-0 z-[1] h-full w-full ${objectClass}`}
             autoPlay
             muted
             loop={loopVideo}
             playsInline
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              if (v.videoWidth && v.videoHeight) onMediaAspectChange?.(v.videoWidth / v.videoHeight);
+            }}
             onLoadedData={onVideoLoaded}
             onCanPlay={onVideoLoaded}
             onError={onVideoError}
@@ -106,9 +114,14 @@ export function UnimoniPromoPanel({
             src={imageUrl!}
             alt="Branch advert"
             fill
-            className={`absolute inset-0 z-[1] ${useBackdrop ? "object-contain" : "object-cover"}`}
+            className={`absolute inset-0 z-[1] ${objectClass}`}
             unoptimized
             priority
+            onLoad={(e) => {
+              const img = e.currentTarget as HTMLImageElement;
+              if (img.naturalWidth && img.naturalHeight)
+                onMediaAspectChange?.(img.naturalWidth / img.naturalHeight);
+            }}
             onError={() => setFailedImageUrl(imageUrl ?? null)}
           />
         </>

@@ -79,8 +79,13 @@ export interface BranchSettings {
   // --- Independent display sizing (each area is resizable on its own) ---
   /** Width of the video/promo area as a % of the screen (40–80). Rate card takes the rest. Default 65. */
   videoWidthPercent?: number;
-  /** How the video/image fills its area. "contain" = whole video visible (letterbox); "cover" = fill & crop. Default "contain". */
-  videoFit?: "contain" | "cover";
+  /**
+   * How the video/image fits its area:
+   * - "auto"    = the promo AREA resizes to the media's shape, so the whole media fills it (no crop, no bars). Default.
+   * - "cover"   = media fills a fixed area, cropping the edges.
+   * - "contain" = whole media shown with a blurred fill behind it.
+   */
+  videoFit?: "contain" | "cover" | "auto";
   /** Multiplier for rate-card text/row size (0.7–1.5). Default 1. */
   rateCardScale?: number;
   /** Multiplier for ticker bar height + text (0.7–1.6). Default 1. */

@@ -390,17 +390,18 @@ function BranchSettingsForm({
           <div className="space-y-2">
             <Label>Video fit</Label>
             <Select
-              value={settings.videoFit ?? "contain"}
+              value={settings.videoFit ?? "auto"}
               onValueChange={(value) =>
-                setSettings({ ...settings, videoFit: (value as "contain" | "cover") ?? "contain" })
+                setSettings({ ...settings, videoFit: (value as "contain" | "cover" | "auto") ?? "auto" })
               }
             >
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="cover">Fill the whole area — no bars (may crop edges) (recommended)</SelectItem>
-                <SelectItem value="contain">Show the whole frame + blurred fill (nothing cropped)</SelectItem>
+                <SelectItem value="auto">Auto-fit — area resizes to the video (no crop, no bars) (recommended)</SelectItem>
+                <SelectItem value="cover">Fill a fixed area — no bars (may crop edges)</SelectItem>
+                <SelectItem value="contain">Whole frame + blurred fill (nothing cropped)</SelectItem>
               </SelectContent>
             </Select>
           </div>

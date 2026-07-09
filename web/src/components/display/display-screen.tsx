@@ -87,6 +87,21 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [erroredVideoId, setErroredVideoId] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Adaptive promo sizing: measure the live main-area box and the current media
+  // aspect so "auto" fit can resize the promo area to the video/image shape.
+  const mainAreaRef = useRef<HTMLDivElement>(null);
+  const [mediaAspect, setMediaAspect] = useState<number | null>(null);
+  const [mainDims, setMainDims] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const el = mainAreaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const update = () => setMainDims({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const branchSettings = branch?.settings ?? DEFAULT_BRANCH_SETTINGS;
   const rateCardPosition = branchSettings.rateCardPosition ?? "right";
@@ -94,8 +109,21 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   // Independently resizable areas (each editable in Settings → Display sizing).
   const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 72));
-  const rateWidthPercent = 100 - videoWidthPercent;
-  const videoFit = branchSettings.videoFit ?? "cover";
+  const videoFit = branchSettings.videoFit ?? "auto";
+
+  // "auto" fit: resize the promo area to the media's shape so the WHOLE media
+  // fills it with no crop and no bars. The rate card takes the rest. Clamped so
+  // the rate card never gets too narrow (18%) or too wide (55%).
+  const adaptivePromoPercent = useMemo(() => {
+    if (videoFit !== "auto" || !mediaAspect || !mainDims || mainDims.w <= 0 || mainDims.h <= 0) {
+      return null;
+    }
+    const idealPx = mainDims.h * mediaAspect;
+    return Math.max(45, Math.min(82, (idealPx / mainDims.w) * 100));
+  }, [videoFit, mediaAspect, mainDims]);
+
+  const effectivePromoWidth = adaptivePromoPercent ?? videoWidthPercent;
+  const rateWidthPercent = 100 - effectivePromoWidth;
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
@@ -307,7 +335,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       videoLoaded={videoLoaded}
       loopVideo={activeVideos.length <= 1}
       fit={videoFit}
-      widthPercent={videoWidthPercent}
+      widthPercent={effectivePromoWidth}
+      onMediaAspectChange={setMediaAspect}
       onVideoLoaded={() => {
         setVideoLoaded(true);
         setErroredVideoId("");
@@ -367,6 +396,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       )}
 
       <div
+        ref={mainAreaRef}
         className={`display-main-area flex h-full min-h-0 flex-1 flex-col lg:items-stretch ${
           rateCardPosition === "left" ? "lg:flex-row-reverse" : "lg:flex-row"
         }`}
