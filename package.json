@@ -5,7 +5,7 @@
   "description": "Enterprise Money Exchange Digital Signage & Branch Management System",
   "scripts": {
     "dev": "npm --prefix web run dev",
-    "build": "npm install --prefix web && npm --prefix web run build",
+    "build": "npm install --prefix web && npm --prefix web run build && rm -rf out && cp -r web/out out",
     "start": "npm --prefix web run start",
     "lint": "npm --prefix web run lint",
     "functions:build": "npm --prefix functions run build",
