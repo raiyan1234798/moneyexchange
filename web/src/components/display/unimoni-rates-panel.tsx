@@ -172,8 +172,11 @@ export function UnimoniRatesPanel({
           block can NEVER overlap the logo, even on a narrow card: the logo
           just shifts left when space runs out. */}
       <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.1vh] font-[Arial,Helvetica,sans-serif]">
+        {/* Date/time is shrink-0 (it always keeps its corner) and the LOGO is
+            the flexible one — it scales down via max-w-full + object-contain
+            when the card is narrow. Overlap is impossible at any width. */}
         <div className="min-w-0 flex-1" aria-hidden />
-        <div className="flex min-w-0 shrink-0 flex-col items-center justify-center">
+        <div className="flex min-w-0 shrink flex-col items-center justify-center">
           {headerLogoUrl ? (
             // Custom rebrand logo uploaded by an admin.
             // eslint-disable-next-line @next/next/no-img-element
@@ -191,11 +194,11 @@ export function UnimoniRatesPanel({
               priority
             />
           )}
-          <p className="text-[clamp(0.5rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.18em] text-white/85">
+          <p className="whitespace-nowrap text-[clamp(0.5rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.18em] text-white/85">
             {headerSubLabel}
           </p>
         </div>
-        <div className="flex min-w-0 flex-1 flex-col items-end justify-center leading-tight">
+        <div className="flex shrink-0 flex-col items-end justify-center pl-[0.4vw] leading-tight">
           <span className="whitespace-nowrap text-[clamp(0.6rem,1vw,1rem)] font-bold tabular-nums text-white">
             {now ? formatSignageDate(now) : "—"}
           </span>
