@@ -50,6 +50,7 @@ import { COLLECTIONS, RECOMMENDED_BRANCH_USERS, ROLE_LABELS } from "@/lib/consta
 import { subscribeCollection, where } from "@/lib/firebase/firestore";
 import {
   approveUserInvite,
+  createPasswordUser,
   createUserInvite,
   deleteUserInvite,
   deleteUserProfile,
@@ -95,7 +96,11 @@ export default function UsersPage() {
     email: string;
     role: InviteForm["role"];
     branchName?: string | null;
+    /** Set when the account was created with email + password (no Google). */
+    password?: string;
   } | null>(null);
+  const [accountMode, setAccountMode] = useState<"google" | "password">("google");
+  const [passwordValue, setPasswordValue] = useState("");
   const { notice, onError, clearNotice } = useFirestoreNotice("users");
 
   useEffect(() => {
@@ -183,21 +188,38 @@ export default function UsersPage() {
     }
 
     try {
-      await createUserInvite({
-        email: normalizedEmail,
-        displayName: form.displayName,
-        role: form.role,
-        branchId,
-        createdBy: user.uid,
-      });
-
-      setOpen(false);
-      setForm(emptyForm);
       const branchName = branchId ? branchMap[branchId] ?? null : null;
-      setSuccessDialog({ email: normalizedEmail, role: form.role, branchName });
-      toast.success("Invite sent — user can sign in with Google immediately");
+      if (accountMode === "password") {
+        await createPasswordUser(
+          {
+            email: normalizedEmail,
+            password: passwordValue,
+            displayName: form.displayName,
+            role: form.role,
+            branchId,
+          },
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        setOpen(false);
+        setForm(emptyForm);
+        setSuccessDialog({ email: normalizedEmail, role: form.role, branchName, password: passwordValue });
+        setPasswordValue("");
+        toast.success("Login created — hand over the email and password");
+      } else {
+        await createUserInvite({
+          email: normalizedEmail,
+          displayName: form.displayName,
+          role: form.role,
+          branchId,
+          createdBy: user.uid,
+        });
+        setOpen(false);
+        setForm(emptyForm);
+        setSuccessDialog({ email: normalizedEmail, role: form.role, branchName });
+        toast.success("Invite sent — user can sign in with Google immediately");
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to invite user");
+      toast.error(error instanceof Error ? error.message : "Failed to create the user");
     } finally {
       setSubmitting(false);
     }
@@ -382,19 +404,46 @@ export default function UsersPage() {
               <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Invite by Gmail</Button>} />
               <DialogContent className="rounded-2xl sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Invite user</DialogTitle>
+                  <DialogTitle>Add user</DialogTitle>
                 </DialogHeader>
+                {hasPermission("manageUsers") ? (
+                  <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/40 p-1">
+                    <Button
+                      type="button"
+                      variant={accountMode === "google" ? "default" : "ghost"}
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() => setAccountMode("google")}
+                    >
+                      Google invite
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={accountMode === "password" ? "default" : "ghost"}
+                      size="sm"
+                      className="rounded-lg"
+                      onClick={() => setAccountMode("password")}
+                    >
+                      Email &amp; password
+                    </Button>
+                  </div>
+                ) : null}
                 <p className="text-sm text-muted-foreground">
-                  Enter their Gmail address — they must sign in at <strong>/login</strong> with Google
-                  using that exact address.
+                  {accountMode === "password" ? (
+                    <>You set their password now — they sign in at <strong>/login</strong> with email
+                    and password immediately. Share the credentials with them.</>
+                  ) : (
+                    <>Enter their Gmail address — they must sign in at <strong>/login</strong> with Google
+                    using that exact address.</>
+                  )}
                 </p>
                 <div className="grid gap-4 py-2">
                   <div className="space-y-2">
-                    <Label htmlFor="user-email">Gmail address</Label>
+                    <Label htmlFor="user-email">{accountMode === "password" ? "Email address" : "Gmail address"}</Label>
                     <Input
                       id="user-email"
                       type="email"
-                      placeholder="name@gmail.com"
+                      placeholder={accountMode === "password" ? "name@company.com" : "name@gmail.com"}
                       value={form.email}
                       onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                       className="rounded-xl"
@@ -409,6 +458,32 @@ export default function UsersPage() {
                       className="rounded-xl"
                     />
                   </div>
+                  {accountMode === "password" ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="user-password">Password (min 8 characters)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="user-password"
+                          value={passwordValue}
+                          onChange={(event) => setPasswordValue(event.target.value)}
+                          placeholder="Set their password"
+                          className="rounded-xl font-mono"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="shrink-0 rounded-xl"
+                          onClick={() =>
+                            setPasswordValue(
+                              `Unimoni-${Math.random().toString(36).slice(2, 8)}${Math.floor(Math.random() * 90 + 10)}`,
+                            )
+                          }
+                        >
+                          Generate
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="space-y-2">
                     <Label>Role</Label>
                     <Select
@@ -454,10 +529,22 @@ export default function UsersPage() {
                 <DialogFooter>
                   <Button
                     onClick={() => void handleCreate()}
-                    disabled={submitting || !form.email || !form.displayName || (needsBranch && !form.branchId)}
+                    disabled={
+                      submitting ||
+                      !form.email ||
+                      !form.displayName ||
+                      (needsBranch && !form.branchId) ||
+                      (accountMode === "password" && passwordValue.length < 8)
+                    }
                     className="rounded-xl"
                   >
-                    {submitting ? "Sending invite…" : "Send Gmail invite"}
+                    {submitting
+                      ? accountMode === "password"
+                        ? "Creating login…"
+                        : "Sending invite…"
+                      : accountMode === "password"
+                        ? "Create login"
+                        : "Send Gmail invite"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -548,16 +635,49 @@ export default function UsersPage() {
               <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/15">
                 <CheckCircle2 className="h-6 w-6 text-emerald-600" />
               </div>
-              <DialogTitle className="text-center">Invite sent</DialogTitle>
+              <DialogTitle className="text-center">
+                {successDialog?.password ? "Login created" : "Invite sent"}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-3 text-center text-sm">
               <p className="text-emerald-700 dark:text-emerald-400">
-                <strong>{successDialog?.email}</strong> can login now at unimoni.pages.dev/login with Google.
+                <strong>{successDialog?.email}</strong> can login now at unimoni.pages.dev/login
+                {successDialog?.password ? " with the password below." : " with Google."}
               </p>
+              {successDialog?.password ? (
+                <div className="space-y-2 rounded-xl border border-border/40 bg-muted/30 p-4 text-left text-sm">
+                  <p>
+                    <span className="text-muted-foreground">Email:</span>{" "}
+                    <strong className="font-mono">{successDialog.email}</strong>
+                  </p>
+                  <p>
+                    <span className="text-muted-foreground">Password:</span>{" "}
+                    <strong className="font-mono">{successDialog.password}</strong>
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(
+                        `Unimoni sign-in: ${LOGIN_URL}\nEmail: ${successDialog.email}\nPassword: ${successDialog.password}`,
+                      );
+                      toast.success("Credentials copied — share them securely");
+                    }}
+                  >
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />
+                    Copy credentials
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Save this now — the password is not shown again.
+                  </p>
+                </div>
+              ) : (
               <div className="rounded-xl border border-border/40 bg-muted/30 p-4 text-left text-xs leading-relaxed text-muted-foreground">
                 Send them: Go to <strong>{LOGIN_URL}</strong> and click{" "}
                 <strong>Continue with Google</strong> with <strong>{successDialog?.email}</strong>.
               </div>
+              )}
               {successDialog ? (
                 <div className="rounded-xl border border-[var(--unimoni-blue)]/20 bg-[var(--unimoni-blue)]/5 p-4 text-left">
                   <p className="text-xs font-medium text-foreground">

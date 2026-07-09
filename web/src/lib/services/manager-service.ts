@@ -8,7 +8,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { normalizeEmail } from "@/lib/auth/user-profile";
-import { db, functions } from "@/lib/firebase/client";
+import { createAuthAccount, db, functions } from "@/lib/firebase/client";
 import { writeAuditLog } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 
@@ -142,6 +142,68 @@ export async function deleteUserInvite(inviteId: string): Promise<void> {
   } catch (error) {
     throw mapFirestoreError(error, "Failed to delete invite");
   }
+}
+
+/**
+ * Admin creates a ready-to-use email/password login: the auth account is made
+ * on a throwaway secondary app (admin session untouched) and the users/{uid}
+ * profile is written directly — the person can sign in immediately, no invite
+ * or email verification needed. Rules: superAdmin/admin only, never superAdmin
+ * role.
+ */
+export async function createPasswordUser(
+  params: {
+    email: string;
+    password: string;
+    displayName: string;
+    role: "admin" | "branchManager" | "branchUser";
+    branchId: string | null;
+  },
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  const email = normalizeEmail(params.email);
+  if (!email) throw new Error("A valid email address is required.");
+  if (params.password.length < 8) throw new Error("Password must be at least 8 characters.");
+  if (params.role !== "admin" && !params.branchId) throw new Error("A branch is required for this role.");
+
+  let uid: string;
+  try {
+    uid = await createAuthAccount(email, params.password);
+  } catch (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "auth/email-already-in-use") {
+      throw new Error("An account with this email already exists — use Google invite or a different email.");
+    }
+    if (code === "auth/weak-password") {
+      throw new Error("Password is too weak — use at least 8 characters with numbers.");
+    }
+    throw error instanceof Error ? error : new Error("Failed to create the login.");
+  }
+
+  try {
+    await setDoc(doc(db, COLLECTIONS.users, uid), {
+      email,
+      displayName: params.displayName.trim() || email.split("@")[0],
+      role: params.role,
+      branchId: params.role === "admin" ? null : params.branchId,
+      photoURL: null,
+      isActive: true,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    throw mapFirestoreError(error, "Login created but profile setup failed — contact support");
+  }
+
+  await writeAuditLog({
+    action: "user_created_password",
+    entityType: "user",
+    entityId: uid,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: params.role === "admin" ? null : params.branchId,
+    metadata: { email, role: params.role },
+  });
 }
 
 /**

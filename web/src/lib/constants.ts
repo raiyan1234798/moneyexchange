@@ -92,7 +92,7 @@ export const NAV_ITEMS: Array<{
   roles: readonly ("superAdmin" | "admin" | "branchManager" | "branchUser")[];
 }> = [
   { href: "/dashboard", label: "Overview", icon: "LayoutDashboard", roles: ["superAdmin", "admin", "branchManager", "branchUser"] },
-  { href: "/dashboard/branches", label: "Branches", icon: "Building2", roles: ["superAdmin"] },
+  { href: "/dashboard/branches", label: "Branches", icon: "Building2", roles: ["superAdmin", "admin"] },
   { href: "/dashboard/users", label: "Users", icon: "Users", roles: ["superAdmin", "admin", "branchManager"] },
   {
     href: "/dashboard/exchange-rates",
@@ -150,6 +150,8 @@ export const SUPER_ADMIN_PERMISSIONS = [
 ] as const;
 
 export const ADMIN_PERMISSIONS = [
+  "createBranch",
+  "editBranch",
   "manageUsers",
   "manageVideos",
   "managePlaylists",

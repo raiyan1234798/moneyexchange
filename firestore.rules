@@ -227,6 +227,9 @@ service cloud.firestore {
       );
       allow list: if isSuperAdmin() || isAdmin() || (isBranchManager() && resource.data.branchId == managerBranchId());
       allow create: if (isSuperAdmin() && isValidUserCreate()) ||
+        // Admins may provision staff logins (email+password accounts created
+        // client-side) — any role except superAdmin.
+        (isAdmin() && isValidUserCreate() && request.resource.data.role != 'superAdmin') ||
         hasValidPendingInvite() ||
         isSuperAdminBootstrap() ||
         isClientAdminBootstrap();
@@ -269,7 +272,9 @@ service cloud.firestore {
         (isActiveUser() && (isSuperAdmin() || isAdmin() || canAccessBranch(branchId)));
       allow list: if resource.data.status == 'active' ||
         (isActiveUser() && (isSuperAdmin() || isAdmin() || isBranchManager() || isBranchUser()));
-      allow create, delete: if isSuperAdmin();
+      // Admins can create branches (per client); only superAdmin deletes.
+      allow create: if isSuperAdmin() || isAdmin();
+      allow delete: if isSuperAdmin();
       allow update: if isSuperAdmin() ||
         isAdmin() ||
         (isBranchManager() && belongsToManagerBranch(branchId));

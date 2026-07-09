@@ -64,6 +64,26 @@ export const db: Firestore = createFirestore(app);
 export const storage: FirebaseStorage = getStorage(app);
 export const functions: Functions = getFunctions(app);
 
+/**
+ * Create an email/password auth account WITHOUT touching the current admin's
+ * session: a throwaway secondary Firebase app performs the signup (which
+ * signs in on that app only), then is torn down. Returns the new user's uid.
+ */
+export async function createAuthAccount(email: string, password: string): Promise<string> {
+  const { initializeApp: initSecondary, deleteApp } = await import("firebase/app");
+  const { getAuth: getSecondaryAuth, createUserWithEmailAndPassword, signOut: signOutSecondary } =
+    await import("firebase/auth");
+  const secondary = initSecondary(firebaseConfig, `account-creator-${Date.now()}`);
+  try {
+    const secondaryAuth = getSecondaryAuth(secondary);
+    const credential = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+    await signOutSecondary(secondaryAuth).catch(() => undefined);
+    return credential.user.uid;
+  } finally {
+    await deleteApp(secondary).catch(() => undefined);
+  }
+}
+
 let analytics: Analytics | null = null;
 
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {
