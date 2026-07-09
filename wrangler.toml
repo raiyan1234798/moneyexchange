@@ -1,0 +1,11 @@
+# Cloudflare Pages — Git-connected build (root directory = repo root).
+#
+# The app lives in web/. The root `npm run build` builds it and emits the
+# static export to web/out, so Pages must look there for the deploy output.
+# (The dashboard "Build output directory" defaults to `out` at the repo root,
+# which does not exist — this file overrides it.)
+#
+# The repo-root functions/ dir is FIREBASE Cloud Functions, not Cloudflare
+# Pages Functions; Pages logs a harmless "No routes found … Skipping" for it.
+name = "unimoni"
+pages_build_output_dir = "web/out"
