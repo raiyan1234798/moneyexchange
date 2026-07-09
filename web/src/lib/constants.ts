@@ -52,14 +52,23 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateCardPosition: "right" as const,
   rateCardDisplaySeconds: 0,
   showRemittanceScreen: false,
-  showTransferColumn: true,
+  showTransferColumn: false,
+  showTransferCard: true,
+  transferLocalLabel: "UGX",
   videoWidthPercent: 65,
   videoFit: "contain" as "contain" | "cover",
   rateCardScale: 1,
   tickerScale: 1,
   logoScale: 1,
   tickerLogoAnimation: "spin" as "spin" | "pulse" | "none",
+  tickerHeadline: null as string | null,
+  showTickerHeadline: true,
 };
+
+/** Cloudflare R2 free tier is 10 GB total — warn/stop uploads near the cap. */
+export const MAX_TOTAL_STORAGE_BYTES = 10 * 1024 * 1024 * 1024;
+/** Warn (but still allow) once total stored content passes this threshold. */
+export const STORAGE_WARN_BYTES = 8 * 1024 * 1024 * 1024;
 
 /** Max Firebase Storage upload per file (matches storage.rules) */
 export const MAX_VIDEO_UPLOAD_BYTES = 500 * 1024 * 1024;

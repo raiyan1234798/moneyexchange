@@ -81,8 +81,10 @@ export function UnimoniLogoImage({
   height?: number;
   priority?: boolean;
 }) {
-  const src = variant === "onDark" ? "/unimoni-logo-on-dark.svg" : "/unimoni-logo.svg";
-  const width = Math.round(height * 5);
+  // Real brand wordmark (from the official PDFs): white+gold reads on dark
+  // backgrounds (e.g. the blue rate-card header); navy+gold reads on white.
+  const src = variant === "onDark" ? "/unimoni-logo-white.png" : "/unimoni-logo-full.png";
+  const width = Math.round(height * 3.1);
 
   return (
     <Image
@@ -91,7 +93,8 @@ export function UnimoniLogoImage({
       width={width}
       height={height}
       priority={priority}
-      className={cn("w-auto shrink-0", className)}
+      unoptimized
+      className={cn("w-auto shrink-0 object-contain", className)}
       style={{ height }}
     />
   );

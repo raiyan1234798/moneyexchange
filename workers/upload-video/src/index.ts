@@ -71,7 +71,7 @@ export default {
 
     if (request.method === "DELETE") {
       const key = url.searchParams.get("key");
-      if (!key || !key.startsWith("videos/")) {
+      if (!key || !(key.startsWith("videos/") || key.startsWith("images/"))) {
         return jsonResponse({ error: "Invalid storage key" }, 400);
       }
       await env.BUCKET.delete(key);
@@ -104,12 +104,15 @@ export default {
       return jsonResponse({ error: `File exceeds ${MAX_BYTES / (1024 * 1024)}MB limit` }, 413);
     }
 
-    const mimeType = file.type || "video/mp4";
-    if (!mimeType.startsWith("video/")) {
-      return jsonResponse({ error: "Only video files are allowed" }, 400);
+    const mimeType = file.type || "application/octet-stream";
+    const isImage = mimeType.startsWith("image/");
+    const isVideo = mimeType.startsWith("video/");
+    if (!isImage && !isVideo) {
+      return jsonResponse({ error: "Only image or video files are allowed" }, 400);
     }
 
-    const key = `videos/${branchId}/${Date.now()}-${sanitizeFilename(file.name)}`;
+    const prefix = isImage ? "images" : "videos";
+    const key = `${prefix}/${branchId}/${Date.now()}-${sanitizeFilename(file.name)}`;
 
     await env.BUCKET.put(key, file.stream(), {
       httpMetadata: { contentType: mimeType },

@@ -96,7 +96,12 @@ export async function addBranchRate(
   branchId: string,
   currency: Currency,
   actor: { userId: string; userName: string; branchName: string },
-  initialRates?: { buyRate: number; sellRate: number },
+  initialRates?: {
+    buyRate: number;
+    sellRate: number;
+    transferUsd?: number | null;
+    transferLocal?: number | null;
+  },
 ): Promise<void> {
   const existing = await listExchangeRates(branchId);
   const already = existing.find((r) => r.currencyCode === currency.currencyCode);
@@ -104,7 +109,14 @@ export async function addBranchRate(
     await updateDocument(COLLECTIONS.exchangeRates, already.id, {
       isHidden: false,
       status: "published",
-      ...(initialRates ? { buyRate: initialRates.buyRate, sellRate: initialRates.sellRate } : {}),
+      ...(initialRates
+        ? {
+            buyRate: initialRates.buyRate,
+            sellRate: initialRates.sellRate,
+            transferUsd: initialRates.transferUsd ?? null,
+            transferLocal: initialRates.transferLocal ?? null,
+          }
+        : {}),
       updatedBy: actor.userId,
       updatedByName: actor.userName,
       updatedAt: new Date(),
@@ -117,6 +129,8 @@ export async function addBranchRate(
     displayName: currency.currencyName || currency.currencyCode,
     buyRate: initialRates?.buyRate ?? 1.0,
     sellRate: initialRates?.sellRate ?? 1.0,
+    transferUsd: initialRates?.transferUsd ?? null,
+    transferLocal: initialRates?.transferLocal ?? null,
     version: 1,
     displayOrder: existing.length + 1,
     isHidden: false,
@@ -194,15 +208,26 @@ export async function updateExchangeRate(
   newSellRate: number,
   actor: { userId: string; userName: string; branchName: string },
   changeType: RateHistoryEntry["changeType"] = "manual",
-  options?: { requireApproval?: boolean; actorRole?: UserRole; displayName?: string; remitRate?: number | null },
+  options?: {
+    requireApproval?: boolean;
+    actorRole?: UserRole;
+    displayName?: string;
+    remitRate?: number | null;
+    transferUsd?: number | null;
+    transferLocal?: number | null;
+  },
 ): Promise<"published" | "pending"> {
   const nextDisplayName = options?.displayName?.trim() || rate.displayName || rate.currencyCode;
   const ratesChanged = newBuyRate !== rate.buyRate || newSellRate !== rate.sellRate;
   const nameChanged = nextDisplayName !== (rate.displayName || rate.currencyCode);
   const remitChanged =
     options?.remitRate !== undefined && (options.remitRate ?? null) !== (rate.remitRate ?? null);
+  const transferUsdChanged =
+    options?.transferUsd !== undefined && (options.transferUsd ?? null) !== (rate.transferUsd ?? null);
+  const transferLocalChanged =
+    options?.transferLocal !== undefined && (options.transferLocal ?? null) !== (rate.transferLocal ?? null);
 
-  if (!ratesChanged && !nameChanged && !remitChanged) {
+  if (!ratesChanged && !nameChanged && !remitChanged && !transferUsdChanged && !transferLocalChanged) {
     return "published";
   }
 
@@ -235,6 +260,8 @@ export async function updateExchangeRate(
     ...(ratesChanged ? { buyRate: newBuyRate, sellRate: newSellRate } : {}),
     ...(nameChanged ? { displayName: nextDisplayName } : {}),
     ...(remitChanged ? { remitRate: options?.remitRate ?? null } : {}),
+    ...(transferUsdChanged ? { transferUsd: options?.transferUsd ?? null } : {}),
+    ...(transferLocalChanged ? { transferLocal: options?.transferLocal ?? null } : {}),
     version: nextVersion,
     status: "published",
     updatedBy: actor.userId,
@@ -293,6 +320,8 @@ export async function bulkUpdateRates(
     buyRate: number;
     sellRate: number;
     remitRate?: number | null;
+    transferUsd?: number | null;
+    transferLocal?: number | null;
   }>,
   actor: { userId: string; userName: string; branchName: string },
   options?: { autoCreateCurrencies?: boolean; requireApproval?: boolean; actorRole?: UserRole },
@@ -378,6 +407,8 @@ export async function bulkUpdateRates(
           buyRate: update.buyRate,
           sellRate: update.sellRate,
           remitRate: update.remitRate ?? null,
+          transferUsd: update.transferUsd ?? null,
+          transferLocal: update.transferLocal ?? null,
           version: 1,
           displayOrder,
           isHidden: false,
@@ -388,12 +419,27 @@ export async function bulkUpdateRates(
         });
         return;
       }
-      await updateExchangeRate(rate, update.buyRate, update.sellRate, actor, "bulk", {
-        requireApproval: options?.requireApproval,
-        actorRole: options?.actorRole,
-        displayName: label,
-        remitRate: update.remitRate,
-      });
+      // A transfer-only import row (no buy/sell) must not zero out the existing
+      // forex rates — keep the live buy/sell and change only the transfer values.
+      const transferOnly =
+        update.buyRate === 0 &&
+        update.sellRate === 0 &&
+        ((update.transferUsd ?? 0) > 0 || (update.transferLocal ?? 0) > 0);
+      await updateExchangeRate(
+        rate,
+        transferOnly ? rate.buyRate : update.buyRate,
+        transferOnly ? rate.sellRate : update.sellRate,
+        actor,
+        "bulk",
+        {
+          requireApproval: options?.requireApproval,
+          actorRole: options?.actorRole,
+          displayName: label,
+          remitRate: update.remitRate,
+          transferUsd: update.transferUsd,
+          transferLocal: update.transferLocal,
+        },
+      );
     }),
   );
 

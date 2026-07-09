@@ -111,7 +111,8 @@ export function uploadVideoToR2(
 }
 
 export async function deleteR2Object(storagePath: string): Promise<void> {
-  if (!isR2UploadConfigured() || !storagePath.startsWith("videos/")) return;
+  if (!isR2UploadConfigured()) return;
+  if (!storagePath.startsWith("videos/") && !storagePath.startsWith("images/")) return;
 
   try {
     const token = await getIdToken();

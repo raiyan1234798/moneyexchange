@@ -100,6 +100,8 @@ const emptyCurrencyForm = {
   flag: "",
   buyRate: "",
   sellRate: "",
+  transferUsd: "",
+  transferLocal: "",
 };
 
 export default function ExchangeRatesPage() {
@@ -310,6 +312,8 @@ export default function ExchangeRatesPage() {
       toast.error("Enter positive We Buy and We Sell values");
       return;
     }
+    const transferUsd = currencyForm.transferUsd.trim() === "" ? null : Number(currencyForm.transferUsd);
+    const transferLocal = currencyForm.transferLocal.trim() === "" ? null : Number(currencyForm.transferLocal);
     if (rates.some((r) => r.currencyCode.toUpperCase() === code)) {
       toast.error(`${code} is already on this branch — edit its rates below instead`);
       return;
@@ -332,6 +336,8 @@ export default function ExchangeRatesPage() {
               flag: currencyForm.flag,
               buyRate,
               sellRate,
+              transferUsd,
+              transferLocal,
             },
           ],
           {
@@ -385,7 +391,7 @@ export default function ExchangeRatesPage() {
           userName: profile.displayName || profile.email,
           branchName: branch?.name || effectiveBranchId,
         },
-        { buyRate, sellRate },
+        { buyRate, sellRate, transferUsd, transferLocal },
       );
       toast.success(
         `${payload.currencyCode} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`,
@@ -511,8 +517,15 @@ export default function ExchangeRatesPage() {
   async function handlePublishImport() {
     if (!user || !profile || !effectiveBranchId || !importPreview) return;
     for (const row of importPreview) {
-      if (!Number.isFinite(row.buyRate) || !Number.isFinite(row.sellRate) || row.buyRate <= 0 || row.sellRate <= 0) {
-        toast.error(`Buy and sell must be positive numbers — check ${row.currencyCode}`);
+      const hasForex = row.buyRate > 0 && row.sellRate > 0;
+      const hasTransfer = (row.transferUsd ?? 0) > 0 || (row.transferLocal ?? 0) > 0;
+      // Allow transfer-only rows (buy/sell blank) — they update only the transfer card.
+      if (!hasForex && !hasTransfer) {
+        toast.error(`Enter We Buy / We Sell, or a transfer rate — check ${row.currencyCode}`);
+        return;
+      }
+      if ((row.buyRate > 0) !== (row.sellRate > 0)) {
+        toast.error(`Enter BOTH We Buy and We Sell (or leave both blank) — check ${row.currencyCode}`);
         return;
       }
     }
@@ -529,7 +542,8 @@ export default function ExchangeRatesPage() {
           flag: r.flag,
           buyRate: r.buyRate,
           sellRate: r.sellRate,
-          remitRate: r.remitRate ?? null,
+          transferUsd: r.transferUsd ?? null,
+          transferLocal: r.transferLocal ?? null,
         })),
         {
           userId: user.uid,
@@ -697,7 +711,7 @@ export default function ExchangeRatesPage() {
               {importPreview.map((row, index) => (
                 <div
                   key={`${row.currencyCode}-${index}`}
-                  className="grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 sm:grid-cols-[110px_1fr_1fr_1fr_1fr_auto]"
+                  className="grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 sm:grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_auto]"
                 >
                   <span className="font-mono font-semibold">{row.currencyCode}</span>
                   <Input
@@ -737,15 +751,33 @@ export default function ExchangeRatesPage() {
                   />
                   <Input
                     type="number"
-                    value={row.remitRate ?? ""}
-                    aria-label="Remittance rate (optional)"
-                    placeholder="Remit (optional)"
+                    value={row.transferUsd ?? ""}
+                    aria-label="Transfer rate in USD (optional)"
+                    placeholder="$ transfer"
                     onChange={(e) =>
                       setImportPreview((prev) =>
                         prev
                           ? prev.map((r, i) =>
                               i === index
-                                ? { ...r, remitRate: e.target.value === "" ? null : Number(e.target.value) }
+                                ? { ...r, transferUsd: e.target.value === "" ? null : Number(e.target.value) }
+                                : r,
+                            )
+                          : prev,
+                      )
+                    }
+                    className="rounded-lg tabular-nums"
+                  />
+                  <Input
+                    type="number"
+                    value={row.transferLocal ?? ""}
+                    aria-label="Transfer rate in local currency (optional)"
+                    placeholder="UGX transfer"
+                    onChange={(e) =>
+                      setImportPreview((prev) =>
+                        prev
+                          ? prev.map((r, i) =>
+                              i === index
+                                ? { ...r, transferLocal: e.target.value === "" ? null : Number(e.target.value) }
                                 : r,
                             )
                           : prev,
@@ -949,6 +981,28 @@ export default function ExchangeRatesPage() {
                         value={currencyForm.sellRate}
                         onChange={(e) => setCurrencyForm((p) => ({ ...p, sellRate: e.target.value }))}
                         placeholder="e.g. 3685"
+                        className="rounded-xl tabular-nums"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Transfer $ (USD) — optional</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={currencyForm.transferUsd}
+                        onChange={(e) => setCurrencyForm((p) => ({ ...p, transferUsd: e.target.value }))}
+                        placeholder="Money-transfer rate in USD"
+                        className="rounded-xl tabular-nums"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Transfer UGX (local) — optional</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        value={currencyForm.transferLocal}
+                        onChange={(e) => setCurrencyForm((p) => ({ ...p, transferLocal: e.target.value }))}
+                        placeholder="Money-transfer rate in local currency"
                         className="rounded-xl tabular-nums"
                       />
                     </div>

@@ -67,10 +67,14 @@ export interface BranchSettings {
   rateCardPosition: RateCardPosition;
   /** 0 = always show rate card; otherwise hide after N seconds when rotating */
   rateCardDisplaySeconds: number;
-  /** Show a third rotating sheet with remittance/transfer rates on the TV. */
+  /** @deprecated superseded by showTransferCard. */
   showRemittanceScreen?: boolean;
-  /** Show a TRANSFER column (remittance rate) as the last column of the rate table. */
+  /** @deprecated inline column removed — transfer is now its own card. */
   showTransferColumn?: boolean;
+  /** Rotate in a SEPARATE "TRANSFER EXCHANGE RATES" card ($ + local columns). */
+  showTransferCard?: boolean;
+  /** Label for the local-currency transfer column (default "UGX"). */
+  transferLocalLabel?: string;
 
   // --- Independent display sizing (each area is resizable on its own) ---
   /** Width of the video/promo area as a % of the screen (40–80). Rate card takes the rest. Default 65. */
@@ -85,6 +89,10 @@ export interface BranchSettings {
   logoScale?: number;
   /** Animation style for the pop-out ticker logo. Default "spin". */
   tickerLogoAnimation?: "spin" | "pulse" | "none";
+  /** Custom text for the gold "breaking" headline tab above the ticker. */
+  tickerHeadline?: string | null;
+  /** Show the gold headline tab at all (turn off to remove it). Default true. */
+  showTickerHeadline?: boolean;
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";
@@ -110,8 +118,12 @@ export interface ExchangeRate {
   displayName?: string;
   buyRate: number;
   sellRate: number;
-  /** Optional remittance/transfer rate — shown on the TV's remittance sheet when enabled. */
+  /** @deprecated single-value remittance rate — superseded by transferUsd/transferLocal. */
   remitRate?: number | null;
+  /** Money-transfer rate in USD — the "$" column of the separate TRANSFER card. */
+  transferUsd?: number | null;
+  /** Money-transfer rate in the branch's local currency — the "UGX" column of the TRANSFER card. */
+  transferLocal?: number | null;
   version: number;
   displayOrder: number;
   isHidden: boolean;
@@ -144,6 +156,8 @@ export interface ImageAdvert {
   branchId: string;
   downloadUrl: string;
   storagePath?: string | null;
+  /** Stored size in bytes — used for the total-storage budget check. */
+  fileSizeBytes?: number;
   displayDurationSeconds: number;
   status: EntityStatus;
   createdBy: string;

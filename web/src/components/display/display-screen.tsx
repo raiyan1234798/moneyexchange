@@ -24,8 +24,8 @@ interface TimedRatesPanelProps {
   displaySeconds: number;
   showBuyRate: boolean;
   showSellRate: boolean;
-  showRemittance: boolean;
-  showTransferColumn: boolean;
+  showTransferCard: boolean;
+  transferLocalLabel: string;
   scale: number;
   widthPercent: number;
 }
@@ -35,8 +35,8 @@ function TimedRatesPanel({
   displaySeconds,
   showBuyRate,
   showSellRate,
-  showRemittance,
-  showTransferColumn,
+  showTransferCard,
+  transferLocalLabel,
   scale,
   widthPercent,
 }: TimedRatesPanelProps) {
@@ -58,8 +58,8 @@ function TimedRatesPanel({
       rates={rates}
       showBuyRate={showBuyRate}
       showSellRate={showSellRate}
-      showRemittance={showRemittance}
-      showTransferColumn={showTransferColumn}
+      showTransferCard={showTransferCard}
+      transferLocalLabel={transferLocalLabel}
       scale={scale}
       widthPercent={widthPercent}
     />
@@ -93,7 +93,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
-  const showTransferColumn = branchSettings.showTransferColumn ?? true;
+  // Transfer is its own rotating card now (not a column). Back-compat: honour the
+  // old showRemittanceScreen flag if the newer showTransferCard isn't set yet.
+  const showTransferCard =
+    branchSettings.showTransferCard ?? branchSettings.showRemittanceScreen ?? true;
+  const transferLocalLabel = branchSettings.transferLocalLabel?.trim() || "UGX";
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
 
   useEffect(() => {
@@ -208,10 +212,18 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     branch?.logoUrl || branchSettings.tickerLogoUrl || activeTicker?.logoUrl || null;
   const tickerLogoText = activeTicker?.logoText || branchSettings.tickerLogoText || null;
   const tickerLogoFontCss = logoFontCss(activeTicker?.logoFont || branchSettings.tickerLogoFont);
-  const tickerHeadline =
-    activeTicker?.messages?.[0]?.text?.slice(0, 24).toUpperCase() ||
-    branch?.name?.toUpperCase() ||
-    "BIG BREAKING";
+  // The gold "breaking" headline tab is editable and removable per branch:
+  // turn it off entirely, or set custom text (falls back to the first message /
+  // branch name). Empty string / disabled → the tab is not rendered.
+  const showTickerHeadline = branchSettings.showTickerHeadline !== false;
+  const customHeadline = branchSettings.tickerHeadline?.trim();
+  const tickerHeadline = !showTickerHeadline
+    ? "" // empty string overrides the component default → tab not rendered
+    : customHeadline
+      ? customHeadline.toUpperCase()
+      : activeTicker?.messages?.[0]?.text?.slice(0, 24).toUpperCase() ||
+        branch?.name?.toUpperCase() ||
+        "BIG BREAKING";
   const tickerFontColor = activeTicker?.fontColor || branchSettings.tickerFontColor || "#FFFFFF";
   const tickerFontSize = activeTicker?.fontSize || branchSettings.tickerFontSize;
 
@@ -306,8 +318,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       displaySeconds={rateCardDisplaySeconds}
       showBuyRate={branchSettings.showBuyRate}
       showSellRate={branchSettings.showSellRate}
-      showRemittance={branchSettings.showRemittanceScreen === true}
-      showTransferColumn={showTransferColumn}
+      showTransferCard={showTransferCard}
+      transferLocalLabel={transferLocalLabel}
       scale={rateCardScale}
       widthPercent={rateWidthPercent}
     />

@@ -11,8 +11,12 @@ export interface RateImportRow {
   flag?: string;
   buyRate: number;
   sellRate: number;
-  /** Optional remittance/transfer rate (TRANSFER column in the file). */
+  /** @deprecated single-value remittance rate. */
   remitRate?: number | null;
+  /** Money-transfer rate in USD — the "$" column of a TRANSFER table. */
+  transferUsd?: number | null;
+  /** Money-transfer rate in local currency — the "UGX" column of a TRANSFER table. */
+  transferLocal?: number | null;
 }
 
 /** Derive ISO-style code and human label from an Excel CURRENCY cell. */
@@ -170,15 +174,34 @@ export function parseRateFile(file: File): Promise<RateImportRow[]> {
         const currencyIdx = findColumnIndex(headers, ["CURRENCY", "CODE", "CURRENCY CODE"]);
         const buyIdx = findColumnIndex(headers, ["WE BUY", "BUY", "BUY RATE"]);
         const sellIdx = findColumnIndex(headers, ["WE SELL", "SELL", "SELL RATE"]);
-        // Optional 4th column, matching boards like the client's reference.
-        const remitIdx = findColumnIndex(headers, ["TRANSFER", "REMITTANCE", "REMIT", "TT RATE"]);
+        // Separate TRANSFER table columns: "$" (USD) and "UGX"/local. Also accept
+        // a single legacy TRANSFER/REMITTANCE column as the local transfer rate.
+        const transferUsdIdx = findColumnIndex(headers, ["USD $", "$ USD", "US$", "USD", "$", "DOLLAR"]);
+        const transferLocalIdx = findColumnIndex(headers, [
+          "UGX",
+          "LOCAL",
+          "SHILLING",
+          "TRANSFER",
+          "REMITTANCE",
+          "REMIT",
+          "TT RATE",
+        ]);
 
-        if (currencyIdx < 0 || buyIdx < 0 || sellIdx < 0) {
+        const hasForex = buyIdx >= 0 && sellIdx >= 0;
+        const hasTransfer = transferUsdIdx >= 0 || transferLocalIdx >= 0;
+        if (currencyIdx < 0 || (!hasForex && !hasTransfer)) {
           reject(
-            new Error("Invalid columns. Required: CURRENCY | WE BUY | WE SELL"),
+            new Error(
+              "Invalid columns. Use CURRENCY | WE BUY | WE SELL for forex, or CURRENCY | $ | UGX for a transfer table.",
+            ),
           );
           return;
         }
+
+        const num = (v: unknown): number | null => {
+          const n = Number(v);
+          return Number.isFinite(n) && n > 0 ? n : null;
+        };
 
         const parsed: RateImportRow[] = [];
         for (let i = 1; i < rawRows.length; i++) {
@@ -189,24 +212,44 @@ export function parseRateFile(file: File): Promise<RateImportRow[]> {
           const { currencyCode, displayName, currencyName, country, flag } = parseCurrencyCell(rawCurrency);
           if (!currencyCode) continue;
 
-          const buyRate = Number(row[buyIdx]);
-          const sellRate = Number(row[sellIdx]);
-          if (!Number.isFinite(buyRate) || !Number.isFinite(sellRate)) {
-            reject(new Error(`Invalid rates for ${displayName} on row ${i + 1}`));
-            return;
-          }
-          if (buyRate <= 0 || sellRate <= 0) {
-            reject(new Error(`Rates must be positive for ${displayName}`));
-            return;
+          let buyRate = 0;
+          let sellRate = 0;
+          if (hasForex) {
+            const b = Number(row[buyIdx]);
+            const s = Number(row[sellIdx]);
+            // A blank forex row inside a transfer-only workbook is fine — skip it.
+            const blank = String(row[buyIdx] ?? "").trim() === "" && String(row[sellIdx] ?? "").trim() === "";
+            if (!blank) {
+              if (!Number.isFinite(b) || !Number.isFinite(s)) {
+                reject(new Error(`Invalid rates for ${displayName} on row ${i + 1}`));
+                return;
+              }
+              if (b <= 0 || s <= 0) {
+                reject(new Error(`Rates must be positive for ${displayName}`));
+                return;
+              }
+              buyRate = b;
+              sellRate = s;
+            }
           }
 
-          let remitRate: number | null = null;
-          if (remitIdx >= 0) {
-            const raw = Number(row[remitIdx]);
-            remitRate = Number.isFinite(raw) && raw > 0 ? raw : null;
-          }
+          const transferUsd = transferUsdIdx >= 0 ? num(row[transferUsdIdx]) : null;
+          const transferLocal = transferLocalIdx >= 0 ? num(row[transferLocalIdx]) : null;
 
-          parsed.push({ currencyCode, displayName, currencyName, country, flag, buyRate, sellRate, remitRate });
+          // Skip empty rows (no forex and no transfer values).
+          if (buyRate <= 0 && sellRate <= 0 && !transferUsd && !transferLocal) continue;
+
+          parsed.push({
+            currencyCode,
+            displayName,
+            currencyName,
+            country,
+            flag,
+            buyRate,
+            sellRate,
+            transferUsd,
+            transferLocal,
+          });
         }
 
         if (parsed.length === 0) {

@@ -182,6 +182,29 @@ function BranchSettingsForm({
         />
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Show &quot;breaking&quot; headline tab</Label>
+          <p className="text-xs text-muted-foreground">
+            The small gold tab above the ticker (e.g. &quot;WELCOME TO UNIMONI EXCHANGE&quot;). Turn off
+            to remove it.
+          </p>
+        </div>
+        <Switch
+          checked={settings.showTickerHeadline !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showTickerHeadline: checked })}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Headline tab text</Label>
+        <Input
+          value={settings.tickerHeadline ?? ""}
+          onChange={(event) => setSettings({ ...settings, tickerHeadline: event.target.value || null })}
+          placeholder="Leave blank to use the first ticker message / branch name"
+          disabled={settings.showTickerHeadline === false}
+          className="rounded-xl"
+        />
+      </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <Label>Show Buy Rate on Display</Label>
         <Switch
           checked={settings.showBuyRate}
@@ -197,28 +220,29 @@ function BranchSettingsForm({
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>
-          <Label>Remittance sheet on Display</Label>
+          <Label>Separate TRANSFER card on Display</Label>
           <p className="text-xs text-muted-foreground">
-            Rotates in a third screen with remittance rates (currencies that have a TRANSFER value
-            from the Excel import).
+            Rotates in its own &quot;TRANSFER EXCHANGE RATES&quot; card with two columns — $ (USD) and
+            the local currency — for currencies that have transfer rates set.
           </p>
         </div>
         <Switch
-          checked={settings.showRemittanceScreen === true}
-          onCheckedChange={(checked) => setSettings({ ...settings, showRemittanceScreen: checked })}
+          checked={settings.showTransferCard !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showTransferCard: checked })}
         />
       </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>TRANSFER column on rate card</Label>
-          <p className="text-xs text-muted-foreground">
-            Adds a TRANSFER (remittance) column as the last column of the rate table.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showTransferColumn !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showTransferColumn: checked })}
+      <div className="space-y-2">
+        <Label>Transfer card — local currency label</Label>
+        <Input
+          value={settings.transferLocalLabel ?? "UGX"}
+          onChange={(event) => setSettings({ ...settings, transferLocalLabel: event.target.value })}
+          placeholder="UGX"
+          className="rounded-xl"
         />
+        <p className="text-xs text-muted-foreground">
+          Header for the second transfer column (the branch&apos;s local currency). The first column is
+          always $ (USD).
+        </p>
       </div>
 
       {/* ---- Independent display sizing: each area resizes on its own ---- */}

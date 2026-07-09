@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Cloud, Link2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -34,7 +34,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { MAX_VIDEO_UPLOAD_BYTES, MAX_CHUNKED_VIDEO_BYTES, RECOMMENDED_VIDEO_FORMATS, WARN_LARGE_VIDEO_BYTES } from "@/lib/constants";
+import {
+  MAX_VIDEO_UPLOAD_BYTES,
+  MAX_CHUNKED_VIDEO_BYTES,
+  MAX_TOTAL_STORAGE_BYTES,
+  STORAGE_WARN_BYTES,
+  RECOMMENDED_VIDEO_FORMATS,
+  WARN_LARGE_VIDEO_BYTES,
+} from "@/lib/constants";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -98,6 +105,41 @@ export default function VideosPage() {
   const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
   const actor = user && profile ? { userId: user.uid, userName: profile.displayName || profile.email } : null;
   const { notice, onError, clearNotice } = useFirestoreNotice("videos and images");
+
+  // Rough storage used for this branch (videos + image adverts). Cloudflare R2's
+  // free tier is 10 GB total, so warn before an upload would push over the cap.
+  const usedBytes = useMemo(() => {
+    const videoBytes = videos.reduce((sum, v) => sum + (v.fileSizeBytes ?? 0), 0);
+    const imageBytes = images.reduce(
+      (sum, img) =>
+        sum +
+        (img.fileSizeBytes ??
+          (img.downloadUrl?.startsWith("data:") ? Math.ceil(img.downloadUrl.length * 0.75) : 0)),
+      0,
+    );
+    return videoBytes + imageBytes;
+  }, [videos, images]);
+
+  const gb = (bytes: number) => (bytes / (1024 * 1024 * 1024)).toFixed(2);
+
+  /** Returns false (and toasts) when an upload would exceed the 10 GB budget. */
+  function withinStorageBudget(addBytes: number): boolean {
+    const projected = usedBytes + addBytes;
+    if (projected > MAX_TOTAL_STORAGE_BYTES) {
+      toast.error(
+        `This upload would exceed the 10 GB storage limit (${gb(projected)} GB). Remove old videos/images, or paste a direct video link instead.`,
+        { duration: 10000 },
+      );
+      return false;
+    }
+    if (projected > STORAGE_WARN_BYTES) {
+      toast.warning(
+        `Storage is filling up — about ${gb(projected)} GB of 10 GB used after this upload. Consider removing old content.`,
+        { duration: 8000 },
+      );
+    }
+    return true;
+  }
 
   useEffect(() => {
     if (!effectiveBranchId) return;
@@ -235,6 +277,7 @@ export default function VideosPage() {
         return;
       }
     }
+    if (!withinStorageBudget(files.reduce((s, f) => s + f.size, 0))) return;
     setUploading(true);
     setProgress(1);
     let done = 0;
@@ -287,6 +330,7 @@ export default function VideosPage() {
       toast.error(error instanceof Error ? error.message : "Invalid video file");
       return;
     }
+    if (!withinStorageBudget(file.size)) return;
 
     const resolvedTitle = resolveVideoTitle(title, deriveTitleFromFile(file));
     setUploading(true);
@@ -377,6 +421,7 @@ export default function VideosPage() {
       toast.error("Select an image file");
       return;
     }
+    if (!withinStorageBudget(files.reduce((s, f) => s + f.size, 0))) return;
     setImageUploading(true);
     let done = 0;
     try {
@@ -930,15 +975,27 @@ export default function VideosPage() {
                 {
                   key: "preview",
                   header: "Preview",
+                  // Uploaded images are stored as data: URLs, which browsers block
+                  // from opening in a new tab — show an inline thumbnail instead.
                   cell: (img) => (
-                    <a
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                      href={img.downloadUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open
-                    </a>
+                    <div className="flex items-center gap-2">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.downloadUrl}
+                        alt={img.title}
+                        className="h-10 w-16 shrink-0 rounded-md border border-border/40 bg-muted object-contain"
+                      />
+                      {!img.downloadUrl.startsWith("data:") ? (
+                        <a
+                          className="text-sm text-primary underline-offset-4 hover:underline"
+                          href={img.downloadUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open
+                        </a>
+                      ) : null}
+                    </div>
                   ),
                 },
                 {

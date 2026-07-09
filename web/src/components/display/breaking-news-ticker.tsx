@@ -131,7 +131,7 @@ function BreakingNewsTickerInner({
           from the scrolling strip. Text slides behind it and disappears.
           Image logos sit on a white card so the navy+gold wordmark reads. */}
       <div
-        className={`absolute bottom-[10%] left-[0.6vw] z-40 flex items-center justify-center overflow-hidden rounded-[10px] border-2 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+        className={`absolute bottom-[10%] left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[10px] border-2 border-l-0 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
           pulse ? "ticker-logo-pulse" : ""
         }`}
         style={{
@@ -171,10 +171,11 @@ function BreakingNewsTickerInner({
       >
         <div
           className="relative min-w-0 flex-1 overflow-hidden"
-          // Scrolling strip is black with white text (per client) — the gold
-          // headline tab and underline stay for brand contrast. Left padding
-          // clears the pop-out badge (wider when it's a text logo).
-          style={{ backgroundColor: UNIMONI_COLORS.tickerBlack, paddingLeft: contentInset }}
+          // Scrolling strip is black with white text (per client). The text runs
+          // the FULL width and slides UNDER the opaque pop-out logo (z-40) on the
+          // left, so the whole message stays visible right up to the logo edge —
+          // no mid-strip clipping. The gold headline tab is offset to clear it.
+          style={{ backgroundColor: UNIMONI_COLORS.tickerBlack }}
         >
           {scrolling && activeText ? (
             <div key={`${messageIndex}-${cycle}`} className="absolute inset-y-0 flex w-full items-center">

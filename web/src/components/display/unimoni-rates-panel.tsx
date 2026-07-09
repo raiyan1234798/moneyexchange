@@ -24,10 +24,12 @@ interface UnimoniRatesPanelProps {
    */
   variant?: "panel" | "board";
   branchName?: string | null;
-  /** Append a rotating remittance-rates sheet (rates with a remitRate set). */
+  /** @deprecated use showTransferCard. */
   showRemittance?: boolean;
-  /** Show a TRANSFER column (remittance rate) as the last column of the table. */
-  showTransferColumn?: boolean;
+  /** Rotate in a SEPARATE "TRANSFER EXCHANGE RATES" card with $ + local columns. */
+  showTransferCard?: boolean;
+  /** Label for the local-currency transfer column (default "UGX"). */
+  transferLocalLabel?: string;
   /** Multiplier for the rate-card text/row size (default 1). */
   scale?: number;
   /** Width of the rate card as a % of the screen (desktop/TV only). */
@@ -36,7 +38,7 @@ interface UnimoniRatesPanelProps {
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
 const SELL_COLOR = "#38bdf8"; // sky (board — on dark)
-const NAVY_TEXT = "#0B3B7A"; // deep brand navy — codes and values on the light panel
+const NAVY_TEXT = "#0D2680"; // Rich Deep Blue (Pantone 2748 C) — codes/values on the light panel
 const STRIPE_LIGHT = "#FFFFFF";
 const STRIPE_BLUE = "#E4EFF9";
 
@@ -45,7 +47,7 @@ const RATES_PER_SHEET = 12;
 const SHEET_INTERVAL_MS = 5_000;
 
 interface Sheet {
-  kind: "rates" | "remit";
+  kind: "rates" | "transfer";
   rows: ExchangeRate[];
 }
 
@@ -57,6 +59,11 @@ function chunkRows(rows: ExchangeRate[], kind: Sheet["kind"]): Sheet[] {
   return sheets;
 }
 
+/** A currency belongs on the transfer card if it has either transfer rate set. */
+function hasTransfer(r: ExchangeRate): boolean {
+  return (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0 || (r.remitRate ?? 0) > 0;
+}
+
 export function UnimoniRatesPanel({
   rates,
   showBuyRate = true,
@@ -64,16 +71,18 @@ export function UnimoniRatesPanel({
   className = "",
   variant = "panel",
   branchName,
-  showRemittance = false,
-  showTransferColumn = false,
+  showTransferCard = false,
+  transferLocalLabel = "UGX",
   scale = 1,
   widthPercent,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
   const now = useNow();
-  const remitRows = showRemittance ? rows.filter((r) => (r.remitRate ?? 0) > 0) : [];
-  const sheets: Sheet[] = [...chunkRows(rows, "rates"), ...chunkRows(remitRows, "remit")];
+  // Transfer is its OWN card (separate rotating screen), never mixed into the
+  // forex table — per the client's separate "TRANSFER EXCHANGE RATES" board.
+  const transferRows = showTransferCard ? rows.filter(hasTransfer) : [];
+  const sheets: Sheet[] = [...chunkRows(rows, "rates"), ...chunkRows(transferRows, "transfer")];
   const sheetCount = Math.max(sheets.length, 1);
   const [sheetIndex, setSheetIndex] = useState(0);
 
@@ -92,7 +101,7 @@ export function UnimoniRatesPanel({
     sheetCount > 1
       ? [...activeSheet.rows, ...Array(RATES_PER_SHEET - activeSheet.rows.length).fill(null)]
       : activeSheet.rows;
-  const isRemitSheet = activeSheet.kind === "remit";
+  const isTransferSheet = activeSheet.kind === "transfer";
 
   if (variant === "board") {
     return (
@@ -109,24 +118,29 @@ export function UnimoniRatesPanel({
   // Faithful replica of the client's Al Ansari reference: blue header band
   // (DATE | logo | TIME in white), white rounded table with a light
   // column-header row, alternating stripes, bare flags on the left, and plain
-  // navy values with thin column separators. The TRANSFER (remittance) rate is
-  // an optional LAST column. Every currency stays fixed on screen — the panel
-  // never scrolls; rows share the height equally and type auto-scales.
+  // navy values with thin column separators. The TRANSFER rates live on their
+  // OWN rotating card ($ + local columns). Every currency stays fixed on
+  // screen — the panel never scrolls; rows share height and type auto-scales.
   const columnSeparator = { borderLeft: "1px solid #D3E2F0" };
 
-  // Value columns in display order — TRANSFER always comes last, per the board.
+  // Column set depends on the active card: forex (We Buy / We Sell) or the
+  // separate transfer card ($ USD / local currency, e.g. UGX). "$" for USD is
+  // shown for the transfer sheet only, per the client's transfer board.
   const valueColumns: {
     key: string;
     header: string;
     get: (r: ExchangeRate) => number | null | undefined;
     isTransfer?: boolean;
   }[] = [];
-  if (showBuyRate) valueColumns.push({ key: "buy", header: "We Buy", get: (r) => r.buyRate });
-  if (showSellRate) valueColumns.push({ key: "sell", header: "We Sell", get: (r) => r.sellRate });
-  if (showTransferColumn)
-    valueColumns.push({ key: "transfer", header: "Transfer", get: (r) => r.remitRate, isTransfer: true });
-  const mainGridColumns = `1.25fr ${valueColumns.map(() => "1fr").join(" ")}`.trim();
-  const gridColumns = isRemitSheet ? "1.25fr 2fr" : mainGridColumns;
+  if (isTransferSheet) {
+    valueColumns.push({ key: "usd", header: "$ (USD)", get: (r) => r.transferUsd ?? r.remitRate, isTransfer: true });
+    valueColumns.push({ key: "local", header: transferLocalLabel, get: (r) => r.transferLocal, isTransfer: true });
+  } else {
+    if (showBuyRate) valueColumns.push({ key: "buy", header: "We Buy", get: (r) => r.buyRate });
+    if (showSellRate) valueColumns.push({ key: "sell", header: "We Sell", get: (r) => r.sellRate });
+  }
+  const gridColumns = `1.25fr ${valueColumns.map(() => "1fr").join(" ")}`.trim();
+  const headerSubLabel = isTransferSheet ? "Transfer Rates" : "Exchange Rates";
 
   const asideStyle = {
     background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
@@ -157,7 +171,7 @@ export function UnimoniRatesPanel({
             priority
           />
           <p className="text-[clamp(0.5rem,0.8vw,0.7rem)] font-bold uppercase tracking-[0.16em] text-white/85">
-            Exchange Rates
+            {headerSubLabel}
           </p>
         </div>
         <div className="flex min-w-0 flex-col items-center justify-center">
@@ -178,17 +192,11 @@ export function UnimoniRatesPanel({
           style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}
         >
           <span className="flex items-center justify-center">Currency</span>
-          {isRemitSheet ? (
-            <span className="flex items-center justify-center" style={columnSeparator}>
-              Remittance Rate
+          {valueColumns.map((col) => (
+            <span key={col.key} className="flex items-center justify-center" style={columnSeparator}>
+              {col.header}
             </span>
-          ) : (
-            valueColumns.map((col) => (
-              <span key={col.key} className="flex items-center justify-center" style={columnSeparator}>
-                {col.header}
-              </span>
-            ))
-          )}
+          ))}
         </div>
 
         <div
@@ -220,32 +228,23 @@ export function UnimoniRatesPanel({
                 />
                 <span className="min-w-0 flex-1 truncate text-center">{rate.currencyCode}</span>
               </span>
-              {isRemitSheet ? (
-                <span
-                  className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
-                  style={{ color: NAVY_TEXT, ...columnSeparator }}
-                >
-                  {formatUnimoniRate(rate.remitRate ?? 0)}
-                </span>
-              ) : (
-                valueColumns.map((col) => {
-                  const value = col.get(rate);
-                  // TRANSFER cells are blank (—) for currencies with no remittance rate.
-                  const display =
-                    col.isTransfer && (value == null || value <= 0)
-                      ? "—"
-                      : formatUnimoniRate(value ?? 0);
-                  return (
-                    <span
-                      key={col.key}
-                      className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
-                      style={{ color: NAVY_TEXT, ...columnSeparator }}
-                    >
-                      {display}
-                    </span>
-                  );
-                })
-              )}
+              {valueColumns.map((col) => {
+                const value = col.get(rate);
+                // Transfer cells are blank (—) for currencies with no transfer rate.
+                const display =
+                  col.isTransfer && (value == null || value <= 0)
+                    ? "—"
+                    : formatUnimoniRate(value ?? 0);
+                return (
+                  <span
+                    key={col.key}
+                    className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
+                    style={{ color: NAVY_TEXT, ...columnSeparator }}
+                  >
+                    {display}
+                  </span>
+                );
+              })}
             </div>
             ),
           )}

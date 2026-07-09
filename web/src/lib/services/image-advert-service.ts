@@ -9,8 +9,14 @@ import {
 } from "@/lib/firebase/firestore";
 import { storage } from "@/lib/firebase/client";
 import { ADVERT_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { deleteR2Object, isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
 import { COLLECTIONS } from "@/lib/constants";
 import type { ImageAdvert } from "@/lib/types";
+
+async function dataUrlToFile(dataUrl: string, name: string): Promise<File> {
+  const blob = await (await fetch(dataUrl)).blob();
+  return new File([blob], name, { type: blob.type || "image/webp" });
+}
 
 function toMillis(value: ImageAdvert["createdAt"]): number {
   if (!value) return 0;
@@ -106,18 +112,39 @@ export async function uploadImageAdvert(
   actor: { userId: string; userName: string },
   opts?: { keepExisting?: boolean },
 ): Promise<string> {
-  // No Storage bucket on this project (free plan): compress in the browser
-  // (downscale + WebP) and store the image INSIDE the Firestore doc as a data
-  // URL — displays render it like any other URL.
+  // Always optimise first (downscale + WebP) — smaller files, less storage.
   const compressed = await compressImageToDataUrl(params.file, ADVERT_IMAGE_OPTIONS);
+
+  // Prefer Cloudflare R2 when configured (real URL, no Firestore bloat);
+  // otherwise store the compressed image INSIDE the Firestore doc as a data URL
+  // so displays still render it like any other URL.
+  let downloadUrl = compressed.dataUrl;
+  let storagePath: string | null = null;
+  let fileSizeBytes = compressed.bytes;
+  if (isR2UploadConfigured()) {
+    try {
+      const baseName = params.file.name.replace(/\.[^.]+$/, "") || "advert";
+      const optimizedFile = await dataUrlToFile(compressed.dataUrl, `${baseName}.webp`);
+      const r2 = await uploadVideoToR2(optimizedFile, params.branchId);
+      downloadUrl = r2.downloadUrl;
+      storagePath = r2.storagePath;
+      fileSizeBytes = r2.fileSizeBytes;
+    } catch {
+      // Fall back to the inline data URL if the R2 upload fails.
+      downloadUrl = compressed.dataUrl;
+      storagePath = null;
+      fileSizeBytes = compressed.bytes;
+    }
+  }
 
   // Batch uploads keep prior images active so several rotate on the display.
   if (opts?.keepExisting !== true) await deactivateBranchImages(params.branchId);
   const id = await createDocument(COLLECTIONS.imageAdverts, {
     title: params.title,
     branchId: params.branchId,
-    downloadUrl: compressed.dataUrl,
-    storagePath: null,
+    downloadUrl,
+    storagePath,
+    fileSizeBytes,
     displayDurationSeconds: params.displayDurationSeconds ?? 15,
     status: "active",
     createdBy: params.createdBy,
@@ -144,7 +171,9 @@ export async function deleteImageAdvert(
   image: ImageAdvert,
   actor: { userId: string; userName: string },
 ): Promise<void> {
-  if (image.storagePath) {
+  if (image.storagePath?.startsWith("images/")) {
+    await deleteR2Object(image.storagePath);
+  } else if (image.storagePath) {
     await deleteObject(ref(storage, image.storagePath)).catch(() => undefined);
   }
   await updateDocument(COLLECTIONS.imageAdverts, image.id, { status: "inactive" });

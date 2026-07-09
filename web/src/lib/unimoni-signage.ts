@@ -1,20 +1,31 @@
 import type { ExchangeRate } from "@/lib/types";
-import { BRAND, BRAND_COLORS } from "@/lib/brand";
+import { BRAND } from "@/lib/brand";
 import { getCurrencyMeta } from "@/lib/currency-utils";
 
-/** unimoni digital signage palette. */
+/**
+ * unimoni digital signage palette — locked to the official brand spec:
+ *   Signage BG "Rich Deep Blue"  = Pantone 2748 C  (CMYK 90/70/0/50 → ~#0D2680)
+ *   Accent "Yellow"              = Pantone 137 C   (~#FFA300)
+ * These are used for the rate-card header/background and gold accents so the
+ * signage matches the printed brand collateral.
+ */
+const RICH_DEEP_BLUE = "#0D2680"; // Pantone 2748 C
+const RICH_DEEP_BLUE_DARK = "#081B57"; // darker shade for the header gradient top
+const BRAND_YELLOW = "#FFA300"; // Pantone 137 C
+const BRAND_YELLOW_BRIGHT = "#FFB733";
+
 export const UNIMONI_COLORS = {
-  panelBlue: BRAND_COLORS.primaryLight,
-  navy: BRAND_COLORS.surface,
-  headerBlue: BRAND_COLORS.primary,
-  gold: BRAND_COLORS.gold,
-  goldBright: BRAND_COLORS.goldBright,
+  panelBlue: RICH_DEEP_BLUE,
+  navy: RICH_DEEP_BLUE_DARK,
+  headerBlue: RICH_DEEP_BLUE,
+  gold: BRAND_YELLOW,
+  goldBright: BRAND_YELLOW_BRIGHT,
   tickerBlack: "#060912",
   white: "#ffffff",
-  darkText: BRAND_COLORS.primary,
-  accentBlue: BRAND_COLORS.primaryLight,
+  darkText: RICH_DEEP_BLUE,
+  accentBlue: RICH_DEEP_BLUE,
   sellBox: "#ffffff",
-  promoText: BRAND_COLORS.primary,
+  promoText: RICH_DEEP_BLUE,
 } as const;
 
 export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONI";
