@@ -160,42 +160,36 @@ export function UnimoniRatesPanel({
       className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
       style={asideStyle}
     >
-      <div className="flex shrink-0 items-stretch justify-between gap-2 px-[1vw] py-[1vh] font-[Arial,Helvetica,sans-serif]">
-        <div className="flex min-w-0 flex-col items-center justify-center">
-          <span className="text-[clamp(0.55rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.2em] text-white">
-            Date
-          </span>
-          <span className="whitespace-nowrap text-[clamp(0.65rem,1.05vw,0.95rem)] font-semibold tabular-nums text-white/95">
-            {now ? formatSignageDate(now) : "—"}
-          </span>
-        </div>
-        <div className="flex min-w-0 flex-col items-center justify-center">
+      {/* Header: a BIG centered logo, with date + time stacked together in the
+          right corner (no "DATE"/"TIME" labels — just the values). */}
+      <div className="relative flex shrink-0 items-center justify-center px-[1vw] py-[1.1vh] font-[Arial,Helvetica,sans-serif]">
+        <div className="flex flex-col items-center justify-center">
           {headerLogoUrl ? (
             // Custom rebrand logo uploaded by an admin.
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={headerLogoUrl}
               alt="Brand logo"
-              className="h-[clamp(1.3rem,2.6vh,2.4rem)] w-auto object-contain"
+              className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto object-contain"
             />
           ) : (
             <UnimoniLogoImage
               variant="onDark"
-              width={180}
-              height={40}
-              className="h-[clamp(1.1rem,2.1vh,1.9rem)] w-auto object-contain"
+              width={280}
+              height={72}
+              className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto object-contain"
               priority
             />
           )}
-          <p className="text-[clamp(0.5rem,0.8vw,0.7rem)] font-bold uppercase tracking-[0.16em] text-white/85">
+          <p className="text-[clamp(0.5rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.18em] text-white/85">
             {headerSubLabel}
           </p>
         </div>
-        <div className="flex min-w-0 flex-col items-center justify-center">
-          <span className="text-[clamp(0.55rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.2em] text-white">
-            Time
+        <div className="absolute right-[1.1vw] top-1/2 flex -translate-y-1/2 flex-col items-end leading-tight">
+          <span className="whitespace-nowrap text-[clamp(0.68rem,1.15vw,1.05rem)] font-bold tabular-nums text-white">
+            {now ? formatSignageDate(now) : "—"}
           </span>
-          <span className="whitespace-nowrap text-[clamp(0.65rem,1.05vw,0.95rem)] font-semibold tabular-nums text-white/95">
+          <span className="whitespace-nowrap text-[clamp(0.68rem,1.15vw,1.05rem)] font-semibold tabular-nums text-white/85">
             {now ? formatSignageTime(now) : "—"}
           </span>
         </div>
