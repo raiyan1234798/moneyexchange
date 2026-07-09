@@ -93,6 +93,10 @@ export interface BranchSettings {
   tickerHeadline?: string | null;
   /** Show the gold headline tab at all (turn off to remove it). Default true. */
   showTickerHeadline?: boolean;
+  /** Custom brand logo for the rate-card header (rebrand) — overrides the unimoni logo. */
+  headerLogoUrl?: string | null;
+  /** Logo images that scroll right-to-left in the ticker alongside the messages. */
+  scrollingLogos?: string[];
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";

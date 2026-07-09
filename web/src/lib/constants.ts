@@ -56,15 +56,17 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showTransferCard: true,
   transferLocalLabel: "UGX",
   videoWidthPercent: 65,
-  // Default to FILL (no black bars) — the whole promo area is covered; edges may
-  // crop. Switch to "contain" in Settings to show the entire frame (letterboxed).
-  videoFit: "cover" as "contain" | "cover",
+  // Default "contain" = show the WHOLE video/image with a blurred fill behind it
+  // (no cropping, no black bars). "cover" = fill & crop the edges (single element).
+  videoFit: "contain" as "contain" | "cover",
   rateCardScale: 1,
   tickerScale: 1,
   logoScale: 1,
   tickerLogoAnimation: "spin" as "spin" | "pulse" | "none",
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
+  headerLogoUrl: null as string | null,
+  scrollingLogos: [] as string[],
 };
 
 /** Cloudflare R2 free tier is 10 GB total — warn/stop uploads near the cap. */

@@ -29,6 +29,8 @@ interface BreakingNewsTickerProps {
   logoScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
   logoAnimation?: "spin" | "pulse" | "none";
+  /** Logo images that scroll right-to-left with the messages. */
+  scrollingLogos?: string[];
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
@@ -47,6 +49,7 @@ function BreakingNewsTickerInner({
   heightScale = 1,
   logoScale = 1,
   logoAnimation = "spin",
+  scrollingLogos = [],
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
   const resolvedText = logoText?.trim() || null;
@@ -188,6 +191,17 @@ function BreakingNewsTickerInner({
                 }}
                 onAnimationEnd={handleAnimationEnd}
               >
+                {/* Optional logo images scroll right-to-left together with the
+                    message text; sized relative to the ticker font. */}
+                {scrollingLogos.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={`${src}-${i}`}
+                    src={src}
+                    alt=""
+                    className="mr-[1.6vw] inline-block h-[1.4em] w-auto rounded-[3px] bg-white/95 px-[0.3em] py-[0.15em] align-middle object-contain"
+                  />
+                ))}
                 {activeText}
               </span>
             </div>

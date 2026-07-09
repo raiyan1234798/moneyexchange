@@ -42,9 +42,11 @@ export function UnimoniPromoPanel({
   const showPlaceholder = !showVideo && !showImage;
   const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
 
-  // "cover" fills the area (edges may crop); "contain" keeps the whole frame
-  // visible (letterbox bars on the black panel). Chosen per-branch in Settings.
-  const objectFit = fit === "cover" ? "object-cover" : "object-contain";
+  // Default ("contain") = show the WHOLE video/image with NO black bars: the
+  // full media plays on top (object-contain) over a blurred, zoomed copy that
+  // fills the surrounding space. "cover" = a single element that fills & crops
+  // the edges (cheapest — no second decode). Chosen per-branch in Settings.
+  const useBackdrop = fit !== "cover";
 
   const panelStyle: CSSProperties =
     showVideo || showImage ? {} : { backgroundColor: UNIMONI_COLORS.panelBlue };
@@ -56,42 +58,55 @@ export function UnimoniPromoPanel({
       style={panelStyle}
     >
       {showVideo ? (
-        // Always the native <video> element — including Google Drive links
-        // (stored as direct-stream drive.usercontent.google.com URLs). The
-        // Drive /preview iframe cannot autoplay or loop, which strands an
-        // unattended TV on a play button / end screen.
-        <video
-          key={videoUrl}
-          src={videoUrl ?? undefined}
-          className={`absolute inset-0 z-0 h-full w-full ${objectFit}`}
-          autoPlay
-          muted
-          loop={loopVideo}
-          playsInline
-          onLoadedData={onVideoLoaded}
-          onCanPlay={onVideoLoaded}
-          onError={onVideoError}
-          onEnded={onVideoEnded}
-        />
-      ) : showImage ? (
-        // A blurred, zoomed copy fills the panel (no black bars); the real image
-        // shows in FULL on top (contain), so nothing is cropped/overlapping.
+        // Native <video> — including Google Drive direct-stream URLs. The full
+        // video is visible (contain) over a blurred copy of itself (backdrop),
+        // so there is neither cropping nor black/blank space.
         <>
-          <Image
-            key={`${imageUrl}-bg`}
-            src={imageUrl!}
-            alt=""
-            aria-hidden
-            fill
-            className="absolute inset-0 z-0 scale-110 object-cover blur-2xl brightness-[0.55]"
-            unoptimized
+          {useBackdrop ? (
+            <video
+              key={`${videoUrl}-bg`}
+              src={videoUrl ?? undefined}
+              className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.5]"
+              autoPlay
+              muted
+              loop
+              playsInline
+              aria-hidden
+            />
+          ) : null}
+          <video
+            key={videoUrl}
+            src={videoUrl ?? undefined}
+            className={`absolute inset-0 z-[1] h-full w-full ${useBackdrop ? "object-contain" : "object-cover"}`}
+            autoPlay
+            muted
+            loop={loopVideo}
+            playsInline
+            onLoadedData={onVideoLoaded}
+            onCanPlay={onVideoLoaded}
+            onError={onVideoError}
+            onEnded={onVideoEnded}
           />
+        </>
+      ) : showImage ? (
+        <>
+          {useBackdrop ? (
+            <Image
+              key={`${imageUrl}-bg`}
+              src={imageUrl!}
+              alt=""
+              aria-hidden
+              fill
+              className="absolute inset-0 z-0 scale-110 object-cover blur-2xl brightness-[0.55]"
+              unoptimized
+            />
+          ) : null}
           <Image
             key={imageUrl}
             src={imageUrl!}
             alt="Branch advert"
             fill
-            className="absolute inset-0 z-[1] object-contain"
+            className={`absolute inset-0 z-[1] ${useBackdrop ? "object-contain" : "object-cover"}`}
             unoptimized
             priority
             onError={() => setFailedImageUrl(imageUrl ?? null)}

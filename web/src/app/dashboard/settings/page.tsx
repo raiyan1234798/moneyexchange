@@ -126,6 +126,111 @@ function BranchSettingsForm({
           ) : null}
         </div>
       </div>
+
+      {/* Rebrand: custom logo for the rate-card header (overrides the unimoni logo). */}
+      <div className="space-y-2">
+        <Label>Brand logo — rate-card header (rebrand)</Label>
+        <p className="text-xs text-muted-foreground">
+          Upload your logo (PNG with transparency works best on the blue header). Leave blank to keep
+          the unimoni logo.
+        </p>
+        <div className="flex items-center gap-3">
+          <Input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+            aria-label="Upload header brand logo"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              try {
+                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                setSettings({ ...settings, headerLogoUrl: dataUrl });
+                toast.success("Header logo ready — click Save Branch Settings to apply");
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not read image");
+              }
+            }}
+            className="rounded-xl"
+          />
+          {settings.headerLogoUrl ? (
+            <div className="flex shrink-0 items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={settings.headerLogoUrl}
+                alt="Header logo preview"
+                className="h-9 w-16 shrink-0 rounded-md bg-[#0D2680] object-contain p-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => setSettings({ ...settings, headerLogoUrl: null })}
+              >
+                Clear
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Extra logos that scroll right-to-left in the ticker with the message text. */}
+      <div className="space-y-2">
+        <Label>Scrolling ticker logos</Label>
+        <p className="text-xs text-muted-foreground">
+          Upload logos to scroll alongside the ticker text (right to left). Add as many as you like.
+        </p>
+        <Input
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+          aria-label="Upload scrolling ticker logos"
+          onChange={async (event) => {
+            const files = Array.from(event.target.files ?? []);
+            if (files.length === 0) return;
+            try {
+              const urls: string[] = [];
+              for (const file of files) {
+                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                urls.push(dataUrl);
+              }
+              setSettings({ ...settings, scrollingLogos: [...(settings.scrollingLogos ?? []), ...urls] });
+              toast.success(`${urls.length} logo(s) added — click Save Branch Settings to apply`);
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Could not read image");
+            }
+          }}
+          className="rounded-xl"
+        />
+        {(settings.scrollingLogos ?? []).length > 0 ? (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {(settings.scrollingLogos ?? []).map((src, i) => (
+              <div key={i} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={`Scrolling logo ${i + 1}`}
+                  className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
+                />
+                <button
+                  type="button"
+                  aria-label="Remove logo"
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      scrollingLogos: (settings.scrollingLogos ?? []).filter((_, idx) => idx !== i),
+                    })
+                  }
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
       <div className="space-y-2">
         <Label>Rate Card Position</Label>
         <Select
@@ -281,8 +386,8 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="cover">Fill area — no black bars (may crop edges)</SelectItem>
-                <SelectItem value="contain">Fit whole video (letterboxed, no cropping)</SelectItem>
+                <SelectItem value="contain">Whole video + blurred fill — no crop, no black (recommended)</SelectItem>
+                <SelectItem value="cover">Fill &amp; crop edges (single layer, lighter)</SelectItem>
               </SelectContent>
             </Select>
           </div>

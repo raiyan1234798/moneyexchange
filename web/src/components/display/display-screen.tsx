@@ -28,6 +28,7 @@ interface TimedRatesPanelProps {
   transferLocalLabel: string;
   scale: number;
   widthPercent: number;
+  headerLogoUrl: string | null;
 }
 
 function TimedRatesPanel({
@@ -39,6 +40,7 @@ function TimedRatesPanel({
   transferLocalLabel,
   scale,
   widthPercent,
+  headerLogoUrl,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -62,6 +64,7 @@ function TimedRatesPanel({
       transferLocalLabel={transferLocalLabel}
       scale={scale}
       widthPercent={widthPercent}
+      headerLogoUrl={headerLogoUrl}
     />
   );
 }
@@ -89,7 +92,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // Independently resizable areas (each editable in Settings → Display sizing).
   const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 65));
   const rateWidthPercent = 100 - videoWidthPercent;
-  const videoFit = branchSettings.videoFit ?? "cover";
+  const videoFit = branchSettings.videoFit ?? "contain";
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
@@ -99,6 +102,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     branchSettings.showTransferCard ?? branchSettings.showRemittanceScreen ?? true;
   const transferLocalLabel = branchSettings.transferLocalLabel?.trim() || "UGX";
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
+  const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
+  const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -322,6 +327,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       transferLocalLabel={transferLocalLabel}
       scale={rateCardScale}
       widthPercent={rateWidthPercent}
+      headerLogoUrl={headerLogoUrl}
     />
   );
 
@@ -377,6 +383,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         heightScale={tickerScale}
         logoScale={logoScale}
         logoAnimation={tickerLogoAnimation}
+        scrollingLogos={scrollingLogos}
       />
 
       <style jsx global>{`

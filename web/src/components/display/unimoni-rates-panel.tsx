@@ -34,6 +34,8 @@ interface UnimoniRatesPanelProps {
   scale?: number;
   /** Width of the rate card as a % of the screen (desktop/TV only). */
   widthPercent?: number;
+  /** Custom brand logo (rebrand) for the header — overrides the unimoni logo. */
+  headerLogoUrl?: string | null;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -80,6 +82,7 @@ export function UnimoniRatesPanel({
   transferLocalLabel = "UGX",
   scale = 1,
   widthPercent,
+  headerLogoUrl,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -101,12 +104,10 @@ export function UnimoniRatesPanel({
   }, [sheetCount]);
 
   const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
-  // Pad short sheets up to the LARGEST sheet's row count (not a fixed 12) so
-  // every rotating page keeps identical row heights with minimal empty space.
-  const maxSheetRows = Math.max(1, ...sheets.map((s) => s.rows.length));
-  const padTo = Math.max(0, maxSheetRows - activeSheet.rows.length);
-  const paddedRows: (ExchangeRate | null)[] =
-    sheetCount > 1 ? [...activeSheet.rows, ...Array(padTo).fill(null)] : activeSheet.rows;
+  // No padding: every page's rows share the full card height, so each rotating
+  // page fills completely with no empty gap (balanced chunking keeps pages a
+  // similar length, so row heights stay consistent across the rotation).
+  const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
 
   if (variant === "board") {
@@ -169,13 +170,23 @@ export function UnimoniRatesPanel({
           </span>
         </div>
         <div className="flex min-w-0 flex-col items-center justify-center">
-          <UnimoniLogoImage
-            variant="onDark"
-            width={180}
-            height={40}
-            className="h-[clamp(1.1rem,2.1vh,1.9rem)] w-auto object-contain"
-            priority
-          />
+          {headerLogoUrl ? (
+            // Custom rebrand logo uploaded by an admin.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={headerLogoUrl}
+              alt="Brand logo"
+              className="h-[clamp(1.3rem,2.6vh,2.4rem)] w-auto object-contain"
+            />
+          ) : (
+            <UnimoniLogoImage
+              variant="onDark"
+              width={180}
+              height={40}
+              className="h-[clamp(1.1rem,2.1vh,1.9rem)] w-auto object-contain"
+              priority
+            />
+          )}
           <p className="text-[clamp(0.5rem,0.8vw,0.7rem)] font-bold uppercase tracking-[0.16em] text-white/85">
             {headerSubLabel}
           </p>
