@@ -356,6 +356,16 @@
   }
 }
 
+/* Rate-sheet rotation: gentle crossfade when the next 12-currency page shows */
+.rates-sheet-fade {
+  animation: rates-sheet-in 450ms ease;
+}
+
+@keyframes rates-sheet-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 @keyframes ticker-scroll-rtl {
   from {
     transform: translateX(0);

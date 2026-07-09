@@ -49,6 +49,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showSellRate: true,
   rateCardPosition: "right" as const,
   rateCardDisplaySeconds: 0,
+  showRemittanceScreen: false,
 };
 
 /** Max Firebase Storage upload per file (matches storage.rules) */

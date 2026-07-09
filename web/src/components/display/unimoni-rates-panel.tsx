@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   UNIMONI_COLORS,
   formatUnimoniRate,
@@ -23,6 +24,8 @@ interface UnimoniRatesPanelProps {
    */
   variant?: "panel" | "board";
   branchName?: string | null;
+  /** Append a rotating remittance-rates sheet (rates with a remitRate set). */
+  showRemittance?: boolean;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -31,6 +34,23 @@ const NAVY_TEXT = "#0B3B7A"; // deep brand navy — codes and values on the ligh
 const STRIPE_LIGHT = "#FFFFFF";
 const STRIPE_BLUE = "#E4EFF9";
 
+/** Customers read at most this many rows per sheet; extra currencies rotate in. */
+const RATES_PER_SHEET = 12;
+const SHEET_INTERVAL_MS = 5_000;
+
+interface Sheet {
+  kind: "rates" | "remit";
+  rows: ExchangeRate[];
+}
+
+function chunkRows(rows: ExchangeRate[], kind: Sheet["kind"]): Sheet[] {
+  const sheets: Sheet[] = [];
+  for (let i = 0; i < rows.length; i += RATES_PER_SHEET) {
+    sheets.push({ kind, rows: rows.slice(i, i + RATES_PER_SHEET) });
+  }
+  return sheets;
+}
+
 export function UnimoniRatesPanel({
   rates,
   showBuyRate = true,
@@ -38,10 +58,32 @@ export function UnimoniRatesPanel({
   className = "",
   variant = "panel",
   branchName,
+  showRemittance = false,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
-  // Hook must run unconditionally (before the board early-return).
+  // Hooks must run unconditionally (before the board early-return).
   const now = useNow();
+  const remitRows = showRemittance ? rows.filter((r) => (r.remitRate ?? 0) > 0) : [];
+  const sheets: Sheet[] = [...chunkRows(rows, "rates"), ...chunkRows(remitRows, "remit")];
+  const sheetCount = Math.max(sheets.length, 1);
+  const [sheetIndex, setSheetIndex] = useState(0);
+
+  useEffect(() => {
+    if (sheetCount <= 1) return;
+    const timer = window.setInterval(
+      () => setSheetIndex((i) => (i + 1) % sheetCount),
+      SHEET_INTERVAL_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [sheetCount]);
+
+  const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
+  // Pad short sheets so every page keeps identical row heights.
+  const paddedRows: (ExchangeRate | null)[] =
+    sheetCount > 1
+      ? [...activeSheet.rows, ...Array(RATES_PER_SHEET - activeSheet.rows.length).fill(null)]
+      : activeSheet.rows;
+  const isRemitSheet = activeSheet.kind === "remit";
 
   if (variant === "board") {
     return (
@@ -102,73 +144,118 @@ export function UnimoniRatesPanel({
           exactly like the reference; shrinks rows evenly when there are many. */}
       <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
         <div
-          className="grid shrink-0 grid-cols-[1.25fr_1fr_1fr] items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide"
+          className={`grid shrink-0 items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide ${
+            isRemitSheet ? "grid-cols-[1.25fr_2fr]" : "grid-cols-[1.25fr_1fr_1fr]"
+          }`}
           style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0" }}
         >
           <span className="flex items-center justify-center">Currency</span>
-          {showBuyRate ? (
+          {isRemitSheet ? (
             <span className="flex items-center justify-center" style={columnSeparator}>
-              We Buy
+              Remittance Rate
             </span>
           ) : (
-            <span />
-          )}
-          {showSellRate ? (
-            <span className="flex items-center justify-center" style={columnSeparator}>
-              We Sell
-            </span>
-          ) : (
-            <span />
+            <>
+              {showBuyRate ? (
+                <span className="flex items-center justify-center" style={columnSeparator}>
+                  We Buy
+                </span>
+              ) : (
+                <span />
+              )}
+              {showSellRate ? (
+                <span className="flex items-center justify-center" style={columnSeparator}>
+                  We Sell
+                </span>
+              ) : (
+                <span />
+              )}
+            </>
           )}
         </div>
 
-        <div className="display-rates-body min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]">
+        <div
+          key={`${activeSheet.kind}-${sheetIndex}`}
+          className="display-rates-body rates-sheet-fade min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]"
+        >
           {rows.length === 0 ? (
             <div className="flex flex-col items-center gap-1 px-4 py-[4vh] text-center" style={{ color: NAVY_TEXT }}>
               <p className="text-[clamp(0.8rem,1.2vw,1.1rem)] font-bold">Rates are being updated</p>
               <p className="text-[clamp(0.65rem,0.95vw,0.9rem)] opacity-70">Please ask our staff for today&apos;s rates.</p>
             </div>
           ) : null}
-          {rows.map((rate, i) => (
+          {paddedRows.map((rate, i) =>
+            rate === null ? (
+              <div key={`pad-${i}`} className="display-rate-row grid min-h-0" aria-hidden />
+            ) : (
             <div
               key={rate.id}
-              className="display-rate-row grid min-h-0 grid-cols-[1.25fr_1fr_1fr] items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif]"
+              className={`display-rate-row grid min-h-0 items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif] ${
+                isRemitSheet ? "grid-cols-[1.25fr_2fr]" : "grid-cols-[1.25fr_1fr_1fr]"
+              }`}
               style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT }}
             >
               <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.5vw] py-[0.25vh] pl-[0.3vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
                 {/* Every row gets the same navy flag pill (globe fallback for
                     custom currencies) so newly added currencies look identical. */}
                 <span
-                  className="flex h-[88%] w-[3em] max-w-[38%] shrink-0 items-center justify-center rounded-[5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
+                  className="flex h-[94%] w-[3.4em] max-w-[42%] shrink-0 items-center justify-center rounded-[5px] shadow-[0_1px_3px_rgba(0,0,0,0.35)]"
                   style={{ background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${NAVY_TEXT} 100%)` }}
                 >
-                  <FlagChip flag={getRateFlag(rate) ?? "🌍"} className="!h-[1.1em] !w-[1.65em]" />
+                  <FlagChip flag={getRateFlag(rate) ?? "🌍"} className="!h-[1.5em] !w-[2.3em]" />
                 </span>
                 <span className="min-w-0 flex-1 truncate text-center">{rate.currencyCode}</span>
               </span>
-              {showBuyRate ? (
+              {isRemitSheet ? (
                 <span
                   className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
                   style={{ color: NAVY_TEXT, ...columnSeparator }}
                 >
-                  {formatUnimoniRate(rate.buyRate)}
+                  {formatUnimoniRate(rate.remitRate ?? 0)}
                 </span>
               ) : (
-                <span />
-              )}
-              {showSellRate ? (
-                <span
-                  className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
-                  style={{ color: NAVY_TEXT, ...columnSeparator }}
-                >
-                  {formatUnimoniRate(rate.sellRate)}
-                </span>
-              ) : (
-                <span />
+                <>
+                  {showBuyRate ? (
+                    <span
+                      className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
+                      style={{ color: NAVY_TEXT, ...columnSeparator }}
+                    >
+                      {formatUnimoniRate(rate.buyRate)}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  {showSellRate ? (
+                    <span
+                      className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
+                      style={{ color: NAVY_TEXT, ...columnSeparator }}
+                    >
+                      {formatUnimoniRate(rate.sellRate)}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                </>
               )}
             </div>
-          ))}
+            ),
+          )}
         </div>
+
+        {sheetCount > 1 ? (
+          <div className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh]">
+            {sheets.map((sheet, i) => (
+              <span
+                key={`${sheet.kind}-${i}`}
+                className="h-[7px] w-[7px] rounded-full transition-colors"
+                style={{
+                  backgroundColor:
+                    i === sheetIndex % sheetCount ? UNIMONI_COLORS.headerBlue : "#C9D8E8",
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
     </aside>
   );

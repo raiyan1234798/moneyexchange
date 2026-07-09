@@ -529,6 +529,7 @@ export default function ExchangeRatesPage() {
           flag: r.flag,
           buyRate: r.buyRate,
           sellRate: r.sellRate,
+          remitRate: r.remitRate ?? null,
         })),
         {
           userId: user.uid,
@@ -696,7 +697,7 @@ export default function ExchangeRatesPage() {
               {importPreview.map((row, index) => (
                 <div
                   key={`${row.currencyCode}-${index}`}
-                  className="grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                  className="grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 sm:grid-cols-[110px_1fr_1fr_1fr_1fr_auto]"
                 >
                   <span className="font-mono font-semibold">{row.currencyCode}</span>
                   <Input
@@ -730,6 +731,24 @@ export default function ExchangeRatesPage() {
                     onChange={(e) =>
                       setImportPreview((prev) =>
                         prev ? prev.map((r, i) => (i === index ? { ...r, sellRate: Number(e.target.value) } : r)) : prev,
+                      )
+                    }
+                    className="rounded-lg tabular-nums"
+                  />
+                  <Input
+                    type="number"
+                    value={row.remitRate ?? ""}
+                    aria-label="Remittance rate (optional)"
+                    placeholder="Remit (optional)"
+                    onChange={(e) =>
+                      setImportPreview((prev) =>
+                        prev
+                          ? prev.map((r, i) =>
+                              i === index
+                                ? { ...r, remitRate: e.target.value === "" ? null : Number(e.target.value) }
+                                : r,
+                            )
+                          : prev,
                       )
                     }
                     className="rounded-lg tabular-nums"

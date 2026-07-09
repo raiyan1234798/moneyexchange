@@ -24,9 +24,10 @@ interface TimedRatesPanelProps {
   displaySeconds: number;
   showBuyRate: boolean;
   showSellRate: boolean;
+  showRemittance: boolean;
 }
 
-function TimedRatesPanel({ rates, displaySeconds, showBuyRate, showSellRate }: TimedRatesPanelProps) {
+function TimedRatesPanel({ rates, displaySeconds, showBuyRate, showSellRate, showRemittance }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
   useEffect(() => {
@@ -40,7 +41,14 @@ function TimedRatesPanel({ rates, displaySeconds, showBuyRate, showSellRate }: T
   // Return the panel directly — it already carries its own lg:w-[35%] flex-none
   // width. Wrapping it in a flex-1 div made it render at 35% of 35% (~12% of the
   // screen) with a black gap on desktop/TV.
-  return <UnimoniRatesPanel rates={rates} showBuyRate={showBuyRate} showSellRate={showSellRate} />;
+  return (
+    <UnimoniRatesPanel
+      rates={rates}
+      showBuyRate={showBuyRate}
+      showSellRate={showSellRate}
+      showRemittance={showRemittance}
+    />
+  );
 }
 
 export function DisplayScreen({ branchId }: DisplayScreenProps) {
@@ -269,6 +277,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       displaySeconds={rateCardDisplaySeconds}
       showBuyRate={branchSettings.showBuyRate}
       showSellRate={branchSettings.showSellRate}
+      showRemittance={branchSettings.showRemittanceScreen === true}
     />
   );
 

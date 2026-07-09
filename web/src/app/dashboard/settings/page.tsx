@@ -151,6 +151,19 @@ function BranchSettingsForm({
           onCheckedChange={(checked) => setSettings({ ...settings, showSellRate: checked })}
         />
       </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Remittance sheet on Display</Label>
+          <p className="text-xs text-muted-foreground">
+            Rotates in a third screen with remittance rates (currencies that have a TRANSFER value
+            from the Excel import).
+          </p>
+        </div>
+        <Switch
+          checked={settings.showRemittanceScreen === true}
+          onCheckedChange={(checked) => setSettings({ ...settings, showRemittanceScreen: checked })}
+        />
+      </div>
       <Button
         onClick={() => void onSave({ logoUrl, brandingColor: color, settings })}
         disabled={saving}

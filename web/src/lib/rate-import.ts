@@ -11,6 +11,8 @@ export interface RateImportRow {
   flag?: string;
   buyRate: number;
   sellRate: number;
+  /** Optional remittance/transfer rate (TRANSFER column in the file). */
+  remitRate?: number | null;
 }
 
 /** Derive ISO-style code and human label from an Excel CURRENCY cell. */
@@ -168,6 +170,8 @@ export function parseRateFile(file: File): Promise<RateImportRow[]> {
         const currencyIdx = findColumnIndex(headers, ["CURRENCY", "CODE", "CURRENCY CODE"]);
         const buyIdx = findColumnIndex(headers, ["WE BUY", "BUY", "BUY RATE"]);
         const sellIdx = findColumnIndex(headers, ["WE SELL", "SELL", "SELL RATE"]);
+        // Optional 4th column, matching boards like the client's reference.
+        const remitIdx = findColumnIndex(headers, ["TRANSFER", "REMITTANCE", "REMIT", "TT RATE"]);
 
         if (currencyIdx < 0 || buyIdx < 0 || sellIdx < 0) {
           reject(
@@ -196,7 +200,13 @@ export function parseRateFile(file: File): Promise<RateImportRow[]> {
             return;
           }
 
-          parsed.push({ currencyCode, displayName, currencyName, country, flag, buyRate, sellRate });
+          let remitRate: number | null = null;
+          if (remitIdx >= 0) {
+            const raw = Number(row[remitIdx]);
+            remitRate = Number.isFinite(raw) && raw > 0 ? raw : null;
+          }
+
+          parsed.push({ currencyCode, displayName, currencyName, country, flag, buyRate, sellRate, remitRate });
         }
 
         if (parsed.length === 0) {

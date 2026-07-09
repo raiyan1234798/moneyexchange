@@ -194,13 +194,15 @@ export async function updateExchangeRate(
   newSellRate: number,
   actor: { userId: string; userName: string; branchName: string },
   changeType: RateHistoryEntry["changeType"] = "manual",
-  options?: { requireApproval?: boolean; actorRole?: UserRole; displayName?: string },
+  options?: { requireApproval?: boolean; actorRole?: UserRole; displayName?: string; remitRate?: number | null },
 ): Promise<"published" | "pending"> {
   const nextDisplayName = options?.displayName?.trim() || rate.displayName || rate.currencyCode;
   const ratesChanged = newBuyRate !== rate.buyRate || newSellRate !== rate.sellRate;
   const nameChanged = nextDisplayName !== (rate.displayName || rate.currencyCode);
+  const remitChanged =
+    options?.remitRate !== undefined && (options.remitRate ?? null) !== (rate.remitRate ?? null);
 
-  if (!ratesChanged && !nameChanged) {
+  if (!ratesChanged && !nameChanged && !remitChanged) {
     return "published";
   }
 
@@ -232,6 +234,7 @@ export async function updateExchangeRate(
   await updateDocument(COLLECTIONS.exchangeRates, rate.id, {
     ...(ratesChanged ? { buyRate: newBuyRate, sellRate: newSellRate } : {}),
     ...(nameChanged ? { displayName: nextDisplayName } : {}),
+    ...(remitChanged ? { remitRate: options?.remitRate ?? null } : {}),
     version: nextVersion,
     status: "published",
     updatedBy: actor.userId,
@@ -289,6 +292,7 @@ export async function bulkUpdateRates(
     flag?: string;
     buyRate: number;
     sellRate: number;
+    remitRate?: number | null;
   }>,
   actor: { userId: string; userName: string; branchName: string },
   options?: { autoCreateCurrencies?: boolean; requireApproval?: boolean; actorRole?: UserRole },
@@ -373,6 +377,7 @@ export async function bulkUpdateRates(
           displayName: label,
           buyRate: update.buyRate,
           sellRate: update.sellRate,
+          remitRate: update.remitRate ?? null,
           version: 1,
           displayOrder,
           isHidden: false,
@@ -387,6 +392,7 @@ export async function bulkUpdateRates(
         requireApproval: options?.requireApproval,
         actorRole: options?.actorRole,
         displayName: label,
+        remitRate: update.remitRate,
       });
     }),
   );

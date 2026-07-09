@@ -65,6 +65,8 @@ export interface BranchSettings {
   rateCardPosition: RateCardPosition;
   /** 0 = always show rate card; otherwise hide after N seconds when rotating */
   rateCardDisplaySeconds: number;
+  /** Show a third rotating sheet with remittance/transfer rates on the TV. */
+  showRemittanceScreen?: boolean;
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";
@@ -90,6 +92,8 @@ export interface ExchangeRate {
   displayName?: string;
   buyRate: number;
   sellRate: number;
+  /** Optional remittance/transfer rate — shown on the TV's remittance sheet when enabled. */
+  remitRate?: number | null;
   version: number;
   displayOrder: number;
   isHidden: boolean;
