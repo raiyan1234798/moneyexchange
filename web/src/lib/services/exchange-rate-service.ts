@@ -290,14 +290,25 @@ export async function bulkUpdateRates(
   }>,
   actor: { userId: string; userName: string; branchName: string },
   options?: { autoCreateCurrencies?: boolean; requireApproval?: boolean; actorRole?: UserRole },
-): Promise<number> {
+): Promise<{ processed: number; created: number; skippedNeedApproval: number }> {
   const scopedBranchId = assertBranchId(branchId, "bulkUpdateRates");
   const autoCreate = options?.autoCreateCurrencies !== false;
+  // Branch users under the approval workflow may only PROPOSE changes to
+  // existing rates — creating brand-new published rates would silently bypass
+  // manager review (the TV shows published rates instantly).
+  const blockNewRates =
+    options?.requireApproval === true && options?.actorRole === "branchUser";
+  // Duplicate codes in one file must not create duplicate rate docs — last row wins.
+  const byCode = new Map<string, (typeof updates)[number]>();
+  for (const update of updates) {
+    byCode.set(normalizeCurrencyCode(update.currencyCode) || update.currencyCode.toUpperCase(), update);
+  }
+  const uniqueUpdates = [...byCode.values()];
   let existing = await listExchangeRates(scopedBranchId);
   const catalog = autoCreate ? await listCurrencies() : [];
   const catalogByCode = new Map(catalog.map((c) => [c.currencyCode.toUpperCase(), c]));
 
-  for (const update of updates) {
+  for (const update of uniqueUpdates) {
     const code = normalizeCurrencyCode(update.currencyCode) || update.currencyCode.toUpperCase();
     const catalogFields = buildCurrencyPayload({
       currencyCode: code,
@@ -337,12 +348,23 @@ export async function bulkUpdateRates(
 
   existing = await listExchangeRates(scopedBranchId);
 
+  let created = 0;
+  let skippedNeedApproval = 0;
+  let nextDisplayOrder = existing.length + 1;
+
   await Promise.all(
-    updates.map(async (update) => {
+    uniqueUpdates.map(async (update) => {
       const code = normalizeCurrencyCode(update.currencyCode) || update.currencyCode.toUpperCase();
       const label = update.displayName?.trim() || code;
       const rate = existing.find((item) => item.currencyCode.toUpperCase() === code);
       if (!rate) {
+        if (blockNewRates) {
+          skippedNeedApproval += 1;
+          return;
+        }
+        const displayOrder = nextDisplayOrder;
+        nextDisplayOrder += 1;
+        created += 1;
         await createDocument(COLLECTIONS.exchangeRates, {
           branchId: scopedBranchId,
           currencyCode: code,
@@ -350,7 +372,7 @@ export async function bulkUpdateRates(
           buyRate: update.buyRate,
           sellRate: update.sellRate,
           version: 1,
-          displayOrder: existing.length + 1,
+          displayOrder,
           isHidden: false,
           status: "published",
           updatedBy: actor.userId,
@@ -373,10 +395,10 @@ export async function bulkUpdateRates(
     userId: actor.userId,
     userName: actor.userName,
     branchId: scopedBranchId,
-    metadata: { count: updates.length },
+    metadata: { count: uniqueUpdates.length, created, skippedNeedApproval },
   });
 
-  return updates.length;
+  return { processed: uniqueUpdates.length, created, skippedNeedApproval };
 }
 
 export async function listRateHistory(branchId?: string): Promise<RateHistoryEntry[]> {

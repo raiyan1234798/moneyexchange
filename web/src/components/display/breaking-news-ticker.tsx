@@ -44,6 +44,9 @@ function BreakingNewsTickerInner({
   const [messageIndex, setMessageIndex] = useState(0);
   const [cycle, setCycle] = useState(0);
   const [scrolling, setScrolling] = useState(!paused);
+  // Bad logo URLs happen in the field (e.g. a Google Images PAGE link pasted
+  // instead of an image) — fall back to the brand mark instead of a broken img.
+  const [logoFailed, setLogoFailed] = useState(false);
 
   const activeText = messages[messageIndex] ?? "";
 
@@ -84,7 +87,7 @@ function BreakingNewsTickerInner({
             borderColor: UNIMONI_COLORS.gold,
           }}
         >
-          {resolvedLogo ? (
+          {resolvedLogo && !logoFailed ? (
             <Image
               src={resolvedLogo}
               alt={`${BRAND.name} logo`}
@@ -92,6 +95,7 @@ function BreakingNewsTickerInner({
               height={80}
               className="ticker-logo-pulse h-[75%] w-[85%] object-contain drop-shadow-md"
               unoptimized
+              onError={() => setLogoFailed(true)}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">

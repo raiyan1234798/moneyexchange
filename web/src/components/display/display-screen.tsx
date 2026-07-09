@@ -56,7 +56,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const [chunkedVideoUrl, setChunkedVideoUrl] = useState<string | null>(null);
   const prevHeadVideoIdRef = useRef("");
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [videoError, setVideoError] = useState(false);
+  const [erroredVideoId, setErroredVideoId] = useState("");
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   const branchSettings = branch?.settings ?? DEFAULT_BRANCH_SETTINGS;
@@ -118,12 +118,28 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     prevHeadVideoIdRef.current = headVideoId;
     setVideoIndex(0);
     setVideoLoaded(false);
-    setVideoError(false);
+    setErroredVideoId("");
     setCachedStorageUrl(null);
     setChunkedVideoUrl(null);
   }, [headVideoId]);
 
   const activeVideo = activeVideos[videoIndex % Math.max(activeVideos.length, 1)];
+  const activeVideoId = activeVideo?.id ?? "";
+
+  // Self-healing kiosk: the error is scoped to the video id that failed, so
+  // rotating to another video (or replacing the video) clears it automatically
+  // — a transient error can never latch the whole display forever.
+  const videoError = activeVideoId !== "" && erroredVideoId === activeVideoId;
+
+  // Retry the SAME video on a 60s backoff (e.g. after a network blip).
+  useEffect(() => {
+    if (!videoError) return;
+    const timer = window.setTimeout(() => {
+      setErroredVideoId("");
+      setVideoLoaded(false);
+    }, 60_000);
+    return () => window.clearTimeout(timer);
+  }, [videoError]);
   const activeImage = activeImages[imageIndex % Math.max(activeImages.length, 1)];
   const playbackUrl = useMemo(() => {
     if (!activeVideo) return "";
@@ -210,7 +226,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         setChunkedVideoUrl(url);
       })
       .catch(() => {
-        if (alive) setVideoError(true);
+        if (alive) setErroredVideoId(activeVideo.id);
       });
 
     return () => {
@@ -236,11 +252,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       loopVideo={activeVideos.length <= 1}
       onVideoLoaded={() => {
         setVideoLoaded(true);
-        setVideoError(false);
+        setErroredVideoId("");
       }}
       onVideoError={() => {
         setVideoLoaded(false);
-        setVideoError(true);
+        setErroredVideoId(activeVideoId);
       }}
       onVideoEnded={handleVideoEnded}
     />

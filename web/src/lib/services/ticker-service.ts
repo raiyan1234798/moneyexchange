@@ -21,14 +21,20 @@ export async function listTickers(branchId: string): Promise<TickerMessage[]> {
   ]);
 }
 
+function tickerTimeMillis(value: TickerMessage["updatedAt"]): number {
+  if (!value) return 0;
+  if (value instanceof Date) return value.getTime();
+  // Live Firestore snapshots deliver Timestamp objects, not Dates.
+  if (typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  return 0;
+}
+
 function sortTickers(tickers: TickerMessage[]): TickerMessage[] {
   return [...tickers]
     .filter((ticker) => ticker.status === "active")
-    .sort((a, b) => {
-      const aTime = a.updatedAt instanceof Date ? a.updatedAt.getTime() : 0;
-      const bTime = b.updatedAt instanceof Date ? b.updatedAt.getTime() : 0;
-      return bTime - aTime;
-    });
+    .sort((a, b) => tickerTimeMillis(b.updatedAt) - tickerTimeMillis(a.updatedAt));
 }
 
 export function subscribeTickers(

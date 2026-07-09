@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { UnimoniMark } from "@/components/brand/unimoni-logo";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
@@ -25,8 +26,14 @@ export function UnimoniPromoPanel({
   onVideoEnded,
   className = "",
 }: UnimoniPromoPanelProps) {
+  // A broken advert image URL must fall back to the branded placeholder, not
+  // leave two-thirds of the TV black. Tracking the URL that failed (instead of
+  // a boolean) means a new/fixed URL retries automatically — no reset effect.
+  const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  const imageFailed = Boolean(imageUrl) && failedImageUrl === imageUrl;
+
   const showVideo = Boolean(videoUrl);
-  const showImage = Boolean(imageUrl) && !showVideo;
+  const showImage = Boolean(imageUrl) && !showVideo && !imageFailed;
   const showPlaceholder = !showVideo && !showImage;
   const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
 
@@ -64,6 +71,7 @@ export function UnimoniPromoPanel({
           className="absolute inset-0 z-0 object-cover"
           unoptimized
           priority
+          onError={() => setFailedImageUrl(imageUrl ?? null)}
         />
       ) : null}
 

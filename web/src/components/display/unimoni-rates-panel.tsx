@@ -123,6 +123,12 @@ export function UnimoniRatesPanel({
         </div>
 
         <div className="display-rates-body min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]">
+          {rows.length === 0 ? (
+            <div className="flex flex-col items-center gap-1 px-4 py-[4vh] text-center" style={{ color: NAVY_TEXT }}>
+              <p className="text-[clamp(0.8rem,1.2vw,1.1rem)] font-bold">Rates are being updated</p>
+              <p className="text-[clamp(0.65rem,0.95vw,0.9rem)] opacity-70">Please ask our staff for today&apos;s rates.</p>
+            </div>
+          ) : null}
           {rows.map((rate, i) => (
             <div
               key={rate.id}
@@ -219,6 +225,12 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className }: 
           gridTemplateRows: `repeat(${rowCount}, minmax(0,1fr))`,
         }}
       >
+        {rows.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center gap-2 text-center text-white">
+            <p className="text-[clamp(1rem,2.4vmin,2rem)] font-bold">Rates are being updated</p>
+            <p className="text-[clamp(0.8rem,1.8vmin,1.4rem)] text-white/70">Please ask our staff for today&apos;s rates.</p>
+          </div>
+        ) : null}
         {rows.map((rate) => (
           <div
             key={rate.id}

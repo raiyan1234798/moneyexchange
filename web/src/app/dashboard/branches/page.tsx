@@ -211,11 +211,15 @@ export default function BranchesPage() {
 
   async function handleDisable(branch: Branch) {
     if (!user || !profile) return;
-    await disableBranch(branch.id, {
-      userId: user.uid,
-      userName: profile.displayName || profile.email,
-    });
-    toast.success(`${branch.name} has been disabled`);
+    try {
+      await disableBranch(branch.id, {
+        userId: user.uid,
+        userName: profile.displayName || profile.email,
+      });
+      toast.success(`${branch.name} has been disabled`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to disable branch");
+    }
   }
 
   function copyDisplayUrl(code: string) {

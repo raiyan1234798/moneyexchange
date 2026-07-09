@@ -101,13 +101,17 @@ export default function TvDevicesPage() {
 
   async function handleCreate() {
     if (!user || !profile || !effectiveBranchId || !name) return;
-    const device = await createTvDevice(
-      { name, branchId: effectiveBranchId },
-      { userId: user.uid, userName: profile.displayName || profile.email },
-    );
-    setNewDevice(device);
-    toast.success("TV registered — share the pairing code with your display");
-    setName("");
+    try {
+      const device = await createTvDevice(
+        { name, branchId: effectiveBranchId },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      setNewDevice(device);
+      toast.success("TV registered — share the pairing code with your display");
+      setName("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to register TV");
+    }
   }
 
   function copy(text: string) {

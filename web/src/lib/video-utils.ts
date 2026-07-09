@@ -102,12 +102,28 @@ export interface NormalizedVideoUrl {
   originalUrl?: string;
 }
 
+/** Google Vids (docs.google.com/videos/…) is an editor project, not a video file — it can never stream on a TV. */
+function assertNotGoogleVids(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === "docs.google.com" && parsed.pathname.startsWith("/videos")) {
+      throw new Error(
+        "This is a Google Vids editor link, which can't play on TVs. Download the video as MP4, upload it to Google Drive, and paste the Drive share link instead.",
+      );
+    }
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("Google Vids")) throw error;
+  }
+}
+
 /** Normalize external URLs — auto-converts Google Drive share links to direct playback URLs. */
 export function normalizeExternalVideoUrl(input: string): NormalizedVideoUrl {
   const trimmed = input.trim();
   if (!trimmed) {
     throw new Error("Video URL is required");
   }
+
+  assertNotGoogleVids(trimmed);
 
   if (isGoogleDriveUrl(trimmed)) {
     return {

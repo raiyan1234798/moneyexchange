@@ -44,10 +44,6 @@ export function normalizeCurrencyCode(raw: string): string {
 
   const compact = upper.replace(/[^A-Z]/g, "");
   if (/^[A-Z]{3}$/.test(compact)) return compact;
-  if (compact.length >= 3) {
-    const suffix = compact.slice(-3);
-    if (getCurrencyMeta(suffix)) return suffix;
-  }
 
   for (const [code, meta] of Object.entries(CURRENCY_METADATA)) {
     if (meta.name.toUpperCase() === upper) return code;
@@ -57,9 +53,11 @@ export function normalizeCurrencyCode(raw: string): string {
     if (upper.includes(label) || label.includes(upper)) return code;
   }
 
-  if (last && /^[A-Z]{2,4}$/.test(last)) return last.slice(0, 3).padEnd(3, last[0]);
-
-  return upper.slice(0, 3);
+  // NEVER guess by truncation/suffix: "USDT" must not become "USD" (that would
+  // silently overwrite the real USD rate) and junk like "TOTAL" must not
+  // become a fake code. Unrecognized input returns "" — callers keep the raw
+  // token as a custom code or skip the row.
+  return "";
 }
 
 function isLowQualityCurrencyName(name: string, code: string): boolean {

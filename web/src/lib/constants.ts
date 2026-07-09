@@ -139,6 +139,7 @@ export const SUPER_ADMIN_PERMISSIONS = [
   "manageVideos",
   "managePlaylists",
   "manageTickers",
+  "manageImageAdverts",
   "manageTVDevices",
   "viewAnalytics",
   "viewAuditLogs",

@@ -409,7 +409,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     if (profile && user) {
-      await writeAuditLog({
+      // Fire-and-forget: sign-out must never hang because Firestore is
+      // unreachable (offline logout would otherwise never complete).
+      void writeAuditLog({
         action: "logout",
         entityType: "auth",
         userId: user.uid,

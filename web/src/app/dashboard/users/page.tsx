@@ -625,7 +625,14 @@ export default function UsersPage() {
                   ? [{
                       key: "actions",
                       header: "Actions",
-                      cell: (i: UserInvite) => (
+                      cell: (i: UserInvite) => {
+                        // Rules: branch managers may only modify branchUser
+                        // invites in their branch — hide dead buttons on
+                        // manager/admin invites.
+                        if (isBranchManager && i.role !== "branchUser") {
+                          return <span className="text-xs text-muted-foreground">Managed by admin</span>;
+                        }
+                        return (
                         <div className="flex flex-wrap items-center gap-1">
                           <Button
                             variant="ghost"
@@ -660,7 +667,8 @@ export default function UsersPage() {
                             Delete
                           </Button>
                         </div>
-                      ),
+                        );
+                      },
                     }]
                   : []),
               ]}

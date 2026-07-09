@@ -161,16 +161,25 @@ export default function ExchangeRatesPage() {
       (items) => {
         setRates(items);
         clearNotice();
-        setDrafts(
+        // Merge instead of overwrite: keep in-progress edits (draft differs
+        // from the incoming server value) so a background snapshot can't wipe
+        // what the user is typing.
+        setDrafts((prev) =>
           Object.fromEntries(
-            items.map((rate) => [
-              rate.id,
-              {
+            items.map((rate) => {
+              const server = {
                 buyRate: rate.buyRate,
                 sellRate: rate.sellRate,
                 displayName: getRateDisplayLabel(rate),
-              },
-            ]),
+              };
+              const draft = prev[rate.id];
+              const dirty =
+                draft &&
+                (draft.buyRate !== server.buyRate ||
+                  draft.sellRate !== server.sellRate ||
+                  draft.displayName !== server.displayName);
+              return [rate.id, dirty ? draft : server];
+            }),
           ),
         );
       },
@@ -181,6 +190,9 @@ export default function ExchangeRatesPage() {
 
   useEffect(() => {
     if (!effectiveBranchId) return;
+    // Firestore rules deny audit_logs reads to branch users — skip the listen
+    // so their rates page doesn't toast a permission error.
+    if (isBranchUser) return;
     return subscribeCollection<AuditLog>(
       COLLECTIONS.auditLogs,
       effectiveBranchId
@@ -210,7 +222,7 @@ export default function ExchangeRatesPage() {
       },
       () => undefined,
     );
-  }, [effectiveBranchId]);
+  }, [effectiveBranchId, isBranchUser]);
 
   async function initRates() {
     if (!user || !profile || !effectiveBranchId) return;
@@ -429,7 +441,7 @@ export default function ExchangeRatesPage() {
     setUploading(true);
     try {
       const rows = await parseRateFile(file);
-      const count = await bulkUpdateRates(
+      const result = await bulkUpdateRates(
         effectiveBranchId,
         rows.map((r) => ({
           currencyCode: r.currencyCode,
@@ -452,11 +464,18 @@ export default function ExchangeRatesPage() {
         },
       );
       const branchLabel = branch?.name ?? effectiveBranchId;
+      const updatedCount = result.processed - result.skippedNeedApproval;
       toast.success(
         requireApproval && isBranchUser
-          ? `${count} rates submitted for admin approval`
-          : `${count} currencies updated for ${branchLabel} — live on your displays`,
+          ? `${updatedCount} rate change${updatedCount === 1 ? "" : "s"} submitted for approval`
+          : `${result.processed} currencies updated for ${branchLabel} — live on your displays`,
       );
+      if (result.skippedNeedApproval > 0) {
+        toast.warning(
+          `${result.skippedNeedApproval} new currenc${result.skippedNeedApproval === 1 ? "y" : "ies"} skipped — ask your branch manager to add new currencies.`,
+          { duration: 9000 },
+        );
+      }
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not import file — check the template columns");

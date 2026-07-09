@@ -418,13 +418,24 @@ async function uploadVideoViaChunks(
     videoId,
   );
 
-  const actualChunkCount = await uploadVideoChunks(
-    file,
-    videoId,
-    metadata.branchId,
-    mimeType,
-    onProgress,
-  );
+  let actualChunkCount: number;
+  try {
+    actualChunkCount = await uploadVideoChunks(
+      file,
+      videoId,
+      metadata.branchId,
+      mimeType,
+      onProgress,
+    );
+  } catch (error) {
+    // A mid-upload failure must not strand a half-written video: remove the
+    // partial chunks and the 'uploading' doc, then surface the error.
+    await removeChunkedVideoData(videoId).catch(() => undefined);
+    await deleteDoc(doc(db, COLLECTIONS.videos, videoId)).catch(() => undefined);
+    throw error instanceof Error
+      ? new Error(`Upload failed partway — nothing was saved. ${error.message}`)
+      : new Error("Upload failed partway — nothing was saved. Please try again.");
+  }
 
   await updateDocument(COLLECTIONS.videos, videoId, {
     status: "active",

@@ -211,6 +211,7 @@ service cloud.firestore {
         let data = request.resource.data;
         return request.auth.uid == userId
           && request.auth.token.email != null
+          && request.auth.token.email_verified == true
           && request.auth.token.email.lower() == 'admin@unimoni-signage.com'
           && data.email.lower() == 'admin@unimoni-signage.com'
           && data.role == 'admin'

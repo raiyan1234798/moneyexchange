@@ -75,6 +75,11 @@ export async function approvePendingRate(
   if (!approval.entityId) return;
 
   const rate = await getDocument<ExchangeRate>(COLLECTIONS.exchangeRates, approval.entityId);
+  if (!rate) {
+    throw new Error(
+      `${approval.currencyCode} was removed from the branch — reject this request instead.`,
+    );
+  }
   const version = (rate?.version ?? 0) + 1;
 
   await updateDocument(COLLECTIONS.exchangeRates, approval.entityId, {

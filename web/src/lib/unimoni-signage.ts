@@ -67,27 +67,9 @@ export function getRateFlag(rate: ExchangeRate): string | null {
 }
 
 export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
-  if (rates.length > 0) {
-    return [...rates]
-      .filter((rate) => !rate.isHidden && rate.status === "published")
-      .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
-  }
-
-  const now = new Date();
-  return UNIMONI_DEFAULT_RATES.map((rate, index) => ({
-    id: `unimoni-${rate.currencyCode.toLowerCase()}`,
-    branchId: "default",
-    currencyCode: rate.currencyCode,
-    buyRate: rate.buyRate,
-    sellRate: rate.sellRate,
-    version: 1,
-    displayOrder: index + 1,
-    isHidden: false,
-    status: "published" as const,
-    updatedBy: "system",
-    updatedByName: "System",
-    publishedAt: now,
-    createdAt: now,
-    updatedAt: now,
-  }));
+  // NEVER invent rates: a branch with no published rates must show an explicit
+  // "being updated" state, not fictional prices to walk-in customers.
+  return [...rates]
+    .filter((rate) => !rate.isHidden && rate.status === "published")
+    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 }
