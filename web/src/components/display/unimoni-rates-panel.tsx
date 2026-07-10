@@ -274,16 +274,12 @@ export function UnimoniRatesPanel({
           )}
         </div>
 
-        {/* Custom note line — FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */}
+        {/* Custom note line — FIRST rate screen only, plain bold text like the
+            client's reference board ("WE BUY US $ SMALL BILLS … @3300"). */}
         {isFirstSheet && noteText ? (
           <div
-            className="shrink-0 px-2 py-[0.7vh] text-center font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-tight tracking-wide"
-            style={{
-              color: NAVY_TEXT,
-              backgroundColor: "#FBEFC6",
-              borderTop: `2px solid ${UNIMONI_COLORS.gold}`,
-              fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)",
-            }}
+            className="shrink-0 px-[0.9vw] pb-[0.7vh] pt-[0.4vh] text-left font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-tight"
+            style={{ color: NAVY_TEXT, fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)" }}
           >
             {noteText}
           </div>

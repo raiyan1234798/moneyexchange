@@ -354,12 +354,13 @@ function BranchSettingsForm({
         <Input
           value={settings.rateCardNote ?? ""}
           onChange={(event) => setSettings({ ...settings, rateCardNote: event.target.value || null })}
-          placeholder="USD Small Bill BUY @ 3600"
+          placeholder="WE BUY US $ SMALL BILLS 20,10,5,2 & 1 @3300"
           className="rounded-xl"
         />
         <p className="text-xs text-muted-foreground">
-          Shows as a highlighted line at the bottom of the FIRST rate screen only (not on later pages
-          or the transfer card). Edit the rate here anytime. Leave blank to hide it.
+          Shows as plain bold text at the bottom of the FIRST rate screen only (not on later pages or
+          the transfer card) — e.g. &quot;WE BUY US $ SMALL BILLS 20,10,5,2 &amp; 1 @3300&quot;. Edit the
+          rate here anytime. Leave blank to hide it.
         </p>
       </div>
 
