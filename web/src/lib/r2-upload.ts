@@ -1,6 +1,8 @@
 import { auth } from "@/lib/firebase/client";
 
-export const R2_UPLOAD_TIMEOUT_MS = 60_000;
+// 5 minutes — branch connections can be slow; the old 60s timeout made ~8MB
+// videos abort mid-upload and fall back to database (chunked) storage.
+export const R2_UPLOAD_TIMEOUT_MS = 300_000;
 
 export function isR2UploadConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_R2_UPLOAD_URL?.trim();
@@ -91,7 +93,7 @@ export function uploadVideoToR2(
         xhr.ontimeout = () => {
           if (settled) return;
           settled = true;
-          reject(new Error("Upload timed out after 60 seconds. Try a smaller file or paste a direct video link."));
+          reject(new Error("Upload timed out after 5 minutes. Try a smaller file or paste a direct video link."));
         };
 
         xhr.onabort = () => {

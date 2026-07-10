@@ -86,7 +86,11 @@ async function handleUpload(request, env) {
   const form = await request.formData();
   const file = form.get("file");
   const branchId = String(form.get("branchId") || "").trim();
-  if (!(file instanceof File)) return json({ error: "Missing file field" }, 400);
+  // Duck-type rather than `instanceof File`: on old compatibility dates the
+  // runtime hands multipart file parts back differently, and a cross-realm
+  // File fails instanceof. Anything with stream() + size is uploadable.
+  const isFileLike = file && typeof file === "object" && typeof file.stream === "function";
+  if (!isFileLike) return json({ error: "Missing file field (multipart upload required)" }, 400);
   if (!branchId || !/^[\w-]+$/.test(branchId)) return json({ error: "Missing or invalid branchId" }, 400);
   if (file.size <= 0) return json({ error: "Empty file" }, 400);
   if (file.size > MAX_BYTES) return json({ error: `File exceeds ${MAX_BYTES / (1024 * 1024)}MB limit` }, 413);

@@ -134,7 +134,9 @@ function BreakingNewsTickerInner({
           from the scrolling strip. Text slides behind it and disappears.
           Image logos sit on a white card so the navy+gold wordmark reads. */}
       <div
-        className={`absolute bottom-[10%] left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[10px] border-2 border-l-0 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+        // bottom-0 keeps the badge's gold bottom border flush with the ticker's
+        // gold underline — one continuous straight line, no double line.
+        className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[10px] border-2 border-l-0 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
           pulse ? "ticker-logo-pulse" : ""
         }`}
         style={{

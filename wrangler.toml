@@ -9,6 +9,10 @@
 # Pages Functions; Pages logs a harmless "No routes found … Skipping" for it.
 name = "unimoni"
 pages_build_output_dir = "web/out"
+# Required for /api/upload: without a modern compatibility date the Workers
+# runtime parses multipart FILE parts as plain strings and uploads fail with
+# "Missing file field".
+compatibility_date = "2024-12-01"
 
 # R2 for video/image uploads, handled by web/public/_worker.js at /api/upload.
 # Binding the bucket here activates R2 on deploy (no dashboard step). If the
