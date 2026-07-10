@@ -274,17 +274,6 @@ export function UnimoniRatesPanel({
           )}
         </div>
 
-        {/* Custom note line — FIRST rate screen only, plain bold text like the
-            client's reference board ("WE BUY US $ SMALL BILLS … @3300"). */}
-        {isFirstSheet && noteText ? (
-          <div
-            className="shrink-0 px-[0.9vw] pb-[0.7vh] pt-[0.4vh] text-left font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-tight"
-            style={{ color: NAVY_TEXT, fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)" }}
-          >
-            {noteText}
-          </div>
-        ) : null}
-
         {sheetCount > 1 ? (
           <div className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh]">
             {sheets.map((sheet, i) => (
@@ -300,6 +289,18 @@ export function UnimoniRatesPanel({
           </div>
         ) : null}
       </div>
+
+      {/* Per-branch note BELOW the white card, on the blue panel — bold white
+          text like the client's reference board ("WE BUY US $ SMALL BILLS …
+          @3300"). FIRST rate screen only; editable in Settings per branch. */}
+      {isFirstSheet && noteText ? (
+        <div
+          className="shrink-0 px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-tight text-white"
+          style={{ fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)" }}
+        >
+          {noteText}
+        </div>
+      ) : null}
     </aside>
   );
 }
