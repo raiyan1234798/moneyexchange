@@ -109,17 +109,17 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   // Independently resizable areas (each editable in Settings → Display sizing).
   const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 72));
-  const videoFit = branchSettings.videoFit ?? "auto";
+  const videoFit = branchSettings.videoFit ?? "stretch";
 
   // "auto" fit: resize the promo area to the media's shape so the WHOLE media
   // fills it with no crop and no bars. The rate card takes the rest. Clamped so
-  // the rate card never gets too narrow (18%) or too wide (55%).
+  // the rate card always keeps at least 25% (readable rates) and at most 55%.
   const adaptivePromoPercent = useMemo(() => {
     if (videoFit !== "auto" || !mediaAspect || !mainDims || mainDims.w <= 0 || mainDims.h <= 0) {
       return null;
     }
     const idealPx = mainDims.h * mediaAspect;
-    return Math.max(45, Math.min(82, (idealPx / mainDims.w) * 100));
+    return Math.max(45, Math.min(75, (idealPx / mainDims.w) * 100));
   }, [videoFit, mediaAspect, mainDims]);
 
   const effectivePromoWidth = adaptivePromoPercent ?? videoWidthPercent;

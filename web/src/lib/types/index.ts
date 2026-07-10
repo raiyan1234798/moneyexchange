@@ -81,11 +81,13 @@ export interface BranchSettings {
   videoWidthPercent?: number;
   /**
    * How the video/image fits its area:
-   * - "auto"    = the promo AREA resizes to the media's shape, so the whole media fills it (no crop, no bars). Default.
+   * - "stretch" = media is stretched to exactly fill the fixed area — whole content
+   *               visible, no bars, no crop (like the client's previous signage player). Default.
+   * - "auto"    = the promo AREA resizes to the media's shape (no crop, no bars, no stretch).
    * - "cover"   = media fills a fixed area, cropping the edges.
    * - "contain" = whole media shown with a blurred fill behind it.
    */
-  videoFit?: "contain" | "cover" | "auto";
+  videoFit?: "contain" | "cover" | "auto" | "stretch";
   /** Multiplier for rate-card text/row size (0.7–1.5). Default 1. */
   rateCardScale?: number;
   /** Multiplier for ticker bar height + text (0.7–1.6). Default 1. */

@@ -56,10 +56,11 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showTransferCard: true,
   transferLocalLabel: "UGX",
   videoWidthPercent: 72,
-  // Default "auto" = the promo AREA resizes to each video/image's shape so the
-  // whole media fills it with no cropping and no bars. "cover" = fill a fixed
-  // area (crops edges). "contain" = whole frame + blurred fill.
-  videoFit: "auto" as "contain" | "cover" | "auto",
+  // Default "stretch" = media is stretched to exactly fill the fixed area (whole
+  // content visible, no bars, no crop) — matches the client's previous signage
+  // player. "auto" resizes the area to the media instead; "cover" crops; "contain"
+  // shows the whole frame on a blurred fill.
+  videoFit: "stretch" as "contain" | "cover" | "auto" | "stretch",
   rateCardScale: 1,
   tickerScale: 1,
   logoScale: 1,

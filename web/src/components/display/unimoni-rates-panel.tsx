@@ -153,7 +153,7 @@ export function UnimoniRatesPanel({
     if (showBuyRate) valueColumns.push({ key: "buy", header: "We Buy", get: (r) => r.buyRate });
     if (showSellRate) valueColumns.push({ key: "sell", header: "We Sell", get: (r) => r.sellRate });
   }
-  const gridColumns = `1.25fr ${valueColumns.map(() => "1fr").join(" ")}`.trim();
+  const gridColumns = `1.5fr ${valueColumns.map(() => "1fr").join(" ")}`.trim();
   const headerSubLabel = isTransferSheet ? "Transfer Rates" : "Exchange Rates";
 
   const asideStyle = {

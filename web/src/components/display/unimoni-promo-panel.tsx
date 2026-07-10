@@ -9,8 +9,8 @@ interface UnimoniPromoPanelProps {
   imageUrl?: string | null;
   videoLoaded?: boolean;
   loopVideo?: boolean;
-  /** "auto" = area resizes to the media; "contain" = whole media + blurred fill; "cover" = fill & crop. */
-  fit?: "contain" | "cover" | "auto";
+  /** "stretch" = stretch to exactly fill (old-player behaviour); "auto" = area resizes to the media; "contain" = whole media + blurred fill; "cover" = fill & crop. */
+  fit?: "contain" | "cover" | "auto" | "stretch";
   /** Width of the promo area as a % of the screen (desktop/TV only). */
   widthPercent?: number;
   /** Reports the current media's aspect ratio (w/h) so "auto" can size the area to it. */
@@ -26,7 +26,7 @@ export function UnimoniPromoPanel({
   imageUrl,
   videoLoaded = false,
   loopVideo = true,
-  fit = "auto",
+  fit = "stretch",
   widthPercent,
   onMediaAspectChange,
   onVideoLoaded,
@@ -45,11 +45,14 @@ export function UnimoniPromoPanel({
   const showPlaceholder = !showVideo && !showImage;
   const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
 
-  // "auto" (default): the promo AREA is resized to the media's shape upstream,
-  // so a plain object-contain fills it with no crop and no bars. "contain":
-  // whole media on a blurred fill. "cover": fill a fixed area, cropping edges.
-  const isCover = fit === "cover";
-  const objectClass = isCover ? "object-cover" : "object-contain";
+  // "stretch" (default): media is stretched to exactly fill the fixed area —
+  // whole content visible, no bars, no crop (matches the client's previous
+  // signage player; the mild distortion is invisible on promo content).
+  // "auto": the promo AREA is resized to the media's shape upstream, then
+  // object-contain fills it. "contain": whole media on a blurred fill.
+  // "cover": fill a fixed area, cropping edges.
+  const objectClass =
+    fit === "stretch" ? "object-fill" : fit === "cover" ? "object-cover" : "object-contain";
   const useBackdrop = fit === "contain";
 
   const panelStyle: CSSProperties =
