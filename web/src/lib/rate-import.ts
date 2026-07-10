@@ -141,6 +141,137 @@ export function downloadRateTemplateXlsx(): void {
   XLSX.writeFile(workbook, "exchange-rates-template.xlsx");
 }
 
+/** Parse ONE sheet. Returns null when its headers aren't a rates table. */
+function parseSheet(sheet: XLSX.WorkSheet, sheetLabel: string): RateImportRow[] | null {
+  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+  if (rawRows.length < 2) return null;
+
+  const headers = (rawRows[0] as unknown[]).map(normalizeHeader);
+  const currencyIdx = findColumnIndex(headers, ["CURRENCY", "CODE", "CURRENCY CODE"]);
+  const buyIdx = findColumnIndex(headers, ["WE BUY", "BUY", "BUY RATE"]);
+  const sellIdx = findColumnIndex(headers, ["WE SELL", "SELL", "SELL RATE"]);
+  // Separate TRANSFER table columns: "$" (USD) and "UGX"/local. Also accept
+  // a single legacy TRANSFER/REMITTANCE column as the local transfer rate.
+  const transferUsdIdx = findColumnIndex(headers, ["USD $", "$ USD", "US$", "USD", "$", "DOLLAR"]);
+  const transferLocalIdx = findColumnIndex(headers, [
+    "UGX",
+    "LOCAL",
+    "SHILLING",
+    "TRANSFER",
+    "REMITTANCE",
+    "REMIT",
+    "TT RATE",
+  ]);
+
+  const hasForex = buyIdx >= 0 && sellIdx >= 0;
+  const hasTransfer = transferUsdIdx >= 0 || transferLocalIdx >= 0;
+  if (currencyIdx < 0 || (!hasForex && !hasTransfer)) return null;
+
+  const num = (v: unknown): number | null => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  const parsed: RateImportRow[] = [];
+  for (let i = 1; i < rawRows.length; i++) {
+    const row = rawRows[i] as unknown[];
+    const rawCurrency = String(row[currencyIdx] ?? "").trim();
+    if (!rawCurrency || rawCurrency.toUpperCase() === "CURRENCY") continue;
+
+    const { currencyCode, displayName, currencyName, country, flag } = parseCurrencyCell(rawCurrency);
+    if (!currencyCode) continue;
+
+    let buyRate = 0;
+    let sellRate = 0;
+    if (hasForex) {
+      const b = Number(row[buyIdx]);
+      const s = Number(row[sellIdx]);
+      // A blank forex row inside a transfer-only sheet is fine — skip it.
+      const blank = String(row[buyIdx] ?? "").trim() === "" && String(row[sellIdx] ?? "").trim() === "";
+      if (!blank) {
+        if (!Number.isFinite(b) || !Number.isFinite(s)) {
+          throw new Error(`Invalid rates for ${displayName} on ${sheetLabel} row ${i + 1}`);
+        }
+        if (b <= 0 || s <= 0) {
+          throw new Error(`Rates must be positive for ${displayName} (${sheetLabel})`);
+        }
+        buyRate = b;
+        sellRate = s;
+      }
+    }
+
+    const transferUsd = transferUsdIdx >= 0 ? num(row[transferUsdIdx]) : null;
+    const transferLocal = transferLocalIdx >= 0 ? num(row[transferLocalIdx]) : null;
+
+    // Skip empty rows (no forex and no transfer values).
+    if (buyRate <= 0 && sellRate <= 0 && !transferUsd && !transferLocal) continue;
+
+    parsed.push({
+      currencyCode,
+      displayName,
+      currencyName,
+      country,
+      flag,
+      buyRate,
+      sellRate,
+      transferUsd,
+      transferLocal,
+    });
+  }
+
+  return parsed;
+}
+
+/**
+ * Parse EVERY sheet in the workbook and merge rows by currency code — so one
+ * Excel file can carry a "Forex Rates" sheet (CURRENCY | WE BUY | WE SELL) AND
+ * a "Transfer Rate" sheet (CURRENCY | $ | UGX). A currency on both sheets gets
+ * its forex and transfer rates combined into a single row. Sheets whose
+ * headers aren't a rates table are skipped.
+ */
+export function parseRateWorkbook(workbook: XLSX.WorkBook): RateImportRow[] {
+  if (workbook.SheetNames.length === 0) throw new Error("File has no sheets");
+
+  const merged = new Map<string, RateImportRow>();
+  let parsedAnySheet = false;
+
+  for (const sheetName of workbook.SheetNames) {
+    const rows = parseSheet(workbook.Sheets[sheetName], sheetName);
+    if (rows === null) continue;
+    parsedAnySheet = true;
+
+    for (const row of rows) {
+      const existing = merged.get(row.currencyCode);
+      if (!existing) {
+        merged.set(row.currencyCode, row);
+        continue;
+      }
+      // Merge: forex values win where present; transfer values fill in from
+      // whichever sheet carries them. Keep the richer display name.
+      if (row.buyRate > 0 && row.sellRate > 0) {
+        existing.buyRate = row.buyRate;
+        existing.sellRate = row.sellRate;
+        existing.displayName = row.displayName || existing.displayName;
+      }
+      if (row.transferUsd != null) existing.transferUsd = row.transferUsd;
+      if (row.transferLocal != null) existing.transferLocal = row.transferLocal;
+      existing.currencyName = existing.currencyName ?? row.currencyName;
+      existing.country = existing.country ?? row.country;
+      existing.flag = existing.flag ?? row.flag;
+    }
+  }
+
+  if (!parsedAnySheet) {
+    throw new Error(
+      "Invalid columns. Use CURRENCY | WE BUY | WE SELL for forex, or CURRENCY | $ | UGX for a transfer table (both sheets can live in one file).",
+    );
+  }
+
+  const result = [...merged.values()];
+  if (result.length === 0) throw new Error("No valid rate rows found");
+  return result;
+}
+
 export function parseRateFile(file: File): Promise<RateImportRow[]> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -157,107 +288,7 @@ export function parseRateFile(file: File): Promise<RateImportRow[]> {
             ? XLSX.read(data, { type: "binary" })
             : XLSX.read(data, { type: "array" });
 
-        const sheetName = workbook.SheetNames[0];
-        if (!sheetName) {
-          reject(new Error("File has no sheets"));
-          return;
-        }
-
-        const sheet = workbook.Sheets[sheetName];
-        const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
-        if (rawRows.length < 2) {
-          reject(new Error("File must have a header row and at least one data row"));
-          return;
-        }
-
-        const headers = (rawRows[0] as unknown[]).map(normalizeHeader);
-        const currencyIdx = findColumnIndex(headers, ["CURRENCY", "CODE", "CURRENCY CODE"]);
-        const buyIdx = findColumnIndex(headers, ["WE BUY", "BUY", "BUY RATE"]);
-        const sellIdx = findColumnIndex(headers, ["WE SELL", "SELL", "SELL RATE"]);
-        // Separate TRANSFER table columns: "$" (USD) and "UGX"/local. Also accept
-        // a single legacy TRANSFER/REMITTANCE column as the local transfer rate.
-        const transferUsdIdx = findColumnIndex(headers, ["USD $", "$ USD", "US$", "USD", "$", "DOLLAR"]);
-        const transferLocalIdx = findColumnIndex(headers, [
-          "UGX",
-          "LOCAL",
-          "SHILLING",
-          "TRANSFER",
-          "REMITTANCE",
-          "REMIT",
-          "TT RATE",
-        ]);
-
-        const hasForex = buyIdx >= 0 && sellIdx >= 0;
-        const hasTransfer = transferUsdIdx >= 0 || transferLocalIdx >= 0;
-        if (currencyIdx < 0 || (!hasForex && !hasTransfer)) {
-          reject(
-            new Error(
-              "Invalid columns. Use CURRENCY | WE BUY | WE SELL for forex, or CURRENCY | $ | UGX for a transfer table.",
-            ),
-          );
-          return;
-        }
-
-        const num = (v: unknown): number | null => {
-          const n = Number(v);
-          return Number.isFinite(n) && n > 0 ? n : null;
-        };
-
-        const parsed: RateImportRow[] = [];
-        for (let i = 1; i < rawRows.length; i++) {
-          const row = rawRows[i] as unknown[];
-          const rawCurrency = String(row[currencyIdx] ?? "").trim();
-          if (!rawCurrency || rawCurrency.toUpperCase() === "CURRENCY") continue;
-
-          const { currencyCode, displayName, currencyName, country, flag } = parseCurrencyCell(rawCurrency);
-          if (!currencyCode) continue;
-
-          let buyRate = 0;
-          let sellRate = 0;
-          if (hasForex) {
-            const b = Number(row[buyIdx]);
-            const s = Number(row[sellIdx]);
-            // A blank forex row inside a transfer-only workbook is fine — skip it.
-            const blank = String(row[buyIdx] ?? "").trim() === "" && String(row[sellIdx] ?? "").trim() === "";
-            if (!blank) {
-              if (!Number.isFinite(b) || !Number.isFinite(s)) {
-                reject(new Error(`Invalid rates for ${displayName} on row ${i + 1}`));
-                return;
-              }
-              if (b <= 0 || s <= 0) {
-                reject(new Error(`Rates must be positive for ${displayName}`));
-                return;
-              }
-              buyRate = b;
-              sellRate = s;
-            }
-          }
-
-          const transferUsd = transferUsdIdx >= 0 ? num(row[transferUsdIdx]) : null;
-          const transferLocal = transferLocalIdx >= 0 ? num(row[transferLocalIdx]) : null;
-
-          // Skip empty rows (no forex and no transfer values).
-          if (buyRate <= 0 && sellRate <= 0 && !transferUsd && !transferLocal) continue;
-
-          parsed.push({
-            currencyCode,
-            displayName,
-            currencyName,
-            country,
-            flag,
-            buyRate,
-            sellRate,
-            transferUsd,
-            transferLocal,
-          });
-        }
-
-        if (parsed.length === 0) {
-          reject(new Error("No valid rate rows found"));
-          return;
-        }
-
-        resolve(parsed);
+        resolve(parseRateWorkbook(workbook));
       } catch (error) {
         reject(error instanceof Error ? error : new Error("Failed to parse file"));
       }

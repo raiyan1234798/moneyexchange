@@ -211,7 +211,6 @@ function BreakingNewsTickerInner({
         </div>
       </div>
 
-      <div className="h-1 w-full" style={{ backgroundColor: UNIMONI_COLORS.gold }} />
     </footer>
   );
 }
