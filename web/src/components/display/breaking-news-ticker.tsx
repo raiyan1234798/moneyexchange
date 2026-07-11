@@ -17,6 +17,8 @@ interface BreakingNewsTickerProps {
   logoText?: string | null;
   /** CSS font-family for the text logo. */
   logoFontCss?: string;
+  /** CSS font-family for the SCROLLING message (separate from the logo font). */
+  messageFontCss?: string;
   scrollSpeedSeconds: number;
   fontColor?: string;
   fontSize?: number;
@@ -41,6 +43,7 @@ function BreakingNewsTickerInner({
   logoUrl,
   logoText,
   logoFontCss,
+  messageFontCss,
   scrollSpeedSeconds,
   fontColor = "#FFFFFF",
   fontSize,
@@ -185,10 +188,11 @@ function BreakingNewsTickerInner({
           {scrolling && activeText ? (
             <div key={`${messageIndex}-${cycle}`} className="absolute inset-y-0 flex w-full items-center">
               <span
-                className="breaking-ticker-text inline-block whitespace-nowrap pl-[100%] font-[Arial,Helvetica,sans-serif] font-bold uppercase tracking-[0.08em] will-change-transform"
+                className="breaking-ticker-text inline-block whitespace-nowrap pl-[100%] font-bold uppercase tracking-[0.08em] will-change-transform"
                 style={{
                   color: fontColor,
                   fontSize: scrollFontSize,
+                  fontFamily: messageFontCss ?? "Arial, Helvetica, sans-serif",
                   animationDuration: `${duration}s`,
                 }}
                 onAnimationEnd={handleAnimationEnd}

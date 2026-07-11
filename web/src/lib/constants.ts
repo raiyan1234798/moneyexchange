@@ -47,6 +47,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerLogoUrl: null as string | null,
   tickerLogoText: null as string | null,
   tickerLogoFont: null as string | null,
+  tickerMessageFont: null as string | null,
   showBuyRate: true,
   showSellRate: true,
   rateCardPosition: "right" as const,
@@ -109,6 +110,16 @@ export const LOGO_FONTS: Array<{ key: string; label: string; css: string }> = [
 
 export function logoFontCss(key: string | null | undefined): string {
   return LOGO_FONTS.find((f) => f.key === key)?.css ?? LOGO_FONTS[0].css;
+}
+
+/** Font choices for the SCROLLING ticker message — separate from the logo font. */
+export const MESSAGE_FONTS: Array<{ key: string; label: string; css: string }> = [
+  { key: "standard", label: "Standard (Arial)", css: "Arial, Helvetica, sans-serif" },
+  ...LOGO_FONTS,
+];
+
+export function messageFontCss(key: string | null | undefined): string {
+  return MESSAGE_FONTS.find((f) => f.key === key)?.css ?? MESSAGE_FONTS[0].css;
 }
 
 export const DEFAULT_SYSTEM_SETTINGS = {

@@ -62,6 +62,8 @@ export interface BranchSettings {
   tickerLogoUrl?: string | null;
   tickerLogoText?: string | null;
   tickerLogoFont?: string | null;
+  /** Font for the SCROLLING ticker message (separate from the logo font). */
+  tickerMessageFont?: string | null;
   showBuyRate: boolean;
   showSellRate: boolean;
   rateCardPosition: RateCardPosition;
@@ -230,6 +232,8 @@ export interface TickerMessage {
   logoText?: string | null;
   /** Font family key for the text logo — see LOGO_FONTS. */
   logoFont?: string | null;
+  /** Font family key for the SCROLLING message — see MESSAGE_FONTS. */
+  messageFont?: string | null;
   paused?: boolean;
   language: string;
   scheduleStart?: Timestamp | Date | null;

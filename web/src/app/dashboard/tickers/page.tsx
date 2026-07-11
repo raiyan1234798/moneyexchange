@@ -27,7 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteTicker, subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
 import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
-import { LOGO_FONTS, logoFontCss } from "@/lib/constants";
+import { LOGO_FONTS, MESSAGE_FONTS, logoFontCss, messageFontCss } from "@/lib/constants";
 import {
   Select,
   SelectContent,
@@ -60,6 +60,7 @@ export default function TickersPage() {
   const [logoMode, setLogoMode] = useState<"image" | "text">("image");
   const [logoText, setLogoText] = useState("");
   const [logoFont, setLogoFont] = useState(LOGO_FONTS[0].key);
+  const [messageFont, setMessageFont] = useState(MESSAGE_FONTS[0].key);
   const [fontColor, setFontColor] = useState("#FFFFFF");
   const [applyToAll, setApplyToAll] = useState(false);
   const [editTarget, setEditTarget] = useState<TickerMessage | null>(null);
@@ -87,6 +88,7 @@ export default function TickersPage() {
     setLogoUrl(ticker.logoUrl ?? "");
     setLogoText(ticker.logoText ?? "");
     setLogoFont(ticker.logoFont ?? LOGO_FONTS[0].key);
+    setMessageFont(ticker.messageFont ?? MESSAGE_FONTS[0].key);
     setLogoMode(ticker.logoText ? "text" : "image");
     setFontColor(ticker.fontColor ?? "#FFFFFF");
     setApplyToAll(false);
@@ -101,6 +103,7 @@ export default function TickersPage() {
     setLogoUrl("");
     setLogoText("");
     setLogoMode("image");
+    setMessageFont(MESSAGE_FONTS[0].key);
     setApplyToAll(false);
   }
 
@@ -144,6 +147,7 @@ export default function TickersPage() {
             logoUrl: logoMode === "text" ? null : logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
             logoText: logoMode === "text" ? logoText.trim() || null : null,
             logoFont: logoMode === "text" ? logoFont : null,
+            messageFont,
             branchId: editTarget.branchId,
           },
           { userId: user.uid, userName: profile.displayName || profile.email },
@@ -165,6 +169,7 @@ export default function TickersPage() {
         logoUrl: logoMode === "text" ? null : logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
         logoText: logoMode === "text" ? logoText.trim() || null : null,
         logoFont: logoMode === "text" ? logoFont : null,
+        messageFont,
         language: "en" as const,
         status: "active" as const,
         createdBy: user.uid,
@@ -246,6 +251,33 @@ export default function TickersPage() {
                       onChange={(e) => setScrollSpeed(Number(e.target.value))}
                       className="rounded-xl"
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Message font style (scrolling text only)</Label>
+                    <Select value={messageFont} onValueChange={(v) => setMessageFont(v ?? MESSAGE_FONTS[0].key)}>
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue placeholder="Font style" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MESSAGE_FONTS.map((f) => (
+                          <SelectItem key={f.key} value={f.key}>
+                            {f.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex items-center rounded-lg bg-slate-900 px-3 py-2">
+                      <span
+                        className="truncate text-sm font-bold uppercase tracking-[0.08em] text-white"
+                        style={{ fontFamily: messageFontCss(messageFont) }}
+                      >
+                        {messages.split("\n").find((l) => l.trim()) ?? "Best rates in town"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Applies only to the scrolling message — the logo, headline and rate card keep
+                      their own styles.
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <Label>Logo on the bar (optional)</Label>
