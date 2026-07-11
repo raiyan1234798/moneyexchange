@@ -141,37 +141,37 @@ async function handleOcrRates(request, env) {
     "Numbers must be plain (no commas or currency symbols). Use null for unreadable or missing values. Never invent values.",
   ].join(" ");
 
-  // Model chain, best first. Meta license-gates Llama until the ACCOUNT OWNER
-  // submits a one-time "agree" (Workers AI playground) — never automated here.
-  // Gemma 3 and LLaVA are ungated fallbacks.
-  const MODELS = [
-    "@cf/meta/llama-3.2-11b-vision-instruct",
-    "@cf/google/gemma-3-12b-it",
-    "@cf/llava-hf/llava-1.5-7b-hf",
-  ];
-  let llamaGated = false;
-  let rows = [];
-  for (const model of MODELS) {
-    let result;
-    try {
-      result = await env.AI.run(model, { prompt, image: Array.from(bytes), max_tokens: 1500 });
-    } catch (err) {
-      const msg = String((err && err.message) || err);
-      if (/5016|agree|license/i.test(msg)) llamaGated = true;
-      continue; // gated, unknown model, or bad input shape — try the next one
+  // ONLY the strong vision model is trusted here. The smaller ungated models
+  // (Gemma/LLaVA) were tested and HALLUCINATED plausible rates that were not
+  // in the photo — unacceptable on a currency board — so they are deliberately
+  // not used. Meta license-gates this model until the ACCOUNT OWNER submits a
+  // one-time "agree" in the Workers AI playground (never automated here).
+  let result;
+  try {
+    result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
+      prompt,
+      image: Array.from(bytes),
+      max_tokens: 1500,
+    });
+  } catch (err) {
+    const msg = String((err && err.message) || err);
+    if (/5016|agree|license/i.test(msg)) {
+      return json(
+        {
+          error:
+            "Photo reading needs a one-time activation by the admin: Cloudflare Dashboard → AI → Workers AI → open model llama-3.2-11b-vision-instruct → send the word 'agree'. Then try the photo again (no redeploy needed).",
+        },
+        503,
+      );
     }
-    const text = (result && (result.response ?? result.description ?? result.output_text)) || "";
-    rows = extractRateRows(String(text));
-    if (rows.length > 0) return json({ rows, model });
+    throw err;
   }
-
-  const activation = llamaGated
-    ? " For the best reader, activate it once: Cloudflare Dashboard → AI → Workers AI → model llama-3.2-11b-vision-instruct → send the word 'agree'."
-    : "";
-  return json(
-    { error: `Could not read rates from the photo — try a clearer, straight-on photo.${activation}` },
-    422,
-  );
+  const text = (result && (result.response ?? result.description ?? result.output_text)) || "";
+  const rows = extractRateRows(String(text));
+  if (rows.length === 0) {
+    return json({ error: "Could not read rates from the photo — try a clearer, straight-on photo." }, 422);
+  }
+  return json({ rows });
 }
 
 /** Parse model output into rate rows: strict JSON first, then loose line format. */
