@@ -182,10 +182,17 @@ async function handleOcrRates(request, env) {
   }
   const text = (result && (result.response ?? result.description ?? result.output_text)) || "";
   const rows = extractRateRows(String(text));
+  const debug = new URL(request.url).searchParams.get("debug") === "1";
   if (rows.length === 0) {
-    return json({ error: "Could not read rates from the photo — try a clearer, straight-on photo." }, 422);
+    return json(
+      {
+        error: "Could not read rates from the photo — try a clearer, straight-on photo.",
+        ...(debug ? { rawSample: String(text).slice(0, 600), resultKeys: Object.keys(result || {}) } : {}),
+      },
+      422,
+    );
   }
-  return json({ rows });
+  return json({ rows, ...(debug ? { rawSample: String(text).slice(0, 600) } : {}) });
 }
 
 /** Parse model output into rate rows: strict JSON first, then loose line format. */
