@@ -180,8 +180,10 @@ async function handleOcrRates(request, env) {
       throw err;
     }
   }
-  const text = (result && (result.response ?? result.description ?? result.output_text)) || "";
-  const rows = extractRateRows(String(text));
+  // Workers AI may return the model's JSON ALREADY PARSED (response is an
+  // array of row objects) or as plain text — handle both.
+  const raw = result && (result.response ?? result.description ?? result.output_text);
+  const rows = Array.isArray(raw) ? rowsFromParsed(raw) : extractRateRows(String(raw || ""));
   const debug = new URL(request.url).searchParams.get("debug") === "1";
   if (rows.length === 0) {
     return json(
@@ -195,40 +197,54 @@ async function handleOcrRates(request, env) {
   return json({ rows, ...(debug ? { rawSample: String(text).slice(0, 600) } : {}) });
 }
 
-/** Parse model output into rate rows: strict JSON first, then loose line format. */
-function extractRateRows(text) {
-  const num = (v) => {
-    const n = Number(String(v ?? "").replace(/[, ]/g, ""));
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
-  const out = [];
-  const push = (currency, buy, sell, transferUsd, transferLocal) => {
-    const code = String(currency ?? "").trim().toUpperCase();
-    if (!/^[A-Z]{2,5}([ -].*)?$/.test(code)) return;
-    const row = { currency: code, buy: num(buy), sell: num(sell), transferUsd: num(transferUsd), transferLocal: num(transferLocal) };
-    if (row.buy || row.sell || row.transferUsd || row.transferLocal) out.push(row);
-  };
+function rateNum(v) {
+  const n = Number(String(v ?? "").replace(/[, ]/g, ""));
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
 
+/** Map an ALREADY-PARSED array of model row objects into validated rate rows. */
+function rowsFromParsed(parsed) {
+  const out = [];
+  for (const r of parsed.slice(0, 60)) {
+    if (!r || typeof r !== "object") continue;
+    const code = String(r.currency ?? r.code ?? "").trim().toUpperCase();
+    if (!/^[A-Z]{2,5}([ -].*)?$/.test(code)) continue;
+    const row = {
+      currency: code,
+      buy: rateNum(r.buy ?? r.weBuy),
+      sell: rateNum(r.sell ?? r.weSell),
+      transferUsd: rateNum(r.transferUsd),
+      transferLocal: rateNum(r.transferLocal),
+    };
+    if (row.buy || row.sell || row.transferUsd || row.transferLocal) out.push(row);
+  }
+  return out;
+}
+
+/** Parse model TEXT output into rate rows: strict JSON first, then loose lines. */
+function extractRateRows(text) {
   const match = text.match(/\[[\s\S]*\]/);
   if (match) {
     try {
       const parsed = JSON.parse(match[0]);
       if (Array.isArray(parsed)) {
-        for (const r of parsed.slice(0, 60)) {
-          if (!r || typeof r !== "object") continue;
-          push(r.currency ?? r.code, r.buy ?? r.weBuy, r.sell ?? r.weSell, r.transferUsd, r.transferLocal);
-        }
+        const rows = rowsFromParsed(parsed);
+        if (rows.length > 0) return rows;
       }
     } catch {
       // fall through to line parsing
     }
   }
-  if (out.length > 0) return out;
 
   // Loose fallback: lines like "USD 3650 3680" / "USD: 3650 / 3680".
+  const out = [];
   for (const line of text.split(/\n+/).slice(0, 80)) {
     const m = line.match(/\b([A-Z]{3})\b[^\d\n]*([\d][\d.,]*)[^\d\n]+([\d][\d.,]*)/);
-    if (m) push(m[1], m[2], m[3], null, null);
+    if (m) {
+      const buy = rateNum(m[2]);
+      const sell = rateNum(m[3]);
+      if (buy || sell) out.push({ currency: m[1], buy, sell, transferUsd: null, transferLocal: null });
+    }
   }
   return out;
 }
