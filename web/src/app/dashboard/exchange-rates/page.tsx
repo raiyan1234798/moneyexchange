@@ -1324,7 +1324,8 @@ export default function ExchangeRatesPage() {
                           ) : (
                             <div className="flex items-center gap-1">
                               <span className="truncate text-sm font-bold">{primary}</span>
-                              {canManageRates ? (
+                              {/* Renaming curates the display — not for branch users. */}
+                              {canManageRates && !isBranchUser ? (
                                 <button
                                   type="button"
                                   title="Edit display name on TV"
@@ -1394,47 +1395,53 @@ export default function ExchangeRatesPage() {
                             <TrendingUp className="mr-1 h-3 w-3" />
                             Publish
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-lg px-2"
-                            onClick={() => void handleMove(rate, "up")}
-                            disabled={index === 0}
-                            title="Move up on display"
-                          >
-                            <ArrowUp className="mr-1 h-3 w-3" />
-                            Up
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-lg px-2"
-                            onClick={() => void handleMove(rate, "down")}
-                            disabled={index === rates.length - 1}
-                            title="Move down on display"
-                          >
-                            <ArrowDown className="mr-1 h-3 w-3" />
-                            Down
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="rounded-lg px-2"
-                            onClick={() => void handleToggleVisibility(rate)}
-                            title={rate.isHidden ? "Show on TV display" : "Hide from TV display"}
-                          >
-                            {rate.isHidden ? (
-                              <>
-                                <EyeOff className="mr-1 h-3 w-3" />
-                                Show
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="mr-1 h-3 w-3" />
-                                Hide
-                              </>
-                            )}
-                          </Button>
+                          {/* Reorder/Hide curate the display — branch users get
+                              ONLY forex edit + publish (per client, 2026-07-11). */}
+                          {!isBranchUser ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-lg px-2"
+                                onClick={() => void handleMove(rate, "up")}
+                                disabled={index === 0}
+                                title="Move up on display"
+                              >
+                                <ArrowUp className="mr-1 h-3 w-3" />
+                                Up
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-lg px-2"
+                                onClick={() => void handleMove(rate, "down")}
+                                disabled={index === rates.length - 1}
+                                title="Move down on display"
+                              >
+                                <ArrowDown className="mr-1 h-3 w-3" />
+                                Down
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-lg px-2"
+                                onClick={() => void handleToggleVisibility(rate)}
+                                title={rate.isHidden ? "Show on TV display" : "Hide from TV display"}
+                              >
+                                {rate.isHidden ? (
+                                  <>
+                                    <EyeOff className="mr-1 h-3 w-3" />
+                                    Show
+                                  </>
+                                ) : (
+                                  <>
+                                    <Eye className="mr-1 h-3 w-3" />
+                                    Hide
+                                  </>
+                                )}
+                              </Button>
+                            </>
+                          ) : null}
                           {isSuperAdmin || isAdmin || isBranchManager ? (
                             <Button
                               variant="outline"
