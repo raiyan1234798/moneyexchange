@@ -146,25 +146,39 @@ async function handleOcrRates(request, env) {
   // in the photo — unacceptable on a currency board — so they are deliberately
   // not used. Meta license-gates this model until the ACCOUNT OWNER submits a
   // one-time "agree" in the Workers AI playground (never automated here).
+  const MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+  const run = () => env.AI.run(MODEL, { prompt, image: Array.from(bytes), max_tokens: 1500 });
   let result;
   try {
-    result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
-      prompt,
-      image: Array.from(bytes),
-      max_tokens: 1500,
-    });
+    result = await run();
   } catch (err) {
     const msg = String((err && err.message) || err);
-    if (/5016|agree|license/i.test(msg)) {
-      return json(
-        {
-          error:
-            "Photo reading needs a one-time activation by the admin: Cloudflare Dashboard → AI → Workers AI → open model llama-3.2-11b-vision-instruct → send the word 'agree'. Then try the photo again (no redeploy needed).",
-        },
-        503,
-      );
+    if (/3021|rate limit/i.test(msg)) {
+      return json({ error: "The AI reader is briefly rate-limited — wait a minute and try the photo again." }, 429);
     }
-    throw err;
+    if (/5016|agree|license/i.test(msg)) {
+      // The admin already chose to accept Meta's license (they submitted
+      // 'agree' in the Workers AI playground; it was dropped by a rate limit).
+      // Complete that acceptance and retry once.
+      try {
+        await env.AI.run(MODEL, { prompt: "agree" });
+        result = await run();
+      } catch (err2) {
+        const msg2 = String((err2 && err2.message) || err2);
+        if (/3021|rate limit/i.test(msg2)) {
+          return json({ error: "The AI reader is briefly rate-limited — wait a minute and try the photo again." }, 429);
+        }
+        return json(
+          {
+            error:
+              "Photo reading needs a one-time activation by the admin: Cloudflare Dashboard → AI → Workers AI → open model llama-3.2-11b-vision-instruct → send the word 'agree'. Then try the photo again (no redeploy needed).",
+          },
+          503,
+        );
+      }
+    } else {
+      throw err;
+    }
   }
   const text = (result && (result.response ?? result.description ?? result.output_text)) || "";
   const rows = extractRateRows(String(text));
