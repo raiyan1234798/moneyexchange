@@ -141,11 +141,25 @@ async function handleOcrRates(request, env) {
     "Numbers must be plain (no commas or currency symbols). Use null for unreadable or missing values. Never invent values.",
   ].join(" ");
 
-  const result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
-    prompt,
-    image: Array.from(bytes),
-    max_tokens: 1500,
-  });
+  // Primary: Llama 3.2 11B Vision (best accuracy). Meta license-gates it until
+  // the ACCOUNT OWNER submits a one-time "agree" (Workers AI playground) — so
+  // fall back automatically to LLaVA (ungated) until then.
+  let result;
+  try {
+    result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
+      prompt,
+      image: Array.from(bytes),
+      max_tokens: 1500,
+    });
+  } catch (err) {
+    const msg = String((err && err.message) || err);
+    if (!/5016|agree|license/i.test(msg)) throw err;
+    result = await env.AI.run("@cf/llava-hf/llava-1.5-7b-hf", {
+      prompt,
+      image: Array.from(bytes),
+      max_tokens: 1500,
+    });
+  }
   const text = (result && (result.response ?? result.description)) || "";
   const match = String(text).match(/\[[\s\S]*\]/);
   if (!match) return json({ error: "Could not read rates from the photo — try a clearer, straight-on photo." }, 422);
