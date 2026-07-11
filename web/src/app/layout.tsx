@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Geist, Geist_Mono } from "next/font/google";
+import { DM_Sans, Geist, Geist_Mono, Nunito } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
 import { Toaster } from "@/components/ui/sonner";
 import { BRAND } from "@/lib/brand";
@@ -19,6 +19,15 @@ const dmSans = DM_Sans({
   variable: "--font-heading",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+});
+
+// The unimoni brand/creative font — rounded sans used across their promo
+// artwork ("Exchange wide range of currencies…"). Self-hosted at build time
+// (next/font), so it also works on offline TVs.
+const nunito = Nunito({
+  variable: "--font-brand",
+  subsets: ["latin"],
+  weight: ["600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -41,7 +50,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} h-full`}>
+    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} ${dmSans.variable} ${nunito.variable} h-full`}>
       <body className="min-h-full bg-background text-foreground antialiased">
         <AppProviders>{children}</AppProviders>
         <Toaster richColors closeButton />

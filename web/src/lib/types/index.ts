@@ -108,6 +108,14 @@ export interface BranchSettings {
   scrollingLogos?: string[];
   /** A note line shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  /** Seconds each rotating rate screen stays visible (forex/transfer pages). Default 5. */
+  rateSheetIntervalSeconds?: number;
+  /** Promotional card in the rate-card rotation: image (upload/URL). Hidden when empty. */
+  ratePromoImageUrl?: string | null;
+  /** Promotional card: text message (shown alone or under the image). */
+  ratePromoText?: string | null;
+  /** Seconds the promotional card stays visible. Defaults to rateSheetIntervalSeconds. */
+  ratePromoDurationSeconds?: number;
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";

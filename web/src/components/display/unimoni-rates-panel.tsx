@@ -38,6 +38,14 @@ interface UnimoniRatesPanelProps {
   headerLogoUrl?: string | null;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  /** Seconds each rotating rate screen stays visible. Default 5. */
+  sheetIntervalSeconds?: number;
+  /** Promotional card: image shown as its own rotating screen. Hidden when empty. */
+  promoImageUrl?: string | null;
+  /** Promotional card: text message (alone, or under the image). */
+  promoText?: string | null;
+  /** Seconds the promotional card stays visible (defaults to sheetIntervalSeconds). */
+  promoDurationSeconds?: number;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -48,10 +56,9 @@ const STRIPE_BLUE = "#E4EFF9";
 
 /** Customers read at most this many rows per sheet; extra currencies rotate in. */
 const RATES_PER_SHEET = 12;
-const SHEET_INTERVAL_MS = 5_000;
 
 interface Sheet {
-  kind: "rates" | "transfer";
+  kind: "rates" | "transfer" | "promo";
   rows: ExchangeRate[];
 }
 
@@ -86,6 +93,10 @@ export function UnimoniRatesPanel({
   widthPercent,
   headerLogoUrl,
   rateCardNote,
+  sheetIntervalSeconds,
+  promoImageUrl,
+  promoText,
+  promoDurationSeconds,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -93,18 +104,33 @@ export function UnimoniRatesPanel({
   // Transfer is its OWN card (separate rotating screen), never mixed into the
   // forex table — per the client's separate "TRANSFER EXCHANGE RATES" board.
   const transferRows = showTransferCard ? rows.filter(hasTransfer) : [];
-  const sheets: Sheet[] = [...chunkRows(rows, "rates"), ...chunkRows(transferRows, "transfer")];
+  // The promotional card only joins the rotation when something was uploaded
+  // ("if we don't upload, it will not display").
+  const promoImage = promoImageUrl?.trim() || "";
+  const promoMessage = promoText?.trim() || "";
+  const hasPromoCard = Boolean(promoImage || promoMessage);
+  const sheets: Sheet[] = [
+    ...chunkRows(rows, "rates"),
+    ...chunkRows(transferRows, "transfer"),
+    ...(hasPromoCard ? [{ kind: "promo", rows: [] } as Sheet] : []),
+  ];
   const sheetCount = Math.max(sheets.length, 1);
   const [sheetIndex, setSheetIndex] = useState(0);
 
+  // Manually adjustable sequence timing (per the client: "3 seconds, 6 seconds,
+  // 10 seconds — set manually"). The promo card can hold its own duration.
+  const rateMs = Math.max(2, sheetIntervalSeconds ?? 5) * 1000;
+  const promoMs = Math.max(2, promoDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
+  const activeKind = (sheets[sheetIndex % sheetCount] ?? { kind: "rates" }).kind;
+
   useEffect(() => {
     if (sheetCount <= 1) return;
-    const timer = window.setInterval(
+    const timer = window.setTimeout(
       () => setSheetIndex((i) => (i + 1) % sheetCount),
-      SHEET_INTERVAL_MS,
+      activeKind === "promo" ? promoMs : rateMs,
     );
-    return () => window.clearInterval(timer);
-  }, [sheetCount]);
+    return () => window.clearTimeout(timer);
+  }, [sheetCount, sheetIndex, activeKind, promoMs, rateMs]);
 
   const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
   // No padding: every page's rows share the full card height, so each rotating
@@ -112,6 +138,7 @@ export function UnimoniRatesPanel({
   // similar length, so row heights stay consistent across the rotation).
   const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
+  const isPromoSheet = activeSheet.kind === "promo";
   // The note line shows on the FIRST rate screen only (page 0), never on later
   // pages or the transfer card.
   const isFirstSheet = sheetIndex % sheetCount === 0 && activeSheet.kind === "rates";
@@ -154,7 +181,11 @@ export function UnimoniRatesPanel({
     if (showSellRate) valueColumns.push({ key: "sell", header: "We Sell", get: (r) => r.sellRate });
   }
   const gridColumns = `1.5fr ${valueColumns.map(() => "1fr").join(" ")}`.trim();
-  const headerSubLabel = isTransferSheet ? "Transfer Rates" : "Exchange Rates";
+  const headerSubLabel = isPromoSheet
+    ? "Special Offer"
+    : isTransferSheet
+      ? "Transfer Rates"
+      : "Exchange Rates";
 
   const asideStyle = {
     background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
@@ -211,6 +242,36 @@ export function UnimoniRatesPanel({
       {/* White table card FILLS the panel height (no empty blue area below the
           last row); rows grow evenly to share the space and the type auto-scales. */}
       <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
+        {isPromoSheet ? (
+          // Promotional card — its own rotating screen in the rate-card space:
+          // uploaded image (whole image visible) and/or a message.
+          <div
+            key={`promo-${sheetIndex}`}
+            className="rates-sheet-fade flex min-h-0 flex-1 flex-col items-center justify-center gap-[1vh] p-[0.8vw]"
+          >
+            {promoImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={promoImage}
+                alt="Promotion"
+                className="min-h-0 w-full flex-1 object-contain"
+              />
+            ) : null}
+            {promoMessage ? (
+              <p
+                className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
+                style={{
+                  color: NAVY_TEXT,
+                  fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+                  fontSize: promoImage ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                }}
+              >
+                {promoMessage}
+              </p>
+            ) : null}
+          </div>
+        ) : (
+        <>
         <div
           className="grid shrink-0 items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide"
           style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}
@@ -273,6 +334,8 @@ export function UnimoniRatesPanel({
             ),
           )}
         </div>
+        </>
+        )}
 
         {sheetCount > 1 ? (
           <div className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh]">

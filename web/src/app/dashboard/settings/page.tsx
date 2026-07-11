@@ -22,7 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
-import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
 
@@ -362,6 +362,102 @@ function BranchSettingsForm({
           the transfer card) — e.g. &quot;WE BUY US $ SMALL BILLS 20,10,5,2 &amp; 1 @3300&quot;. Edit the
           rate here anytime. Leave blank to hide it.
         </p>
+      </div>
+
+      {/* ---- Rate-screen sequence timing (per the client: 3s / 6s / 10s, manual) ---- */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Rate screen duration (seconds)</Label>
+          <Input
+            type="number"
+            min={2}
+            max={60}
+            value={settings.rateSheetIntervalSeconds ?? 5}
+            onChange={(event) =>
+              setSettings({ ...settings, rateSheetIntervalSeconds: Number(event.target.value) })
+            }
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            How long each rotating rate screen stays (forex pages, transfer card) — e.g. 3, 6, 10.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Promotion card duration (seconds)</Label>
+          <Input
+            type="number"
+            min={2}
+            max={120}
+            value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 5}
+            onChange={(event) =>
+              setSettings({ ...settings, ratePromoDurationSeconds: Number(event.target.value) })
+            }
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            How long the promotion card (below) stays on screen in the rotation.
+          </p>
+        </div>
+      </div>
+
+      {/* ---- Promotion card in the rate-card rotation ---- */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
+        <p className="mb-1 text-sm font-semibold">Promotion card (rate-card rotation)</p>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Upload a promotional image and/or type a message — it appears as its own screen in the
+          rate-card rotation (after the rate and transfer screens). Leave both empty to hide it.
+        </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              aria-label="Upload promotion image"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                try {
+                  const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
+                  setSettings({ ...settings, ratePromoImageUrl: dataUrl });
+                  toast.success("Promotion image ready — click Save Branch Settings to apply");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Could not read image");
+                }
+              }}
+              className="rounded-xl"
+            />
+            {settings.ratePromoImageUrl ? (
+              <div className="flex shrink-0 items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={settings.ratePromoImageUrl}
+                  alt="Promotion preview"
+                  className="h-12 w-16 shrink-0 rounded-md bg-white object-contain p-1 ring-1 ring-border"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => setSettings({ ...settings, ratePromoImageUrl: null })}
+                >
+                  Clear
+                </Button>
+              </div>
+            ) : null}
+          </div>
+          <div className="space-y-2">
+            <Label>Promotion message (optional)</Label>
+            <Input
+              value={settings.ratePromoText ?? ""}
+              onChange={(event) =>
+                setSettings({ ...settings, ratePromoText: event.target.value || null })
+              }
+              placeholder="e.g. ZERO FEES ON BANK TRANSFERS THIS WEEK!"
+              className="rounded-xl"
+            />
+          </div>
+        </div>
       </div>
 
       {/* ---- Independent display sizing: each area resizes on its own ---- */}

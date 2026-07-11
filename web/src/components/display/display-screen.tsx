@@ -30,6 +30,10 @@ interface TimedRatesPanelProps {
   widthPercent: number;
   headerLogoUrl: string | null;
   rateCardNote: string | null;
+  sheetIntervalSeconds: number;
+  promoImageUrl: string | null;
+  promoText: string | null;
+  promoDurationSeconds: number;
 }
 
 function TimedRatesPanel({
@@ -43,6 +47,10 @@ function TimedRatesPanel({
   widthPercent,
   headerLogoUrl,
   rateCardNote,
+  sheetIntervalSeconds,
+  promoImageUrl,
+  promoText,
+  promoDurationSeconds,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -68,6 +76,10 @@ function TimedRatesPanel({
       widthPercent={widthPercent}
       headerLogoUrl={headerLogoUrl}
       rateCardNote={rateCardNote}
+      sheetIntervalSeconds={sheetIntervalSeconds}
+      promoImageUrl={promoImageUrl}
+      promoText={promoText}
+      promoDurationSeconds={promoDurationSeconds}
     />
   );
 }
@@ -136,6 +148,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
   const rateCardNote = branchSettings.rateCardNote?.trim() || null;
+  const sheetIntervalSeconds = branchSettings.rateSheetIntervalSeconds ?? 5;
+  const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
+  const ratePromoText = branchSettings.ratePromoText?.trim() || null;
+  const ratePromoDurationSeconds =
+    branchSettings.ratePromoDurationSeconds ?? sheetIntervalSeconds;
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -365,6 +382,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       widthPercent={rateWidthPercent}
       headerLogoUrl={headerLogoUrl}
       rateCardNote={rateCardNote}
+      sheetIntervalSeconds={sheetIntervalSeconds}
+      promoImageUrl={ratePromoImageUrl}
+      promoText={ratePromoText}
+      promoDurationSeconds={ratePromoDurationSeconds}
     />
   );
 

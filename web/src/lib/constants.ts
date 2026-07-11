@@ -71,6 +71,10 @@ export const DEFAULT_BRANCH_SETTINGS = {
   headerLogoUrl: null as string | null,
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,
+  rateSheetIntervalSeconds: 5,
+  ratePromoImageUrl: null as string | null,
+  ratePromoText: null as string | null,
+  ratePromoDurationSeconds: 6,
 };
 
 /** Cloudflare R2 free tier is 10 GB total — warn/stop uploads near the cap. */
@@ -102,6 +106,9 @@ export const RECOMMENDED_VIDEO_FORMATS = [
 /** Font styles for a TEXT logo on the display ticker badge. */
 export const LOGO_FONTS: Array<{ key: string; label: string; css: string }> = [
   { key: "sans-bold", label: "Bold Sans", css: "'Arial Black', Arial, Helvetica, sans-serif" },
+  // The unimoni creative font (rounded, used across their promo artwork) —
+  // self-hosted via next/font as --font-brand.
+  { key: "brand", label: "Unimoni Brand (Rounded)", css: "var(--font-brand), 'Trebuchet MS', 'Segoe UI', sans-serif" },
   { key: "serif", label: "Classic Serif", css: "Georgia, 'Times New Roman', serif" },
   { key: "condensed", label: "Condensed", css: "'Arial Narrow', 'Helvetica Neue', sans-serif" },
   { key: "rounded", label: "Rounded", css: "'Trebuchet MS', 'Segoe UI', sans-serif" },
