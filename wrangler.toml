@@ -23,3 +23,7 @@ bucket_name = "unimoni"
 
 [vars]
 R2_PUBLIC_URL = "https://pub-ad5465971a1b41bdb06b0b0d3dc8aa1f.r2.dev"
+
+# Workers AI — powers /api/ocr-rates (photo of a rate board → structured rates).
+[ai]
+binding = "AI"

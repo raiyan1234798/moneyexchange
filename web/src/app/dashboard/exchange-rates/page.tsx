@@ -79,6 +79,7 @@ import {
   TEMPLATE_CURRENCIES,
   type RateImportRow,
 } from "@/lib/rate-import";
+import { ocrRatesFromImage } from "@/lib/ocr-rates";
 import { getRateDisplayLabel } from "@/lib/unimoni-signage";
 import {
   buildCurrencyPayload,
@@ -518,10 +519,15 @@ export default function ExchangeRatesPage() {
     setUploading(true);
     try {
       // Nothing is published yet — the parsed rows go to a review table where
-      // the user can edit or remove lines before publishing.
-      const rows = await parseRateFile(file);
+      // the user can edit or remove lines before publishing. Photos of a rate
+      // board go through the AI reader; Excel/CSV through the sheet parser.
+      const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name);
+      if (isImage) toast.info("Reading rates from the photo…", { duration: 8000 });
+      const rows = isImage ? await ocrRatesFromImage(file) : await parseRateFile(file);
       setImportPreview(rows);
-      toast.success(`${rows.length} rows read — review and edit below, then Publish`);
+      toast.success(
+        `${rows.length} rows read — review${isImage ? " carefully (photo import)" : ""} and edit below, then Publish`,
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not import file — check the template columns");
     } finally {
@@ -661,7 +667,8 @@ export default function ExchangeRatesPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv,.xlsx,.xls"
+                  accept=".csv,.xlsx,.xls,image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+                  aria-label="Import rates from Excel, CSV, or a photo of a rate board"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -691,9 +698,11 @@ export default function ExchangeRatesPage() {
                 >
                   <Upload className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                   <span className="text-sm font-medium">
-                    {uploading ? "Importing your file…" : "Drop Excel file here or click to browse"}
+                    {uploading ? "Importing your file…" : "Drop Excel file OR a photo of your rate board"}
                   </span>
-                  <span className="text-xs text-muted-foreground">.xlsx, .xls, or .csv</span>
+                  <span className="text-xs text-muted-foreground">
+                    .xlsx, .xls, .csv — or a .jpg/.png photo (AI reads the rates)
+                  </span>
                 </button>
                 <Button
                   size="lg"

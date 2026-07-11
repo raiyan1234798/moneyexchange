@@ -112,6 +112,72 @@ async function handleUpload(request, env) {
   });
 }
 
+// OCR a photo of a rate board/sheet into structured rows using Workers AI
+// vision. Requires the AI binding; fails cleanly with 503 when absent.
+async function handleOcrRates(request, env) {
+  if (!env.AI) {
+    return json({ error: "Photo reading (AI) is not enabled on this deployment." }, 503);
+  }
+  const apiKey = env.FIREBASE_API_KEY || FIREBASE_API_KEY_FALLBACK;
+  const token = bearer(request);
+  if (!token) return json({ error: "Missing Authorization Bearer token" }, 401);
+  const user = await verifyToken(token, apiKey);
+  if (!user) return json({ error: "Invalid or expired sign-in token" }, 401);
+
+  if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+  const form = await request.formData();
+  const image = form.get("image");
+  const isFileLike = image && typeof image === "object" && typeof image.arrayBuffer === "function";
+  if (!isFileLike) return json({ error: "Missing image field" }, 400);
+  if (image.size > 8 * 1024 * 1024) return json({ error: "Image too large (8MB max)" }, 413);
+
+  const bytes = new Uint8Array(await image.arrayBuffer());
+  const prompt = [
+    "This is a photo of a currency exchange rate board or rate sheet.",
+    "Extract EVERY currency row you can read. Respond with ONLY a JSON array — no prose, no markdown.",
+    'Each item: {"currency":"3-letter code e.g. USD","buy":number|null,"sell":number|null,"transferUsd":number|null,"transferLocal":number|null}.',
+    "buy = the BUY / WE BUY column; sell = the SELL / WE SELL column.",
+    "If the board is a TRANSFER/REMITTANCE table with $ (USD) and local-currency (e.g. UGX) columns, put those in transferUsd / transferLocal instead.",
+    "Numbers must be plain (no commas or currency symbols). Use null for unreadable or missing values. Never invent values.",
+  ].join(" ");
+
+  const result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
+    prompt,
+    image: Array.from(bytes),
+    max_tokens: 1500,
+  });
+  const text = (result && (result.response ?? result.description)) || "";
+  const match = String(text).match(/\[[\s\S]*\]/);
+  if (!match) return json({ error: "Could not read rates from the photo — try a clearer, straight-on photo." }, 422);
+
+  let parsed;
+  try {
+    parsed = JSON.parse(match[0]);
+  } catch {
+    return json({ error: "Could not read rates from the photo — try a clearer, straight-on photo." }, 422);
+  }
+  if (!Array.isArray(parsed)) return json({ error: "Could not read rates from the photo." }, 422);
+
+  const num = (v) => {
+    const n = Number(String(v ?? "").replace(/[, ]/g, ""));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const rows = [];
+  for (const r of parsed.slice(0, 60)) {
+    const currency = String(r && r.currency ? r.currency : "").trim().toUpperCase();
+    if (!/^[A-Z]{2,5}([ -].*)?$/.test(currency)) continue;
+    const row = {
+      currency,
+      buy: num(r.buy),
+      sell: num(r.sell),
+      transferUsd: num(r.transferUsd),
+      transferLocal: num(r.transferLocal),
+    };
+    if (row.buy || row.sell || row.transferUsd || row.transferLocal) rows.push(row);
+  }
+  return json({ rows });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -120,6 +186,13 @@ export default {
         return await handleUpload(request, env);
       } catch (err) {
         return json({ error: err && err.message ? err.message : "Upload failed" }, 500);
+      }
+    }
+    if (url.pathname === "/api/ocr-rates") {
+      try {
+        return await handleOcrRates(request, env);
+      } catch (err) {
+        return json({ error: err && err.message ? err.message : "Photo reading failed" }, 500);
       }
     }
     // Everything else is the static site.
