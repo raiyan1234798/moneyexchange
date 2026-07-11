@@ -141,55 +141,75 @@ async function handleOcrRates(request, env) {
     "Numbers must be plain (no commas or currency symbols). Use null for unreadable or missing values. Never invent values.",
   ].join(" ");
 
-  // Primary: Llama 3.2 11B Vision (best accuracy). Meta license-gates it until
-  // the ACCOUNT OWNER submits a one-time "agree" (Workers AI playground) — so
-  // fall back automatically to LLaVA (ungated) until then.
-  let result;
-  try {
-    result = await env.AI.run("@cf/meta/llama-3.2-11b-vision-instruct", {
-      prompt,
-      image: Array.from(bytes),
-      max_tokens: 1500,
-    });
-  } catch (err) {
-    const msg = String((err && err.message) || err);
-    if (!/5016|agree|license/i.test(msg)) throw err;
-    result = await env.AI.run("@cf/llava-hf/llava-1.5-7b-hf", {
-      prompt,
-      image: Array.from(bytes),
-      max_tokens: 1500,
-    });
+  // Model chain, best first. Meta license-gates Llama until the ACCOUNT OWNER
+  // submits a one-time "agree" (Workers AI playground) — never automated here.
+  // Gemma 3 and LLaVA are ungated fallbacks.
+  const MODELS = [
+    "@cf/meta/llama-3.2-11b-vision-instruct",
+    "@cf/google/gemma-3-12b-it",
+    "@cf/llava-hf/llava-1.5-7b-hf",
+  ];
+  let llamaGated = false;
+  let rows = [];
+  for (const model of MODELS) {
+    let result;
+    try {
+      result = await env.AI.run(model, { prompt, image: Array.from(bytes), max_tokens: 1500 });
+    } catch (err) {
+      const msg = String((err && err.message) || err);
+      if (/5016|agree|license/i.test(msg)) llamaGated = true;
+      continue; // gated, unknown model, or bad input shape — try the next one
+    }
+    const text = (result && (result.response ?? result.description ?? result.output_text)) || "";
+    rows = extractRateRows(String(text));
+    if (rows.length > 0) return json({ rows, model });
   }
-  const text = (result && (result.response ?? result.description)) || "";
-  const match = String(text).match(/\[[\s\S]*\]/);
-  if (!match) return json({ error: "Could not read rates from the photo — try a clearer, straight-on photo." }, 422);
 
-  let parsed;
-  try {
-    parsed = JSON.parse(match[0]);
-  } catch {
-    return json({ error: "Could not read rates from the photo — try a clearer, straight-on photo." }, 422);
-  }
-  if (!Array.isArray(parsed)) return json({ error: "Could not read rates from the photo." }, 422);
+  const activation = llamaGated
+    ? " For the best reader, activate it once: Cloudflare Dashboard → AI → Workers AI → model llama-3.2-11b-vision-instruct → send the word 'agree'."
+    : "";
+  return json(
+    { error: `Could not read rates from the photo — try a clearer, straight-on photo.${activation}` },
+    422,
+  );
+}
 
+/** Parse model output into rate rows: strict JSON first, then loose line format. */
+function extractRateRows(text) {
   const num = (v) => {
     const n = Number(String(v ?? "").replace(/[, ]/g, ""));
     return Number.isFinite(n) && n > 0 ? n : null;
   };
-  const rows = [];
-  for (const r of parsed.slice(0, 60)) {
-    const currency = String(r && r.currency ? r.currency : "").trim().toUpperCase();
-    if (!/^[A-Z]{2,5}([ -].*)?$/.test(currency)) continue;
-    const row = {
-      currency,
-      buy: num(r.buy),
-      sell: num(r.sell),
-      transferUsd: num(r.transferUsd),
-      transferLocal: num(r.transferLocal),
-    };
-    if (row.buy || row.sell || row.transferUsd || row.transferLocal) rows.push(row);
+  const out = [];
+  const push = (currency, buy, sell, transferUsd, transferLocal) => {
+    const code = String(currency ?? "").trim().toUpperCase();
+    if (!/^[A-Z]{2,5}([ -].*)?$/.test(code)) return;
+    const row = { currency: code, buy: num(buy), sell: num(sell), transferUsd: num(transferUsd), transferLocal: num(transferLocal) };
+    if (row.buy || row.sell || row.transferUsd || row.transferLocal) out.push(row);
+  };
+
+  const match = text.match(/\[[\s\S]*\]/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed)) {
+        for (const r of parsed.slice(0, 60)) {
+          if (!r || typeof r !== "object") continue;
+          push(r.currency ?? r.code, r.buy ?? r.weBuy, r.sell ?? r.weSell, r.transferUsd, r.transferLocal);
+        }
+      }
+    } catch {
+      // fall through to line parsing
+    }
   }
-  return json({ rows });
+  if (out.length > 0) return out;
+
+  // Loose fallback: lines like "USD 3650 3680" / "USD: 3650 / 3680".
+  for (const line of text.split(/\n+/).slice(0, 80)) {
+    const m = line.match(/\b([A-Z]{3})\b[^\d\n]*([\d][\d.,]*)[^\d\n]+([\d][\d.,]*)/);
+    if (m) push(m[1], m[2], m[3], null, null);
+  }
+  return out;
 }
 
 export default {
