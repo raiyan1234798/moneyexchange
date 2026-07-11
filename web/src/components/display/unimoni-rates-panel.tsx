@@ -10,7 +10,7 @@ import {
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
-import type { ExchangeRate } from "@/lib/types";
+import type { ExchangeRate, TransferRate } from "@/lib/types";
 
 interface UnimoniRatesPanelProps {
   rates: ExchangeRate[];
@@ -28,6 +28,9 @@ interface UnimoniRatesPanelProps {
   showRemittance?: boolean;
   /** Rotate in a SEPARATE "TRANSFER EXCHANGE RATES" card with $ + local columns. */
   showTransferCard?: boolean;
+  /** CENTRALIZED transfer rates (head office) — same for all branches. When
+      provided, the transfer card uses these instead of branch-level values. */
+  transferRates?: TransferRate[];
   /** Label for the local-currency transfer column (default "UGX"). */
   transferLocalLabel?: string;
   /** Multiplier for the rate-card text/row size (default 1). */
@@ -88,6 +91,7 @@ export function UnimoniRatesPanel({
   variant = "panel",
   branchName,
   showTransferCard = false,
+  transferRates,
   transferLocalLabel = "UGX",
   scale = 1,
   widthPercent,
@@ -102,8 +106,36 @@ export function UnimoniRatesPanel({
   // Hooks must run unconditionally (before the board early-return).
   const now = useNow();
   // Transfer is its OWN card (separate rotating screen), never mixed into the
-  // forex table — per the client's separate "TRANSFER EXCHANGE RATES" board.
-  const transferRows = showTransferCard ? rows.filter(hasTransfer) : [];
+  // forex table. Rates come from the CENTRALIZED head-office set (same for all
+  // branches) when provided; legacy branch-level values are the fallback.
+  const centralTransferRows: ExchangeRate[] = (transferRates ?? [])
+    .filter((t) => (t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0)
+    .map(
+      (t) =>
+        ({
+          id: `transfer-${t.currencyCode}`,
+          branchId: "",
+          currencyCode: t.currencyCode,
+          displayName: t.currencyCode,
+          buyRate: 0,
+          sellRate: 0,
+          transferUsd: t.transferUsd,
+          transferLocal: t.transferLocal,
+          version: 1,
+          displayOrder: t.displayOrder ?? 0,
+          isHidden: false,
+          status: "published",
+          updatedBy: t.updatedBy ?? "",
+          updatedByName: t.updatedByName ?? "",
+          createdAt: t.createdAt ?? new Date(),
+          updatedAt: t.updatedAt ?? new Date(),
+        }) as ExchangeRate,
+    );
+  const transferRows = showTransferCard
+    ? centralTransferRows.length > 0
+      ? centralTransferRows
+      : rows.filter(hasTransfer)
+    : [];
   // The promotional card only joins the rotation when something was uploaded
   // ("if we don't upload, it will not display").
   const promoImage = promoImageUrl?.trim() || "";

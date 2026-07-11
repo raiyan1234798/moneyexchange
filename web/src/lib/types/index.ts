@@ -158,6 +158,21 @@ export interface ExchangeRate {
   updatedAt: Timestamp | Date;
 }
 
+/** Centralized money-transfer rate (head office) — identical on every branch display. */
+export interface TransferRate {
+  id: string;
+  currencyCode: string;
+  /** "$" column — transfer rate in USD. */
+  transferUsd: number | null;
+  /** Local-currency column (e.g. UGX). */
+  transferLocal: number | null;
+  displayOrder: number;
+  updatedBy: string;
+  updatedByName: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+}
+
 export interface RateHistoryEntry {
   id: string;
   branchId: string;

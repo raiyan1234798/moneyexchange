@@ -1,0 +1,244 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Plus, Save, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { ContentPanel } from "@/components/shared/page-elements";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  deleteTransferRate,
+  subscribeTransferRates,
+  upsertTransferRate,
+} from "@/lib/services/transfer-rate-service";
+import { getCurrencyMeta } from "@/lib/currency-utils";
+import type { TransferRate } from "@/lib/types";
+
+type Draft = { transferUsd: string; transferLocal: string };
+
+/**
+ * ADMIN-ONLY editor for the centralized money-transfer rates — one set from
+ * head office, shown identically on every branch's TRANSFER card. Per the
+ * client (2026-07-11): branch staff have no rights here.
+ */
+export function CentralTransferPanel({
+  actor,
+  localLabel,
+}: {
+  actor: { userId: string; userName: string };
+  localLabel: string;
+}) {
+  const [rows, setRows] = useState<TransferRate[]>([]);
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  const [newCode, setNewCode] = useState("");
+  const [newUsd, setNewUsd] = useState("");
+  const [newLocal, setNewLocal] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    return subscribeTransferRates(
+      (items) => {
+        setRows(items);
+        // Merge, keeping in-progress edits.
+        setDrafts((prev) => {
+          const next: Record<string, Draft> = {};
+          for (const item of items) {
+            const server: Draft = {
+              transferUsd: item.transferUsd != null ? String(item.transferUsd) : "",
+              transferLocal: item.transferLocal != null ? String(item.transferLocal) : "",
+            };
+            const draft = prev[item.id];
+            const dirty =
+              draft &&
+              (draft.transferUsd !== server.transferUsd || draft.transferLocal !== server.transferLocal);
+            next[item.id] = dirty ? draft : server;
+          }
+          return next;
+        });
+      },
+      (error) => toast.error(error.message),
+    );
+  }, []);
+
+  const num = (v: string): number | null => {
+    if (v.trim() === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
+  async function saveRow(row: TransferRate) {
+    const draft = drafts[row.id];
+    if (!draft) return;
+    setBusy(true);
+    try {
+      await upsertTransferRate(
+        { currencyCode: row.currencyCode, transferUsd: num(draft.transferUsd), transferLocal: num(draft.transferLocal) },
+        actor,
+      );
+      toast.success(`${row.currencyCode} transfer rate published to ALL branches`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save transfer rate");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addRow() {
+    const code = newCode.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(code)) {
+      toast.error("Enter a 3-letter currency code (e.g. USD)");
+      return;
+    }
+    const usd = num(newUsd);
+    const local = num(newLocal);
+    if (!usd && !local) {
+      toast.error(`Enter the $ rate, the ${localLabel} rate, or both`);
+      return;
+    }
+    setBusy(true);
+    try {
+      await upsertTransferRate({ currencyCode: code, transferUsd: usd, transferLocal: local }, actor);
+      toast.success(`${code} added to the transfer card on ALL branches`);
+      setNewCode("");
+      setNewUsd("");
+      setNewLocal("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not add transfer rate");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <ContentPanel
+      title="Transfer Rates — All Branches (centralized)"
+      description="Money-transfer rates are set once by head office and appear identically on every branch's TRANSFER card. Branch staff cannot edit these."
+    >
+      <div className="space-y-2">
+        {rows.map((row) => {
+          const draft = drafts[row.id] ?? { transferUsd: "", transferLocal: "" };
+          const meta = getCurrencyMeta(row.currencyCode);
+          const changed =
+            draft.transferUsd !== (row.transferUsd != null ? String(row.transferUsd) : "") ||
+            draft.transferLocal !== (row.transferLocal != null ? String(row.transferLocal) : "");
+          return (
+            <div
+              key={row.id}
+              className="grid grid-cols-1 items-center gap-3 rounded-xl border border-border/60 bg-card p-3 sm:grid-cols-[minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4"
+            >
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="shrink-0 text-xl leading-none">{meta?.flag ?? "🌍"}</span>
+                <div className="min-w-0">
+                  <p className="font-semibold">{row.currencyCode}</p>
+                  {meta?.name ? (
+                    <p className="truncate text-[10px] text-muted-foreground">{meta.name}</p>
+                  ) : null}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+                  $ (USD)
+                </Label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  placeholder="—"
+                  value={draft.transferUsd}
+                  onChange={(e) =>
+                    setDrafts((prev) => ({ ...prev, [row.id]: { ...draft, transferUsd: e.target.value } }))
+                  }
+                  className="h-10 rounded-lg tabular-nums"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
+                  {localLabel}
+                </Label>
+                <Input
+                  type="number"
+                  step="0.0001"
+                  placeholder="—"
+                  value={draft.transferLocal}
+                  onChange={(e) =>
+                    setDrafts((prev) => ({ ...prev, [row.id]: { ...draft, transferLocal: e.target.value } }))
+                  }
+                  className="h-10 rounded-lg tabular-nums"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 sm:justify-end">
+                <Button
+                  size="sm"
+                  disabled={busy || !changed}
+                  onClick={() => void saveRow(row)}
+                  className={`rounded-lg ${changed ? "" : "opacity-50"}`}
+                >
+                  <Save className="mr-1 h-3 w-3" />
+                  Publish
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  className="rounded-lg px-2"
+                  title="Remove from the transfer card on all branches"
+                  onClick={() =>
+                    void deleteTransferRate(row.currencyCode, actor)
+                      .then(() => toast.success(`${row.currencyCode} removed from the transfer card`))
+                      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to remove"))
+                  }
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+        {rows.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+            No transfer rates yet — add currencies below, or upload an Excel file with a Transfer
+            sheet (CURRENCY | $ | {localLabel}) above.
+          </p>
+        ) : null}
+
+        <div className="grid grid-cols-1 items-end gap-3 rounded-xl border border-primary/25 bg-primary/[0.03] p-3 sm:grid-cols-[minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4">
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider">Currency</Label>
+            <Input
+              value={newCode}
+              onChange={(e) => setNewCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3))}
+              placeholder="USD"
+              className="h-10 rounded-lg uppercase"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider">$ (USD)</Label>
+            <Input
+              type="number"
+              step="0.0001"
+              value={newUsd}
+              onChange={(e) => setNewUsd(e.target.value)}
+              placeholder="1"
+              className="h-10 rounded-lg tabular-nums"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-[10px] font-semibold uppercase tracking-wider">{localLabel}</Label>
+            <Input
+              type="number"
+              step="0.0001"
+              value={newLocal}
+              onChange={(e) => setNewLocal(e.target.value)}
+              placeholder="3680"
+              className="h-10 rounded-lg tabular-nums"
+            />
+          </div>
+          <Button size="sm" disabled={busy} onClick={() => void addRow()} className="rounded-lg">
+            <Plus className="mr-1 h-3 w-3" />
+            Add
+          </Button>
+        </div>
+      </div>
+    </ContentPanel>
+  );
+}

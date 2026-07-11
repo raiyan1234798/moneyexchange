@@ -80,6 +80,8 @@ import {
   type RateImportRow,
 } from "@/lib/rate-import";
 import { ocrRatesFromImage } from "@/lib/ocr-rates";
+import { bulkUpsertTransferRates, upsertTransferRate } from "@/lib/services/transfer-rate-service";
+import { CentralTransferPanel } from "@/components/dashboard/central-transfer-panel";
 import { getRateDisplayLabel } from "@/lib/unimoni-signage";
 import {
   buildCurrencyPayload,
@@ -90,13 +92,7 @@ import {
 } from "@/lib/currency-utils";
 import type { AuditLog, Currency, ExchangeRate, PendingApproval, SystemSettings } from "@/lib/types";
 
-type RateDraft = {
-  buyRate: number;
-  sellRate: number;
-  displayName: string;
-  transferUsd: number | null;
-  transferLocal: number | null;
-};
+type RateDraft = { buyRate: number; sellRate: number; displayName: string };
 
 const SETTINGS_ID = "global";
 
@@ -185,17 +181,13 @@ export default function ExchangeRatesPage() {
                 buyRate: rate.buyRate,
                 sellRate: rate.sellRate,
                 displayName: getRateDisplayLabel(rate),
-                transferUsd: rate.transferUsd ?? null,
-                transferLocal: rate.transferLocal ?? null,
               };
               const draft = prev[rate.id];
               const dirty =
                 draft &&
                 (draft.buyRate !== server.buyRate ||
                   draft.sellRate !== server.sellRate ||
-                  draft.displayName !== server.displayName ||
-                  (draft.transferUsd ?? null) !== server.transferUsd ||
-                  (draft.transferLocal ?? null) !== server.transferLocal);
+                  draft.displayName !== server.displayName);
               return [rate.id, dirty ? draft : server];
             }),
           ),
@@ -267,10 +259,7 @@ export default function ExchangeRatesPage() {
     const label = getRateDisplayLabel(rate);
     const hasRateChange = draft.buyRate !== rate.buyRate || draft.sellRate !== rate.sellRate;
     const hasNameChange = draft.displayName.trim() !== label;
-    const hasTransferChange =
-      (draft.transferUsd ?? null) !== (rate.transferUsd ?? null) ||
-      (draft.transferLocal ?? null) !== (rate.transferLocal ?? null);
-    if (!hasRateChange && !hasNameChange && !hasTransferChange) return;
+    if (!hasRateChange && !hasNameChange) return;
 
     try {
       const result = await updateExchangeRate(rate, draft.buyRate, draft.sellRate, {
@@ -281,8 +270,6 @@ export default function ExchangeRatesPage() {
         requireApproval,
         actorRole: profile.role,
         displayName: draft.displayName.trim(),
-        transferUsd: draft.transferUsd ?? null,
-        transferLocal: draft.transferLocal ?? null,
       });
       const name = draft.displayName.trim() || rate.currencyCode;
       if (result === "pending") {
@@ -337,6 +324,17 @@ export default function ExchangeRatesPage() {
     }
     setCreating(true);
 
+    // Transfer values are CENTRALIZED — admins publish them to the shared set
+    // used by every branch's transfer card.
+    const publishCentralTransfer = async () => {
+      if (!(isSuperAdmin || isAdmin) || (!transferUsd && !transferLocal)) return;
+      await upsertTransferRate(
+        { currencyCode: code, transferUsd, transferLocal },
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success(`${code} transfer rate published to ALL branches`);
+    };
+
     // Admins and branch managers can't write the global catalog (superAdmin
     // only) — create the branch rate directly instead; the flag/name resolve
     // from currency metadata on the display.
@@ -353,8 +351,6 @@ export default function ExchangeRatesPage() {
               flag: currencyForm.flag,
               buyRate,
               sellRate,
-              transferUsd,
-              transferLocal,
             },
           ],
           {
@@ -364,6 +360,7 @@ export default function ExchangeRatesPage() {
           },
           { autoCreateCurrencies: false, requireApproval, actorRole: profile.role },
         );
+        await publishCentralTransfer();
         toast.success(`${code} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`);
         setCreateOpen(false);
         setCurrencyForm(emptyCurrencyForm);
@@ -408,8 +405,9 @@ export default function ExchangeRatesPage() {
           userName: profile.displayName || profile.email,
           branchName: branch?.name || effectiveBranchId,
         },
-        { buyRate, sellRate, transferUsd, transferLocal },
+        { buyRate, sellRate },
       );
+      await publishCentralTransfer();
       toast.success(
         `${payload.currencyCode} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`,
       );
@@ -554,37 +552,65 @@ export default function ExchangeRatesPage() {
     setUploading(true);
     try {
       const rows = importPreview;
-      const result = await bulkUpdateRates(
-        effectiveBranchId,
-        rows.map((r) => ({
-          currencyCode: r.currencyCode,
-          displayName: r.displayName,
-          currencyName: r.currencyName,
-          country: r.country,
-          flag: r.flag,
-          buyRate: r.buyRate,
-          sellRate: r.sellRate,
-          transferUsd: r.transferUsd ?? null,
-          transferLocal: r.transferLocal ?? null,
-        })),
-        {
-          userId: user.uid,
-          userName: profile.displayName || profile.email,
-          branchName: branch?.name || effectiveBranchId,
-        },
-        {
-          autoCreateCurrencies: canCreateCatalog,
-          requireApproval,
-          actorRole: profile.role,
-        },
-      );
+      // FOREX rows go to THIS branch. TRANSFER values are CENTRALIZED (head
+      // office, same for all branches): admins publish them to the shared set;
+      // branch staff imports simply skip them.
+      const forexRows = rows.filter((r) => r.buyRate > 0 && r.sellRate > 0);
+      const transferRows = rows.filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0);
+      const canEditCentralTransfer = isSuperAdmin || isAdmin;
+
+      const result =
+        forexRows.length > 0
+          ? await bulkUpdateRates(
+              effectiveBranchId,
+              forexRows.map((r) => ({
+                currencyCode: r.currencyCode,
+                displayName: r.displayName,
+                currencyName: r.currencyName,
+                country: r.country,
+                flag: r.flag,
+                buyRate: r.buyRate,
+                sellRate: r.sellRate,
+              })),
+              {
+                userId: user.uid,
+                userName: profile.displayName || profile.email,
+                branchName: branch?.name || effectiveBranchId,
+              },
+              {
+                autoCreateCurrencies: canCreateCatalog,
+                requireApproval,
+                actorRole: profile.role,
+              },
+            )
+          : { processed: 0, created: 0, skippedNeedApproval: 0 };
+
+      if (transferRows.length > 0 && canEditCentralTransfer) {
+        const count = await bulkUpsertTransferRates(
+          transferRows.map((r) => ({
+            currencyCode: r.currencyCode,
+            transferUsd: r.transferUsd ?? null,
+            transferLocal: r.transferLocal ?? null,
+          })),
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        toast.success(`${count} transfer rates published to ALL branches`);
+      } else if (transferRows.length > 0 && !canEditCentralTransfer) {
+        toast.info(
+          "Transfer rates are set centrally by the admins — the Transfer sheet was skipped.",
+          { duration: 8000 },
+        );
+      }
+
       const branchLabel = branch?.name ?? effectiveBranchId;
       const updatedCount = result.processed - result.skippedNeedApproval;
-      toast.success(
-        requireApproval && isBranchUser
-          ? `${updatedCount} rate change${updatedCount === 1 ? "" : "s"} submitted for approval`
-          : `${result.processed} currencies updated for ${branchLabel} — live on your displays`,
-      );
+      if (forexRows.length > 0) {
+        toast.success(
+          requireApproval && isBranchUser
+            ? `${updatedCount} rate change${updatedCount === 1 ? "" : "s"} submitted for approval`
+            : `${result.processed} currencies updated for ${branchLabel} — live on your displays`,
+        );
+      }
       if (result.skippedNeedApproval > 0) {
         toast.warning(
           `${result.skippedNeedApproval} new currenc${result.skippedNeedApproval === 1 ? "y" : "ies"} skipped — ask your branch manager to add new currencies.`,
@@ -736,7 +762,11 @@ export default function ExchangeRatesPage() {
               {importPreview.map((row, index) => (
                 <div
                   key={`${row.currencyCode}-${index}`}
-                  className="grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 sm:grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_auto]"
+                  className={`grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 ${
+                    isSuperAdmin || isAdmin
+                      ? "sm:grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_auto]"
+                      : "sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                  }`}
                 >
                   <span className="font-mono font-semibold">{row.currencyCode}</span>
                   <Input
@@ -774,42 +804,47 @@ export default function ExchangeRatesPage() {
                     }
                     className="rounded-lg tabular-nums"
                   />
-                  <Input
-                    type="number"
-                    value={row.transferUsd ?? ""}
-                    aria-label="Transfer rate in USD (optional)"
-                    placeholder="$ transfer"
-                    onChange={(e) =>
-                      setImportPreview((prev) =>
-                        prev
-                          ? prev.map((r, i) =>
-                              i === index
-                                ? { ...r, transferUsd: e.target.value === "" ? null : Number(e.target.value) }
-                                : r,
-                            )
-                          : prev,
-                      )
-                    }
-                    className="rounded-lg tabular-nums"
-                  />
-                  <Input
-                    type="number"
-                    value={row.transferLocal ?? ""}
-                    aria-label="Transfer rate in local currency (optional)"
-                    placeholder="UGX transfer"
-                    onChange={(e) =>
-                      setImportPreview((prev) =>
-                        prev
-                          ? prev.map((r, i) =>
-                              i === index
-                                ? { ...r, transferLocal: e.target.value === "" ? null : Number(e.target.value) }
-                                : r,
-                            )
-                          : prev,
-                      )
-                    }
-                    className="rounded-lg tabular-nums"
-                  />
+                  {/* Transfer values are centralized (all branches) — admin-only. */}
+                  {isSuperAdmin || isAdmin ? (
+                    <>
+                      <Input
+                        type="number"
+                        value={row.transferUsd ?? ""}
+                        aria-label="Transfer rate in USD — all branches (optional)"
+                        placeholder="$ transfer"
+                        onChange={(e) =>
+                          setImportPreview((prev) =>
+                            prev
+                              ? prev.map((r, i) =>
+                                  i === index
+                                    ? { ...r, transferUsd: e.target.value === "" ? null : Number(e.target.value) }
+                                    : r,
+                                )
+                              : prev,
+                          )
+                        }
+                        className="rounded-lg tabular-nums"
+                      />
+                      <Input
+                        type="number"
+                        value={row.transferLocal ?? ""}
+                        aria-label="Transfer rate in local currency — all branches (optional)"
+                        placeholder="UGX transfer"
+                        onChange={(e) =>
+                          setImportPreview((prev) =>
+                            prev
+                              ? prev.map((r, i) =>
+                                  i === index
+                                    ? { ...r, transferLocal: e.target.value === "" ? null : Number(e.target.value) }
+                                    : r,
+                                )
+                              : prev,
+                          )
+                        }
+                        className="rounded-lg tabular-nums"
+                      />
+                    </>
+                  ) : null}
                   <Button
                     variant="outline"
                     size="sm"
@@ -939,6 +974,14 @@ export default function ExchangeRatesPage() {
           </ContentPanel>
         ) : null}
 
+        {/* Centralized transfer rates — head office sets ONE list for all branches. */}
+        {(isSuperAdmin || isAdmin) && user && profile ? (
+          <CentralTransferPanel
+            actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
+            localLabel={transferLocalLabel}
+          />
+        ) : null}
+
         {canManageRates && !isBranchUser && effectiveBranchId ? (
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogContent className="rounded-2xl sm:max-w-md">
@@ -1009,28 +1052,33 @@ export default function ExchangeRatesPage() {
                         className="rounded-xl tabular-nums"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Transfer $ (USD) — optional</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={currencyForm.transferUsd}
-                        onChange={(e) => setCurrencyForm((p) => ({ ...p, transferUsd: e.target.value }))}
-                        placeholder="Money-transfer rate in USD"
-                        className="rounded-xl tabular-nums"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Transfer UGX (local) — optional</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        value={currencyForm.transferLocal}
-                        onChange={(e) => setCurrencyForm((p) => ({ ...p, transferLocal: e.target.value }))}
-                        placeholder="Money-transfer rate in local currency"
-                        className="rounded-xl tabular-nums"
-                      />
-                    </div>
+                    {/* Transfer rates are centralized: admins only, publish to ALL branches. */}
+                    {isSuperAdmin || isAdmin ? (
+                      <>
+                        <div className="space-y-2">
+                          <Label>Transfer $ (USD) — all branches, optional</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={currencyForm.transferUsd}
+                            onChange={(e) => setCurrencyForm((p) => ({ ...p, transferUsd: e.target.value }))}
+                            placeholder="Money-transfer rate in USD"
+                            className="rounded-xl tabular-nums"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Transfer {transferLocalLabel} — all branches, optional</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            value={currencyForm.transferLocal}
+                            onChange={(e) => setCurrencyForm((p) => ({ ...p, transferLocal: e.target.value }))}
+                            placeholder="Money-transfer rate in local currency"
+                            className="rounded-xl tabular-nums"
+                          />
+                        </div>
+                      </>
+                    ) : null}
                   </FormSection>
                   <DialogFooter>
                     <Button
@@ -1229,15 +1277,13 @@ export default function ExchangeRatesPage() {
                     draft &&
                     (draft.buyRate !== rate.buyRate ||
                       draft.sellRate !== rate.sellRate ||
-                      draft.displayName.trim() !== savedLabel ||
-                      (draft.transferUsd ?? null) !== (rate.transferUsd ?? null) ||
-                      (draft.transferLocal ?? null) !== (rate.transferLocal ?? null));
+                      draft.displayName.trim() !== savedLabel);
                   const isEditingName = editingNameId === rate.id;
 
                   return (
                     <div
                       key={rate.id}
-                      className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[minmax(130px,160px)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-3 ${
+                      className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
                         rate.isHidden
                           ? "border-dashed border-border/50 bg-muted/25 opacity-60"
                           : "border-border/60 bg-card"
@@ -1336,52 +1382,6 @@ export default function ExchangeRatesPage() {
                           className="h-10 w-full rounded-lg border-amber-600/25 bg-amber-500/5 text-foreground tabular-nums dark:text-amber-400"
                         />
                       </div>
-                      {/* Transfer rates ($ USD + local) — shown on the separate TRANSFER card. */}
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-                          Transfer $
-                        </Label>
-                        <Input
-                          type="number"
-                          step="0.0001"
-                          placeholder="—"
-                          value={draft?.transferUsd ?? ""}
-                          disabled={!canManageRates}
-                          onChange={(e) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [rate.id]: {
-                                ...prev[rate.id],
-                                transferUsd: e.target.value === "" ? null : Number(e.target.value),
-                              },
-                            }))
-                          }
-                          className="h-10 w-full rounded-lg border-sky-600/25 bg-sky-500/5 text-foreground tabular-nums dark:text-sky-400"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-                          Transfer {transferLocalLabel}
-                        </Label>
-                        <Input
-                          type="number"
-                          step="0.0001"
-                          placeholder="—"
-                          value={draft?.transferLocal ?? ""}
-                          disabled={!canManageRates}
-                          onChange={(e) =>
-                            setDrafts((prev) => ({
-                              ...prev,
-                              [rate.id]: {
-                                ...prev[rate.id],
-                                transferLocal: e.target.value === "" ? null : Number(e.target.value),
-                              },
-                            }))
-                          }
-                          className="h-10 w-full rounded-lg border-sky-600/25 bg-sky-500/5 text-foreground tabular-nums dark:text-sky-400"
-                        />
-                      </div>
-
                       {canManageRates ? (
                         <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                           <Button

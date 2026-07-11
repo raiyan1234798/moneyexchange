@@ -34,6 +34,7 @@ export const COLLECTIONS = {
   scheduledContent: "scheduled_content",
   tvPairingCodes: "tv_pairing_codes",
   imageAdverts: "image_adverts",
+  transferRates: "transfer_rates",
   pendingApprovals: "pending_approvals",
 } as const;
 
@@ -157,14 +158,16 @@ export const NAV_ITEMS: Array<{
     icon: "TrendingUp",
     roles: ["superAdmin", "admin", "branchManager", "branchUser"],
   },
-  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "admin", "branchManager", "branchUser"] },
+  // Per client (2026-07-11): advert videos/images, scrolling messages, logos
+  // and display settings are ADMIN-ONLY. Branch staff see rates only.
+  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "admin"] },
   {
     href: "/dashboard/tickers",
     label: "Display Messages",
     icon: "TextCursorInput",
-    roles: ["superAdmin", "admin", "branchManager"],
+    roles: ["superAdmin", "admin"],
   },
-  { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "admin", "branchManager"] },
+  { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "admin"] },
   {
     href: "/dashboard/notifications",
     label: "Notifications",
@@ -222,19 +225,18 @@ export const ADMIN_PERMISSIONS = [
   "manageBranchDisplaySettings",
 ] as const;
 
+// Per client (2026-07-11): branch staff handle FOREX RATES ONLY. All display
+// content (videos, images, scrolling messages, logos, settings, transfer card)
+// is controlled by the admins.
 export const BRANCH_MANAGER_PERMISSIONS = [
   "manageOwnBranchRates",
-  "manageOwnBranchVideos",
-  "manageOwnBranchPlaylists",
-  "manageOwnBranchTickers",
   "manageOwnBranchTVDevices",
-  "manageImageAdverts",
   "viewOwnBranchAnalytics",
   "viewOwnBranchAuditLogs",
   "inviteBranchUsers",
 ] as const;
 
-export const BRANCH_USER_PERMISSIONS = ["manageOwnBranchRates", "proposeOwnBranchVideos"] as const;
+export const BRANCH_USER_PERMISSIONS = ["manageOwnBranchRates"] as const;
 
 export const ROLE_LABELS: Record<string, string> = {
   superAdmin: "Super Admin",

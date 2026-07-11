@@ -196,6 +196,27 @@ export default function TickersPage() {
     }
   }
 
+  // Per client (2026-07-11): scrolling messages are ADMIN-ONLY.
+  if (!isSuperAdmin && !isAdmin) {
+    return (
+      <>
+        <DashboardHeader
+          title="Display Messages"
+          description="Scrolling text shown on branch displays."
+          accent="sky"
+        />
+        <PageShell accent="sky">
+          <ContentPanel title="Admins only" description="Display content is managed centrally by the admins.">
+            <p className="text-sm text-muted-foreground">
+              Your account manages exchange rates. Scrolling messages and the ticker logo are
+              controlled by the admin team.
+            </p>
+          </ContentPanel>
+        </PageShell>
+      </>
+    );
+  }
+
   return (
     <>
       <DashboardHeader

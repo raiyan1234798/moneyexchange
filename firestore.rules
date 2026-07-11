@@ -275,9 +275,7 @@ service cloud.firestore {
       // Admins can create branches (per client); only superAdmin deletes.
       allow create: if isSuperAdmin() || isAdmin();
       allow delete: if isSuperAdmin();
-      allow update: if isSuperAdmin() ||
-        isAdmin() ||
-        (isBranchManager() && belongsToManagerBranch(branchId));
+      allow update: if isSuperAdmin() || isAdmin();
     }
 
     match /currencies/{currencyId} {
@@ -295,64 +293,50 @@ service cloud.firestore {
         (isBranchManager() && canAccessBranch(resource.data.branchId));
     }
 
+    // Centralized money-transfer rates (head office): one set for ALL branches.
+    // Public read (the TV display is unauthenticated); admin-only writes.
+    match /transfer_rates/{code} {
+      allow read: if true;
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
+    }
+
     match /rate_history/{historyId} {
       allow read: if isActiveUser();
       allow create: if isActiveUser();
       allow update, delete: if isSuperAdmin();
     }
 
+    // Per client (2026-07-11): advert videos/images, playlists, and scrolling
+    // messages are ADMIN-ONLY. Branch managers/users can view, never write.
     match /videos/{videoId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      // Branch users may propose a video for their OWN branch, but only as
-      // "pending" (never active) — a manager/admin must approve it (update).
-      allow create: if canManageBranchContent(request.resource.data.branchId) ||
-        (belongsToBranchUserBranch(request.resource.data.branchId) &&
-          request.resource.data.status == 'pending');
-      allow update: if canManageBranchContent(resource.data.branchId) &&
-        canManageBranchContent(request.resource.data.branchId);
-      allow delete: if isSuperAdmin() ||
-        (canManageBranchContent(resource.data.branchId));
+      allow create, update: if isSuperAdmin() || isAdmin();
+      allow delete: if isSuperAdmin() || isAdmin();
     }
 
     match /image_adverts/{imageId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create: if canManageBranchContent(request.resource.data.branchId);
-      allow update: if canManageBranchContent(resource.data.branchId) &&
-        canManageBranchContent(request.resource.data.branchId);
-      allow delete: if isSuperAdmin() ||
-        canManageBranchContent(resource.data.branchId);
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
     }
 
     match /video_chunks/{videoId} {
       allow read: if true;
-      allow create: if canManageBranchContent(request.resource.data.branchId);
-      allow update, delete: if canManageBranchContent(resource.data.branchId);
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
 
       match /parts/{partId} {
         allow read: if true;
-        allow create, update: if canManageBranchContent(
-          get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId);
-        allow delete: if canManageBranchContent(
-          get(/databases/$(database)/documents/video_chunks/$(videoId)).data.branchId);
+        allow create, update, delete: if isSuperAdmin() || isAdmin();
       }
     }
 
     match /video_playlists/{playlistId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create: if canManageBranchContent(request.resource.data.branchId);
-      allow update: if canManageBranchContent(resource.data.branchId) &&
-        canManageBranchContent(request.resource.data.branchId);
-      allow delete: if isSuperAdmin() ||
-        canManageBranchContent(resource.data.branchId);
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
     }
 
     match /ticker_messages/{tickerId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create: if canManageBranchContent(request.resource.data.branchId);
-      allow update: if canManageBranchContent(resource.data.branchId) &&
-        canManageBranchContent(request.resource.data.branchId);
-      allow delete: if isSuperAdmin() ||
-        canManageBranchContent(resource.data.branchId);
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
     }
 
     match /tv_devices/{deviceId} {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { subscribeBranch } from "@/lib/services/branch-service";
 import { subscribeExchangeRates } from "@/lib/services/exchange-rate-service";
+import { subscribeTransferRates } from "@/lib/services/transfer-rate-service";
 import { subscribeImageAdverts } from "@/lib/services/image-advert-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVideoBlobUrl } from "@/lib/services/video-service";
@@ -13,7 +14,7 @@ import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { UnimoniPromoPanel } from "@/components/display/unimoni-promo-panel";
 import { UnimoniRatesPanel } from "@/components/display/unimoni-rates-panel";
 import { BreakingNewsTicker } from "@/components/display/breaking-news-ticker";
-import type { Branch, ExchangeRate, ImageAdvert, TickerMessage, VideoAsset } from "@/lib/types";
+import type { Branch, ExchangeRate, ImageAdvert, TickerMessage, TransferRate, VideoAsset } from "@/lib/types";
 
 interface DisplayScreenProps {
   branchId?: string;
@@ -25,6 +26,7 @@ interface TimedRatesPanelProps {
   showBuyRate: boolean;
   showSellRate: boolean;
   showTransferCard: boolean;
+  transferRates: TransferRate[];
   transferLocalLabel: string;
   scale: number;
   widthPercent: number;
@@ -42,6 +44,7 @@ function TimedRatesPanel({
   showBuyRate,
   showSellRate,
   showTransferCard,
+  transferRates,
   transferLocalLabel,
   scale,
   widthPercent,
@@ -71,6 +74,7 @@ function TimedRatesPanel({
       showBuyRate={showBuyRate}
       showSellRate={showSellRate}
       showTransferCard={showTransferCard}
+      transferRates={transferRates}
       transferLocalLabel={transferLocalLabel}
       scale={scale}
       widthPercent={widthPercent}
@@ -87,6 +91,7 @@ function TimedRatesPanel({
 export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const [branch, setBranch] = useState<Branch | null>(null);
   const [rates, setRates] = useState<ExchangeRate[]>([]);
+  const [transferRates, setTransferRates] = useState<TransferRate[]>([]);
   const [tickers, setTickers] = useState<TickerMessage[]>([]);
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [images, setImages] = useState<ImageAdvert[]>([]);
@@ -181,6 +186,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     const scopedBranchId = branchId;
     const unsubBranch = subscribeBranch(scopedBranchId, setBranch);
     const unsubRates = subscribeExchangeRates(scopedBranchId, setRates);
+    // Centralized head-office transfer rates — global, identical on every branch.
+    const unsubTransfer = subscribeTransferRates(setTransferRates);
     const unsubTickers = subscribeTickers(scopedBranchId, setTickers);
     const unsubVideos = subscribeVideos(scopedBranchId, setVideos);
     const unsubImages = subscribeImageAdverts(scopedBranchId, setImages);
@@ -188,6 +195,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     return () => {
       unsubBranch();
       unsubRates();
+      unsubTransfer();
       unsubTickers();
       unsubVideos();
       unsubImages();
@@ -377,6 +385,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       showBuyRate={branchSettings.showBuyRate}
       showSellRate={branchSettings.showSellRate}
       showTransferCard={showTransferCard}
+      transferRates={transferRates}
       transferLocalLabel={transferLocalLabel}
       scale={rateCardScale}
       widthPercent={rateWidthPercent}

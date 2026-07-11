@@ -668,6 +668,24 @@ export default function SettingsPage() {
     }
   }
 
+  // Per client (2026-07-11): display settings (logos, promo card, sizing,
+  // tickers) are ADMIN-ONLY. Branch staff handle forex rates only.
+  if (!isSuperAdmin && !isAdmin) {
+    return (
+      <>
+        <DashboardHeader title="Settings" description="System and branch display configuration." accent="default" />
+        <PageShell>
+          <ContentPanel title="Admins only" description="Display settings are managed centrally by the admins.">
+            <p className="text-sm text-muted-foreground">
+              Your account manages exchange rates. Logos, videos, messages and display settings are
+              controlled by the admin team.
+            </p>
+          </ContentPanel>
+        </PageShell>
+      </>
+    );
+  }
+
   if (globalLoading) {
     return (
       <>

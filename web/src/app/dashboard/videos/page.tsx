@@ -457,6 +457,23 @@ export default function VideosPage() {
     }
   }
 
+  // Per client (2026-07-11): advert videos/images are ADMIN-ONLY.
+  if (!isSuperAdmin && !isAdmin) {
+    return (
+      <>
+        <DashboardHeader title="Videos" description="Branch display videos and image adverts." accent="rose" />
+        <PageShell accent="rose">
+          <ContentPanel title="Admins only" description="Display content is managed centrally by the admins.">
+            <p className="text-sm text-muted-foreground">
+              Your account manages exchange rates. Videos and advert images are controlled by the
+              admin team.
+            </p>
+          </ContentPanel>
+        </PageShell>
+      </>
+    );
+  }
+
   return (
     <>
       <DashboardHeader
