@@ -510,10 +510,11 @@ function BranchSettingsForm({
 
       {/* ---- Pop-up announcement over the video area (admin-only) ---- */}
       <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4">
-        <p className="mb-1 text-sm font-semibold">Pop-up announcement (video area)</p>
+        <p className="mb-1 text-sm font-semibold">Announcement / display message</p>
         <p className="mb-4 text-xs text-muted-foreground">
-          A small banner drops down over the video for a few seconds and disappears — e.g. contest
-          winners. Text first; optional small image. Leave empty to turn it off.
+          Play an announcement (text, image or video) for a set time, then it animates away and the
+          screen returns to normal — repeating on the interval you choose. Show it in the message
+          area (bottom strip), as a big pop-up over the video, or full screen. Leave empty to turn it off.
         </p>
         <div className="space-y-3">
           <div className="space-y-2">
@@ -662,12 +663,39 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="band">Yellow bar (in the scrolling-message row)</SelectItem>
+                <SelectItem value="band">Message area — animated (image / video / text in the bottom strip, then back to normal)</SelectItem>
                 <SelectItem value="popup">Big pop-up card (centered over the video)</SelectItem>
                 <SelectItem value="fullscreen">Full screen — takes over the whole video area</SelectItem>
               </SelectContent>
             </Select>
           </div>
+          {(settings.announcementStyle ?? "popup") === "band" ? (
+            <div className="space-y-2">
+              <Label>Animation</Label>
+              <Select
+                value={settings.announcementAnimation ?? "slide"}
+                onValueChange={(value) =>
+                  setSettings({
+                    ...settings,
+                    announcementAnimation: (value as "slide" | "fade" | "zoom" | "flip") ?? "slide",
+                  })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="slide">Slide up from the bottom</SelectItem>
+                  <SelectItem value="fade">Fade in / out</SelectItem>
+                  <SelectItem value="zoom">Zoom in / out</SelectItem>
+                  <SelectItem value="flip">Flip up</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                How the message-area announcement enters and leaves.
+              </p>
+            </div>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Visible for (seconds)</Label>

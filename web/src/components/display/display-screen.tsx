@@ -14,7 +14,7 @@ import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { UnimoniPromoPanel } from "@/components/display/unimoni-promo-panel";
 import {
   AnnouncementBanner,
-  TickerAnnouncementBand,
+  MessageAreaAnnouncement,
   useAnnouncementCycle,
 } from "@/components/display/announcement-banner";
 import { UnimoniRatesPanel } from "@/components/display/unimoni-rates-panel";
@@ -166,20 +166,25 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
   const announcementVideoUrl = branchSettings.announcementVideoUrl?.trim() || null;
   const announcementStyle = (branchSettings.announcementStyle ?? "popup") as "popup" | "fullscreen" | "band";
+  const announcementAnimation = (branchSettings.announcementAnimation ?? "slide") as
+    | "slide"
+    | "fade"
+    | "zoom"
+    | "flip";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
   const hasAnnouncement = Boolean(
     announcementText || announcementImageUrl || announcementVideoUrl,
   );
-  // The "band" style swaps the yellow announcement bar in for the scrolling
-  // ticker during the announcement window — no animation, back to normal after.
-  // The hook runs unconditionally (Rules of Hooks); gate the result by style.
+  // The "band" style animates an announcement over the message area (bottom
+  // strip) for the visible window, then hands the strip back to the scrolling
+  // ticker. The hook runs unconditionally (Rules of Hooks); the overlay stays
+  // mounted so its exit animation can play — `bandCycleVisible` drives it.
   const bandCycleVisible = useAnnouncementCycle(
     hasAnnouncement && announcementStyle === "band",
     announcementSeconds,
     announcementRepeatMinutes,
   );
-  const bandActive = announcementStyle === "band" && bandCycleVisible;
   const sheetIntervalSeconds = branchSettings.rateSheetIntervalSeconds ?? 5;
   const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
   const ratePromoText = branchSettings.ratePromoText?.trim() || null;
@@ -445,7 +450,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   return (
     <div
-      className={`flex h-screen w-screen flex-col overflow-hidden bg-black text-white select-none ${
+      className={`relative flex h-screen w-screen flex-col overflow-hidden bg-black text-white select-none ${
         isFullscreen ? "display-kiosk" : ""
       }`}
     >
@@ -479,30 +484,35 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         {ratesPanel}
       </div>
 
-      {bandActive ? (
-        <TickerAnnouncementBand
+      <BreakingNewsTicker
+        messages={tickerMessages}
+        logoUrl={tickerLogoUrl}
+        logoText={tickerLogoText}
+        logoFontCss={tickerLogoFontCss}
+        messageFontCss={tickerMessageFontCss}
+        scrollSpeedSeconds={tickerSpeed}
+        fontColor={tickerFontColor}
+        fontSize={tickerFontSize}
+        paused={tickerPaused}
+        headline={tickerHeadline}
+        heightScale={tickerScale}
+        logoScale={logoScale}
+        logoAnimation={tickerLogoAnimation}
+        scrollingLogos={scrollingLogos}
+      />
+
+      {/* Animated message-area announcement: takes over the bottom strip for the
+          visible window, then animates away and reveals the ticker again. */}
+      {announcementStyle === "band" ? (
+        <MessageAreaAnnouncement
+          visible={bandCycleVisible}
           text={announcementText}
           imageUrl={announcementImageUrl}
+          videoUrl={announcementVideoUrl}
+          animation={announcementAnimation}
           heightScale={tickerScale}
         />
-      ) : (
-        <BreakingNewsTicker
-          messages={tickerMessages}
-          logoUrl={tickerLogoUrl}
-          logoText={tickerLogoText}
-          logoFontCss={tickerLogoFontCss}
-          messageFontCss={tickerMessageFontCss}
-          scrollSpeedSeconds={tickerSpeed}
-          fontColor={tickerFontColor}
-          fontSize={tickerFontSize}
-          paused={tickerPaused}
-          headline={tickerHeadline}
-          heightScale={tickerScale}
-          logoScale={logoScale}
-          logoAnimation={tickerLogoAnimation}
-          scrollingLogos={scrollingLogos}
-        />
-      )}
+      ) : null}
 
       <style jsx global>{`
         .display-kiosk:hover button[aria-label="Exit fullscreen"] {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 interface AnnouncementBannerProps {
@@ -110,6 +110,109 @@ export function TickerAnnouncementBand({
   );
 }
 
+/**
+ * Animated announcement that takes over the DISPLAY MESSAGE AREA (the bottom
+ * ticker strip) for a set time, then animates away and hands the strip back to
+ * the normal scrolling message. Per the client (2026-07-13): "play images or
+ * videos or texts in the display message area for the needed seconds/minutes,
+ * then go back to normal — with animation."
+ *
+ * Text-only shows a thin yellow strip (ticker height). With an image/video the
+ * band grows into an "L-band" panel so the media is clearly visible, then
+ * shrinks back. `visible` is driven by the shared show/hide cycle; the element
+ * stays mounted so the exit animation can play.
+ */
+export function MessageAreaAnnouncement({
+  text,
+  imageUrl,
+  videoUrl,
+  visible,
+  animation = "slide",
+  heightScale = 1,
+}: {
+  text?: string | null;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  visible: boolean;
+  animation?: "slide" | "fade" | "zoom" | "flip";
+  heightScale?: number;
+}) {
+  const message = text?.trim() || "";
+  const image = imageUrl?.trim() || "";
+  const video = videoUrl?.trim() || "";
+  const hasMedia = Boolean(image || video);
+
+  // Restart the video from the top each time the band re-appears. The video
+  // stays mounted (even while hidden) so it fades out WITH the band instead of
+  // snapping to a blank panel mid-animation. Hooks run before any early return.
+  const [showCount, setShowCount] = useState(0);
+  const wasVisibleRef = useRef(false);
+  useEffect(() => {
+    if (visible && !wasVisibleRef.current) setShowCount((count) => count + 1);
+    wasVisibleRef.current = visible;
+  }, [visible]);
+
+  if (!message && !hasMedia) return null;
+
+  // Grows for media so images/video are readable; thin strip for text only.
+  const bandHeight = video
+    ? "clamp(11rem,40vh,32rem)"
+    : image
+      ? "clamp(9rem,32vh,26rem)"
+      : undefined;
+
+  const hiddenTransform =
+    animation === "fade"
+      ? "none"
+      : animation === "zoom"
+        ? "scale(0.55)"
+        : animation === "flip"
+          ? "rotateX(-92deg)"
+          : "translateY(112%)"; // slide (default)
+
+  return (
+    <div
+      aria-live="polite"
+      // Above the ticker's pop-out logo badge (z-40) so the band fully covers it.
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-50"
+      style={{ perspective: animation === "flip" ? "1400px" : undefined }}
+    >
+      <div
+        className="w-full overflow-hidden transition-all duration-500 ease-out"
+        style={{
+          transformOrigin: "bottom center",
+          transform: visible ? "none" : hiddenTransform,
+          opacity: visible ? 1 : 0,
+        }}
+      >
+        {hasMedia ? (
+          <div className="flex w-full flex-col bg-[#0D2680]" style={{ height: bandHeight }}>
+            <div className="relative min-h-0 flex-1">
+              {video ? (
+                <video
+                  key={showCount}
+                  src={video}
+                  className="h-full w-full object-contain"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={image} alt="" className="h-full w-full object-contain" />
+              )}
+            </div>
+            {message ? <TickerAnnouncementBand text={message} heightScale={heightScale} /> : null}
+          </div>
+        ) : (
+          <TickerAnnouncementBand text={message} heightScale={heightScale} />
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function AnnouncementBanner({
   text,
   imageUrl,
@@ -127,10 +230,19 @@ export function AnnouncementBanner({
     repeatMinutes,
   );
 
+  // Restart the video from the top each time the announcement re-appears while
+  // keeping it mounted the whole cycle, so it fades out WITH the overlay instead
+  // of snapping to a blank panel. Hooks run before any early return.
+  const [showCount, setShowCount] = useState(0);
+  const wasVisibleRef = useRef(false);
+  useEffect(() => {
+    if (visible && !wasVisibleRef.current) setShowCount((count) => count + 1);
+    wasVisibleRef.current = visible;
+  }, [visible]);
+
   if (!message && !image && !video) return null;
 
-  // Remount media on each showing so videos restart from the beginning.
-  const mediaKey = visible ? "on" : "off";
+  const hasMedia = Boolean(video || image);
 
   if (displayStyle === "fullscreen") {
     return (
@@ -139,39 +251,47 @@ export function AnnouncementBanner({
         className={`absolute inset-0 z-40 flex flex-col transition-opacity duration-500 ${
           visible ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
-        style={{ backgroundColor: "#0D2680" }}
+        // Only cover the branch video with the opaque blue takeover when there is
+        // actual media to show. Text-only stays transparent so the branch video
+        // keeps playing underneath and the screen never goes blank.
+        style={hasMedia ? { backgroundColor: "#0D2680" } : undefined}
       >
         {video ? (
-          visible ? (
-            <video
-              key={mediaKey}
-              src={video}
-              className="min-h-0 w-full flex-1 object-contain"
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
-          ) : (
-            <div className="min-h-0 flex-1" />
-          )
+          <video
+            key={showCount}
+            src={video}
+            className="min-h-0 w-full flex-1 object-contain"
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
         ) : image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt="" className="min-h-0 w-full flex-1 object-contain" />
-        ) : null}
+        ) : (
+          // No media: leave the branch video visible; the text sits at the bottom.
+          <div className="min-h-0 flex-1" />
+        )}
         {message ? (
           <p
             className="shrink-0 px-[3vw] py-[2.2vh] text-center font-extrabold uppercase leading-tight text-white"
             style={{
               fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
-              fontSize: video || image ? "clamp(1.1rem,2.4vw,2.6rem)" : "clamp(1.6rem,3.6vw,4rem)",
-              textShadow: "0 2px 10px rgba(0,0,0,0.4)",
+              fontSize: hasMedia ? "clamp(1.1rem,2.4vw,2.6rem)" : "clamp(1.6rem,3.6vw,4rem)",
+              textShadow: "0 2px 10px rgba(0,0,0,0.55)",
+              // Text-only gets its own readable band so it stands out over the video.
+              background: hasMedia
+                ? undefined
+                : "linear-gradient(to top, rgba(13,38,128,0.94), rgba(13,38,128,0.5))",
             }}
           >
             {message}
           </p>
         ) : null}
-        <div className="h-[0.6vh] w-full shrink-0" style={{ backgroundColor: UNIMONI_COLORS.gold }} />
+        {hasMedia ? (
+          <div className="h-[0.6vh] w-full shrink-0" style={{ backgroundColor: UNIMONI_COLORS.gold }} />
+        ) : null}
       </div>
     );
   }
@@ -189,18 +309,16 @@ export function AnnouncementBanner({
         style={{ backgroundColor: "#FFFFFF", borderColor: UNIMONI_COLORS.gold }}
       >
         {video ? (
-          visible ? (
-            <video
-              key={mediaKey}
-              src={video}
-              className="min-h-0 w-full flex-1 rounded-lg object-contain"
-              style={{ maxHeight: "52vh" }}
-              autoPlay
-              muted
-              loop
-              playsInline
-            />
-          ) : null
+          <video
+            key={showCount}
+            src={video}
+            className="min-h-0 w-full flex-1 rounded-lg object-contain"
+            style={{ maxHeight: "52vh" }}
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
         ) : image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img

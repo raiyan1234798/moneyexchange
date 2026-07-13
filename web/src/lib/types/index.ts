@@ -124,8 +124,10 @@ export interface BranchSettings {
   announcementImageUrl?: string | null;
   /** Optional short video in the announcement banner (direct/Drive link or R2 upload). */
   announcementVideoUrl?: string | null;
-  /** "popup" = big centered card; "fullscreen" = takes over the whole video area. */
+  /** "popup" = big centered card; "fullscreen" = video-area takeover; "band" = animated message-area takeover. */
   announcementStyle?: "popup" | "fullscreen" | "band";
+  /** Entrance/exit animation for the message-area (band) announcement. */
+  announcementAnimation?: "slide" | "fade" | "zoom" | "flip";
   /** Seconds the announcement stays visible each time (default 5). */
   announcementSeconds?: number;
   /** Minutes between announcement repeats (default 3). */

@@ -81,6 +81,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   announcementImageUrl: null as string | null,
   announcementVideoUrl: null as string | null,
   announcementStyle: "popup" as "popup" | "fullscreen" | "band",
+  announcementAnimation: "slide" as "slide" | "fade" | "zoom" | "flip",
   announcementSeconds: 5,
   announcementRepeatMinutes: 3,
 };
