@@ -120,8 +120,10 @@ export interface BranchSettings {
   rateCardFont?: string | null;
   /** Drop-down announcement (admin-only): short text shown briefly over the video area. */
   announcementText?: string | null;
-  /** Optional small image shown in the announcement banner. */
+  /** Optional small image shown in the announcement banner (upload or any link). */
   announcementImageUrl?: string | null;
+  /** Optional short video in the announcement banner (direct/Drive link or R2 upload). */
+  announcementVideoUrl?: string | null;
   /** Seconds the announcement stays visible each time (default 5). */
   announcementSeconds?: number;
   /** Minutes between announcement repeats (default 3). */

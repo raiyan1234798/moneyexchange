@@ -23,6 +23,8 @@ import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
+import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,6 +42,7 @@ import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/typ
 const SETTINGS_ID = "global";
 
 function BranchSettingsForm({
+  branchId,
   branchName,
   initialLogoUrl,
   initialColor,
@@ -47,6 +50,7 @@ function BranchSettingsForm({
   saving,
   onSave,
 }: {
+  branchId: string;
   branchName: string;
   initialLogoUrl: string;
   initialColor: string;
@@ -522,6 +526,28 @@ function BranchSettingsForm({
               className="rounded-xl"
             />
           </div>
+          <div className="space-y-2">
+            <Label>Image link (paste any link — direct image, Google Drive, or YouTube)</Label>
+            <Input
+              value={
+                settings.announcementImageUrl?.startsWith("data:")
+                  ? ""
+                  : settings.announcementImageUrl ?? ""
+              }
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  announcementImageUrl: normalizeImageLink(event.target.value) || null,
+                })
+              }
+              placeholder="https://drive.google.com/file/d/… or https://youtu.be/… or image URL"
+              disabled={settings.announcementImageUrl?.startsWith("data:")}
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Drive links convert automatically; YouTube links use the video&apos;s thumbnail image.
+            </p>
+          </div>
           <div className="flex items-center gap-3">
             <Input
               type="file"
@@ -559,6 +585,66 @@ function BranchSettingsForm({
                 </Button>
               </div>
             ) : null}
+          </div>
+          <div className="space-y-2">
+            <Label>Video (optional) — link or upload</Label>
+            <Input
+              value={settings.announcementVideoUrl ?? ""}
+              onChange={(event) => {
+                const raw = event.target.value;
+                if (isYouTubeUrl(raw)) {
+                  // YouTube can't stream inside the pop-up — use its thumbnail image.
+                  setSettings({
+                    ...settings,
+                    announcementVideoUrl: null,
+                    announcementImageUrl: normalizeImageLink(raw),
+                  });
+                  toast.info("YouTube can't play inside the pop-up — using the video's thumbnail image instead.");
+                  return;
+                }
+                setSettings({ ...settings, announcementVideoUrl: normalizeVideoLink(raw) || null });
+              }}
+              placeholder="Direct MP4/WebM link or Google Drive share link"
+              className="rounded-xl"
+            />
+            <div className="flex items-center gap-3">
+              <Input
+                type="file"
+                accept="video/mp4,video/webm,.mp4,.webm"
+                aria-label="Upload announcement video"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  if (!isR2UploadConfigured()) {
+                    toast.error("Video upload is unavailable — paste a video link instead.");
+                    return;
+                  }
+                  try {
+                    toast.info("Uploading announcement video…");
+                    const r2 = await uploadVideoToR2(file, branchId);
+                    setSettings({ ...settings, announcementVideoUrl: r2.downloadUrl });
+                    toast.success("Video ready — click Save Branch Settings to apply");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Video upload failed");
+                  }
+                }}
+                className="rounded-xl"
+              />
+              {settings.announcementVideoUrl ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => setSettings({ ...settings, announcementVideoUrl: null })}
+                >
+                  Clear video
+                </Button>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Keep it short — the pop-up shows for a few seconds. Video plays muted.
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -981,6 +1067,7 @@ export default function SettingsPage() {
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
               <BranchSettingsForm
                 key={branch.id}
+                branchId={branch.id}
                 branchName={branch.name}
                 initialLogoUrl={branch.logoUrl ?? ""}
                 initialColor={branch.brandingColor ?? "#0066B3"}

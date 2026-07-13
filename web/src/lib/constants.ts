@@ -79,6 +79,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateCardFont: null as string | null,
   announcementText: null as string | null,
   announcementImageUrl: null as string | null,
+  announcementVideoUrl: null as string | null,
   announcementSeconds: 5,
   announcementRepeatMinutes: 3,
 };

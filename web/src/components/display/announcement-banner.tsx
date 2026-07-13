@@ -8,6 +8,8 @@ interface AnnouncementBannerProps {
   text?: string | null;
   /** Optional small image (e.g. a winner photo) shown beside the text. */
   imageUrl?: string | null;
+  /** Optional short video (direct/Drive/R2 URL) — takes the image's place. */
+  videoUrl?: string | null;
   /** Seconds the banner stays visible each time. */
   visibleSeconds?: number;
   /** Minutes between repeats. */
@@ -23,15 +25,17 @@ interface AnnouncementBannerProps {
 export function AnnouncementBanner({
   text,
   imageUrl,
+  videoUrl,
   visibleSeconds = 5,
   repeatMinutes = 3,
 }: AnnouncementBannerProps) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
+  const video = videoUrl?.trim() || "";
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!message && !image) return;
+    if (!message && !image && !video) return;
     const showMs = Math.max(2, visibleSeconds) * 1000;
     const gapMs = Math.max(0.5, repeatMinutes) * 60_000;
 
@@ -51,9 +55,9 @@ export function AnnouncementBanner({
       window.clearInterval(repeatTimer);
       if (hideTimer) window.clearTimeout(hideTimer);
     };
-  }, [message, image, visibleSeconds, repeatMinutes]);
+  }, [message, image, video, visibleSeconds, repeatMinutes]);
 
-  if (!message && !image) return null;
+  if (!message && !image && !video) return null;
 
   return (
     <div
@@ -66,7 +70,16 @@ export function AnnouncementBanner({
         className="flex max-w-full items-center gap-[0.8vw] rounded-b-[12px] border-2 border-t-0 px-[1.4vw] py-[1vh] shadow-[0_6px_24px_rgba(0,0,0,0.45)]"
         style={{ backgroundColor: "#FFFFFF", borderColor: UNIMONI_COLORS.gold }}
       >
-        {image ? (
+        {video ? (
+          <video
+            src={video}
+            className="h-[clamp(3rem,10vh,6.5rem)] w-auto shrink-0 rounded-md object-contain"
+            autoPlay
+            muted
+            loop
+            playsInline
+          />
+        ) : image ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={image}

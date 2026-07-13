@@ -160,6 +160,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateCardFontCss = messageFontCss(branchSettings.rateCardFont);
   const announcementText = branchSettings.announcementText?.trim() || null;
   const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
+  const announcementVideoUrl = branchSettings.announcementVideoUrl?.trim() || null;
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
   const sheetIntervalSeconds = branchSettings.rateSheetIntervalSeconds ?? 5;
@@ -388,6 +389,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       <AnnouncementBanner
         text={announcementText}
         imageUrl={announcementImageUrl}
+        videoUrl={announcementVideoUrl}
         visibleSeconds={announcementSeconds}
         repeatMinutes={announcementRepeatMinutes}
       />
