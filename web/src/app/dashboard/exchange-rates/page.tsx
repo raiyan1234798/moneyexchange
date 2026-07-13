@@ -1194,14 +1194,15 @@ export default function ExchangeRatesPage() {
           </ContentPanel>
         ) : null}
 
-        {canManageRates && rates.length === 0 && effectiveBranchId ? (
+        {canManageRates && !isBranchUser && rates.length === 0 && effectiveBranchId ? (
           <Button onClick={() => void initRates()} disabled={loadingInit || currencies.length === 0} className="rounded-xl">
             <RefreshCw className={`mr-2 h-4 w-4 ${loadingInit ? "animate-spin" : ""}`} />
             Initialize rates from catalog
           </Button>
         ) : null}
 
-        {canManageRates && effectiveBranchId ? (
+        {/* Adding currencies curates the branch list — not for branch users. */}
+        {canManageRates && !isBranchUser && effectiveBranchId ? (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger
               render={

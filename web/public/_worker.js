@@ -189,12 +189,12 @@ async function handleOcrRates(request, env) {
     return json(
       {
         error: "Could not read rates from the photo — try a clearer, straight-on photo.",
-        ...(debug ? { rawSample: String(text).slice(0, 600), resultKeys: Object.keys(result || {}) } : {}),
+        ...(debug ? { rawSample: JSON.stringify(raw).slice(0, 600), resultKeys: Object.keys(result || {}) } : {}),
       },
       422,
     );
   }
-  return json({ rows, ...(debug ? { rawSample: String(text).slice(0, 600) } : {}) });
+  return json({ rows, ...(debug ? { rawSample: JSON.stringify(raw).slice(0, 600) } : {}) });
 }
 
 function rateNum(v) {

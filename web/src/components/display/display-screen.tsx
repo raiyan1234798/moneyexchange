@@ -129,7 +129,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateCardDisplaySeconds = branchSettings.rateCardDisplaySeconds ?? 0;
 
   // Independently resizable areas (each editable in Settings → Display sizing).
-  const videoWidthPercent = Math.max(40, Math.min(80, branchSettings.videoWidthPercent ?? 72));
+  const videoWidthPercent = Math.max(40, Math.min(75, branchSettings.videoWidthPercent ?? 72));
   const videoFit = branchSettings.videoFit ?? "stretch";
 
   // "auto" fit: resize the promo area to the media's shape so the WHOLE media

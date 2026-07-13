@@ -603,9 +603,9 @@ function BranchSettingsForm({
             <Input
               type="number"
               min={40}
-              max={80}
+              max={75}
               step={1}
-              value={settings.videoWidthPercent ?? 65}
+              value={settings.videoWidthPercent ?? 72}
               onChange={(event) =>
                 setSettings({ ...settings, videoWidthPercent: Number(event.target.value) })
               }
