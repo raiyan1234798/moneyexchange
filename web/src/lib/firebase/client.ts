@@ -41,14 +41,25 @@ function createFirestore(app: FirebaseApp): Firestore {
     }
   }
 
+  // Persistent (IndexedDB) cache ONLY for the TV routes, where offline
+  // resilience matters. Dashboard tabs use a fresh in-memory cache: with many
+  // dashboard tabs open across deploys, the shared multi-tab cache can elect a
+  // stale tab as primary and serve outdated lists (branches/messages seeming
+  // to "disappear" until a hard refresh). Memory cache = always-live data.
+  const isTvRoute =
+    window.location.pathname.startsWith("/display") || window.location.pathname.startsWith("/tv");
+
   try {
     return initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
+      // Banks/corporate proxies often break WebChannel streaming — auto-detect
+      // and fall back to long polling so live sync keeps working.
+      experimentalAutoDetectLongPolling: true,
+      localCache: isTvRoute
+        ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        : memoryLocalCache(),
     });
   } catch (error) {
-    console.warn("Firestore multi-tab cache unavailable, falling back to memory cache:", error);
+    console.warn("Firestore cache init unavailable, falling back to memory cache:", error);
     try {
       return initializeFirestore(app, { localCache: memoryLocalCache() });
     } catch (memoryError) {
