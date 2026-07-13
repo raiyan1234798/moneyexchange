@@ -52,10 +52,17 @@ export function subscribeBranchByCode(
         return;
       }
 
+      // An EMPTY result straight from the local cache is not the truth — it
+      // happens for a moment while (re)connecting or right after a deploy, and
+      // must never flash "Branch not found" on an unattended TV. Wait for the
+      // server-confirmed snapshot before falling back / declaring not-found.
+      if (snapshot.metadata.fromCache) return;
+
       if (!fallbackUnsub) {
         fallbackUnsub = onSnapshot(
           fallbackQuery,
           (activeSnapshot) => {
+            if (activeSnapshot.metadata.fromCache && activeSnapshot.empty) return;
             const match = activeSnapshot.docs
               .map((item) => ({ id: item.id, ...item.data() }) as Branch)
               .find((branch) => branchMatchesCode(branch, normalized));
