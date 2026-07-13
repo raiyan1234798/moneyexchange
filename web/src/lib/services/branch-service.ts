@@ -185,7 +185,9 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     listDocuments<Branch>(COLLECTIONS.branches),
     listDocuments<{ status: string }>(COLLECTIONS.tvDevices),
     listDocuments(COLLECTIONS.currencies),
-    listDocuments<{ status: string }>(COLLECTIONS.exchangeRates, [
+    // Pending rate changes live in pending_approvals (never in exchange_rates,
+    // which only ever holds published rates) — so count that collection.
+    listDocuments<{ status: string }>(COLLECTIONS.pendingApprovals, [
       where("status", "==", "pending"),
     ]),
     listDocuments(COLLECTIONS.auditLogs, [orderBy("timestamp", "desc")]),

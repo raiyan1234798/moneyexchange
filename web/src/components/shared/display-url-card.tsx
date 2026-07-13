@@ -61,11 +61,12 @@ export function DisplayUrlCard({
               <div className="flex min-w-0 flex-1 items-center gap-2">
                 <Input
                   readOnly
+                  aria-label="Display URL"
                   value={displayUrl}
                   className="h-10 rounded-xl font-mono text-xs"
                   onFocus={(e) => e.target.select()}
                 />
-                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl" onClick={copyUrl}>
+                <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 rounded-xl" aria-label="Copy display URL" onClick={copyUrl}>
                   <Copy className="h-4 w-4" />
                 </Button>
               </div>

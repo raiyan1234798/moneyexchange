@@ -94,7 +94,7 @@ export default function DashboardOverviewPage() {
         : [where("status", "==", "pending")];
 
     const unsubRates = subscribeCollection<{ id: string }>(
-      COLLECTIONS.exchangeRates,
+      COLLECTIONS.pendingApprovals,
       rateConstraints,
       (items) => {
         setStats((prev) =>

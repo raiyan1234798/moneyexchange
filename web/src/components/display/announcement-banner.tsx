@@ -30,35 +30,38 @@ export function useAnnouncementCycle(
   visibleSeconds = 5,
   repeatMinutes = 3,
 ): boolean {
-  const [visible, setVisible] = useState(false);
+  const [showing, setShowing] = useState(false);
 
   useEffect(() => {
-    if (!active) {
-      setVisible(false);
-      return;
-    }
+    // When inactive we run no timers; the return value below is gated by
+    // `active`, so no synchronous state reset is needed here (avoids the
+    // cascading-render foot-gun). The cleanup resets `showing` on teardown.
+    if (!active) return;
     const showMs = Math.max(2, visibleSeconds) * 1000;
     const gapMs = Math.max(0.5, repeatMinutes) * 60_000;
 
     let hideTimer: number | undefined;
     // First appearance shortly after load, then repeat on the interval.
     const firstTimer = window.setTimeout(() => {
-      setVisible(true);
-      hideTimer = window.setTimeout(() => setVisible(false), showMs);
+      setShowing(true);
+      hideTimer = window.setTimeout(() => setShowing(false), showMs);
     }, 3000);
     const repeatTimer = window.setInterval(() => {
-      setVisible(true);
-      hideTimer = window.setTimeout(() => setVisible(false), showMs);
+      setShowing(true);
+      hideTimer = window.setTimeout(() => setShowing(false), showMs);
     }, gapMs + showMs);
 
     return () => {
       window.clearTimeout(firstTimer);
       window.clearInterval(repeatTimer);
       if (hideTimer) window.clearTimeout(hideTimer);
+      setShowing(false);
     };
   }, [active, visibleSeconds, repeatMinutes]);
 
-  return visible;
+  // Gate by `active` so the announcement is never "showing" while inactive,
+  // even for one render after `active` flips off.
+  return active && showing;
 }
 
 /**

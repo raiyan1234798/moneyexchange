@@ -164,6 +164,7 @@ function UserPanel({ onAction }: { onAction?: () => void }) {
           variant="outline"
           size="icon"
           className="rounded-xl"
+          aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
           onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
         >
           {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -242,7 +243,7 @@ export function DashboardUnifiedHeader() {
         <Sheet>
           <SheetTrigger
             render={
-              <Button variant="outline" size="icon" className="shrink-0 rounded-xl lg:hidden">
+              <Button variant="outline" size="icon" className="shrink-0 rounded-xl lg:hidden" aria-label="Open navigation menu">
                 <Menu className="h-4 w-4" />
               </Button>
             }

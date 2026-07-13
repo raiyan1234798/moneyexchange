@@ -13,6 +13,10 @@ const R2_PUBLIC_URL_FALLBACK = "https://pub-ad5465971a1b41bdb06b0b0d3dc8aa1f.r2.
 // Firebase web API key is public (shipped in the client bundle) — used only to
 // verify the caller's Firebase ID token before allowing an upload.
 const FIREBASE_API_KEY_FALLBACK = "AIzaSyB4rdpTTYMkANCaLB3TAZY6uYrJBer99zQ";
+const PROJECT_ID_FALLBACK = "moneyexchange-35c33";
+// Owner email is superAdmin by definition (mirrors isSuperAdmin() in
+// firestore.rules) — a break-glass path that never needs a user-doc read.
+const OWNER_EMAIL = "abubackerraiyan@gmail.com";
 
 const MAX_BYTES = 500 * 1024 * 1024;
 
@@ -45,10 +49,35 @@ async function verifyToken(token, apiKey) {
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const uid = data.users && data.users[0] && data.users[0].localId;
-    return uid ? { uid } : null;
+    const u = data.users && data.users[0];
+    return u && u.localId ? { uid: u.localId, email: String(u.email || "").toLowerCase() } : null;
   } catch {
     return null;
+  }
+}
+
+// Authorize media management (upload + delete). Mirrors the Firestore rules for
+// videos/image_adverts, which are superAdmin/admin only — so this changes
+// nothing for the admins who upload today, and closes the hole where any
+// signed-in user could write to or delete another branch's media. The user's
+// own profile doc is read with THEIR token (the same self-read the app does on
+// login), so it needs no extra privilege. Fails closed on any error.
+async function isMediaManager(user, token, env) {
+  if (user.email && user.email === OWNER_EMAIL) return true;
+  const projectId = env.FIREBASE_PROJECT_ID || PROJECT_ID_FALLBACK;
+  try {
+    const res = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${user.uid}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!res.ok) return false;
+    const doc = await res.json();
+    const f = (doc && doc.fields) || {};
+    const role = f.role && f.role.stringValue;
+    const isActive = f.isActive && f.isActive.booleanValue === true;
+    return isActive && (role === "superAdmin" || role === "admin");
+  } catch {
+    return false;
   }
 }
 
@@ -64,6 +93,11 @@ async function handleUpload(request, env) {
   if (!token) return json({ error: "Missing Authorization Bearer token" }, 401);
   const user = await verifyToken(token, apiKey);
   if (!user) return json({ error: "Invalid or expired sign-in token" }, 401);
+
+  // Only admins manage branch media (matches the videos/image_adverts rules).
+  if (!(await isMediaManager(user, token, env))) {
+    return json({ error: "You don't have permission to manage media." }, 403);
+  }
 
   const url = new URL(request.url);
 
