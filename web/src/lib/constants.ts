@@ -76,6 +76,11 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoImageUrl: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,
+  rateCardFont: null as string | null,
+  announcementText: null as string | null,
+  announcementImageUrl: null as string | null,
+  announcementSeconds: 5,
+  announcementRepeatMinutes: 3,
 };
 
 /** Cloudflare R2 free tier is 10 GB total — warn/stop uploads near the cap. */

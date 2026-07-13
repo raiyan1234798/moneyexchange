@@ -245,7 +245,7 @@ export default function TickersPage() {
           <PageActions>
             <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
               <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add scrolling text</Button>} />
-              <DialogContent className="rounded-2xl sm:max-w-md">
+              <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>{editTarget ? "Edit scrolling text" : "Scrolling display text"}</DialogTitle>
                 </DialogHeader>

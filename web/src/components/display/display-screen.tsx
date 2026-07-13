@@ -12,6 +12,7 @@ import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
 import { DEFAULT_BRANCH_SETTINGS, logoFontCss, messageFontCss } from "@/lib/constants";
 import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { UnimoniPromoPanel } from "@/components/display/unimoni-promo-panel";
+import { AnnouncementBanner } from "@/components/display/announcement-banner";
 import { UnimoniRatesPanel } from "@/components/display/unimoni-rates-panel";
 import { BreakingNewsTicker } from "@/components/display/breaking-news-ticker";
 import type { Branch, ExchangeRate, ImageAdvert, TickerMessage, TransferRate, VideoAsset } from "@/lib/types";
@@ -32,6 +33,7 @@ interface TimedRatesPanelProps {
   widthPercent: number;
   headerLogoUrl: string | null;
   rateCardNote: string | null;
+  fontCss: string;
   sheetIntervalSeconds: number;
   promoImageUrl: string | null;
   promoText: string | null;
@@ -50,6 +52,7 @@ function TimedRatesPanel({
   widthPercent,
   headerLogoUrl,
   rateCardNote,
+  fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
   promoText,
@@ -80,6 +83,7 @@ function TimedRatesPanel({
       widthPercent={widthPercent}
       headerLogoUrl={headerLogoUrl}
       rateCardNote={rateCardNote}
+      fontCss={fontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={promoImageUrl}
       promoText={promoText}
@@ -153,6 +157,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
   const rateCardNote = branchSettings.rateCardNote?.trim() || null;
+  const rateCardFontCss = messageFontCss(branchSettings.rateCardFont);
+  const announcementText = branchSettings.announcementText?.trim() || null;
+  const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
+  const announcementSeconds = branchSettings.announcementSeconds ?? 5;
+  const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
   const sheetIntervalSeconds = branchSettings.rateSheetIntervalSeconds ?? 5;
   const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
   const ratePromoText = branchSettings.ratePromoText?.trim() || null;
@@ -374,7 +383,15 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         setErroredVideoId(activeVideoId);
       }}
       onVideoEnded={handleVideoEnded}
-    />
+    >
+      {/* Admin-controlled drop-down announcement — over the video area only. */}
+      <AnnouncementBanner
+        text={announcementText}
+        imageUrl={announcementImageUrl}
+        visibleSeconds={announcementSeconds}
+        repeatMinutes={announcementRepeatMinutes}
+      />
+    </UnimoniPromoPanel>
   );
 
   const ratesPanel = (
@@ -391,6 +408,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       widthPercent={rateWidthPercent}
       headerLogoUrl={headerLogoUrl}
       rateCardNote={rateCardNote}
+      fontCss={rateCardFontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={ratePromoImageUrl}
       promoText={ratePromoText}

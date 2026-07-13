@@ -116,6 +116,16 @@ export interface BranchSettings {
   ratePromoText?: string | null;
   /** Seconds the promotional card stays visible. Defaults to rateSheetIntervalSeconds. */
   ratePromoDurationSeconds?: number;
+  /** Font key for the rate card (header + table) — see MESSAGE_FONTS. */
+  rateCardFont?: string | null;
+  /** Drop-down announcement (admin-only): short text shown briefly over the video area. */
+  announcementText?: string | null;
+  /** Optional small image shown in the announcement banner. */
+  announcementImageUrl?: string | null;
+  /** Seconds the announcement stays visible each time (default 5). */
+  announcementSeconds?: number;
+  /** Minutes between announcement repeats (default 3). */
+  announcementRepeatMinutes?: number;
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";

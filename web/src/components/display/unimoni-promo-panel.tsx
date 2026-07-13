@@ -19,6 +19,8 @@ interface UnimoniPromoPanelProps {
   onVideoError?: () => void;
   onVideoEnded?: () => void;
   className?: string;
+  /** Overlays scoped to the promo area (e.g. the drop-down announcement). */
+  children?: React.ReactNode;
 }
 
 export function UnimoniPromoPanel({
@@ -33,6 +35,7 @@ export function UnimoniPromoPanel({
   onVideoError,
   onVideoEnded,
   className = "",
+  children,
 }: UnimoniPromoPanelProps) {
   // A broken advert image URL must fall back to the branded placeholder, not
   // leave two-thirds of the TV black. Tracking the URL that failed (instead of
@@ -159,6 +162,8 @@ export function UnimoniPromoPanel({
           </p>
         </div>
       ) : null}
+
+      {children}
     </section>
   );
 }

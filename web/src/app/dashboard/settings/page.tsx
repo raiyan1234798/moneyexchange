@@ -21,8 +21,19 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
 
@@ -353,7 +364,9 @@ function BranchSettingsForm({
         <Label>Rate card note — first screen only</Label>
         <Input
           value={settings.rateCardNote ?? ""}
-          onChange={(event) => setSettings({ ...settings, rateCardNote: event.target.value || null })}
+          onChange={(event) =>
+            setSettings({ ...settings, rateCardNote: event.target.value.toUpperCase() || null })
+          }
           placeholder="WE BUY US $ SMALL BILLS 20,10,5,2 & 1 @3300"
           className="rounded-xl"
         />
@@ -456,6 +469,124 @@ function BranchSettingsForm({
               placeholder="e.g. ZERO FEES ON BANK TRANSFERS THIS WEEK!"
               className="rounded-xl"
             />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label>Rate card font</Label>
+        <Select
+          value={settings.rateCardFont ?? MESSAGE_FONTS[0].key}
+          onValueChange={(value) => setSettings({ ...settings, rateCardFont: value ?? null })}
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MESSAGE_FONTS.map((f) => (
+              <SelectItem key={f.key} value={f.key}>
+                {f.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="rounded-lg bg-[#0D2680] px-3 py-2">
+          <span
+            className="text-sm font-bold uppercase tracking-wide text-white"
+            style={{ fontFamily: messageFontCss(settings.rateCardFont) }}
+          >
+            Exchange Rates · USD 3650 / 3680
+          </span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Font for the rate card header and table on the TV.
+        </p>
+      </div>
+
+      {/* ---- Pop-up announcement over the video area (admin-only) ---- */}
+      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4">
+        <p className="mb-1 text-sm font-semibold">Pop-up announcement (video area)</p>
+        <p className="mb-4 text-xs text-muted-foreground">
+          A small banner drops down over the video for a few seconds and disappears — e.g. contest
+          winners. Text first; optional small image. Leave empty to turn it off.
+        </p>
+        <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>Announcement text</Label>
+            <Input
+              value={settings.announcementText ?? ""}
+              onChange={(event) =>
+                setSettings({ ...settings, announcementText: event.target.value || null })
+              }
+              placeholder="CONGRATULATIONS TO OUR SEND & WIN CONTEST WINNERS!"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="flex items-center gap-3">
+            <Input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              aria-label="Upload announcement image"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                try {
+                  const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                  setSettings({ ...settings, announcementImageUrl: dataUrl });
+                  toast.success("Announcement image ready — save to apply");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Could not read image");
+                }
+              }}
+              className="rounded-xl"
+            />
+            {settings.announcementImageUrl ? (
+              <div className="flex shrink-0 items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={settings.announcementImageUrl}
+                  alt="Announcement preview"
+                  className="h-10 w-14 shrink-0 rounded-md bg-white object-contain p-1 ring-1 ring-border"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => setSettings({ ...settings, announcementImageUrl: null })}
+                >
+                  Clear
+                </Button>
+              </div>
+            ) : null}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Visible for (seconds)</Label>
+              <Input
+                type="number"
+                min={2}
+                max={60}
+                value={settings.announcementSeconds ?? 5}
+                onChange={(event) =>
+                  setSettings({ ...settings, announcementSeconds: Number(event.target.value) })
+                }
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Repeat every (minutes)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={120}
+                value={settings.announcementRepeatMinutes ?? 3}
+                onChange={(event) =>
+                  setSettings({ ...settings, announcementRepeatMinutes: Number(event.target.value) })
+                }
+                className="rounded-xl"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -568,13 +699,33 @@ function BranchSettingsForm({
           </div>
         </div>
       </div>
-      <Button
-        onClick={() => void onSave({ logoUrl, brandingColor: color, settings })}
-        disabled={saving}
-        className="rounded-xl"
-      >
-        {saving ? "Saving..." : "Save Branch Settings"}
-      </Button>
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button disabled={saving} className="rounded-xl">
+              {saving ? "Saving..." : "Save Branch Settings"}
+            </Button>
+          }
+        />
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apply these display changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The branch TV updates immediately after saving. Please double-check the values before
+              confirming.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl"
+              onClick={() => void onSave({ logoUrl, brandingColor: color, settings })}
+            >
+              Yes, apply to the display
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </FormSection>
   );
 }
@@ -814,7 +965,10 @@ export default function SettingsPage() {
           </ContentPanel>
         ) : null}
 
-        <ContentPanel title="Branch Display Settings" description="Branding and ticker defaults for branch signage">
+        <ContentPanel
+          title="Branch Display Control"
+          description="Everything on the branch TV in ONE place — with a live preview. Changes apply after you confirm Save."
+        >
           {isSuperAdmin || isAdmin ? (
             <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
           ) : branch ? (
@@ -824,15 +978,32 @@ export default function SettingsPage() {
           ) : null}
 
           {effectiveBranchId && branch ? (
-            <BranchSettingsForm
-              key={branch.id}
-              branchName={branch.name}
-              initialLogoUrl={branch.logoUrl ?? ""}
-              initialColor={branch.brandingColor ?? "#0066B3"}
-              initialSettings={branch.settings}
-              saving={saving}
-              onSave={saveBranchSettings}
-            />
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
+              <BranchSettingsForm
+                key={branch.id}
+                branchName={branch.name}
+                initialLogoUrl={branch.logoUrl ?? ""}
+                initialColor={branch.brandingColor ?? "#0066B3"}
+                initialSettings={branch.settings}
+                saving={saving}
+                onSave={saveBranchSettings}
+              />
+              <div className="hidden xl:block">
+                <div className="sticky top-20 space-y-2">
+                  <Label>Live TV preview — {branch.name}</Label>
+                  <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
+                    <iframe
+                      src={`/display/?branch=${encodeURIComponent(branch.code)}`}
+                      title={`Live display preview for ${branch.name}`}
+                      className="aspect-video w-full border-0"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This is the real branch display, live. Saved changes appear here within seconds.
+                  </p>
+                </div>
+              </div>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">Select a branch to configure display settings.</p>
           )}

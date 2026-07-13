@@ -41,6 +41,8 @@ interface UnimoniRatesPanelProps {
   headerLogoUrl?: string | null;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  /** CSS font-family for the whole rate card (header + table). */
+  fontCss?: string;
   /** Seconds each rotating rate screen stays visible. Default 5. */
   sheetIntervalSeconds?: number;
   /** Promotional card: image shown as its own rotating screen. Hidden when empty. */
@@ -97,6 +99,7 @@ export function UnimoniRatesPanel({
   widthPercent,
   headerLogoUrl,
   rateCardNote,
+  fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
   promoText,
@@ -221,6 +224,7 @@ export function UnimoniRatesPanel({
 
   const asideStyle = {
     background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
+    fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
     width: widthPercent ? `${widthPercent}%` : undefined,
     "--rate-scale": scale,
   } as CSSProperties;
@@ -234,7 +238,7 @@ export function UnimoniRatesPanel({
           corner (values only, no labels). Flex — not absolute — so the date
           block can NEVER overlap the logo, even on a narrow card: the logo
           just shifts left when space runs out. */}
-      <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.1vh] font-[Arial,Helvetica,sans-serif]">
+      <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.1vh]">
         {/* Date/time is shrink-0 (it always keeps its corner) and the LOGO is
             the flexible one — it scales down via max-w-full + object-contain
             when the card is narrow. Overlap is impossible at any width. */}
@@ -261,11 +265,11 @@ export function UnimoniRatesPanel({
             {headerSubLabel}
           </p>
         </div>
-        <div className="flex shrink-0 flex-col items-end justify-center pl-[0.4vw] leading-tight">
-          <span className="whitespace-nowrap text-[clamp(0.6rem,1vw,1rem)] font-bold tabular-nums text-white">
+        <div className="flex shrink-0 flex-col items-end justify-end self-end pb-[0.2vh] pl-[0.4vw] leading-tight">
+          <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-semibold tabular-nums text-white/75">
             {now ? formatSignageDate(now) : "—"}
           </span>
-          <span className="whitespace-nowrap text-[clamp(0.6rem,1vw,1rem)] font-semibold tabular-nums text-white/85">
+          <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-medium tabular-nums text-white/65">
             {now ? formatSignageTime(now) : "—"}
           </span>
         </div>
@@ -305,7 +309,7 @@ export function UnimoniRatesPanel({
         ) : (
         <>
         <div
-          className="grid shrink-0 items-stretch px-2 py-[0.8vh] font-[Arial,Helvetica,sans-serif] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide"
+          className="grid shrink-0 items-stretch px-2 py-[0.8vh] text-[clamp(0.6rem,0.95vw,0.85rem)] font-bold uppercase tracking-wide"
           style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}
         >
           <span className="flex items-center justify-center">Currency</span>
@@ -332,7 +336,7 @@ export function UnimoniRatesPanel({
             ) : (
             <div
               key={rate.id}
-              className="display-rate-row grid min-h-0 items-stretch rounded-[6px] font-[Arial,Helvetica,sans-serif]"
+              className="display-rate-row grid min-h-0 items-stretch rounded-[6px]"
               style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT, gridTemplateColumns: gridColumns }}
             >
               <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.25vh] pl-[0.5vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
@@ -390,7 +394,7 @@ export function UnimoniRatesPanel({
           @3300"). FIRST rate screen only; editable in Settings per branch. */}
       {isFirstSheet && noteText ? (
         <div
-          className="shrink-0 px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-tight text-white"
+          className="shrink-0 px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold uppercase leading-tight text-white"
           style={{ fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)" }}
         >
           {noteText}
