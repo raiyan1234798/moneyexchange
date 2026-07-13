@@ -646,6 +646,26 @@ function BranchSettingsForm({
               Keep it short — the pop-up shows for a few seconds. Video plays muted.
             </p>
           </div>
+          <div className="space-y-2">
+            <Label>How it appears</Label>
+            <Select
+              value={settings.announcementStyle ?? "popup"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  announcementStyle: (value as "popup" | "fullscreen") ?? "popup",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="popup">Big pop-up card (centered over the video)</SelectItem>
+                <SelectItem value="fullscreen">Full screen — takes over the whole video area</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Visible for (seconds)</Label>

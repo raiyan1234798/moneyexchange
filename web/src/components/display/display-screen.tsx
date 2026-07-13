@@ -161,6 +161,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const announcementText = branchSettings.announcementText?.trim() || null;
   const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
   const announcementVideoUrl = branchSettings.announcementVideoUrl?.trim() || null;
+  const announcementStyle = branchSettings.announcementStyle ?? "popup";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
   const sheetIntervalSeconds = branchSettings.rateSheetIntervalSeconds ?? 5;
@@ -390,6 +391,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         text={announcementText}
         imageUrl={announcementImageUrl}
         videoUrl={announcementVideoUrl}
+        displayStyle={announcementStyle}
         visibleSeconds={announcementSeconds}
         repeatMinutes={announcementRepeatMinutes}
       />

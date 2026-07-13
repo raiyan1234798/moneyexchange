@@ -124,6 +124,8 @@ export interface BranchSettings {
   announcementImageUrl?: string | null;
   /** Optional short video in the announcement banner (direct/Drive link or R2 upload). */
   announcementVideoUrl?: string | null;
+  /** "popup" = big centered card; "fullscreen" = takes over the whole video area. */
+  announcementStyle?: "popup" | "fullscreen";
   /** Seconds the announcement stays visible each time (default 5). */
   announcementSeconds?: number;
   /** Minutes between announcement repeats (default 3). */
