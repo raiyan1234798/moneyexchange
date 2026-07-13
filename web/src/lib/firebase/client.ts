@@ -5,7 +5,7 @@ import {
   initializeFirestore,
   memoryLocalCache,
   persistentLocalCache,
-  persistentMultipleTabManager,
+  persistentSingleTabManager,
   type Firestore,
 } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
@@ -54,8 +54,11 @@ function createFirestore(app: FirebaseApp): Firestore {
       // Banks/corporate proxies often break WebChannel streaming — auto-detect
       // and fall back to long polling so live sync keeps working.
       experimentalAutoDetectLongPolling: true,
+      // Single-tab persistence: a TV runs ONE tab, and the multi-tab lease is
+      // exactly what wedged when several (old-deploy) tabs shared the cache.
+      // If a second tab does open, init throws and we fall back to memory.
       localCache: isTvRoute
-        ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        ? persistentLocalCache({ tabManager: persistentSingleTabManager(undefined) })
         : memoryLocalCache(),
     });
   } catch (error) {

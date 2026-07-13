@@ -40,42 +40,53 @@ export function subscribeBranchByCode(
   );
 
   let fallbackUnsub: (() => void) | undefined;
+  // An EMPTY result straight from the local cache is not the truth — it happens
+  // for a moment while (re)connecting or right after a deploy, and must never
+  // flash "Branch not found" on an unattended TV. Prefer a server-confirmed
+  // answer — but only for a few seconds: on a degraded connection the cached
+  // answer is far better than an endless spinner.
+  let acceptCache = false;
+  const cacheGraceTimer = setTimeout(() => {
+    acceptCache = true;
+    startFallback();
+  }, 4000);
+
+  function startFallback() {
+    if (fallbackUnsub) return;
+    fallbackUnsub = onSnapshot(
+      fallbackQuery,
+      (activeSnapshot) => {
+        if (activeSnapshot.metadata.fromCache && activeSnapshot.empty && !acceptCache) return;
+        const match = activeSnapshot.docs
+          .map((item) => ({ id: item.id, ...item.data() }) as Branch)
+          .find((branch) => branchMatchesCode(branch, normalized));
+        // Keep listening either way — a later server snapshot self-corrects.
+        onData(match ?? null);
+      },
+      () => onData(null),
+    );
+  }
 
   const exactUnsub = onSnapshot(
     exactQuery,
     (snapshot) => {
       const docSnap = snapshot.docs[0];
       if (docSnap) {
+        clearTimeout(cacheGraceTimer);
         fallbackUnsub?.();
         fallbackUnsub = undefined;
         onData({ id: docSnap.id, ...docSnap.data() } as Branch);
         return;
       }
 
-      // An EMPTY result straight from the local cache is not the truth — it
-      // happens for a moment while (re)connecting or right after a deploy, and
-      // must never flash "Branch not found" on an unattended TV. Wait for the
-      // server-confirmed snapshot before falling back / declaring not-found.
-      if (snapshot.metadata.fromCache) return;
-
-      if (!fallbackUnsub) {
-        fallbackUnsub = onSnapshot(
-          fallbackQuery,
-          (activeSnapshot) => {
-            if (activeSnapshot.metadata.fromCache && activeSnapshot.empty) return;
-            const match = activeSnapshot.docs
-              .map((item) => ({ id: item.id, ...item.data() }) as Branch)
-              .find((branch) => branchMatchesCode(branch, normalized));
-            onData(match ?? null);
-          },
-          () => onData(null),
-        );
-      }
+      if (snapshot.metadata.fromCache && !acceptCache) return;
+      startFallback();
     },
     () => onData(null),
   );
 
   return () => {
+    clearTimeout(cacheGraceTimer);
     exactUnsub();
     fallbackUnsub?.();
   };
