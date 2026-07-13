@@ -24,21 +24,19 @@ interface AnnouncementBannerProps {
  * either a BIG centered pop-up card, or a full takeover of the video area.
  * Carries text, an image, or a muted video.
  */
-export function AnnouncementBanner({
-  text,
-  imageUrl,
-  videoUrl,
-  displayStyle = "popup",
+/** Shared show/hide cycle: appears for N seconds, repeats every M minutes. */
+export function useAnnouncementCycle(
+  active: boolean,
   visibleSeconds = 5,
   repeatMinutes = 3,
-}: AnnouncementBannerProps) {
-  const message = text?.trim() || "";
-  const image = imageUrl?.trim() || "";
-  const video = videoUrl?.trim() || "";
+): boolean {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!message && !image && !video) return;
+    if (!active) {
+      setVisible(false);
+      return;
+    }
     const showMs = Math.max(2, visibleSeconds) * 1000;
     const gapMs = Math.max(0.5, repeatMinutes) * 60_000;
 
@@ -58,7 +56,76 @@ export function AnnouncementBanner({
       window.clearInterval(repeatTimer);
       if (hideTimer) window.clearTimeout(hideTimer);
     };
-  }, [message, image, video, visibleSeconds, repeatMinutes]);
+  }, [active, visibleSeconds, repeatMinutes]);
+
+  return visible;
+}
+
+/**
+ * Announcement as a bold YELLOW BAND in the ticker area (like the client's
+ * reference): swapped in for the scrolling bar during the announcement, no
+ * animation, back to the normal ticker afterwards. Rendered by display-screen.
+ */
+export function TickerAnnouncementBand({
+  text,
+  imageUrl,
+  heightScale = 1,
+}: {
+  text?: string | null;
+  imageUrl?: string | null;
+  heightScale?: number;
+}) {
+  const message = text?.trim() || "";
+  const image = imageUrl?.trim() || "";
+  return (
+    <footer
+      className="relative flex shrink-0 items-center justify-center gap-[1.2vw] overflow-hidden px-[1.5vw]"
+      style={{
+        height: `calc(clamp(3rem,6vh,4.5rem) * ${heightScale})`,
+        backgroundColor: "#F5B800",
+        borderTop: "3px solid #1A73C9",
+        borderBottom: "3px solid #1A73C9",
+      }}
+    >
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt="" className="h-[86%] w-auto shrink-0 rounded-sm object-contain" />
+      ) : null}
+      <p
+        className="min-w-0 truncate text-center font-extrabold uppercase leading-none text-white"
+        style={{
+          fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+          fontSize: `calc(clamp(1.4rem,3vh,2.6rem) * ${heightScale})`,
+          textShadow: "0 2px 4px rgba(0,0,0,0.35)",
+          letterSpacing: "0.04em",
+        }}
+      >
+        {message}
+      </p>
+      {image ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={image} alt="" className="h-[86%] w-auto shrink-0 rounded-sm object-contain" />
+      ) : null}
+    </footer>
+  );
+}
+
+export function AnnouncementBanner({
+  text,
+  imageUrl,
+  videoUrl,
+  displayStyle = "popup",
+  visibleSeconds = 5,
+  repeatMinutes = 3,
+}: AnnouncementBannerProps) {
+  const message = text?.trim() || "";
+  const image = imageUrl?.trim() || "";
+  const video = videoUrl?.trim() || "";
+  const visible = useAnnouncementCycle(
+    Boolean(message || image || video),
+    visibleSeconds,
+    repeatMinutes,
+  );
 
   if (!message && !image && !video) return null;
 

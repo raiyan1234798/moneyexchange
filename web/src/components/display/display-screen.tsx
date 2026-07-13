@@ -12,7 +12,11 @@ import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
 import { DEFAULT_BRANCH_SETTINGS, logoFontCss, messageFontCss } from "@/lib/constants";
 import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { UnimoniPromoPanel } from "@/components/display/unimoni-promo-panel";
-import { AnnouncementBanner } from "@/components/display/announcement-banner";
+import {
+  AnnouncementBanner,
+  TickerAnnouncementBand,
+  useAnnouncementCycle,
+} from "@/components/display/announcement-banner";
 import { UnimoniRatesPanel } from "@/components/display/unimoni-rates-panel";
 import { BreakingNewsTicker } from "@/components/display/breaking-news-ticker";
 import type { Branch, ExchangeRate, ImageAdvert, TickerMessage, TransferRate, VideoAsset } from "@/lib/types";
@@ -161,9 +165,21 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const announcementText = branchSettings.announcementText?.trim() || null;
   const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
   const announcementVideoUrl = branchSettings.announcementVideoUrl?.trim() || null;
-  const announcementStyle = branchSettings.announcementStyle ?? "popup";
+  const announcementStyle = (branchSettings.announcementStyle ?? "popup") as "popup" | "fullscreen" | "band";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
+  const hasAnnouncement = Boolean(
+    announcementText || announcementImageUrl || announcementVideoUrl,
+  );
+  // The "band" style swaps the yellow announcement bar in for the scrolling
+  // ticker during the announcement window — no animation, back to normal after.
+  // The hook runs unconditionally (Rules of Hooks); gate the result by style.
+  const bandCycleVisible = useAnnouncementCycle(
+    hasAnnouncement && announcementStyle === "band",
+    announcementSeconds,
+    announcementRepeatMinutes,
+  );
+  const bandActive = announcementStyle === "band" && bandCycleVisible;
   const sheetIntervalSeconds = branchSettings.rateSheetIntervalSeconds ?? 5;
   const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
   const ratePromoText = branchSettings.ratePromoText?.trim() || null;
@@ -386,15 +402,18 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       }}
       onVideoEnded={handleVideoEnded}
     >
-      {/* Admin-controlled drop-down announcement — over the video area only. */}
-      <AnnouncementBanner
-        text={announcementText}
-        imageUrl={announcementImageUrl}
-        videoUrl={announcementVideoUrl}
-        displayStyle={announcementStyle}
-        visibleSeconds={announcementSeconds}
-        repeatMinutes={announcementRepeatMinutes}
-      />
+      {/* Admin-controlled announcement over the video area (pop-up / full screen).
+          The "band" style is rendered in the ticker slot instead (below). */}
+      {announcementStyle !== "band" ? (
+        <AnnouncementBanner
+          text={announcementText}
+          imageUrl={announcementImageUrl}
+          videoUrl={announcementVideoUrl}
+          displayStyle={announcementStyle}
+          visibleSeconds={announcementSeconds}
+          repeatMinutes={announcementRepeatMinutes}
+        />
+      ) : null}
     </UnimoniPromoPanel>
   );
 
@@ -460,22 +479,30 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         {ratesPanel}
       </div>
 
-      <BreakingNewsTicker
-        messages={tickerMessages}
-        logoUrl={tickerLogoUrl}
-        logoText={tickerLogoText}
-        logoFontCss={tickerLogoFontCss}
-        messageFontCss={tickerMessageFontCss}
-        scrollSpeedSeconds={tickerSpeed}
-        fontColor={tickerFontColor}
-        fontSize={tickerFontSize}
-        paused={tickerPaused}
-        headline={tickerHeadline}
-        heightScale={tickerScale}
-        logoScale={logoScale}
-        logoAnimation={tickerLogoAnimation}
-        scrollingLogos={scrollingLogos}
-      />
+      {bandActive ? (
+        <TickerAnnouncementBand
+          text={announcementText}
+          imageUrl={announcementImageUrl}
+          heightScale={tickerScale}
+        />
+      ) : (
+        <BreakingNewsTicker
+          messages={tickerMessages}
+          logoUrl={tickerLogoUrl}
+          logoText={tickerLogoText}
+          logoFontCss={tickerLogoFontCss}
+          messageFontCss={tickerMessageFontCss}
+          scrollSpeedSeconds={tickerSpeed}
+          fontColor={tickerFontColor}
+          fontSize={tickerFontSize}
+          paused={tickerPaused}
+          headline={tickerHeadline}
+          heightScale={tickerScale}
+          logoScale={logoScale}
+          logoAnimation={tickerLogoAnimation}
+          scrollingLogos={scrollingLogos}
+        />
+      )}
 
       <style jsx global>{`
         .display-kiosk:hover button[aria-label="Exit fullscreen"] {

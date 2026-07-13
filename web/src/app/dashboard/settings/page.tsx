@@ -61,6 +61,7 @@ function BranchSettingsForm({
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [color, setColor] = useState(initialColor);
   const [settings, setSettings] = useState(initialSettings);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   return (
     <FormSection title={`${branchName} Branding`}>
@@ -653,7 +654,7 @@ function BranchSettingsForm({
               onValueChange={(value) =>
                 setSettings({
                   ...settings,
-                  announcementStyle: (value as "popup" | "fullscreen") ?? "popup",
+                  announcementStyle: (value as "popup" | "fullscreen" | "band") ?? "popup",
                 })
               }
             >
@@ -661,6 +662,7 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="band">Yellow bar (in the scrolling-message row)</SelectItem>
                 <SelectItem value="popup">Big pop-up card (centered over the video)</SelectItem>
                 <SelectItem value="fullscreen">Full screen — takes over the whole video area</SelectItem>
               </SelectContent>
@@ -805,7 +807,7 @@ function BranchSettingsForm({
           </div>
         </div>
       </div>
-      <AlertDialog>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogTrigger
           render={
             <Button disabled={saving} className="rounded-xl">
@@ -825,7 +827,12 @@ function BranchSettingsForm({
             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl"
-              onClick={() => void onSave({ logoUrl, brandingColor: color, settings })}
+              onClick={() => {
+                // Close the dialog immediately, then save — the success toast
+                // confirms the write, so the confirm never lingers on screen.
+                setConfirmOpen(false);
+                void onSave({ logoUrl, brandingColor: color, settings });
+              }}
             >
               Yes, apply to the display
             </AlertDialogAction>
