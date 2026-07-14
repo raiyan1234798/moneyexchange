@@ -662,11 +662,15 @@ export default function ExchangeRatesPage() {
               <div className="max-w-xl">
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
                   <FileSpreadsheet className="h-5 w-5" />
-                  <p className="text-sm font-semibold">Step 2: Import rates from Excel</p>
+                  <p className="text-sm font-semibold">Step 2: Import FOREX rates from Excel</p>
                 </div>
                 <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
-                  Update all currencies in one upload
+                  Forex (WE BUY / WE SELL) — update all in one upload
                 </h2>
+                <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  This is for FOREX rates only. Money-transfer rates are separate — set them in the
+                  &quot;Transfer Rates&quot; section further down (they apply to every branch).
+                </p>
                 <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                   <li>
                     <strong className="text-foreground">Download</strong> the template below

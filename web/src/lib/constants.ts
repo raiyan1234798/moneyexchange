@@ -64,6 +64,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   // shows the whole frame on a blurred fill.
   videoFit: "stretch" as "contain" | "cover" | "auto" | "stretch",
   rateCardScale: 1,
+  rateCurrencyScale: 1,
+  rateValueScale: 1,
   tickerScale: 1,
   logoScale: 1,
   tickerLogoAnimation: "spin" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
@@ -72,13 +74,17 @@ export const DEFAULT_BRANCH_SETTINGS = {
   headerLogoUrl: null as string | null,
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,
+  rateNotePlacement: "first" as "first" | "all",
   rateSheetIntervalSeconds: 5,
   // Order the rotating rate-card slides appear in (client can pick which shows
   // first). Only the slides that actually exist are shown, in this order.
   rateCardOrder: ["forex", "transfer", "promo"] as Array<"forex" | "transfer" | "promo">,
   ratePromoImageUrl: null as string | null,
+  ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,
+  // ONE font for the whole display — overrides all the individual fonts below.
+  displayFont: null as string | null,
   rateCardFont: null as string | null,
   announcementText: null as string | null,
   announcementImageUrl: null as string | null,
@@ -87,8 +93,14 @@ export const DEFAULT_BRANCH_SETTINGS = {
   // "band"=bottom message strip, "video-top"=strip at the top of the video,
   // "popup"=big card over the video, "fullscreen"=whole video area,
   // "rate-card"=inside the rate-card panel.
-  announcementStyle: "popup" as "popup" | "fullscreen" | "band" | "video-top" | "rate-card",
-  announcementAnimation: "slide" as "slide" | "fade" | "zoom" | "flip",
+  announcementStyle: "lower-third" as
+    | "popup"
+    | "fullscreen"
+    | "band"
+    | "video-top"
+    | "rate-card"
+    | "lower-third",
+  announcementAnimation: "slide" as "none" | "slide" | "fade" | "zoom" | "flip",
   // Font + colour treatment for the announcement text.
   announcementFont: null as string | null,
   announcementColorStyle: "white" as "white" | "logo" | "gold" | "navy",
@@ -128,18 +140,38 @@ export const RECOMMENDED_VIDEO_FORMATS = [
 
 /** Font styles for a TEXT logo on the display ticker badge. */
 export const LOGO_FONTS: Array<{ key: string; label: string; css: string }> = [
-  { key: "sans-bold", label: "Bold Sans", css: "'Arial Black', Arial, Helvetica, sans-serif" },
-  // The unimoni creative font (rounded, used across their promo artwork) —
-  // self-hosted via next/font as --font-brand.
-  { key: "brand", label: "Unimoni Brand (Rounded)", css: "var(--font-brand), 'Trebuchet MS', 'Segoe UI', sans-serif" },
-  // Bold geometric sans matching the unimoni headline "CHOOSE US FOR MONEY
-  // EXCHANGE" artwork — self-hosted via next/font.
-  { key: "montserrat", label: "Unimoni Headline (Montserrat)", css: "var(--font-montserrat), 'Segoe UI', Arial, sans-serif" },
-  { key: "poppins", label: "Poppins (Geometric)", css: "var(--font-poppins), 'Segoe UI', Arial, sans-serif" },
-  { key: "serif", label: "Classic Serif", css: "Georgia, 'Times New Roman', serif" },
-  { key: "condensed", label: "Condensed", css: "'Arial Narrow', 'Helvetica Neue', sans-serif" },
-  { key: "rounded", label: "Rounded", css: "'Trebuchet MS', 'Segoe UI', sans-serif" },
-  { key: "mono", label: "Monospace", css: "'Courier New', monospace" },
+  // ---- Sans-serif ----
+  { key: "sans-bold", label: "Bold Sans (Arial Black)", css: "'Arial Black', Arial, Helvetica, sans-serif" },
+  { key: "inter", label: "Inter (Sans-serif)", css: "var(--font-inter), Arial, sans-serif" },
+  { key: "roboto", label: "Roboto (Sans-serif)", css: "var(--font-roboto), Arial, sans-serif" },
+  { key: "open-sans", label: "Open Sans (Sans-serif)", css: "var(--font-open-sans), Arial, sans-serif" },
+  { key: "lato", label: "Lato (Sans-serif)", css: "var(--font-lato), Arial, sans-serif" },
+  { key: "work-sans", label: "Work Sans (Sans-serif)", css: "var(--font-work-sans), Arial, sans-serif" },
+  // The unimoni creative font (rounded, used across their promo artwork).
+  { key: "brand", label: "Unimoni Brand (Nunito, rounded)", css: "var(--font-brand), 'Trebuchet MS', 'Segoe UI', sans-serif" },
+  // Bold geometric sans matching the "CHOOSE US FOR MONEY EXCHANGE" artwork.
+  { key: "montserrat", label: "Montserrat (Unimoni headline)", css: "var(--font-montserrat), 'Segoe UI', Arial, sans-serif" },
+  { key: "poppins", label: "Poppins (Geometric sans)", css: "var(--font-poppins), 'Segoe UI', Arial, sans-serif" },
+  // ---- Condensed / tall / display ----
+  { key: "oswald", label: "Oswald (Condensed)", css: "var(--font-oswald), 'Arial Narrow', sans-serif" },
+  { key: "teko", label: "Teko (Tall condensed)", css: "var(--font-teko), 'Arial Narrow', sans-serif" },
+  { key: "bebas", label: "Bebas Neue (Tall caps)", css: "var(--font-bebas), 'Arial Narrow', sans-serif" },
+  { key: "anton", label: "Anton (Heavy impact)", css: "var(--font-anton), 'Arial Black', sans-serif" },
+  { key: "condensed", label: "Condensed (Arial Narrow)", css: "'Arial Narrow', 'Helvetica Neue', sans-serif" },
+  // ---- Rounded ----
+  { key: "quicksand", label: "Quicksand (Rounded)", css: "var(--font-quicksand), 'Trebuchet MS', sans-serif" },
+  { key: "baloo", label: "Baloo (Rounded bold)", css: "var(--font-baloo), 'Trebuchet MS', sans-serif" },
+  { key: "rounded", label: "Rounded (Trebuchet)", css: "'Trebuchet MS', 'Segoe UI', sans-serif" },
+  // ---- Serif ----
+  { key: "playfair", label: "Playfair (Elegant serif)", css: "var(--font-playfair), Georgia, serif" },
+  { key: "merriweather", label: "Merriweather (Serif)", css: "var(--font-merriweather), Georgia, serif" },
+  { key: "lora", label: "Lora (Serif)", css: "var(--font-lora), Georgia, serif" },
+  { key: "roboto-slab", label: "Roboto Slab (Slab serif)", css: "var(--font-roboto-slab), Georgia, serif" },
+  { key: "serif", label: "Classic Serif (Georgia)", css: "Georgia, 'Times New Roman', serif" },
+  // ---- Monospace / script ----
+  { key: "roboto-mono", label: "Roboto Mono (Monospace)", css: "var(--font-roboto-mono), 'Courier New', monospace" },
+  { key: "mono", label: "Monospace (Courier)", css: "'Courier New', monospace" },
+  { key: "pacifico", label: "Pacifico (Handwriting)", css: "var(--font-pacifico), cursive" },
 ];
 
 export function logoFontCss(key: string | null | undefined): string {

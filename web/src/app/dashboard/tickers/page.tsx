@@ -281,7 +281,7 @@ export default function TickersPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {MESSAGE_FONTS.map((f) => (
-                          <SelectItem key={f.key} value={f.key}>
+                          <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
                             {f.label}
                           </SelectItem>
                         ))}
@@ -337,7 +337,7 @@ export default function TickersPage() {
                           </SelectTrigger>
                           <SelectContent>
                             {LOGO_FONTS.map((f) => (
-                              <SelectItem key={f.key} value={f.key}>
+                              <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
                                 {f.label}
                               </SelectItem>
                             ))}

@@ -34,12 +34,16 @@ interface TimedRatesPanelProps {
   transferRates: TransferRate[];
   transferLocalLabel: string;
   scale: number;
+  currencyScale: number;
+  valueScale: number;
   widthPercent: number;
   headerLogoUrl: string | null;
   rateCardNote: string | null;
+  rateNotePlacement: "first" | "all";
   fontCss: string;
   sheetIntervalSeconds: number;
   promoImageUrl: string | null;
+  promoTextTop: string | null;
   promoText: string | null;
   promoDurationSeconds: number;
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
@@ -54,12 +58,16 @@ function TimedRatesPanel({
   transferRates,
   transferLocalLabel,
   scale,
+  currencyScale,
+  valueScale,
   widthPercent,
   headerLogoUrl,
   rateCardNote,
+  rateNotePlacement,
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
+  promoTextTop,
   promoText,
   promoDurationSeconds,
   rateCardOrder,
@@ -86,12 +94,16 @@ function TimedRatesPanel({
       transferRates={transferRates}
       transferLocalLabel={transferLocalLabel}
       scale={scale}
+      currencyScale={currencyScale}
+      valueScale={valueScale}
       widthPercent={widthPercent}
       headerLogoUrl={headerLogoUrl}
       rateCardNote={rateCardNote}
+      rateNotePlacement={rateNotePlacement}
       fontCss={fontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={promoImageUrl}
+      promoTextTop={promoTextTop}
       promoText={promoText}
       promoDurationSeconds={promoDurationSeconds}
       rateCardOrder={rateCardOrder}
@@ -153,6 +165,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const effectivePromoWidth = adaptivePromoPercent ?? videoWidthPercent;
   const rateWidthPercent = 100 - effectivePromoWidth;
   const rateCardScale = branchSettings.rateCardScale ?? 1;
+  const rateCurrencyScale = branchSettings.rateCurrencyScale ?? 1;
+  const rateValueScale = branchSettings.rateValueScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
   // Transfer is its own rotating card now (not a column). Back-compat: honour the
@@ -164,16 +178,21 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
   const rateCardNote = branchSettings.rateCardNote?.trim() || null;
-  const rateCardFontCss = messageFontCss(branchSettings.rateCardFont);
+  const rateNotePlacement = (branchSettings.rateNotePlacement ?? "first") as "first" | "all";
+  // ONE font for the whole screen. When set, it overrides every element's font
+  // below (rate card, announcement, ticker message, ticker logo).
+  const masterFont = branchSettings.displayFont?.trim() || null;
+  const rateCardFontCss = messageFontCss(masterFont || branchSettings.rateCardFont);
   const announcementText = branchSettings.announcementText?.trim() || null;
   const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
   const announcementVideoUrl = branchSettings.announcementVideoUrl?.trim() || null;
-  const announcementStyle = (branchSettings.announcementStyle ?? "popup") as
+  const announcementStyle = (branchSettings.announcementStyle ?? "lower-third") as
     | "popup"
     | "fullscreen"
     | "band"
     | "video-top"
-    | "rate-card";
+    | "rate-card"
+    | "lower-third";
   const announcementAnimation = (branchSettings.announcementAnimation ?? "slide") as
     | "slide"
     | "fade"
@@ -181,7 +200,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     | "flip";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
-  const announcementFontCss = messageFontCss(branchSettings.announcementFont);
+  const announcementFontCss = messageFontCss(masterFont || branchSettings.announcementFont);
   const announcementColorStyle = (branchSettings.announcementColorStyle ?? "white") as
     | "white"
     | "logo"
@@ -214,6 +233,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     : ["forex", "transfer", "promo"]) as Array<"forex" | "transfer" | "promo">;
   const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
   const ratePromoText = branchSettings.ratePromoText?.trim() || null;
+  const ratePromoTextTop = branchSettings.ratePromoTextTop?.trim() || null;
   const ratePromoDurationSeconds =
     branchSettings.ratePromoDurationSeconds ?? sheetIntervalSeconds;
 
@@ -331,9 +351,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerLogoUrl =
     branch?.logoUrl || branchSettings.tickerLogoUrl || activeTicker?.logoUrl || null;
   const tickerLogoText = activeTicker?.logoText || branchSettings.tickerLogoText || null;
-  const tickerLogoFontCss = logoFontCss(activeTicker?.logoFont || branchSettings.tickerLogoFont);
+  const tickerLogoFontCss = logoFontCss(
+    masterFont || activeTicker?.logoFont || branchSettings.tickerLogoFont,
+  );
   const tickerMessageFontCss = messageFontCss(
-    activeTicker?.messageFont || branchSettings.tickerMessageFont,
+    masterFont || activeTicker?.messageFont || branchSettings.tickerMessageFont,
   );
   // The gold "breaking" headline tab is editable and removable per branch:
   // turn it off entirely, or set custom text (falls back to the first message /
@@ -436,7 +458,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       {/* Admin-controlled announcement over the video area (pop-up / full screen).
           band / video-top render in the message strip, rate-card over the rate
           panel (both below, outside the promo panel). */}
-      {announcementOn && (announcementStyle === "popup" || announcementStyle === "fullscreen") ? (
+      {announcementOn &&
+      (announcementStyle === "popup" ||
+        announcementStyle === "fullscreen" ||
+        announcementStyle === "lower-third") ? (
         <AnnouncementBanner
           text={announcementText}
           imageUrl={announcementImageUrl}
@@ -447,6 +472,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           maxTimes={announcementMaxTimes}
           fontCss={announcementFontCss}
           colorStyle={announcementColorStyle}
+          animation={announcementAnimation}
         />
       ) : null}
     </UnimoniPromoPanel>
@@ -463,12 +489,16 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       transferRates={transferRates}
       transferLocalLabel={transferLocalLabel}
       scale={rateCardScale}
+      currencyScale={rateCurrencyScale}
+      valueScale={rateValueScale}
       widthPercent={rateWidthPercent}
       headerLogoUrl={headerLogoUrl}
       rateCardNote={rateCardNote}
+      rateNotePlacement={rateNotePlacement}
       fontCss={rateCardFontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={ratePromoImageUrl}
+      promoTextTop={ratePromoTextTop}
       promoText={ratePromoText}
       promoDurationSeconds={ratePromoDurationSeconds}
       rateCardOrder={rateCardOrder}
@@ -507,8 +537,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
       <div
         ref={mainAreaRef}
-        className={`display-main-area flex h-full min-h-0 flex-1 flex-col lg:items-stretch ${
-          rateCardPosition === "left" ? "lg:flex-row-reverse" : "lg:flex-row"
+        // A TV is landscape: ALWAYS lay the video + rate card side-by-side when the
+        // screen is wider than tall, regardless of pixel width (many Android TVs
+        // report a narrow logical width and were falling into the phone "stacked"
+        // layout). Portrait phones still stack (handled in the style block below).
+        className={`display-main-area flex h-full min-h-0 flex-1 flex-col items-stretch ${
+          rateCardPosition === "left" ? "landscape:flex-row-reverse" : "landscape:flex-row"
         }`}
       >
         {promoPanel}
@@ -568,6 +602,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
             maxTimes={announcementMaxTimes}
             fontCss={announcementFontCss}
             colorStyle={announcementColorStyle}
+            animation={announcementAnimation}
           />
         </div>
       ) : null}
@@ -582,9 +617,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         .display-kiosk:hover {
           cursor: default;
         }
-        @media (max-width: 1023px) {
-          /* Stack vertically on phones/tablets — neutralise the desktop inline
-             widths so each area spans the full width, not a narrow column. */
+        /* Stack vertically ONLY in portrait (phones) — a landscape TV always keeps
+           the side-by-side layout, even at a narrow logical width. */
+        @media (orientation: portrait) {
           .display-main-area .display-promo-panel,
           .display-main-area .display-rates-panel {
             width: 100% !important;

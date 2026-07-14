@@ -35,19 +35,27 @@ interface UnimoniRatesPanelProps {
   transferLocalLabel?: string;
   /** Multiplier for the rate-card text/row size (default 1). */
   scale?: number;
+  /** Extra size multiplier for the CURRENCY code text only (default 1). */
+  currencyScale?: number;
+  /** Extra size multiplier for the WE BUY / WE SELL values only (default 1). */
+  valueScale?: number;
   /** Width of the rate card as a % of the screen (desktop/TV only). */
   widthPercent?: number;
   /** Custom brand logo (rebrand) for the header — overrides the unimoni logo. */
   headerLogoUrl?: string | null;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
+  rateNotePlacement?: "first" | "all";
   /** CSS font-family for the whole rate card (header + table). */
   fontCss?: string;
   /** Seconds each rotating rate screen stays visible. Default 5. */
   sheetIntervalSeconds?: number;
   /** Promotional card: image shown as its own rotating screen. Hidden when empty. */
   promoImageUrl?: string | null;
-  /** Promotional card: text message (alone, or under the image). */
+  /** Promotional card: text ABOVE the image. */
+  promoTextTop?: string | null;
+  /** Promotional card: text message below the image (alone, or under the image). */
   promoText?: string | null;
   /** Seconds the promotional card stays visible (defaults to sheetIntervalSeconds). */
   promoDurationSeconds?: number;
@@ -98,12 +106,16 @@ export function UnimoniRatesPanel({
   transferRates,
   transferLocalLabel = "UGX",
   scale = 1,
+  currencyScale = 1,
+  valueScale = 1,
   widthPercent,
   headerLogoUrl,
   rateCardNote,
+  rateNotePlacement = "first",
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
+  promoTextTop,
   promoText,
   promoDurationSeconds,
   rateCardOrder,
@@ -146,7 +158,8 @@ export function UnimoniRatesPanel({
   // ("if we don't upload, it will not display").
   const promoImage = promoImageUrl?.trim() || "";
   const promoMessage = promoText?.trim() || "";
-  const hasPromoCard = Boolean(promoImage || promoMessage);
+  const promoTop = promoTextTop?.trim() || "";
+  const hasPromoCard = Boolean(promoImage || promoMessage || promoTop);
   // Build each slide group, then lay them out in the admin-chosen order.
   const forexSheets = chunkRows(rows, "rates");
   const transferSheets = chunkRows(transferRows, "transfer");
@@ -181,10 +194,17 @@ export function UnimoniRatesPanel({
   const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
   const isPromoSheet = activeSheet.kind === "promo";
-  // The note line shows on the FIRST rate screen only (page 0), never on later
-  // pages or the transfer card.
-  const isFirstSheet = sheetIndex % sheetCount === 0 && activeSheet.kind === "rates";
+  // The note ("WE BUY US$ small bills @ …") belongs to the FOREX rates. It shows
+  // on the first forex page WHEREVER it lands in the chosen slide order (so it
+  // still appears even when transfer/promo is set first), or on every forex page
+  // when rateNotePlacement === "all".
+  const activeIndex = sheetIndex % sheetCount;
+  const firstForexIndex = sheets.findIndex((sheet) => sheet.kind === "rates");
   const noteText = rateCardNote?.trim() || "";
+  const showNote =
+    Boolean(noteText) &&
+    activeSheet.kind === "rates" &&
+    (rateNotePlacement === "all" || activeIndex === firstForexIndex);
 
   if (variant === "board") {
     return (
@@ -223,8 +243,9 @@ export function UnimoniRatesPanel({
     if (showSellRate) valueColumns.push({ key: "sell", header: "We Sell", get: (r) => r.sellRate });
   }
   const gridColumns = `1.5fr ${valueColumns.map(() => "1fr").join(" ")}`.trim();
+  // No sub-label on the promotion screen (client: remove "SPECIAL OFFER").
   const headerSubLabel = isPromoSheet
-    ? "Special Offer"
+    ? ""
     : isTransferSheet
       ? "Transfer Rates"
       : "Exchange Rates";
@@ -234,6 +255,8 @@ export function UnimoniRatesPanel({
     fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
     width: widthPercent ? `${widthPercent}%` : undefined,
     "--rate-scale": scale,
+    "--currency-scale": currencyScale,
+    "--value-scale": valueScale,
   } as CSSProperties;
 
   return (
@@ -268,18 +291,26 @@ export function UnimoniRatesPanel({
               priority
             />
           )}
-          <p className="whitespace-nowrap text-[clamp(0.5rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.18em] text-white/85">
-            {headerSubLabel}
-          </p>
+          {headerSubLabel ? (
+            <p className="whitespace-nowrap text-[clamp(0.5rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.18em] text-white/85">
+              {headerSubLabel}
+            </p>
+          ) : null}
         </div>
-        <div className="flex shrink-0 flex-col items-end justify-end self-end pb-[0.2vh] pl-[0.4vw] leading-tight">
-          <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-semibold tabular-nums text-white/75">
-            {now ? formatSignageDate(now) : "—"}
-          </span>
-          <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-medium tabular-nums text-white/65">
-            {now ? formatSignageTime(now) : "—"}
-          </span>
-        </div>
+        {/* Date + time — hidden on the promotion screen (client request); the
+            balancing spacer keeps the logo centered when it's gone. */}
+        {isPromoSheet ? (
+          <div className="min-w-0 flex-1" aria-hidden />
+        ) : (
+          <div className="flex shrink-0 flex-col items-end justify-end self-end pb-[0.2vh] pl-[0.4vw] leading-tight">
+            <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-semibold tabular-nums text-white/75">
+              {now ? formatSignageDate(now) : "—"}
+            </span>
+            <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-medium tabular-nums text-white/65">
+              {now ? formatSignageTime(now) : "—"}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* White table card FILLS the panel height (no empty blue area below the
@@ -290,14 +321,32 @@ export function UnimoniRatesPanel({
           // uploaded image (whole image visible) and/or a message.
           <div
             key={`promo-${sheetIndex}`}
-            className="rates-sheet-fade flex min-h-0 flex-1 flex-col items-center justify-center gap-[1vh] p-[0.8vw]"
+            className={`rates-sheet-fade flex min-h-0 flex-1 flex-col items-center justify-center ${
+              promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""
+            }`}
           >
+            {promoTop ? (
+              <p
+                className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
+                style={{
+                  color: NAVY_TEXT,
+                  fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+                  fontSize: promoImage ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                }}
+              >
+                {promoTop}
+              </p>
+            ) : null}
             {promoImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={promoImage}
                 alt="Promotion"
-                className="min-h-0 w-full flex-1 object-contain"
+                // With no text the image FILLS the whole card (no empty gaps);
+                // with text it uses contain so the whole image + text both fit.
+                className={`min-h-0 w-full flex-1 ${
+                  promoTop || promoMessage ? "object-contain" : "object-cover"
+                }`}
               />
             ) : null}
             {promoMessage ? (
@@ -399,7 +448,7 @@ export function UnimoniRatesPanel({
       {/* Per-branch note BELOW the white card, on the blue panel — bold white
           text like the client's reference board ("WE BUY US $ SMALL BILLS …
           @3300"). FIRST rate screen only; editable in Settings per branch. */}
-      {isFirstSheet && noteText ? (
+      {showNote ? (
         <div
           className="shrink-0 px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold uppercase leading-tight text-white"
           style={{ fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)" }}

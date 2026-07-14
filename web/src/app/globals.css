@@ -374,12 +374,12 @@
      rows on a wide card get big, clear rates; a narrow card caps the size so
      currency codes never truncate. */
   .display-rate-currency {
-    font-size: calc(clamp(0.7rem, min(46cqh, 6.5cqw), 1.55rem) * var(--rate-scale, 1));
+    font-size: calc(clamp(0.7rem, min(46cqh, 6.5cqw), 1.55rem) * var(--rate-scale, 1) * var(--currency-scale, 1));
     line-height: 1.05;
   }
 
   .display-rate-value {
-    font-size: calc(clamp(0.65rem, min(44cqh, 6cqw), 1.5rem) * var(--rate-scale, 1));
+    font-size: calc(clamp(0.65rem, min(44cqh, 6cqw), 1.5rem) * var(--rate-scale, 1) * var(--value-scale, 1));
     line-height: 1.05;
   }
 }

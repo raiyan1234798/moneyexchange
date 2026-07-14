@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2, RefreshCw, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { toast } from "sonner";
-import { UnimoniLogo } from "@/components/brand/unimoni-logo";
+import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { HeroReveal } from "@/components/motion/reveal";
 import { PublicShell } from "@/components/layout/public-shell";
 import { useAuth } from "@/contexts/auth-context";
@@ -161,7 +161,7 @@ export default function LoginPage() {
           <div className="pointer-events-none absolute inset-0 bg-[var(--gradient-hero)] opacity-95" />
           <div className="pointer-events-none absolute inset-0 grid-pattern opacity-30" />
           <div className="relative z-10">
-            <UnimoniLogo size="lg" variant="onDark" />
+            <UnimoniLogoImage variant="onDark" height={60} priority />
           </div>
           <div className="relative z-10 space-y-6">
             <h2 className="max-w-md text-3xl font-semibold tracking-tight text-white xl:text-4xl">
@@ -184,7 +184,8 @@ export default function LoginPage() {
         <div className="flex items-center justify-center px-4 py-10 sm:px-6 lg:px-10">
           <HeroReveal className="glass-panel-elevated gradient-border w-full max-w-md p-6 sm:p-8 lg:p-10">
             <div className="mb-6 flex flex-col items-center text-center lg:hidden">
-              <UnimoniLogo size="lg" />
+              <UnimoniLogoImage variant="default" height={54} priority className="dark:hidden" />
+              <UnimoniLogoImage variant="onDark" height={54} priority className="hidden dark:block" />
             </div>
             <h1 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">Sign in</h1>
             <p className="mt-2 text-center text-sm text-muted-foreground">

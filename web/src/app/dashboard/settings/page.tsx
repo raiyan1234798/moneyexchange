@@ -366,7 +366,7 @@ function BranchSettingsForm({
         </p>
       </div>
       <div className="space-y-2">
-        <Label>Rate card note — first screen only</Label>
+        <Label>Rate card note (WE BUY @ …)</Label>
         <Input
           value={settings.rateCardNote ?? ""}
           onChange={(event) =>
@@ -375,10 +375,26 @@ function BranchSettingsForm({
           placeholder="WE BUY US $ SMALL BILLS 20,10,5,2 & 1 @3300"
           className="rounded-xl"
         />
+        <div className="pt-1">
+          <Label className="mb-1 block text-xs">Show the note on</Label>
+          <Select
+            value={settings.rateNotePlacement ?? "first"}
+            onValueChange={(value) =>
+              setSettings({ ...settings, rateNotePlacement: (value as "first" | "all") ?? "first" })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="first">The first forex rate page only</SelectItem>
+              <SelectItem value="all">Every forex rate page</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <p className="text-xs text-muted-foreground">
-          Shows as plain bold text at the bottom of the FIRST rate screen only (not on later pages or
-          the transfer card) — e.g. &quot;WE BUY US $ SMALL BILLS 20,10,5,2 &amp; 1 @3300&quot;. Edit the
-          rate here anytime. Leave blank to hide it.
+          Bold text at the bottom of the forex rates. It follows the forex page wherever you put it in
+          the slide order — so it appears even when transfer or promo is first. Leave blank to hide it.
         </p>
       </div>
 
@@ -422,10 +438,21 @@ function BranchSettingsForm({
       <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
         <p className="mb-1 text-sm font-semibold">Promotion card (rate-card rotation)</p>
         <p className="mb-4 text-xs text-muted-foreground">
-          Upload a promotional image and/or type a message — it appears as its own screen in the
-          rate-card rotation (after the rate and transfer screens). Leave both empty to hide it.
+          Add a message above and/or below the image — it appears as its own screen in the rate-card
+          rotation. With no text the image fills the whole card; leave everything empty to hide it.
         </p>
         <div className="space-y-3">
+          <div className="space-y-2">
+            <Label>Message ABOVE the image (optional)</Label>
+            <Input
+              value={settings.ratePromoTextTop ?? ""}
+              onChange={(event) =>
+                setSettings({ ...settings, ratePromoTextTop: event.target.value || null })
+              }
+              placeholder="e.g. HI UNIMONI !"
+              className="rounded-xl"
+            />
+          </div>
           <div className="flex items-center gap-3">
             <Input
               type="file"
@@ -465,7 +492,7 @@ function BranchSettingsForm({
             ) : null}
           </div>
           <div className="space-y-2">
-            <Label>Promotion message (optional)</Label>
+            <Label>Message BELOW the image (optional)</Label>
             <Input
               value={settings.ratePromoText ?? ""}
               onChange={(event) =>
@@ -508,34 +535,36 @@ function BranchSettingsForm({
         </p>
       </div>
 
-      <div className="space-y-2">
-        <Label>Rate card font</Label>
+      {/* ---- ONE font for the whole screen ---- */}
+      <div className="space-y-2 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
+        <Label className="text-base">Display font — changes ALL text on the TV</Label>
+        <p className="text-xs text-muted-foreground">
+          One font for the whole screen: the rate card (WE BUY / WE SELL, currency codes and every
+          number), the scrolling message, the announcement, and the logo text — all at once.
+        </p>
         <Select
-          value={settings.rateCardFont ?? MESSAGE_FONTS[0].key}
-          onValueChange={(value) => setSettings({ ...settings, rateCardFont: value ?? null })}
+          value={settings.displayFont ?? MESSAGE_FONTS[0].key}
+          onValueChange={(value) => setSettings({ ...settings, displayFont: value ?? null })}
         >
           <SelectTrigger className="rounded-xl">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             {MESSAGE_FONTS.map((f) => (
-              <SelectItem key={f.key} value={f.key}>
+              <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
                 {f.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <div className="rounded-lg bg-[#0D2680] px-3 py-2">
-          <span
-            className="text-sm font-bold uppercase tracking-wide text-white"
-            style={{ fontFamily: messageFontCss(settings.rateCardFont) }}
-          >
+        <div className="rounded-lg bg-[#0D2680] px-3 py-2" style={{ fontFamily: messageFontCss(settings.displayFont) }}>
+          <span className="block text-sm font-bold uppercase tracking-wide text-white">
             Exchange Rates · USD 3650 / 3680
           </span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-white/80">
+            Welcome to Unimoni · We Buy US $ Small Bills
+          </span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Font for the rate card header and table on the TV.
-        </p>
       </div>
 
       {/* ---- Pop-up announcement over the video area (admin-only) ---- */}
@@ -706,58 +735,42 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="band">Message area — bottom strip (below the video), then back to normal</SelectItem>
-                <SelectItem value="video-top">Video — top strip (above the video)</SelectItem>
-                <SelectItem value="popup">Big pop-up card (centered over the video)</SelectItem>
-                <SelectItem value="fullscreen">Full screen — takes over the whole video area</SelectItem>
-                <SelectItem value="rate-card">Rate-card panel (pop-up over the rates)</SelectItem>
+                <SelectItem value="lower-third">Lower third — broadcast caption over the video (recommended, looks native)</SelectItem>
+                <SelectItem value="video-top">Video — top strip (like an L-band)</SelectItem>
+                <SelectItem value="band">Message area — bottom strip (below the video)</SelectItem>
+                <SelectItem value="fullscreen">Full screen — cinematic takeover of the video area</SelectItem>
+                <SelectItem value="rate-card">Rate-card panel (over the rates)</SelectItem>
+                <SelectItem value="popup">Centered card (classic pop-up)</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {["band", "video-top"].includes(settings.announcementStyle ?? "popup") ? (
-            <div className="space-y-2">
-              <Label>Animation</Label>
-              <Select
-                value={settings.announcementAnimation ?? "slide"}
-                onValueChange={(value) =>
-                  setSettings({
-                    ...settings,
-                    announcementAnimation: (value as "slide" | "fade" | "zoom" | "flip") ?? "slide",
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="slide">Slide in / out</SelectItem>
-                  <SelectItem value="fade">Fade in / out</SelectItem>
-                  <SelectItem value="zoom">Zoom in / out</SelectItem>
-                  <SelectItem value="flip">Flip</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">How the strip enters and leaves.</p>
-            </div>
-          ) : null}
+          <div className="space-y-2">
+            <Label>Animation</Label>
+            <Select
+              value={settings.announcementAnimation ?? "slide"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  announcementAnimation: (value as "none" | "slide" | "fade" | "zoom" | "flip") ?? "slide",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None — appears instantly (no animation)</SelectItem>
+                <SelectItem value="slide">Slide in / out</SelectItem>
+                <SelectItem value="fade">Fade in / out</SelectItem>
+                <SelectItem value="zoom">Zoom in / out</SelectItem>
+                <SelectItem value="flip">Flip</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              How the announcement enters and leaves — pick “None” for no motion. Applies to every placement.
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Text font</Label>
-              <Select
-                value={settings.announcementFont ?? MESSAGE_FONTS[0].key}
-                onValueChange={(value) => setSettings({ ...settings, announcementFont: value ?? null })}
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MESSAGE_FONTS.map((f) => (
-                    <SelectItem key={f.key} value={f.key}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-2">
               <Label>Text colour</Label>
               <Select
@@ -908,6 +921,36 @@ function BranchSettingsForm({
               }
               className="rounded-xl"
             />
+          </div>
+          <div className="space-y-2">
+            <Label>Currency code size (%)</Label>
+            <Input
+              type="number"
+              min={50}
+              max={200}
+              step={5}
+              value={Math.round((settings.rateCurrencyScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({ ...settings, rateCurrencyScale: Number(event.target.value) / 100 })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">Size of the currency code (USD, GBP…) only.</p>
+          </div>
+          <div className="space-y-2">
+            <Label>We Buy / We Sell number size (%)</Label>
+            <Input
+              type="number"
+              min={50}
+              max={200}
+              step={5}
+              value={Math.round((settings.rateValueScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({ ...settings, rateValueScale: Number(event.target.value) / 100 })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">Size of the rate numbers only — set separately from the currency.</p>
           </div>
           <div className="space-y-2">
             <Label>Ticker size (%)</Label>

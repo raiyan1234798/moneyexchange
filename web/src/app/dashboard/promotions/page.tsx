@@ -20,7 +20,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
-import { DEFAULT_BRANCH_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -229,7 +229,13 @@ export default function PromotionsPage() {
                       onValueChange={(v) =>
                         set({
                           announcementStyle:
-                            (v as "popup" | "fullscreen" | "band" | "video-top" | "rate-card") ?? "popup",
+                            (v as
+                              | "popup"
+                              | "fullscreen"
+                              | "band"
+                              | "video-top"
+                              | "rate-card"
+                              | "lower-third") ?? "lower-third",
                         })
                       }
                     >
@@ -237,11 +243,12 @@ export default function PromotionsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="lower-third">Lower third — broadcast caption (recommended)</SelectItem>
+                        <SelectItem value="video-top">Video — top strip (L-band)</SelectItem>
                         <SelectItem value="band">Message area — bottom strip</SelectItem>
-                        <SelectItem value="video-top">Video — top strip</SelectItem>
-                        <SelectItem value="popup">Big pop-up over the video</SelectItem>
-                        <SelectItem value="fullscreen">Full screen (whole video area)</SelectItem>
+                        <SelectItem value="fullscreen">Full screen (video area)</SelectItem>
                         <SelectItem value="rate-card">Rate-card panel</SelectItem>
+                        <SelectItem value="popup">Centered card (classic pop-up)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -250,35 +257,20 @@ export default function PromotionsPage() {
                     <Select
                       value={s.announcementAnimation ?? "slide"}
                       onValueChange={(v) =>
-                        set({ announcementAnimation: (v as "slide" | "fade" | "zoom" | "flip") ?? "slide" })
+                        set({
+                          announcementAnimation: (v as "none" | "slide" | "fade" | "zoom" | "flip") ?? "slide",
+                        })
                       }
                     >
                       <SelectTrigger className="rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="none">None (instant)</SelectItem>
                         <SelectItem value="slide">Slide</SelectItem>
                         <SelectItem value="fade">Fade</SelectItem>
                         <SelectItem value="zoom">Zoom</SelectItem>
                         <SelectItem value="flip">Flip</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Text font</Label>
-                    <Select
-                      value={s.announcementFont ?? MESSAGE_FONTS[0].key}
-                      onValueChange={(v) => set({ announcementFont: v ?? null })}
-                    >
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {MESSAGE_FONTS.map((f) => (
-                          <SelectItem key={f.key} value={f.key}>
-                            {f.label}
-                          </SelectItem>
-                        ))}
                       </SelectContent>
                     </Select>
                   </div>

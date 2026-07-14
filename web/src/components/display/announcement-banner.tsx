@@ -3,6 +3,13 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
+// Broadcast-style easing: a smooth "expo-out" deceleration so overlays glide in
+// like TV motion graphics, not snap in like an artificial pop-up. Paired with a
+// slightly longer duration for that filmed feel.
+const CINEMATIC_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
+const ANIM_MS = 700;
+const CINEMATIC_TRANSITION = `transform ${ANIM_MS}ms ${CINEMATIC_EASE}, opacity ${ANIM_MS}ms ${CINEMATIC_EASE}`;
+
 interface AnnouncementBannerProps {
   /** Short announcement text (e.g. contest winners). Nothing renders when empty. */
   text?: string | null;
@@ -10,8 +17,8 @@ interface AnnouncementBannerProps {
   imageUrl?: string | null;
   /** Optional short video (direct/Drive/R2 URL) — takes the image's place. */
   videoUrl?: string | null;
-  /** "popup" = big centered card over the video; "fullscreen" = takes over the whole video area. */
-  displayStyle?: "popup" | "fullscreen";
+  /** "popup" = centered card; "fullscreen" = whole video area; "lower-third" = broadcast caption over the video. */
+  displayStyle?: "popup" | "fullscreen" | "lower-third";
   /** Seconds the announcement stays visible each time. */
   visibleSeconds?: number;
   /** Minutes between repeats. */
@@ -22,6 +29,8 @@ interface AnnouncementBannerProps {
   fontCss?: string;
   /** Colour treatment for the text. */
   colorStyle?: "white" | "logo" | "gold" | "navy";
+  /** Entrance/exit motion. "none" = instant (no animation). */
+  animation?: "none" | "slide" | "fade" | "zoom" | "flip";
 }
 
 /**
@@ -190,7 +199,7 @@ export function MessageAreaAnnouncement({
   imageUrl?: string | null;
   videoUrl?: string | null;
   visible: boolean;
-  animation?: "slide" | "fade" | "zoom" | "flip";
+  animation?: "none" | "slide" | "fade" | "zoom" | "flip";
   heightScale?: number;
   /** Where the strip sits — bottom message area (default) or top of the video. */
   anchor?: "bottom" | "top";
@@ -223,7 +232,7 @@ export function MessageAreaAnnouncement({
 
   const slideHidden = anchor === "top" ? "translateY(-112%)" : "translateY(112%)";
   const hiddenTransform =
-    animation === "fade"
+    animation === "none" || animation === "fade"
       ? "none"
       : animation === "zoom"
         ? "scale(0.55)"
@@ -239,11 +248,12 @@ export function MessageAreaAnnouncement({
       style={{ perspective: animation === "flip" ? "1400px" : undefined }}
     >
       <div
-        className="w-full overflow-hidden transition-all duration-500 ease-out"
+        className="w-full overflow-hidden"
         style={{
           transformOrigin: anchor === "top" ? "top center" : "bottom center",
           transform: visible ? "none" : hiddenTransform,
           opacity: visible ? 1 : 0,
+          transition: animation === "none" ? "none" : CINEMATIC_TRANSITION,
         }}
       >
         {hasMedia ? (
@@ -296,6 +306,7 @@ export function AnnouncementBanner({
   maxTimes = 0,
   fontCss,
   colorStyle = "white",
+  animation = "slide",
 }: AnnouncementBannerProps) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -321,17 +332,103 @@ export function AnnouncementBanner({
 
   const hasMedia = Boolean(video || image);
 
+  // Entrance/exit motion shared by pop-up + full screen. "none" is instant.
+  const shownTransform =
+    animation === "zoom"
+      ? "scale(1)"
+      : animation === "flip"
+        ? "perspective(1400px) rotateX(0deg)"
+        : animation === "slide"
+          ? "translateY(0)"
+          : "none";
+  const hiddenTransform =
+    animation === "none" || animation === "fade"
+      ? "none"
+      : animation === "zoom"
+        ? "scale(0.6)"
+        : animation === "flip"
+          ? "perspective(1400px) rotateX(-90deg)"
+          : "translateY(8vh)";
+  const animStyle = {
+    transform: visible ? shownTransform : hiddenTransform,
+    opacity: visible ? 1 : 0,
+    transition: animation === "none" ? "none" : CINEMATIC_TRANSITION,
+  } as const;
+
+  // Broadcast lower-third: a translucent gradient caption anchored to the bottom
+  // of the video, with a gold accent bar and optional small media — like a TV
+  // news graphic that belongs to the footage, not a modal pop-up.
+  if (displayStyle === "lower-third") {
+    return (
+      <div
+        aria-live="polite"
+        className="pointer-events-none absolute inset-0 z-40 flex flex-col justify-end overflow-hidden"
+        style={{ perspective: animation === "flip" ? "1400px" : undefined }}
+      >
+        <div
+          className="w-full"
+          style={{ transformOrigin: "bottom center", ...animStyle }}
+        >
+          <div
+            className="flex items-end gap-[1.5vw] px-[3vw] pb-[4.5vh]"
+            style={{
+              paddingTop: "14vh",
+              background:
+                "linear-gradient(to top, rgba(13,38,128,0.94) 0%, rgba(13,38,128,0.78) 42%, rgba(13,38,128,0) 100%)",
+            }}
+          >
+            {video ? (
+              <video
+                key={showCount}
+                src={video}
+                className="h-[16vh] w-auto shrink-0 rounded-md object-cover shadow-lg"
+                autoPlay
+                muted
+                loop
+                playsInline
+              />
+            ) : image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={image} alt="" className="h-[16vh] w-auto shrink-0 rounded-md object-contain shadow-lg" />
+            ) : null}
+            {message ? (
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span
+                  className="mb-[1.2vh] block h-[0.55vh] w-[6vw] rounded-full"
+                  style={{ backgroundColor: UNIMONI_COLORS.gold }}
+                />
+                <p
+                  className="font-extrabold uppercase leading-tight"
+                  style={{
+                    fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
+                    fontSize: "clamp(1.2rem,2.8vw,3rem)",
+                    textShadow: colorStyle === "logo" ? "none" : "0 2px 10px rgba(0,0,0,0.5)",
+                    ...announcementTextStyle(colorStyle),
+                  }}
+                >
+                  {message}
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (displayStyle === "fullscreen") {
     return (
       <div
         aria-live="polite"
-        className={`absolute inset-0 z-40 flex flex-col transition-opacity duration-500 ${
-          visible ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className={`absolute inset-0 z-40 flex flex-col ${visible ? "" : "pointer-events-none"}`}
         // Only cover the branch video with the opaque blue takeover when there is
         // actual media to show. Text-only stays transparent so the branch video
         // keeps playing underneath and the screen never goes blank.
-        style={hasMedia ? { backgroundColor: "#0D2680" } : undefined}
+        style={{
+          ...(hasMedia ? { backgroundColor: "#0D2680" } : {}),
+          transformOrigin: "center",
+          ...animStyle,
+        }}
       >
         {video ? (
           <video
@@ -374,17 +471,21 @@ export function AnnouncementBanner({
     );
   }
 
-  // BIG centered pop-up card — sized for TV advertising, over the video only.
+  // BIG centered card — sized for TV advertising, over the video only. Only the
+  // card animates (per the chosen animation); the centering layer stays still.
   return (
     <div
       aria-live="polite"
-      className={`pointer-events-none absolute inset-0 z-40 flex items-center justify-center transition-all duration-500 ease-out ${
-        visible ? "translate-y-0 opacity-100" : "-translate-y-[10vh] opacity-0"
-      }`}
+      className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center"
     >
       <div
         className="flex max-h-[82%] max-w-[78%] min-w-[45%] flex-col items-center gap-[1.4vh] overflow-hidden rounded-2xl border-4 px-[1.6vw] py-[2vh] shadow-[0_14px_50px_rgba(0,0,0,0.6)]"
-        style={{ backgroundColor: "#FFFFFF", borderColor: UNIMONI_COLORS.gold }}
+        style={{
+          backgroundColor: "#FFFFFF",
+          borderColor: UNIMONI_COLORS.gold,
+          transformOrigin: "center",
+          ...animStyle,
+        }}
       >
         {video ? (
           <video

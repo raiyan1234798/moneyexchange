@@ -27,7 +27,7 @@ import {
   Video,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { UnimoniLogo } from "@/components/brand/unimoni-logo";
+import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { cn } from "@/lib/utils";
 import { NAV_ITEMS } from "@/lib/constants";
 import { BRAND } from "@/lib/brand";
@@ -71,9 +71,12 @@ function mobileNavForRole(role: string) {
 }
 
 function BrandMark({ compact }: { compact?: boolean }) {
+  const h = compact ? 26 : 34;
   return (
     <Link href="/dashboard" className="group flex items-center gap-3">
-      <UnimoniLogo size={compact ? "xs" : "sm"} className="min-w-0" />
+      {/* Real brand logo (blue+gold), swapping per theme so it always reads. */}
+      <UnimoniLogoImage variant="default" height={h} className="min-w-0 dark:hidden" />
+      <UnimoniLogoImage variant="onDark" height={h} className="hidden min-w-0 dark:block" />
     </Link>
   );
 }

@@ -106,20 +106,31 @@ export interface BranchSettings {
   headerLogoUrl?: string | null;
   /** Logo images that scroll right-to-left in the ticker alongside the messages. */
   scrollingLogos?: string[];
-  /** A note line shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
+  /** A note line shown under the forex rate screen (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  /** Which forex page(s) show the note: the first forex page, or every forex page. */
+  rateNotePlacement?: "first" | "all";
   /** Seconds each rotating rate screen stays visible (forex/transfer pages). Default 5. */
   rateSheetIntervalSeconds?: number;
   /** Order the rotating rate-card slides appear in. Missing slides are skipped. */
   rateCardOrder?: Array<"forex" | "transfer" | "promo">;
   /** Promotional card in the rate-card rotation: image (upload/URL). Hidden when empty. */
   ratePromoImageUrl?: string | null;
-  /** Promotional card: text message (shown alone or under the image). */
+  /** Promotional card: text message ABOVE the image. */
+  ratePromoTextTop?: string | null;
+  /** Promotional card: text message below the image (shown alone or under the image). */
   ratePromoText?: string | null;
   /** Seconds the promotional card stays visible. Defaults to rateSheetIntervalSeconds. */
   ratePromoDurationSeconds?: number;
+  /** ONE font for the whole TV screen — rate card, messages, announcements, logo.
+   *  When set it overrides every individual font below. See MESSAGE_FONTS. */
+  displayFont?: string | null;
   /** Font key for the rate card (header + table) — see MESSAGE_FONTS. */
   rateCardFont?: string | null;
+  /** Size multiplier for the CURRENCY code text on the rate card (1 = normal). */
+  rateCurrencyScale?: number;
+  /** Size multiplier for the WE BUY / WE SELL value numbers (1 = normal). */
+  rateValueScale?: number;
   /** Drop-down announcement (admin-only): short text shown briefly over the video area. */
   announcementText?: string | null;
   /** Optional small image shown in the announcement banner (upload or any link). */
@@ -129,9 +140,9 @@ export interface BranchSettings {
   /** Master on/off for the announcement — off hides it from the TV without deleting the text/image/video. */
   announcementEnabled?: boolean;
   /** Where the announcement appears on the TV. */
-  announcementStyle?: "popup" | "fullscreen" | "band" | "video-top" | "rate-card";
-  /** Entrance/exit animation for the message-area (band) announcement. */
-  announcementAnimation?: "slide" | "fade" | "zoom" | "flip";
+  announcementStyle?: "popup" | "fullscreen" | "band" | "video-top" | "rate-card" | "lower-third";
+  /** Entrance/exit animation for the announcement. "none" shows it instantly (no motion). */
+  announcementAnimation?: "none" | "slide" | "fade" | "zoom" | "flip";
   /** Font key for the announcement text — see MESSAGE_FONTS. */
   announcementFont?: string | null;
   /** Colour treatment for the announcement text. */
