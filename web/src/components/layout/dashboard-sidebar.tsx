@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   ListVideo,
   LogOut,
+  Megaphone,
   Menu,
   Monitor,
   Moon,
@@ -52,6 +53,7 @@ const iconMap = {
   Bell,
   ScrollText,
   Settings,
+  Megaphone,
 };
 
 const MOBILE_NAV = [

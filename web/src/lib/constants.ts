@@ -66,13 +66,16 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateCardScale: 1,
   tickerScale: 1,
   logoScale: 1,
-  tickerLogoAnimation: "spin" as "spin" | "pulse" | "none",
+  tickerLogoAnimation: "spin" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
   headerLogoUrl: null as string | null,
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,
   rateSheetIntervalSeconds: 5,
+  // Order the rotating rate-card slides appear in (client can pick which shows
+  // first). Only the slides that actually exist are shown, in this order.
+  rateCardOrder: ["forex", "transfer", "promo"] as Array<"forex" | "transfer" | "promo">,
   ratePromoImageUrl: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,
@@ -81,10 +84,20 @@ export const DEFAULT_BRANCH_SETTINGS = {
   announcementImageUrl: null as string | null,
   announcementVideoUrl: null as string | null,
   announcementEnabled: true,
-  announcementStyle: "popup" as "popup" | "fullscreen" | "band",
+  // "band"=bottom message strip, "video-top"=strip at the top of the video,
+  // "popup"=big card over the video, "fullscreen"=whole video area,
+  // "rate-card"=inside the rate-card panel.
+  announcementStyle: "popup" as "popup" | "fullscreen" | "band" | "video-top" | "rate-card",
   announcementAnimation: "slide" as "slide" | "fade" | "zoom" | "flip",
+  // Font + colour treatment for the announcement text.
+  announcementFont: null as string | null,
+  announcementColorStyle: "white" as "white" | "logo" | "gold" | "navy",
   announcementSeconds: 5,
   announcementRepeatMinutes: 3,
+  // "repeat" = show every N minutes forever; "times" = show a fixed number of
+  // times total then stop until the settings change.
+  announcementPlayMode: "repeat" as "repeat" | "times",
+  announcementPlayTimes: 1,
 };
 
 /** Cloudflare R2 free tier is 10 GB total — warn/stop uploads near the cap. */
@@ -119,6 +132,10 @@ export const LOGO_FONTS: Array<{ key: string; label: string; css: string }> = [
   // The unimoni creative font (rounded, used across their promo artwork) —
   // self-hosted via next/font as --font-brand.
   { key: "brand", label: "Unimoni Brand (Rounded)", css: "var(--font-brand), 'Trebuchet MS', 'Segoe UI', sans-serif" },
+  // Bold geometric sans matching the unimoni headline "CHOOSE US FOR MONEY
+  // EXCHANGE" artwork — self-hosted via next/font.
+  { key: "montserrat", label: "Unimoni Headline (Montserrat)", css: "var(--font-montserrat), 'Segoe UI', Arial, sans-serif" },
+  { key: "poppins", label: "Poppins (Geometric)", css: "var(--font-poppins), 'Segoe UI', Arial, sans-serif" },
   { key: "serif", label: "Classic Serif", css: "Georgia, 'Times New Roman', serif" },
   { key: "condensed", label: "Condensed", css: "'Arial Narrow', 'Helvetica Neue', sans-serif" },
   { key: "rounded", label: "Rounded", css: "'Trebuchet MS', 'Segoe UI', sans-serif" },
@@ -160,7 +177,9 @@ export const NAV_ITEMS: Array<{
 }> = [
   { href: "/dashboard", label: "Overview", icon: "LayoutDashboard", roles: ["superAdmin", "admin", "branchManager", "branchUser"] },
   { href: "/dashboard/branches", label: "Branches", icon: "Building2", roles: ["superAdmin", "admin"] },
-  { href: "/dashboard/users", label: "Users", icon: "Users", roles: ["superAdmin", "admin", "branchManager"] },
+  // Per client (2026-07-14): branch managers AND branch users handle FOREX RATES
+  // ONLY (edit or Excel upload). Everything else is admin-only.
+  { href: "/dashboard/users", label: "Users", icon: "Users", roles: ["superAdmin", "admin"] },
   {
     href: "/dashboard/exchange-rates",
     label: "Exchange Rates",
@@ -176,12 +195,14 @@ export const NAV_ITEMS: Array<{
     icon: "TextCursorInput",
     roles: ["superAdmin", "admin"],
   },
+  // Per-branch announcements + promotion card, on their own page (2026-07-14).
+  { href: "/dashboard/promotions", label: "Promotions", icon: "Megaphone", roles: ["superAdmin", "admin"] },
   { href: "/dashboard/settings", label: "Settings", icon: "Settings", roles: ["superAdmin", "admin"] },
   {
     href: "/dashboard/notifications",
     label: "Notifications",
     icon: "Bell",
-    roles: ["superAdmin", "admin", "branchManager"],
+    roles: ["superAdmin", "admin"],
   },
   {
     href: "/dashboard/profile",
@@ -193,7 +214,7 @@ export const NAV_ITEMS: Array<{
     href: "/dashboard/audit-logs",
     label: "Activity",
     icon: "ScrollText",
-    roles: ["superAdmin", "admin", "branchManager"],
+    roles: ["superAdmin", "admin"],
   },
 ];
 
@@ -237,12 +258,10 @@ export const ADMIN_PERMISSIONS = [
 // Per client (2026-07-11): branch staff handle FOREX RATES ONLY. All display
 // content (videos, images, scrolling messages, logos, settings, transfer card)
 // is controlled by the admins.
+// Per client (2026-07-14): managers, like branch users, can ONLY manage their
+// own branch's forex rates (edit or Excel upload) — nothing else.
 export const BRANCH_MANAGER_PERMISSIONS = [
   "manageOwnBranchRates",
-  "manageOwnBranchTVDevices",
-  "viewOwnBranchAnalytics",
-  "viewOwnBranchAuditLogs",
-  "inviteBranchUsers",
 ] as const;
 
 export const BRANCH_USER_PERMISSIONS = ["manageOwnBranchRates"] as const;

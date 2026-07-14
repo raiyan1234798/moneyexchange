@@ -30,7 +30,7 @@ interface BreakingNewsTickerProps {
   /** Multiplier for the pop-out logo badge size (default 1). */
   logoScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
-  logoAnimation?: "spin" | "pulse" | "none";
+  logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Logo images that scroll right-to-left with the messages. */
   scrollingLogos?: string[];
 }
@@ -114,8 +114,21 @@ function BreakingNewsTickerInner({
     ? `calc(${fontSize}px * ${heightScale})`
     : `calc(clamp(1.1rem, 2.2vw, 2rem) * ${heightScale})`;
 
-  const spin = logoAnimation === "spin";
   const pulse = logoAnimation === "pulse";
+  // Animation class applied to the logo image itself (pulse animates the whole
+  // badge instead — see below).
+  const logoAnimClass =
+    logoAnimation === "spin"
+      ? "ticker-logo-spin"
+      : logoAnimation === "flip"
+        ? "ticker-logo-flipx"
+        : logoAnimation === "bounce"
+          ? "ticker-logo-bounce"
+          : logoAnimation === "float"
+            ? "ticker-logo-float"
+            : logoAnimation === "swing"
+              ? "ticker-logo-swing"
+              : "";
 
   return (
     <footer className="relative shrink-0">
@@ -165,7 +178,7 @@ function BreakingNewsTickerInner({
             alt={`${BRAND.name} logo`}
             width={260}
             height={84}
-            className={`h-[74%] w-[92%] object-contain drop-shadow-sm ${spin ? "ticker-logo-spin" : ""}`}
+            className={`h-[90%] w-[97%] object-contain drop-shadow-sm ${logoAnimClass}`}
             unoptimized
             priority
             onError={() => setLogoFailed(true)}

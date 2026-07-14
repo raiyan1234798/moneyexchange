@@ -759,6 +759,26 @@ export default function ExchangeRatesPage() {
             description="Nothing is live yet — edit or remove rows, then publish"
           >
             <div className="space-y-2">
+              {/* Column headers so you can tell which box is which while editing. */}
+              <div
+                className={`hidden gap-2 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid ${
+                  isSuperAdmin || isAdmin
+                    ? "sm:grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_auto]"
+                    : "sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                }`}
+              >
+                <span>Currency</span>
+                <span>Name on TV</span>
+                <span>We Buy</span>
+                <span>We Sell</span>
+                {isSuperAdmin || isAdmin ? (
+                  <>
+                    <span>$ Transfer (USD)</span>
+                    <span>Transfer ({transferLocalLabel})</span>
+                  </>
+                ) : null}
+                <span className="text-right">Remove</span>
+              </div>
               {importPreview.map((row, index) => (
                 <div
                   key={`${row.currencyCode}-${index}`}

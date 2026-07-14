@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 interface AnnouncementBannerProps {
@@ -16,6 +16,12 @@ interface AnnouncementBannerProps {
   visibleSeconds?: number;
   /** Minutes between repeats. */
   repeatMinutes?: number;
+  /** Show only this many times total (0 = repeat forever). */
+  maxTimes?: number;
+  /** Font family for the text. */
+  fontCss?: string;
+  /** Colour treatment for the text. */
+  colorStyle?: "white" | "logo" | "gold" | "navy";
 }
 
 /**
@@ -24,31 +30,45 @@ interface AnnouncementBannerProps {
  * either a BIG centered pop-up card, or a full takeover of the video area.
  * Carries text, an image, or a muted video.
  */
-/** Shared show/hide cycle: appears for N seconds, repeats every M minutes. */
+/**
+ * Shared show/hide cycle: appears for N seconds, repeats every M minutes.
+ * When `maxTimes > 0` it plays only that many times total, then stops (so an
+ * admin can show a prize announcement e.g. exactly 3 times). `maxTimes = 0`
+ * means repeat forever.
+ */
 export function useAnnouncementCycle(
   active: boolean,
   visibleSeconds = 5,
   repeatMinutes = 3,
+  maxTimes = 0,
 ): boolean {
   const [showing, setShowing] = useState(false);
+  const shownCountRef = useRef(0);
 
   useEffect(() => {
     // When inactive we run no timers; the return value below is gated by
     // `active`, so no synchronous state reset is needed here (avoids the
     // cascading-render foot-gun). The cleanup resets `showing` on teardown.
     if (!active) return;
+    shownCountRef.current = 0;
     const showMs = Math.max(2, visibleSeconds) * 1000;
     const gapMs = Math.max(0.5, repeatMinutes) * 60_000;
 
     let hideTimer: number | undefined;
+    const showOnce = () => {
+      setShowing(true);
+      shownCountRef.current += 1;
+      hideTimer = window.setTimeout(() => setShowing(false), showMs);
+    };
     // First appearance shortly after load, then repeat on the interval.
-    const firstTimer = window.setTimeout(() => {
-      setShowing(true);
-      hideTimer = window.setTimeout(() => setShowing(false), showMs);
-    }, 3000);
+    const firstTimer = window.setTimeout(showOnce, 3000);
     const repeatTimer = window.setInterval(() => {
-      setShowing(true);
-      hideTimer = window.setTimeout(() => setShowing(false), showMs);
+      // Stop once we've shown the requested number of times (0 = forever).
+      if (maxTimes > 0 && shownCountRef.current >= maxTimes) {
+        window.clearInterval(repeatTimer);
+        return;
+      }
+      showOnce();
     }, gapMs + showMs);
 
     return () => {
@@ -57,11 +77,34 @@ export function useAnnouncementCycle(
       if (hideTimer) window.clearTimeout(hideTimer);
       setShowing(false);
     };
-  }, [active, visibleSeconds, repeatMinutes]);
+  }, [active, visibleSeconds, repeatMinutes, maxTimes]);
 
   // Gate by `active` so the announcement is never "showing" while inactive,
   // even for one render after `active` flips off.
   return active && showing;
+}
+
+/** Resolve a colour treatment for announcement text. "logo" = brand gradient. */
+export function announcementTextStyle(
+  colorStyle: "white" | "logo" | "gold" | "navy" | undefined,
+): CSSProperties {
+  switch (colorStyle) {
+    case "logo":
+      // "Extended version of the logo" — unimoni blue→gold gradient text.
+      return {
+        backgroundImage: `linear-gradient(90deg, ${UNIMONI_COLORS.navy}, ${UNIMONI_COLORS.gold})`,
+        WebkitBackgroundClip: "text",
+        backgroundClip: "text",
+        color: "transparent",
+        WebkitTextFillColor: "transparent",
+      };
+    case "gold":
+      return { color: UNIMONI_COLORS.gold };
+    case "navy":
+      return { color: UNIMONI_COLORS.navy };
+    default:
+      return { color: "#FFFFFF" };
+  }
 }
 
 /**
@@ -73,10 +116,14 @@ export function TickerAnnouncementBand({
   text,
   imageUrl,
   heightScale = 1,
+  fontCss,
+  colorStyle = "white",
 }: {
   text?: string | null;
   imageUrl?: string | null;
   heightScale?: number;
+  fontCss?: string;
+  colorStyle?: "white" | "logo" | "gold" | "navy";
 }) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -95,12 +142,15 @@ export function TickerAnnouncementBand({
         <img src={image} alt="" className="h-[86%] w-auto shrink-0 rounded-sm object-contain" />
       ) : null}
       <p
-        className="min-w-0 truncate text-center font-extrabold uppercase leading-none text-white"
+        // No truncate: the text wraps to 2 lines so longer announcements fit
+        // ("increase the text limit").
+        className="line-clamp-2 min-w-0 text-center font-extrabold uppercase leading-tight"
         style={{
-          fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+          fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
           fontSize: `calc(clamp(1.4rem,3vh,2.6rem) * ${heightScale})`,
-          textShadow: "0 2px 4px rgba(0,0,0,0.35)",
+          textShadow: colorStyle === "logo" ? "none" : "0 2px 4px rgba(0,0,0,0.35)",
           letterSpacing: "0.04em",
+          ...announcementTextStyle(colorStyle),
         }}
       >
         {message}
@@ -132,6 +182,9 @@ export function MessageAreaAnnouncement({
   visible,
   animation = "slide",
   heightScale = 1,
+  anchor = "bottom",
+  fontCss,
+  colorStyle = "white",
 }: {
   text?: string | null;
   imageUrl?: string | null;
@@ -139,6 +192,10 @@ export function MessageAreaAnnouncement({
   visible: boolean;
   animation?: "slide" | "fade" | "zoom" | "flip";
   heightScale?: number;
+  /** Where the strip sits — bottom message area (default) or top of the video. */
+  anchor?: "bottom" | "top";
+  fontCss?: string;
+  colorStyle?: "white" | "logo" | "gold" | "navy";
 }) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -164,6 +221,7 @@ export function MessageAreaAnnouncement({
       ? "clamp(9rem,32vh,26rem)"
       : undefined;
 
+  const slideHidden = anchor === "top" ? "translateY(-112%)" : "translateY(112%)";
   const hiddenTransform =
     animation === "fade"
       ? "none"
@@ -171,19 +229,19 @@ export function MessageAreaAnnouncement({
         ? "scale(0.55)"
         : animation === "flip"
           ? "rotateX(-92deg)"
-          : "translateY(112%)"; // slide (default)
+          : slideHidden; // slide (default)
 
   return (
     <div
       aria-live="polite"
       // Above the ticker's pop-out logo badge (z-40) so the band fully covers it.
-      className="pointer-events-none absolute inset-x-0 bottom-0 z-50"
+      className={`pointer-events-none absolute inset-x-0 z-50 ${anchor === "top" ? "top-0" : "bottom-0"}`}
       style={{ perspective: animation === "flip" ? "1400px" : undefined }}
     >
       <div
         className="w-full overflow-hidden transition-all duration-500 ease-out"
         style={{
-          transformOrigin: "bottom center",
+          transformOrigin: anchor === "top" ? "top center" : "bottom center",
           transform: visible ? "none" : hiddenTransform,
           opacity: visible ? 1 : 0,
         }}
@@ -206,10 +264,22 @@ export function MessageAreaAnnouncement({
                 <img src={image} alt="" className="h-full w-full object-contain" />
               )}
             </div>
-            {message ? <TickerAnnouncementBand text={message} heightScale={heightScale} /> : null}
+            {message ? (
+              <TickerAnnouncementBand
+                text={message}
+                heightScale={heightScale}
+                fontCss={fontCss}
+                colorStyle={colorStyle}
+              />
+            ) : null}
           </div>
         ) : (
-          <TickerAnnouncementBand text={message} heightScale={heightScale} />
+          <TickerAnnouncementBand
+            text={message}
+            heightScale={heightScale}
+            fontCss={fontCss}
+            colorStyle={colorStyle}
+          />
         )}
       </div>
     </div>
@@ -223,6 +293,9 @@ export function AnnouncementBanner({
   displayStyle = "popup",
   visibleSeconds = 5,
   repeatMinutes = 3,
+  maxTimes = 0,
+  fontCss,
+  colorStyle = "white",
 }: AnnouncementBannerProps) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -231,6 +304,7 @@ export function AnnouncementBanner({
     Boolean(message || image || video),
     visibleSeconds,
     repeatMinutes,
+    maxTimes,
   );
 
   // Restart the video from the top each time the announcement re-appears while
@@ -280,13 +354,14 @@ export function AnnouncementBanner({
           <p
             className="shrink-0 px-[3vw] py-[2.2vh] text-center font-extrabold uppercase leading-tight text-white"
             style={{
-              fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+              fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
               fontSize: hasMedia ? "clamp(1.1rem,2.4vw,2.6rem)" : "clamp(1.6rem,3.6vw,4rem)",
-              textShadow: "0 2px 10px rgba(0,0,0,0.55)",
+              textShadow: colorStyle === "logo" ? "none" : "0 2px 10px rgba(0,0,0,0.55)",
               // Text-only gets its own readable band so it stands out over the video.
               background: hasMedia
                 ? undefined
                 : "linear-gradient(to top, rgba(13,38,128,0.94), rgba(13,38,128,0.5))",
+              ...announcementTextStyle(colorStyle),
             }}
           >
             {message}
@@ -335,9 +410,12 @@ export function AnnouncementBanner({
           <p
             className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
             style={{
+              // Popup sits on a WHITE card: keep navy unless a non-white colour
+              // (gold / logo gradient) was explicitly chosen.
               color: "#0D2680",
-              fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+              fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
               fontSize: video || image ? "clamp(1rem,1.9vw,2rem)" : "clamp(1.4rem,3vw,3.2rem)",
+              ...(colorStyle && colorStyle !== "white" ? announcementTextStyle(colorStyle) : {}),
             }}
           >
             {message}

@@ -1,15 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScrollText } from "lucide-react";
+import { ScrollText, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { safeFormatDate } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ContentPanel, DataTable, EmptyState, FirestoreSetupNotice, PageShell } from "@/components/shared/page-elements";
-import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
+import { subscribeCollection, orderBy, where, removeDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import type { AuditLog } from "@/lib/types";
 
 export default function AuditLogsPage() {
@@ -36,6 +49,15 @@ export default function AuditLogsPage() {
       onError,
     );
   }, [clearNotice, effectiveBranchId, isPlatformAdmin, onError]);
+
+  async function handleDelete(log: AuditLog) {
+    try {
+      await removeDocument(COLLECTIONS.auditLogs, log.id);
+      toast.success("Activity entry removed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove the entry");
+    }
+  }
 
   return (
     <>
@@ -73,6 +95,46 @@ export default function AuditLogsPage() {
                 { key: "user", header: "User", cell: (l) => l.userName },
                 { key: "entity", header: "Entity", cell: (l) => l.entityType, hideOnMobile: true },
                 { key: "branch", header: "Branch", cell: (l) => l.branchId ?? "Global", hideOnMobile: true },
+                ...(isPlatformAdmin
+                  ? [
+                      {
+                        key: "actions",
+                        header: "",
+                        className: "text-right",
+                        cell: (l: AuditLog) => (
+                          <AlertDialog>
+                            <AlertDialogTrigger
+                              render={
+                                <Button
+                                  variant="outline"
+                                  size="icon-sm"
+                                  className="rounded-lg text-destructive hover:text-destructive"
+                                  aria-label="Delete this activity entry"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              }
+                            />
+                            <AlertDialogContent className="rounded-2xl">
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete this activity entry?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This removes the log row permanently. Use it to clean up mistaken or
+                                  error entries.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => void handleDelete(l)}>
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ),
+                      },
+                    ]
+                  : []),
               ]}
             />
           </ContentPanel>

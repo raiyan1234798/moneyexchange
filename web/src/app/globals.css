@@ -333,6 +333,22 @@
     backface-visibility: hidden;
   }
 
+  /* Extra logo animations (client can pick per branch). */
+  .ticker-logo-flipx {
+    animation: ticker-logo-flipx 6s ease-in-out infinite;
+    transform-style: preserve-3d;
+  }
+  .ticker-logo-bounce {
+    animation: ticker-logo-bounce 2.2s ease-in-out infinite;
+  }
+  .ticker-logo-float {
+    animation: ticker-logo-float 3.6s ease-in-out infinite;
+  }
+  .ticker-logo-swing {
+    animation: ticker-logo-swing 3.2s ease-in-out infinite;
+    transform-origin: top center;
+  }
+
   /* Unimoni signage: rate rows fill panel height and scale type with row size */
   .display-rates-body {
     display: flex;
@@ -395,6 +411,26 @@
 @keyframes ticker-logo-flip {
   0%, 80% { transform: perspective(600px) rotateY(0deg); }
   100% { transform: perspective(600px) rotateY(360deg); }
+}
+
+@keyframes ticker-logo-flipx {
+  0%, 78% { transform: perspective(600px) rotateX(0deg); }
+  100% { transform: perspective(600px) rotateX(360deg); }
+}
+
+@keyframes ticker-logo-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14%); }
+}
+
+@keyframes ticker-logo-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8%); }
+}
+
+@keyframes ticker-logo-swing {
+  0%, 100% { transform: rotate(-7deg); }
+  50% { transform: rotate(7deg); }
 }
 
 @keyframes blob {

@@ -51,6 +51,8 @@ interface UnimoniRatesPanelProps {
   promoText?: string | null;
   /** Seconds the promotional card stays visible (defaults to sheetIntervalSeconds). */
   promoDurationSeconds?: number;
+  /** Order the rotating slides appear in. Missing/absent slides are skipped. */
+  rateCardOrder?: Array<"forex" | "transfer" | "promo">;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -104,6 +106,7 @@ export function UnimoniRatesPanel({
   promoImageUrl,
   promoText,
   promoDurationSeconds,
+  rateCardOrder,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -144,11 +147,15 @@ export function UnimoniRatesPanel({
   const promoImage = promoImageUrl?.trim() || "";
   const promoMessage = promoText?.trim() || "";
   const hasPromoCard = Boolean(promoImage || promoMessage);
-  const sheets: Sheet[] = [
-    ...chunkRows(rows, "rates"),
-    ...chunkRows(transferRows, "transfer"),
-    ...(hasPromoCard ? [{ kind: "promo", rows: [] } as Sheet] : []),
-  ];
+  // Build each slide group, then lay them out in the admin-chosen order.
+  const forexSheets = chunkRows(rows, "rates");
+  const transferSheets = chunkRows(transferRows, "transfer");
+  const promoSheets: Sheet[] = hasPromoCard ? [{ kind: "promo", rows: [] } as Sheet] : [];
+  const order =
+    rateCardOrder && rateCardOrder.length > 0 ? rateCardOrder : (["forex", "transfer", "promo"] as const);
+  const groupFor = (slide: "forex" | "transfer" | "promo"): Sheet[] =>
+    slide === "forex" ? forexSheets : slide === "transfer" ? transferSheets : promoSheets;
+  const sheets: Sheet[] = order.flatMap(groupFor);
   const sheetCount = Math.max(sheets.length, 1);
   const [sheetIndex, setSheetIndex] = useState(0);
 

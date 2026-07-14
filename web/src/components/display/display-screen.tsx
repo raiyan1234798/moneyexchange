@@ -42,6 +42,7 @@ interface TimedRatesPanelProps {
   promoImageUrl: string | null;
   promoText: string | null;
   promoDurationSeconds: number;
+  rateCardOrder: Array<"forex" | "transfer" | "promo">;
 }
 
 function TimedRatesPanel({
@@ -61,6 +62,7 @@ function TimedRatesPanel({
   promoImageUrl,
   promoText,
   promoDurationSeconds,
+  rateCardOrder,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -92,6 +94,7 @@ function TimedRatesPanel({
       promoImageUrl={promoImageUrl}
       promoText={promoText}
       promoDurationSeconds={promoDurationSeconds}
+      rateCardOrder={rateCardOrder}
     />
   );
 }
@@ -165,7 +168,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const announcementText = branchSettings.announcementText?.trim() || null;
   const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
   const announcementVideoUrl = branchSettings.announcementVideoUrl?.trim() || null;
-  const announcementStyle = (branchSettings.announcementStyle ?? "popup") as "popup" | "fullscreen" | "band";
+  const announcementStyle = (branchSettings.announcementStyle ?? "popup") as
+    | "popup"
+    | "fullscreen"
+    | "band"
+    | "video-top"
+    | "rate-card";
   const announcementAnimation = (branchSettings.announcementAnimation ?? "slide") as
     | "slide"
     | "fade"
@@ -173,21 +181,37 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     | "flip";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
+  const announcementFontCss = messageFontCss(branchSettings.announcementFont);
+  const announcementColorStyle = (branchSettings.announcementColorStyle ?? "white") as
+    | "white"
+    | "logo"
+    | "gold"
+    | "navy";
+  // "times" mode plays a fixed number of times then stops; "repeat" (0) loops.
+  const announcementMaxTimes =
+    branchSettings.announcementPlayMode === "times"
+      ? Math.max(1, branchSettings.announcementPlayTimes ?? 1)
+      : 0;
   // Master on/off — off hides the announcement without deleting its content.
   const announcementOn = branchSettings.announcementEnabled !== false;
   const hasAnnouncement =
     announcementOn &&
     Boolean(announcementText || announcementImageUrl || announcementVideoUrl);
-  // The "band" style animates an announcement over the message area (bottom
-  // strip) for the visible window, then hands the strip back to the scrolling
-  // ticker. The hook runs unconditionally (Rules of Hooks); the overlay stays
-  // mounted so its exit animation can play — `bandCycleVisible` drives it.
+  // "band"=bottom message strip, "video-top"=strip at the top of the video —
+  // both animate in for the visible window then hand the area back. The hook
+  // runs unconditionally (Rules of Hooks); the overlay stays mounted so its exit
+  // animation can play — `bandCycleVisible` drives it.
+  const isStripStyle = announcementStyle === "band" || announcementStyle === "video-top";
   const bandCycleVisible = useAnnouncementCycle(
-    hasAnnouncement && announcementStyle === "band",
+    hasAnnouncement && isStripStyle,
     announcementSeconds,
     announcementRepeatMinutes,
+    announcementMaxTimes,
   );
   const sheetIntervalSeconds = branchSettings.rateSheetIntervalSeconds ?? 5;
+  const rateCardOrder = (branchSettings.rateCardOrder && branchSettings.rateCardOrder.length > 0
+    ? branchSettings.rateCardOrder
+    : ["forex", "transfer", "promo"]) as Array<"forex" | "transfer" | "promo">;
   const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
   const ratePromoText = branchSettings.ratePromoText?.trim() || null;
   const ratePromoDurationSeconds =
@@ -410,8 +434,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       onVideoEnded={handleVideoEnded}
     >
       {/* Admin-controlled announcement over the video area (pop-up / full screen).
-          The "band" style is rendered in the ticker slot instead (below). */}
-      {announcementStyle !== "band" && announcementOn ? (
+          band / video-top render in the message strip, rate-card over the rate
+          panel (both below, outside the promo panel). */}
+      {announcementOn && (announcementStyle === "popup" || announcementStyle === "fullscreen") ? (
         <AnnouncementBanner
           text={announcementText}
           imageUrl={announcementImageUrl}
@@ -419,6 +444,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           displayStyle={announcementStyle}
           visibleSeconds={announcementSeconds}
           repeatMinutes={announcementRepeatMinutes}
+          maxTimes={announcementMaxTimes}
+          fontCss={announcementFontCss}
+          colorStyle={announcementColorStyle}
         />
       ) : null}
     </UnimoniPromoPanel>
@@ -443,6 +471,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoImageUrl={ratePromoImageUrl}
       promoText={ratePromoText}
       promoDurationSeconds={ratePromoDurationSeconds}
+      rateCardOrder={rateCardOrder}
     />
   );
 
@@ -503,9 +532,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         scrollingLogos={scrollingLogos}
       />
 
-      {/* Animated message-area announcement: takes over the bottom strip for the
-          visible window, then animates away and reveals the ticker again. */}
-      {announcementStyle === "band" && announcementOn ? (
+      {/* Animated announcement strip: "band" takes over the bottom message area,
+          "video-top" a strip at the top of the video. Then it animates away and
+          the area returns to normal. */}
+      {isStripStyle && announcementOn ? (
         <MessageAreaAnnouncement
           visible={bandCycleVisible}
           text={announcementText}
@@ -513,7 +543,33 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           videoUrl={announcementVideoUrl}
           animation={announcementAnimation}
           heightScale={tickerScale}
+          anchor={announcementStyle === "video-top" ? "top" : "bottom"}
+          fontCss={announcementFontCss}
+          colorStyle={announcementColorStyle}
         />
+      ) : null}
+
+      {/* "rate-card" placement: a pop-up card over the rate-card panel. */}
+      {announcementStyle === "rate-card" && announcementOn ? (
+        <div
+          className="pointer-events-none absolute top-0 z-40 h-full"
+          style={{
+            width: `${rateWidthPercent}%`,
+            ...(rateCardPosition === "left" ? { left: 0 } : { right: 0 }),
+          }}
+        >
+          <AnnouncementBanner
+            text={announcementText}
+            imageUrl={announcementImageUrl}
+            videoUrl={announcementVideoUrl}
+            displayStyle="popup"
+            visibleSeconds={announcementSeconds}
+            repeatMinutes={announcementRepeatMinutes}
+            maxTimes={announcementMaxTimes}
+            fontCss={announcementFontCss}
+            colorStyle={announcementColorStyle}
+          />
+        </div>
       ) : null}
 
       <style jsx global>{`

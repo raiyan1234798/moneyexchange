@@ -97,7 +97,7 @@ export interface BranchSettings {
   /** Multiplier for the pop-out ticker logo badge size (0.6–2). Default 1. */
   logoScale?: number;
   /** Animation style for the pop-out ticker logo. Default "spin". */
-  tickerLogoAnimation?: "spin" | "pulse" | "none";
+  tickerLogoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Custom text for the gold "breaking" headline tab above the ticker. */
   tickerHeadline?: string | null;
   /** Show the gold headline tab at all (turn off to remove it). Default true. */
@@ -110,6 +110,8 @@ export interface BranchSettings {
   rateCardNote?: string | null;
   /** Seconds each rotating rate screen stays visible (forex/transfer pages). Default 5. */
   rateSheetIntervalSeconds?: number;
+  /** Order the rotating rate-card slides appear in. Missing slides are skipped. */
+  rateCardOrder?: Array<"forex" | "transfer" | "promo">;
   /** Promotional card in the rate-card rotation: image (upload/URL). Hidden when empty. */
   ratePromoImageUrl?: string | null;
   /** Promotional card: text message (shown alone or under the image). */
@@ -126,14 +128,22 @@ export interface BranchSettings {
   announcementVideoUrl?: string | null;
   /** Master on/off for the announcement — off hides it from the TV without deleting the text/image/video. */
   announcementEnabled?: boolean;
-  /** "popup" = big centered card; "fullscreen" = video-area takeover; "band" = animated message-area takeover. */
-  announcementStyle?: "popup" | "fullscreen" | "band";
+  /** Where the announcement appears on the TV. */
+  announcementStyle?: "popup" | "fullscreen" | "band" | "video-top" | "rate-card";
   /** Entrance/exit animation for the message-area (band) announcement. */
   announcementAnimation?: "slide" | "fade" | "zoom" | "flip";
+  /** Font key for the announcement text — see MESSAGE_FONTS. */
+  announcementFont?: string | null;
+  /** Colour treatment for the announcement text. */
+  announcementColorStyle?: "white" | "logo" | "gold" | "navy";
   /** Seconds the announcement stays visible each time (default 5). */
   announcementSeconds?: number;
   /** Minutes between announcement repeats (default 3). */
   announcementRepeatMinutes?: number;
+  /** "repeat" = every N minutes forever; "times" = a fixed number of times then stop. */
+  announcementPlayMode?: "repeat" | "times";
+  /** How many times to show when playMode = "times". */
+  announcementPlayTimes?: number;
 }
 
 export type VideoSourceType = "external" | "r2" | "storage" | "chunked";

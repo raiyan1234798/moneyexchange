@@ -370,7 +370,9 @@ service cloud.firestore {
       allow read: if isSuperAdmin() || isAdmin() ||
         (isBranchManager() && resource.data.branchId == managerBranchId());
       allow create: if isActiveUser();
-      allow update, delete: if false;
+      allow update: if false;
+      // Admins can remove error-prone / mistaken log rows (client request 2026-07-14).
+      allow delete: if isSuperAdmin() || isAdmin();
     }
 
     match /notifications/{notificationId} {

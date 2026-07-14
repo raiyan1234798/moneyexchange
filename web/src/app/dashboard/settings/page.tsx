@@ -479,6 +479,36 @@ function BranchSettingsForm({
       </div>
 
       <div className="space-y-2">
+        <Label>Rate-card slide order</Label>
+        <Select
+          value={(settings.rateCardOrder ?? ["forex", "transfer", "promo"]).join(",")}
+          onValueChange={(value) =>
+            setSettings({
+              ...settings,
+              rateCardOrder: (value ?? "forex,transfer,promo").split(",") as Array<
+                "forex" | "transfer" | "promo"
+              >,
+            })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="forex,transfer,promo">Forex → Transfer → Promotion (default)</SelectItem>
+            <SelectItem value="transfer,forex,promo">Transfer → Forex → Promotion</SelectItem>
+            <SelectItem value="promo,forex,transfer">Promotion → Forex → Transfer</SelectItem>
+            <SelectItem value="forex,promo,transfer">Forex → Promotion → Transfer</SelectItem>
+            <SelectItem value="transfer,promo,forex">Transfer → Promotion → Forex</SelectItem>
+            <SelectItem value="promo,transfer,forex">Promotion → Transfer → Forex</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Which slide the rotating rate card shows first, then next. Slides with no content are skipped.
+        </p>
+      </div>
+
+      <div className="space-y-2">
         <Label>Rate card font</Label>
         <Select
           value={settings.rateCardFont ?? MESSAGE_FONTS[0].key}
@@ -661,13 +691,14 @@ function BranchSettingsForm({
             </p>
           </div>
           <div className="space-y-2">
-            <Label>How it appears</Label>
+            <Label>Where it appears</Label>
             <Select
               value={settings.announcementStyle ?? "popup"}
               onValueChange={(value) =>
                 setSettings({
                   ...settings,
-                  announcementStyle: (value as "popup" | "fullscreen" | "band") ?? "popup",
+                  announcementStyle:
+                    (value as "popup" | "fullscreen" | "band" | "video-top" | "rate-card") ?? "popup",
                 })
               }
             >
@@ -675,13 +706,15 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="band">Message area — animated (image / video / text in the bottom strip, then back to normal)</SelectItem>
+                <SelectItem value="band">Message area — bottom strip (below the video), then back to normal</SelectItem>
+                <SelectItem value="video-top">Video — top strip (above the video)</SelectItem>
                 <SelectItem value="popup">Big pop-up card (centered over the video)</SelectItem>
                 <SelectItem value="fullscreen">Full screen — takes over the whole video area</SelectItem>
+                <SelectItem value="rate-card">Rate-card panel (pop-up over the rates)</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          {(settings.announcementStyle ?? "popup") === "band" ? (
+          {["band", "video-top"].includes(settings.announcementStyle ?? "popup") ? (
             <div className="space-y-2">
               <Label>Animation</Label>
               <Select
@@ -697,24 +730,64 @@ function BranchSettingsForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="slide">Slide up from the bottom</SelectItem>
+                  <SelectItem value="slide">Slide in / out</SelectItem>
                   <SelectItem value="fade">Fade in / out</SelectItem>
                   <SelectItem value="zoom">Zoom in / out</SelectItem>
-                  <SelectItem value="flip">Flip up</SelectItem>
+                  <SelectItem value="flip">Flip</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                How the message-area announcement enters and leaves.
-              </p>
+              <p className="text-xs text-muted-foreground">How the strip enters and leaves.</p>
             </div>
           ) : null}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Text font</Label>
+              <Select
+                value={settings.announcementFont ?? MESSAGE_FONTS[0].key}
+                onValueChange={(value) => setSettings({ ...settings, announcementFont: value ?? null })}
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MESSAGE_FONTS.map((f) => (
+                    <SelectItem key={f.key} value={f.key}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Text colour</Label>
+              <Select
+                value={settings.announcementColorStyle ?? "white"}
+                onValueChange={(value) =>
+                  setSettings({
+                    ...settings,
+                    announcementColorStyle: (value as "white" | "logo" | "gold" | "navy") ?? "white",
+                  })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="white">White</SelectItem>
+                  <SelectItem value="logo">Unimoni logo colours (blue → gold)</SelectItem>
+                  <SelectItem value="gold">Gold</SelectItem>
+                  <SelectItem value="navy">Navy blue</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Visible for (seconds)</Label>
               <Input
                 type="number"
                 min={2}
-                max={60}
+                max={120}
                 value={settings.announcementSeconds ?? 5}
                 onChange={(event) =>
                   setSettings({ ...settings, announcementSeconds: Number(event.target.value) })
@@ -723,11 +796,11 @@ function BranchSettingsForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>Repeat every (minutes)</Label>
+              <Label>Gap between shows (minutes)</Label>
               <Input
                 type="number"
                 min={1}
-                max={120}
+                max={240}
                 value={settings.announcementRepeatMinutes ?? 3}
                 onChange={(event) =>
                   setSettings({ ...settings, announcementRepeatMinutes: Number(event.target.value) })
@@ -735,6 +808,46 @@ function BranchSettingsForm({
                 className="rounded-xl"
               />
             </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>How many times</Label>
+              <Select
+                value={settings.announcementPlayMode ?? "repeat"}
+                onValueChange={(value) =>
+                  setSettings({
+                    ...settings,
+                    announcementPlayMode: (value as "repeat" | "times") ?? "repeat",
+                  })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="repeat">Repeat forever (on the gap above)</SelectItem>
+                  <SelectItem value="times">Play a set number of times, then stop</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {(settings.announcementPlayMode ?? "repeat") === "times" ? (
+              <div className="space-y-2">
+                <Label>Number of times</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={settings.announcementPlayTimes ?? 1}
+                  onChange={(event) =>
+                    setSettings({ ...settings, announcementPlayTimes: Number(event.target.value) })
+                  }
+                  className="rounded-xl"
+                />
+                <p className="text-xs text-muted-foreground">
+                  e.g. set to 1 to show it just once, or 3 to show it three times.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -831,7 +944,8 @@ function BranchSettingsForm({
               onValueChange={(value) =>
                 setSettings({
                   ...settings,
-                  tickerLogoAnimation: (value as "spin" | "pulse" | "none") ?? "spin",
+                  tickerLogoAnimation:
+                    (value as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing") ?? "spin",
                 })
               }
             >
@@ -839,7 +953,11 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="spin">Rotating flip</SelectItem>
+                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
+                <SelectItem value="flip">Flip (X)</SelectItem>
+                <SelectItem value="bounce">Bounce</SelectItem>
+                <SelectItem value="float">Float</SelectItem>
+                <SelectItem value="swing">Swing</SelectItem>
                 <SelectItem value="pulse">Gentle pulse</SelectItem>
                 <SelectItem value="none">No animation</SelectItem>
               </SelectContent>
