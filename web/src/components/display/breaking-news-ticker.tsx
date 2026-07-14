@@ -101,9 +101,7 @@ function BreakingNewsTickerInner({
   // strip and headline tab shift right to clear the badge; the whole badge and
   // the inset scale together with logoScale.
   const baseBadgeWidth = isTextLogo ? "clamp(8rem,19vw,15rem)" : "clamp(8.5rem,18vw,13rem)";
-  const baseInset = isTextLogo ? "clamp(9rem,21vw,16rem)" : "clamp(9.5rem,20vw,14.5rem)";
   const badgeWidth = `calc(${baseBadgeWidth} * ${logoScale})`;
-  const contentInset = `calc(${baseInset} * ${logoScale})`;
   const textLen = resolvedText?.length ?? 0;
   const textLogoSize =
     textLen <= 6 ? "clamp(1.1rem,2.4vw,2.5rem)" : textLen <= 10 ? "clamp(0.85rem,1.8vw,1.9rem)" : "clamp(0.6rem,1.3vw,1.35rem)";
@@ -134,9 +132,12 @@ function BreakingNewsTickerInner({
     <footer className="relative shrink-0">
       {headline ? (
         <div
-          className="absolute top-0 z-30 -translate-y-full px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
+          // Flush against the logo's right edge so it reads as one continuous band
+          // extending FROM the logo; whitespace-nowrap lets the full text show
+          // (no truncation) and extend as far right as it needs.
+          className="absolute top-0 z-30 -translate-y-full whitespace-nowrap rounded-tr-md px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
-            left: contentInset,
+            left: badgeWidth,
             backgroundColor: UNIMONI_COLORS.gold,
             color: UNIMONI_COLORS.navy,
           }}
@@ -152,7 +153,11 @@ function BreakingNewsTickerInner({
       <div
         // bottom-0 keeps the badge's gold bottom border flush with the ticker's
         // gold underline — one continuous straight line, no double line.
-        className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[10px] border-2 border-l-0 px-[0.5vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+        // The RIGHT end is fully rounded (a clean, complete shape — not a hard
+        // rectangle); the left sits flush at the screen edge. More padding + a
+        // slightly smaller logo below keep the wordmark clear of the rounded
+        // corners so it never looks cut.
+        className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 px-[1vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
           pulse ? "ticker-logo-pulse" : ""
         }`}
         style={{
@@ -178,7 +183,7 @@ function BreakingNewsTickerInner({
             alt={`${BRAND.name} logo`}
             width={260}
             height={84}
-            className={`h-[90%] w-[97%] object-contain drop-shadow-sm ${logoAnimClass}`}
+            className={`h-[80%] w-[90%] object-contain drop-shadow-sm ${logoAnimClass}`}
             unoptimized
             priority
             onError={() => setLogoFailed(true)}

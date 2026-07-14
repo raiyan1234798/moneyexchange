@@ -80,6 +80,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   // first). Only the slides that actually exist are shown, in this order.
   rateCardOrder: ["forex", "transfer", "promo"] as Array<"forex" | "transfer" | "promo">,
   ratePromoImageUrl: null as string | null,
+  ratePromoMedia: [] as Array<{ type: "image" | "video"; url: string }>,
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,

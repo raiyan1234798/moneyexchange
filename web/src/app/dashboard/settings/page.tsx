@@ -62,6 +62,25 @@ function BranchSettingsForm({
   const [color, setColor] = useState(initialColor);
   const [settings, setSettings] = useState(initialSettings);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [promoLinkInput, setPromoLinkInput] = useState("");
+
+  // Promo gallery: the legacy single image migrates into the media list on any edit.
+  type PromoItem = { type: "image" | "video"; url: string };
+  const legacyPromo = (s: BranchSettings): PromoItem[] =>
+    s.ratePromoImageUrl ? [{ type: "image", url: s.ratePromoImageUrl }] : [];
+  const promoMediaList: PromoItem[] = [...legacyPromo(settings), ...(settings.ratePromoMedia ?? [])];
+  const addPromoMedia = (item: PromoItem) =>
+    setSettings((s) => ({
+      ...s,
+      ratePromoImageUrl: null,
+      ratePromoMedia: [...legacyPromo(s), ...(s.ratePromoMedia ?? []), item],
+    }));
+  const removePromoMedia = (idx: number) =>
+    setSettings((s) => {
+      const list = [...legacyPromo(s), ...(s.ratePromoMedia ?? [])];
+      list.splice(idx, 1);
+      return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
+    });
 
   return (
     <FormSection title={`${branchName} Branding`}>
@@ -453,43 +472,102 @@ function BranchSettingsForm({
               className="rounded-xl"
             />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="space-y-2">
+            <Label>Images &amp; videos — each rotates as its own screen</Label>
             <Input
               type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-              aria-label="Upload promotion image"
+              multiple
+              aria-label="Upload promotion images"
               onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                try {
-                  const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
-                  setSettings({ ...settings, ratePromoImageUrl: dataUrl });
-                  toast.success("Promotion image ready — click Save Branch Settings to apply");
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not read image");
+                const files = Array.from(event.target.files ?? []);
+                let added = 0;
+                for (const file of files) {
+                  try {
+                    const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
+                    addPromoMedia({ type: "image", url: dataUrl });
+                    added += 1;
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Could not read an image");
+                  }
                 }
+                if (added) toast.success(`${added} image(s) added — Save Branch Settings to apply`);
+                event.target.value = "";
               }}
               className="rounded-xl"
             />
-            {settings.ratePromoImageUrl ? (
-              <div className="flex shrink-0 items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={settings.ratePromoImageUrl}
-                  alt="Promotion preview"
-                  className="h-12 w-16 shrink-0 rounded-md bg-white object-contain p-1 ring-1 ring-border"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg"
-                  onClick={() => setSettings({ ...settings, ratePromoImageUrl: null })}
-                >
-                  Clear
-                </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                value={promoLinkInput}
+                onChange={(event) => setPromoLinkInput(event.target.value)}
+                placeholder="Paste an image or video link (Drive / YouTube ok)"
+                className="min-w-[12rem] flex-1 rounded-xl"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => {
+                  const raw = promoLinkInput.trim();
+                  if (!raw) return;
+                  addPromoMedia({ type: "image", url: normalizeImageLink(raw) });
+                  setPromoLinkInput("");
+                }}
+              >
+                + Image
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => {
+                  const raw = promoLinkInput.trim();
+                  if (!raw) return;
+                  if (isYouTubeUrl(raw)) {
+                    addPromoMedia({ type: "image", url: normalizeImageLink(raw) });
+                    toast.info("YouTube can't stream here — added its thumbnail image instead.");
+                  } else {
+                    addPromoMedia({ type: "video", url: normalizeVideoLink(raw) || raw });
+                  }
+                  setPromoLinkInput("");
+                }}
+              >
+                + Video
+              </Button>
+            </div>
+            {promoMediaList.length ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {promoMediaList.map((m, i) => (
+                  <div key={`${m.url}-${i}`} className="relative">
+                    {m.type === "video" ? (
+                      <div className="flex h-14 w-20 items-center justify-center rounded-md bg-slate-800 text-[10px] font-semibold text-white ring-1 ring-border">
+                        🎬 Video
+                      </div>
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.url}
+                        alt="Promotion item"
+                        className="h-14 w-20 rounded-md bg-white object-contain p-1 ring-1 ring-border"
+                      />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removePromoMedia(i)}
+                      aria-label="Remove this promotion item"
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs font-bold text-white shadow"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
               </div>
             ) : null}
+            <p className="text-xs text-muted-foreground">
+              Add several images and/or videos — they rotate one after another. Videos play muted.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Message BELOW the image (optional)</Label>

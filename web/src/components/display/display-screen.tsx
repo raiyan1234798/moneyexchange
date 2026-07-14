@@ -43,6 +43,7 @@ interface TimedRatesPanelProps {
   fontCss: string;
   sheetIntervalSeconds: number;
   promoImageUrl: string | null;
+  promoMedia: Array<{ type: "image" | "video"; url: string }>;
   promoTextTop: string | null;
   promoText: string | null;
   promoDurationSeconds: number;
@@ -67,6 +68,7 @@ function TimedRatesPanel({
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
+  promoMedia,
   promoTextTop,
   promoText,
   promoDurationSeconds,
@@ -103,6 +105,7 @@ function TimedRatesPanel({
       fontCss={fontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={promoImageUrl}
+      promoMedia={promoMedia}
       promoTextTop={promoTextTop}
       promoText={promoText}
       promoDurationSeconds={promoDurationSeconds}
@@ -232,6 +235,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     ? branchSettings.rateCardOrder
     : ["forex", "transfer", "promo"]) as Array<"forex" | "transfer" | "promo">;
   const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
+  const ratePromoMedia = (branchSettings.ratePromoMedia ?? []).filter((m) => m?.url?.trim());
   const ratePromoText = branchSettings.ratePromoText?.trim() || null;
   const ratePromoTextTop = branchSettings.ratePromoTextTop?.trim() || null;
   const ratePromoDurationSeconds =
@@ -366,7 +370,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     ? "" // empty string overrides the component default → tab not rendered
     : customHeadline
       ? customHeadline.toUpperCase()
-      : activeTicker?.messages?.[0]?.text?.slice(0, 24).toUpperCase() ||
+      : activeTicker?.messages?.[0]?.text?.slice(0, 48).toUpperCase() ||
         branch?.name?.toUpperCase() ||
         "BIG BREAKING";
   const tickerFontColor = activeTicker?.fontColor || branchSettings.tickerFontColor || "#FFFFFF";
@@ -498,6 +502,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       fontCss={rateCardFontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={ratePromoImageUrl}
+      promoMedia={ratePromoMedia}
       promoTextTop={ratePromoTextTop}
       promoText={ratePromoText}
       promoDurationSeconds={ratePromoDurationSeconds}

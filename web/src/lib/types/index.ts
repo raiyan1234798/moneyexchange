@@ -116,6 +116,8 @@ export interface BranchSettings {
   rateCardOrder?: Array<"forex" | "transfer" | "promo">;
   /** Promotional card in the rate-card rotation: image (upload/URL). Hidden when empty. */
   ratePromoImageUrl?: string | null;
+  /** Promotional GALLERY: several images/videos, each rotates as its own promo screen. */
+  ratePromoMedia?: Array<{ type: "image" | "video"; url: string }>;
   /** Promotional card: text message ABOVE the image. */
   ratePromoTextTop?: string | null;
   /** Promotional card: text message below the image (shown alone or under the image). */

@@ -53,6 +53,8 @@ interface UnimoniRatesPanelProps {
   sheetIntervalSeconds?: number;
   /** Promotional card: image shown as its own rotating screen. Hidden when empty. */
   promoImageUrl?: string | null;
+  /** Promotional gallery: several images/videos, each its own rotating promo screen. */
+  promoMedia?: Array<{ type: "image" | "video"; url: string }>;
   /** Promotional card: text ABOVE the image. */
   promoTextTop?: string | null;
   /** Promotional card: text message below the image (alone, or under the image). */
@@ -75,6 +77,8 @@ const RATES_PER_SHEET = 12;
 interface Sheet {
   kind: "rates" | "transfer" | "promo";
   rows: ExchangeRate[];
+  /** For a promo sheet: the media (image/video) shown on this screen. */
+  promoMedia?: { type: "image" | "video"; url: string };
 }
 
 function chunkRows(rows: ExchangeRate[], kind: Sheet["kind"]): Sheet[] {
@@ -115,6 +119,7 @@ export function UnimoniRatesPanel({
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
+  promoMedia,
   promoTextTop,
   promoText,
   promoDurationSeconds,
@@ -159,11 +164,25 @@ export function UnimoniRatesPanel({
   const promoImage = promoImageUrl?.trim() || "";
   const promoMessage = promoText?.trim() || "";
   const promoTop = promoTextTop?.trim() || "";
-  const hasPromoCard = Boolean(promoImage || promoMessage || promoTop);
+  // Gallery: several images/videos each rotate as their own promo screen. Falls
+  // back to the single legacy promo image when the gallery is empty.
+  const promoItems: Array<{ type: "image" | "video"; url: string }> = (
+    promoMedia && promoMedia.length > 0
+      ? promoMedia
+      : promoImage
+        ? [{ type: "image" as const, url: promoImage }]
+        : []
+  ).filter((m) => m.url?.trim());
+  const hasPromoText = Boolean(promoMessage || promoTop);
   // Build each slide group, then lay them out in the admin-chosen order.
   const forexSheets = chunkRows(rows, "rates");
   const transferSheets = chunkRows(transferRows, "transfer");
-  const promoSheets: Sheet[] = hasPromoCard ? [{ kind: "promo", rows: [] } as Sheet] : [];
+  const promoSheets: Sheet[] =
+    promoItems.length > 0
+      ? promoItems.map((m) => ({ kind: "promo", rows: [], promoMedia: m }) as Sheet)
+      : hasPromoText
+        ? [{ kind: "promo", rows: [] } as Sheet]
+        : [];
   const order =
     rateCardOrder && rateCardOrder.length > 0 ? rateCardOrder : (["forex", "transfer", "promo"] as const);
   const groupFor = (slide: "forex" | "transfer" | "promo"): Sheet[] =>
@@ -331,23 +350,37 @@ export function UnimoniRatesPanel({
                 style={{
                   color: NAVY_TEXT,
                   fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
-                  fontSize: promoImage ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
                 }}
               >
                 {promoTop}
               </p>
             ) : null}
-            {promoImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={promoImage}
-                alt="Promotion"
-                // With no text the image FILLS the whole card (no empty gaps);
-                // with text it uses contain so the whole image + text both fit.
-                className={`min-h-0 w-full flex-1 ${
-                  promoTop || promoMessage ? "object-contain" : "object-cover"
-                }`}
-              />
+            {activeSheet.promoMedia ? (
+              activeSheet.promoMedia.type === "video" ? (
+                <video
+                  key={activeSheet.promoMedia.url}
+                  src={activeSheet.promoMedia.url}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className={`min-h-0 w-full flex-1 ${
+                    promoTop || promoMessage ? "object-contain" : "object-cover"
+                  }`}
+                />
+              ) : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={activeSheet.promoMedia.url}
+                  alt="Promotion"
+                  // With no text the media FILLS the card (no gaps); with text it
+                  // uses contain so the whole image/video + text both fit.
+                  className={`min-h-0 w-full flex-1 ${
+                    promoTop || promoMessage ? "object-contain" : "object-cover"
+                  }`}
+                />
+              )
             ) : null}
             {promoMessage ? (
               <p
@@ -355,7 +388,7 @@ export function UnimoniRatesPanel({
                 style={{
                   color: NAVY_TEXT,
                   fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
-                  fontSize: promoImage ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
                 }}
               >
                 {promoMessage}
