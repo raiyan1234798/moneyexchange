@@ -173,9 +173,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     | "flip";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
-  const hasAnnouncement = Boolean(
-    announcementText || announcementImageUrl || announcementVideoUrl,
-  );
+  // Master on/off — off hides the announcement without deleting its content.
+  const announcementOn = branchSettings.announcementEnabled !== false;
+  const hasAnnouncement =
+    announcementOn &&
+    Boolean(announcementText || announcementImageUrl || announcementVideoUrl);
   // The "band" style animates an announcement over the message area (bottom
   // strip) for the visible window, then hands the strip back to the scrolling
   // ticker. The hook runs unconditionally (Rules of Hooks); the overlay stays
@@ -409,7 +411,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     >
       {/* Admin-controlled announcement over the video area (pop-up / full screen).
           The "band" style is rendered in the ticker slot instead (below). */}
-      {announcementStyle !== "band" ? (
+      {announcementStyle !== "band" && announcementOn ? (
         <AnnouncementBanner
           text={announcementText}
           imageUrl={announcementImageUrl}
@@ -503,7 +505,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
       {/* Animated message-area announcement: takes over the bottom strip for the
           visible window, then animates away and reveals the ticker again. */}
-      {announcementStyle === "band" ? (
+      {announcementStyle === "band" && announcementOn ? (
         <MessageAreaAnnouncement
           visible={bandCycleVisible}
           text={announcementText}

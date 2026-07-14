@@ -124,6 +124,8 @@ export interface BranchSettings {
   announcementImageUrl?: string | null;
   /** Optional short video in the announcement banner (direct/Drive link or R2 upload). */
   announcementVideoUrl?: string | null;
+  /** Master on/off for the announcement — off hides it from the TV without deleting the text/image/video. */
+  announcementEnabled?: boolean;
   /** "popup" = big centered card; "fullscreen" = video-area takeover; "band" = animated message-area takeover. */
   announcementStyle?: "popup" | "fullscreen" | "band";
   /** Entrance/exit animation for the message-area (band) announcement. */

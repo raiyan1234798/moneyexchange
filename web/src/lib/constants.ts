@@ -80,6 +80,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   announcementText: null as string | null,
   announcementImageUrl: null as string | null,
   announcementVideoUrl: null as string | null,
+  announcementEnabled: true,
   announcementStyle: "popup" as "popup" | "fullscreen" | "band",
   announcementAnimation: "slide" as "slide" | "fade" | "zoom" | "flip",
   announcementSeconds: 5,

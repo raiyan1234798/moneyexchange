@@ -516,6 +516,18 @@ function BranchSettingsForm({
           screen returns to normal — repeating on the interval you choose. Show it in the message
           area (bottom strip), as a big pop-up over the video, or full screen. Leave empty to turn it off.
         </p>
+        <div className="mb-4 flex items-center justify-between rounded-xl border border-border/30 p-3">
+          <div>
+            <Label>Show announcement on the display</Label>
+            <p className="text-xs text-muted-foreground">
+              Turn off to hide it from the TV without deleting your text/image/video — switch it back on anytime.
+            </p>
+          </div>
+          <Switch
+            checked={settings.announcementEnabled !== false}
+            onCheckedChange={(checked) => setSettings({ ...settings, announcementEnabled: checked })}
+          />
+        </div>
         <div className="space-y-3">
           <div className="space-y-2">
             <Label>Announcement text</Label>
