@@ -24,7 +24,7 @@ import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
-import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
+import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -81,6 +81,50 @@ function BranchSettingsForm({
       list.splice(idx, 1);
       return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
     });
+  // Reorder: which item rotates first, second, etc. Moving writes the full list
+  // back to ratePromoMedia (legacy single image is folded in and cleared).
+  const movePromoMedia = (idx: number, dir: -1 | 1) =>
+    setSettings((s) => {
+      const list = [...legacyPromo(s), ...(s.ratePromoMedia ?? [])];
+      const target = idx + dir;
+      if (target < 0 || target >= list.length) return s;
+      [list[idx], list[target]] = [list[target], list[idx]];
+      return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
+    });
+
+  // Rescue any promo images stored as base64 data URLs by uploading them to R2
+  // and swapping in the URL, so the branch doc stays well under Firestore's 1MB
+  // limit. Runs at save time; safe no-op when nothing needs migrating.
+  async function migratePromoMediaForSave(s: BranchSettings): Promise<BranchSettings> {
+    const list = [...legacyPromo(s), ...(s.ratePromoMedia ?? [])];
+    const needsUpload = list.some((m) => m.url.startsWith("data:"));
+    if (!needsUpload) {
+      return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
+    }
+    if (!isR2UploadConfigured()) {
+      // No R2 here (local/dev): leave as-is; the caller will surface any size error.
+      return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
+    }
+    toast.info("Optimizing promotion images for upload…");
+    const migrated: PromoItem[] = [];
+    for (const m of list) {
+      if (m.url.startsWith("data:")) {
+        try {
+          const res = await fetch(m.url);
+          const blob = await res.blob();
+          const ext = (blob.type.split("/")[1] || "png").replace("+xml", "");
+          const file = new File([blob], `promo-${Date.now()}.${ext}`, { type: blob.type });
+          const r2 = await uploadFileToR2(file, branchId);
+          migrated.push({ type: m.type, url: r2.downloadUrl });
+        } catch {
+          migrated.push(m); // best-effort — keep original if the upload fails
+        }
+      } else {
+        migrated.push(m);
+      }
+    }
+    return { ...s, ratePromoImageUrl: null, ratePromoMedia: migrated };
+  }
 
   return (
     <FormSection title={`${branchName} Branding`}>
@@ -498,7 +542,14 @@ function BranchSettingsForm({
                       toast.info(`Uploading ${file.name}…`);
                       const r2 = await uploadVideoToR2(file, branchId);
                       addPromoMedia({ type: "video", url: r2.downloadUrl });
+                    } else if (isR2UploadConfigured()) {
+                      // Images ALSO go to R2 now: storing several as base64 data
+                      // URLs pushes the branch doc past Firestore's 1MB limit.
+                      toast.info(`Uploading ${file.name}…`);
+                      const r2 = await uploadFileToR2(file, branchId);
+                      addPromoMedia({ type: "image", url: r2.downloadUrl });
                     } else {
+                      // No R2 (local/dev): fall back to a compressed inline image.
                       const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
                       addPromoMedia({ type: "image", url: dataUrl });
                     }
@@ -554,9 +605,9 @@ function BranchSettingsForm({
               </Button>
             </div>
             {promoMediaList.length ? (
-              <div className="flex flex-wrap gap-2 pt-1">
+              <div className="flex flex-wrap gap-3 pt-1">
                 {promoMediaList.map((m, i) => (
-                  <div key={`${m.url}-${i}`} className="relative">
+                  <div key={`${m.url}-${i}`} className="relative flex flex-col items-center gap-1">
                     {m.type === "video" ? (
                       <div className="flex h-14 w-20 items-center justify-center rounded-md bg-slate-800 text-[10px] font-semibold text-white ring-1 ring-border">
                         🎬 Video
@@ -569,6 +620,10 @@ function BranchSettingsForm({
                         className="h-14 w-20 rounded-md bg-white object-contain p-1 ring-1 ring-border"
                       />
                     )}
+                    {/* Order badge: shows the rotation position (1 = first). */}
+                    <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow">
+                      {i + 1}
+                    </span>
                     <button
                       type="button"
                       onClick={() => removePromoMedia(i)}
@@ -577,12 +632,34 @@ function BranchSettingsForm({
                     >
                       ×
                     </button>
+                    {/* Reorder controls: move earlier / later in the rotation. */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => movePromoMedia(i, -1)}
+                        disabled={i === 0}
+                        aria-label="Move earlier in the rotation"
+                        className="flex h-5 w-6 items-center justify-center rounded border border-border text-xs font-bold disabled:opacity-30"
+                      >
+                        ‹
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => movePromoMedia(i, 1)}
+                        disabled={i === promoMediaList.length - 1}
+                        aria-label="Move later in the rotation"
+                        className="flex h-5 w-6 items-center justify-center rounded border border-border text-xs font-bold disabled:opacity-30"
+                      >
+                        ›
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : null}
             <p className="text-xs text-muted-foreground">
-              Add several images and/or videos — they rotate one after another. Videos play muted.
+              Add several images and/or videos — they rotate one after another (the number shows the
+              order). Use ‹ › to set which plays first, second, and so on. Videos play muted.
             </p>
           </div>
           <div className="space-y-2">
@@ -1154,7 +1231,13 @@ function BranchSettingsForm({
                 // Close the dialog immediately, then save — the success toast
                 // confirms the write, so the confirm never lingers on screen.
                 setConfirmOpen(false);
-                void onSave({ logoUrl, brandingColor: color, settings });
+                void (async () => {
+                  // Move any inline (base64) promo images to R2 first so the doc
+                  // stays under Firestore's 1MB limit.
+                  const prepared = await migratePromoMediaForSave(settings);
+                  if (prepared !== settings) setSettings(prepared);
+                  await onSave({ logoUrl, brandingColor: color, settings: prepared });
+                })();
               }}
             >
               Yes, apply to the display

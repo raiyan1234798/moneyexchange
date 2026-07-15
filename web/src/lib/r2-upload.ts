@@ -112,6 +112,14 @@ export function uploadVideoToR2(
   });
 }
 
+/**
+ * Upload any file (image OR video) to R2. The Cloudflare worker routes by MIME
+ * type (images/… vs videos/…). Use this for promo images so they are NOT stored
+ * as base64 data URLs in the Firestore branch doc (which blows past the 1MB
+ * document limit once you add a few images).
+ */
+export const uploadFileToR2 = uploadVideoToR2;
+
 export async function deleteR2Object(storagePath: string): Promise<void> {
   if (!isR2UploadConfigured()) return;
   if (!storagePath.startsWith("videos/") && !storagePath.startsWith("images/")) return;
