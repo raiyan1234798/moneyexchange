@@ -33,8 +33,8 @@ interface BreakingNewsTickerProps {
   logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Logo images that scroll right-to-left with the messages. */
   scrollingLogos?: string[];
-  /** The promo/video area width as a % of the screen. Caps the gold headline
-   *  tab so it ENDS just before the rate card starts (never runs under it). */
+  /** The promo/video area width as a % of the screen. Stretches the gold
+   *  headline tab so it ENDS just before the rate card (never onto it). */
   headlineMaxWidthPercent?: number;
 }
 
@@ -136,17 +136,17 @@ function BreakingNewsTickerInner({
     <footer className="relative shrink-0">
       {headline ? (
         <div
-          // Flush against the logo's right edge so it reads as one continuous band
-          // extending FROM the logo. Both top corners are rounded (the start
-          // curves like the end). It extends with the text but is capped so it
-          // ENDS just before the rate card starts (ellipsis if the text is very
-          // long) — the cap is tied to the live video width so it never runs
-          // under the rate card at any screen size.
+          // Flush against the logo's right edge so it reads as one continuous
+          // gold band FROM the logo TO just before the rate card. Width is tied
+          // to the live promo/video width (not content), with a small gap so it
+          // never runs onto the rate card. Long text ellipsizes inside the band.
           className="absolute top-0 z-30 -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
             left: badgeWidth,
-            maxWidth: headlineMaxWidthPercent
-              ? `calc(${headlineMaxWidthPercent}vw - ${badgeWidth} - 1vw)`
+            // Prefer a single calc (no nested calc()) so TV WebViews resolve it.
+            // 0.5vw gap keeps the band near — but not onto — the rate card.
+            width: headlineMaxWidthPercent
+              ? `calc(${headlineMaxWidthPercent}vw - (${baseBadgeWidth}) * ${logoScale} - 0.5vw)`
               : "60vw",
             backgroundColor: UNIMONI_COLORS.gold,
             color: UNIMONI_COLORS.navy,

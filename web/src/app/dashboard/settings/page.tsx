@@ -323,9 +323,9 @@ function BranchSettingsForm({
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>
-          <Label>Show &quot;breaking&quot; headline tab</Label>
+          <Label>Show yellow headline box</Label>
           <p className="text-xs text-muted-foreground">
-            The small gold tab above the ticker (e.g. &quot;WELCOME TO UNIMONI EXCHANGE&quot;). Turn off
+            The gold curved box above the ticker (e.g. &quot;WELCOME TO UNIMONI&quot;). Turn off
             to remove it.
           </p>
         </div>
@@ -335,14 +335,19 @@ function BranchSettingsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Headline tab text</Label>
+        <Label>Yellow headline box text</Label>
         <Input
           value={settings.tickerHeadline ?? ""}
           onChange={(event) => setSettings({ ...settings, tickerHeadline: event.target.value || null })}
-          placeholder="Leave blank to use the first ticker message / branch name"
+          placeholder="e.g. WELCOME TO UNIMONI"
           disabled={settings.showTickerHeadline === false}
           className="rounded-xl"
         />
+        <p className="text-xs text-muted-foreground">
+          This is separate from the scrolling ticker message (edited on the Tickers page). Set one
+          message here for the yellow box and a different one for the scrolling ticker. Leave blank to
+          use the branch name.
+        </p>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <Label>Show Buy Rate on Display</Label>

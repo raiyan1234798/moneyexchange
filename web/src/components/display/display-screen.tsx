@@ -364,18 +364,18 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerMessageFontCss = messageFontCss(
     masterFont || activeTicker?.messageFont || branchSettings.tickerMessageFont,
   );
-  // The gold "breaking" headline tab is editable and removable per branch:
-  // turn it off entirely, or set custom text (falls back to the first message /
-  // branch name). Empty string / disabled → the tab is not rendered.
+  // The gold "breaking" headline tab is its OWN text, fully independent from the
+  // scrolling ticker message (edited separately in Settings → "Yellow headline
+  // box text"). It never mirrors the scrolling message: when blank it falls back
+  // only to the branch name / default welcome, so admins can set one message in
+  // the yellow box and a different one in the scrolling ticker.
   const showTickerHeadline = branchSettings.showTickerHeadline !== false;
   const customHeadline = branchSettings.tickerHeadline?.trim();
   const tickerHeadline = !showTickerHeadline
     ? "" // empty string overrides the component default → tab not rendered
     : customHeadline
       ? customHeadline.toUpperCase()
-      : activeTicker?.messages?.[0]?.text?.slice(0, 48).toUpperCase() ||
-        branch?.name?.toUpperCase() ||
-        "BIG BREAKING";
+      : branch?.name?.toUpperCase() || UNIMONI_DEFAULT_TICKER;
   const tickerFontColor = activeTicker?.fontColor || branchSettings.tickerFontColor || "#FFFFFF";
   const tickerFontSize = activeTicker?.fontSize || branchSettings.tickerFontSize;
 
