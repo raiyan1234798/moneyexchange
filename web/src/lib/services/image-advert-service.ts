@@ -30,7 +30,35 @@ function toMillis(value: ImageAdvert["createdAt"]): number {
 function sortImages(images: ImageAdvert[]): ImageAdvert[] {
   return [...images]
     .filter((img) => img.status === "active")
-    .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+    .sort((a, b) => {
+      // Admin-chosen order first; unordered images fall back to newest-first.
+      const ao = a.displayOrder;
+      const bo = b.displayOrder;
+      if (ao != null && bo != null && ao !== bo) return ao - bo;
+      if (ao != null && bo == null) return -1;
+      if (ao == null && bo != null) return 1;
+      return toMillis(b.createdAt) - toMillis(a.createdAt);
+    });
+}
+
+/** Persist a new rotation order — pass the image ids in the desired order. */
+export async function reorderImageAdverts(
+  orderedIds: string[],
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, index) =>
+      updateDocument(COLLECTIONS.imageAdverts, id, { displayOrder: index }),
+    ),
+  );
+  await writeAuditLog({
+    action: "image_advert_reorder",
+    entityType: "image_advert",
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: null,
+    metadata: { count: orderedIds.length },
+  }).catch(() => undefined);
 }
 
 export function subscribeImageAdverts(

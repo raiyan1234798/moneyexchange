@@ -505,6 +505,18 @@ function BranchSettingsForm({
         </p>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Show Foreign Exchange card on Display</Label>
+          <p className="text-xs text-muted-foreground">
+            The We Buy / We Sell forex card. Turn off to hide the whole forex card from the display.
+          </p>
+        </div>
+        <Switch
+          checked={settings.showForexCard !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showForexCard: checked })}
+        />
+      </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <Label>Show Buy Rate on Display</Label>
         <Switch
           checked={settings.showBuyRate}

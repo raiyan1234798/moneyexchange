@@ -31,6 +31,7 @@ interface TimedRatesPanelProps {
   showBuyRate: boolean;
   showSellRate: boolean;
   showTransferCard: boolean;
+  showForexCard: boolean;
   transferRates: TransferRate[];
   transferLocalLabel: string;
   scale: number;
@@ -61,6 +62,7 @@ function TimedRatesPanel({
   showBuyRate,
   showSellRate,
   showTransferCard,
+  showForexCard,
   transferRates,
   transferLocalLabel,
   scale,
@@ -103,6 +105,7 @@ function TimedRatesPanel({
       showBuyRate={showBuyRate}
       showSellRate={showSellRate}
       showTransferCard={showTransferCard}
+      showForexCard={showForexCard}
       transferRates={transferRates}
       transferLocalLabel={transferLocalLabel}
       scale={scale}
@@ -194,6 +197,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // an admin uploads transfer rates. Only an explicit showTransferCard === false
   // turns it off now.
   const showTransferCard = branchSettings.showTransferCard ?? true;
+  const showForexCard = branchSettings.showForexCard ?? true;
   const transferLocalLabel = branchSettings.transferLocalLabel?.trim() || "UGX";
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
@@ -545,6 +549,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       showBuyRate={branchSettings.showBuyRate}
       showSellRate={branchSettings.showSellRate}
       showTransferCard={showTransferCard}
+      showForexCard={showForexCard}
       transferRates={transferRates}
       transferLocalLabel={transferLocalLabel}
       scale={rateCardScale}

@@ -28,6 +28,8 @@ interface UnimoniRatesPanelProps {
   showRemittance?: boolean;
   /** Rotate in a SEPARATE "TRANSFER EXCHANGE RATES" card with $ + local columns. */
   showTransferCard?: boolean;
+  /** Show the FOREX (We Buy / We Sell) card at all. Default true. */
+  showForexCard?: boolean;
   /** CENTRALIZED transfer rates (head office) — same for all branches. When
       provided, the transfer card uses these instead of branch-level values. */
   transferRates?: TransferRate[];
@@ -117,6 +119,7 @@ export function UnimoniRatesPanel({
   variant = "panel",
   branchName,
   showTransferCard = false,
+  showForexCard = true,
   transferRates,
   transferLocalLabel = "UGX",
   scale = 1,
@@ -147,7 +150,7 @@ export function UnimoniRatesPanel({
   // forex table. Rates come from the CENTRALIZED head-office set (same for all
   // branches) when provided; legacy branch-level values are the fallback.
   const centralTransferRows: ExchangeRate[] = (transferRates ?? [])
-    .filter((t) => (t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0)
+    .filter((t) => !t.isHidden && ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0))
     .map(
       (t) =>
         ({
@@ -190,7 +193,8 @@ export function UnimoniRatesPanel({
   ).filter((m) => m.url?.trim());
   const hasPromoText = Boolean(promoMessage || promoTop);
   // Build each slide group, then lay them out in the admin-chosen order.
-  const forexSheets = chunkRows(rows, "rates");
+  // Forex can be turned off entirely (showForexCard) — then no forex slide shows.
+  const forexSheets = showForexCard ? chunkRows(rows, "rates") : [];
   const transferSheets = chunkRows(transferRows, "transfer");
   const promoSheets: Sheet[] =
     promoItems.length > 0
@@ -260,6 +264,7 @@ export function UnimoniRatesPanel({
         showSellRate={showSellRate}
         branchName={branchName}
         className={className}
+        fontCss={fontCss}
       />
     );
   }
@@ -576,6 +581,7 @@ interface RatesBoardProps {
   showSellRate: boolean;
   branchName?: string | null;
   className: string;
+  fontCss?: string;
 }
 
 /**
@@ -583,14 +589,14 @@ interface RatesBoardProps {
  * that fills the whole screen — no scrolling, no empty black area. Used when a
  * branch has no video playing.
  */
-function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className }: RatesBoardProps) {
+function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className, fontCss }: RatesBoardProps) {
   const columns = rows.length <= 5 ? 1 : 2;
   const rowCount = Math.max(1, Math.ceil(rows.length / columns));
 
   return (
     <section
       className={`flex h-full min-h-0 w-full flex-1 flex-col ${className}`}
-      style={{ backgroundColor: UNIMONI_COLORS.navy }}
+      style={{ backgroundColor: UNIMONI_COLORS.navy, fontFamily: fontCss }}
     >
       <div
         className="flex shrink-0 items-center justify-between gap-4 px-[3vw] py-[1.6vh]"
@@ -605,7 +611,7 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className }: 
         />
         <div className="flex min-w-0 items-center gap-[2vw]">
           <p
-            className="truncate font-[Arial,Helvetica,sans-serif] font-bold uppercase tracking-[0.16em] text-white"
+            className="truncate font-bold uppercase tracking-[0.16em] text-white"
             style={{ fontSize: "clamp(0.9rem,1.9vw,1.7rem)" }}
           >
             {branchName?.trim() ? branchName : "Exchange Rates"}
@@ -634,7 +640,7 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className }: 
             style={{ backgroundColor: UNIMONI_COLORS.panelBlue, borderColor: `${UNIMONI_COLORS.gold}33` }}
           >
             <span
-              className="flex min-w-0 items-center gap-[1vmin] truncate font-[Arial,Helvetica,sans-serif] font-extrabold uppercase leading-none text-white"
+              className="flex min-w-0 items-center gap-[1vmin] truncate font-extrabold uppercase leading-none text-white"
               style={{ fontSize: "clamp(1.1rem,3.2vmin,3.4rem)" }}
             >
               {getRateFlag(rate) ? <span className="shrink-0">{getRateFlag(rate)}</span> : null}
@@ -660,13 +666,13 @@ function BoardValue({ label, value, color }: { label: string; value: number; col
       style={{ backgroundColor: "rgba(255,255,255,0.05)" }}
     >
       <span
-        className="font-[Arial,Helvetica,sans-serif] font-semibold uppercase leading-none tracking-wide text-white/55"
+        className="font-semibold uppercase leading-none tracking-wide text-white/55"
         style={{ fontSize: "clamp(0.55rem,1.3vmin,1.05rem)" }}
       >
         {label}
       </span>
       <span
-        className="font-[Arial,Helvetica,sans-serif] font-extrabold leading-none tabular-nums"
+        className="font-extrabold leading-none tabular-nums"
         style={{ color, fontSize: "clamp(1.2rem,3.6vmin,3.6rem)" }}
       >
         {formatUnimoniRate(value)}

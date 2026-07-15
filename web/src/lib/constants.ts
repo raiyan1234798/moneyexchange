@@ -56,6 +56,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showRemittanceScreen: false,
   showTransferColumn: false,
   showTransferCard: true,
+  showForexCard: true,
   transferLocalLabel: "UGX",
   videoWidthPercent: 72,
   // Default "stretch" = media is stretched to exactly fill the fixed area (whole

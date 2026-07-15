@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Cloud, Link2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Cloud, Link2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
@@ -51,6 +51,7 @@ import {
   isR2UploadConfigured,
   proposeExternalVideo,
   rejectVideo,
+  reorderVideos,
   subscribePendingVideos,
   subscribeVideos,
   uploadVideo,
@@ -66,6 +67,7 @@ import { getDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import {
   deleteImageAdvert,
+  reorderImageAdverts,
   subscribeImageAdverts,
   uploadImageAdvert,
 } from "@/lib/services/image-advert-service";
@@ -454,6 +456,36 @@ export default function VideosPage() {
       );
     } finally {
       setImageUploading(false);
+    }
+  }
+
+  async function moveVideo(v: VideoAsset, dir: "up" | "down") {
+    if (!actor) return;
+    const ordered = [...videos];
+    const idx = ordered.findIndex((x) => x.id === v.id);
+    const swap = dir === "up" ? idx - 1 : idx + 1;
+    if (idx < 0 || swap < 0 || swap >= ordered.length) return;
+    [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
+    try {
+      await reorderVideos(ordered.map((x) => x.id), actor);
+      toast.success("Play order updated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reorder videos");
+    }
+  }
+
+  async function moveImage(img: ImageAdvert, dir: "up" | "down") {
+    if (!actor) return;
+    const ordered = [...images];
+    const idx = ordered.findIndex((x) => x.id === img.id);
+    const swap = dir === "up" ? idx - 1 : idx + 1;
+    if (idx < 0 || swap < 0 || swap >= ordered.length) return;
+    [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
+    try {
+      await reorderImageAdverts(ordered.map((x) => x.id), actor);
+      toast.success("Image order updated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reorder images");
     }
   }
 
@@ -877,7 +909,7 @@ export default function VideosPage() {
         ) : (
           <ContentPanel
             title="Branch Videos"
-            description="The most recent active video plays on the display (no playlist required)"
+            description="Videos rotate in this order — use ▲ ▼ to choose which plays first, second, etc."
           >
             <DataTable
               data={videos}
@@ -932,42 +964,64 @@ export default function VideosPage() {
                   className: "text-right",
                   cell: (v) =>
                     canManageVideos ? (
-                      <AlertDialog>
-                        <AlertDialogTrigger
-                          render={
-                            <Button variant="outline" size="sm" className="rounded-lg">
-                              <Trash2 className="mr-1 h-3 w-3" />
-                              Remove
-                            </Button>
-                          }
-                        />
-                        <AlertDialogContent className="rounded-2xl">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Remove {v.title}?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This video will be removed from the branch display.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="rounded-xl"
-                              onClick={() =>
-                                void deleteVideo(v, {
-                                  userId: user!.uid,
-                                  userName: profile!.displayName || profile!.email,
-                                })
-                                  .then(() => toast.success("Video removed"))
-                                  .catch((e) =>
-                                    toast.error(e instanceof Error ? e.message : "Failed to remove video"),
-                                  )
-                              }
-                            >
-                              Remove
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg px-2"
+                          title="Play earlier"
+                          disabled={videos.findIndex((x) => x.id === v.id) === 0}
+                          onClick={() => void moveVideo(v, "up")}
+                        >
+                          <ArrowUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg px-2"
+                          title="Play later"
+                          disabled={videos.findIndex((x) => x.id === v.id) === videos.length - 1}
+                          onClick={() => void moveVideo(v, "down")}
+                        >
+                          <ArrowDown className="h-3 w-3" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger
+                            render={
+                              <Button variant="outline" size="sm" className="rounded-lg">
+                                <Trash2 className="mr-1 h-3 w-3" />
+                                Remove
+                              </Button>
+                            }
+                          />
+                          <AlertDialogContent className="rounded-2xl">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove {v.title}?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This video will be removed from the branch display.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="rounded-xl"
+                                onClick={() =>
+                                  void deleteVideo(v, {
+                                    userId: user!.uid,
+                                    userName: profile!.displayName || profile!.email,
+                                  })
+                                    .then(() => toast.success("Video removed"))
+                                    .catch((e) =>
+                                      toast.error(e instanceof Error ? e.message : "Failed to remove video"),
+                                    )
+                                }
+                              >
+                                Remove
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     ) : null,
                 },
               ]}
@@ -976,7 +1030,7 @@ export default function VideosPage() {
         )}
 
         {images.length > 0 ? (
-          <ContentPanel title="Active Image Adverts" description="Shown on display when video is unavailable">
+          <ContentPanel title="Active Image Adverts" description="Shown when no video is playing — use ▲ ▼ to set the order">
             <DataTable
               data={images}
               keyExtractor={(img) => img.id}
@@ -1021,24 +1075,46 @@ export default function VideosPage() {
                   className: "text-right",
                   cell: (img) =>
                     canManageImages ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg"
-                        onClick={() =>
-                          void deleteImageAdvert(img, {
-                            userId: user!.uid,
-                            userName: profile!.displayName || profile!.email,
-                          })
-                            .then(() => toast.success("Image removed"))
-                            .catch((e) =>
-                              toast.error(e instanceof Error ? e.message : "Failed to remove image"),
-                            )
-                        }
-                      >
-                        <Trash2 className="mr-1 h-3 w-3" />
-                        Remove
-                      </Button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg px-2"
+                          title="Show earlier"
+                          disabled={images.findIndex((x) => x.id === img.id) === 0}
+                          onClick={() => void moveImage(img, "up")}
+                        >
+                          <ArrowUp className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg px-2"
+                          title="Show later"
+                          disabled={images.findIndex((x) => x.id === img.id) === images.length - 1}
+                          onClick={() => void moveImage(img, "down")}
+                        >
+                          <ArrowDown className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() =>
+                            void deleteImageAdvert(img, {
+                              userId: user!.uid,
+                              userName: profile!.displayName || profile!.email,
+                            })
+                              .then(() => toast.success("Image removed"))
+                              .catch((e) =>
+                                toast.error(e instanceof Error ? e.message : "Failed to remove image"),
+                              )
+                          }
+                        >
+                          <Trash2 className="mr-1 h-3 w-3" />
+                          Remove
+                        </Button>
+                      </div>
                     ) : null,
                 },
               ]}

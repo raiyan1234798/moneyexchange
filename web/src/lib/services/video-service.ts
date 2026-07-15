@@ -34,8 +34,39 @@ function sortByNewest(videos: VideoAsset[]): VideoAsset[] {
   return [...videos].sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
 }
 
+// Admin-chosen order first (displayOrder ascending); anything without an order
+// falls back to newest-first, so existing videos keep working until reordered.
+function sortByDisplayOrder(videos: VideoAsset[]): VideoAsset[] {
+  return [...videos].sort((a, b) => {
+    const ao = a.displayOrder;
+    const bo = b.displayOrder;
+    if (ao != null && bo != null && ao !== bo) return ao - bo;
+    if (ao != null && bo == null) return -1;
+    if (ao == null && bo != null) return 1;
+    return toMillis(b.createdAt) - toMillis(a.createdAt);
+  });
+}
+
 function sortVideos(videos: VideoAsset[]): VideoAsset[] {
-  return sortByNewest(videos.filter((video) => video.status === "active"));
+  return sortByDisplayOrder(videos.filter((video) => video.status === "active"));
+}
+
+/** Persist a new play order — pass the video ids in the desired order. */
+export async function reorderVideos(
+  orderedIds: string[],
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, index) => updateDocument(COLLECTIONS.videos, id, { displayOrder: index })),
+  );
+  await writeAuditLog({
+    action: "video_reorder",
+    entityType: "video",
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: null,
+    metadata: { count: orderedIds.length },
+  }).catch(() => undefined);
 }
 
 export const STORAGE_UNAVAILABLE_MESSAGE =

@@ -106,6 +106,27 @@ export async function bulkUpsertTransferRates(
   return count;
 }
 
+/** Hide/show a single transfer currency on the card without deleting it. */
+export async function setTransferRateHidden(
+  code: string,
+  isHidden: boolean,
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  await updateDocument(COLLECTIONS.transferRates, code, {
+    isHidden,
+    updatedBy: actor.userId,
+    updatedByName: actor.userName,
+  });
+  await writeAuditLog({
+    action: isHidden ? "transfer_rate_hide" : "transfer_rate_show",
+    entityType: "transfer_rate",
+    entityId: code,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: null,
+  });
+}
+
 export async function deleteTransferRate(
   code: string,
   actor: { userId: string; userName: string },

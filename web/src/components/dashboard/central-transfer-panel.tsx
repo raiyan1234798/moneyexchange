@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Plus, Save, Trash2, Upload } from "lucide-react";
+import { Download, Eye, EyeOff, Plus, Save, Trash2, Upload } from "lucide-react";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import {
   bulkUpsertTransferRates,
   deleteTransferRate,
+  setTransferRateHidden,
   subscribeTransferRates,
   upsertTransferRate,
 } from "@/lib/services/transfer-rate-service";
@@ -230,7 +231,9 @@ export function CentralTransferPanel({
           return (
             <div
               key={row.id}
-              className="grid grid-cols-1 items-center gap-3 rounded-xl border border-border/60 bg-card p-3 sm:grid-cols-[minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4"
+              className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 sm:grid-cols-[minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
+                row.isHidden ? "border-dashed border-border/50 bg-muted/25 opacity-60" : "border-border/60 bg-card"
+              }`}
             >
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-xl leading-none">{meta?.flag ?? "🌍"}</span>
@@ -280,6 +283,26 @@ export function CentralTransferPanel({
                 >
                   <Save className="mr-1 h-3 w-3" />
                   Publish
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy}
+                  className="rounded-lg px-2"
+                  title={row.isHidden ? "Show on the transfer card" : "Hide from the transfer card"}
+                  onClick={() =>
+                    void setTransferRateHidden(row.currencyCode, !row.isHidden, actor)
+                      .then(() =>
+                        toast.success(
+                          row.isHidden
+                            ? `${row.currencyCode} shown on the transfer card`
+                            : `${row.currencyCode} hidden from the transfer card`,
+                        ),
+                      )
+                      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to update"))
+                  }
+                >
+                  {row.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                 </Button>
                 <Button
                   variant="outline"

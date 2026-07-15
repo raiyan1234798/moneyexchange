@@ -75,6 +75,8 @@ export interface BranchSettings {
   showTransferColumn?: boolean;
   /** Rotate in a SEPARATE "TRANSFER EXCHANGE RATES" card ($ + local columns). */
   showTransferCard?: boolean;
+  /** Show the FOREX (We Buy / We Sell) rate card at all. Default true. */
+  showForexCard?: boolean;
   /** Label for the local-currency transfer column (default "UGX"). */
   transferLocalLabel?: string;
 
@@ -218,6 +220,8 @@ export interface TransferRate {
   /** Local-currency column (e.g. UGX). */
   transferLocal: number | null;
   displayOrder: number;
+  /** Hidden from the transfer card without deleting the rate. */
+  isHidden?: boolean;
   updatedBy: string;
   updatedByName: string;
   createdAt: Timestamp | Date;
@@ -248,6 +252,8 @@ export interface ImageAdvert {
   /** Stored size in bytes — used for the total-storage budget check. */
   fileSizeBytes?: number;
   displayDurationSeconds: number;
+  /** Rotation order on the display (lower = earlier). Unset = by newest. */
+  displayOrder?: number;
   status: EntityStatus;
   createdBy: string;
   createdAt: Timestamp | Date;
@@ -267,6 +273,8 @@ export interface VideoAsset {
   mimeType: string;
   durationSeconds?: number;
   fileSizeBytes?: number;
+  /** Rotation order on the display (lower = earlier). Unset = by newest. */
+  displayOrder?: number;
   /**
    * "pending" = proposed by a branch user, awaiting branch-manager approval.
    * "uploading" = chunked upload in progress — hidden from TV and lists until
