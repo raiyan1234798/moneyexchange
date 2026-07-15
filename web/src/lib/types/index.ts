@@ -104,6 +104,16 @@ export interface BranchSettings {
   showTickerHeadline?: boolean;
   /** Custom brand logo for the rate-card header (rebrand) — overrides the unimoni logo. */
   headerLogoUrl?: string | null;
+  /** Optional SECOND rate-card header logo (co-brand / partner). */
+  headerLogoUrl2?: string | null;
+  /** How the header logos show on normal slides: just the first, or both side by side. */
+  headerLogoDisplay?: "single" | "both";
+  /** What the header logo does on the PROMO slide: keep it, hide it, or show only the 2nd logo. */
+  promoLogoMode?: "keep" | "hide" | "second";
+  /** Subtitle under the TRANSFER card title (e.g. "T.T : AGAINST USD / UGX"). */
+  transferRateSubtitle?: string | null;
+  /** Play signage videos WITH sound (default muted). Browsers may require a tap/fullscreen first. */
+  videoSoundOn?: boolean;
   /** Logo images that scroll right-to-left in the ticker alongside the messages. */
   scrollingLogos?: string[];
   /** A note line shown under the forex rate screen (e.g. "USD Small Bill BUY @ 3600"). */

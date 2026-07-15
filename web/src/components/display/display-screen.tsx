@@ -38,6 +38,10 @@ interface TimedRatesPanelProps {
   valueScale: number;
   widthPercent: number;
   headerLogoUrl: string | null;
+  headerLogoUrl2: string | null;
+  headerLogoDisplay: "single" | "both";
+  promoLogoMode: "keep" | "hide" | "second";
+  transferRateSubtitle: string | null;
   rateCardNote: string | null;
   rateNotePlacement: "first" | "all";
   fontCss: string;
@@ -48,6 +52,7 @@ interface TimedRatesPanelProps {
   promoText: string | null;
   promoDurationSeconds: number;
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
+  videoSoundOn: boolean;
 }
 
 function TimedRatesPanel({
@@ -63,6 +68,10 @@ function TimedRatesPanel({
   valueScale,
   widthPercent,
   headerLogoUrl,
+  headerLogoUrl2,
+  headerLogoDisplay,
+  promoLogoMode,
+  transferRateSubtitle,
   rateCardNote,
   rateNotePlacement,
   fontCss,
@@ -73,6 +82,7 @@ function TimedRatesPanel({
   promoText,
   promoDurationSeconds,
   rateCardOrder,
+  videoSoundOn,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -100,6 +110,10 @@ function TimedRatesPanel({
       valueScale={valueScale}
       widthPercent={widthPercent}
       headerLogoUrl={headerLogoUrl}
+      headerLogoUrl2={headerLogoUrl2}
+      headerLogoDisplay={headerLogoDisplay}
+      promoLogoMode={promoLogoMode}
+      transferRateSubtitle={transferRateSubtitle}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
       fontCss={fontCss}
@@ -110,6 +124,7 @@ function TimedRatesPanel({
       promoText={promoText}
       promoDurationSeconds={promoDurationSeconds}
       rateCardOrder={rateCardOrder}
+      videoSoundOn={videoSoundOn}
     />
   );
 }
@@ -182,7 +197,38 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const transferLocalLabel = branchSettings.transferLocalLabel?.trim() || "UGX";
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
+  const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
+  const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
+  const promoLogoMode = (branchSettings.promoLogoMode ?? "keep") as "keep" | "hide" | "second";
+  const transferRateSubtitle =
+    branchSettings.transferRateSubtitle === undefined
+      ? "T.T : AGAINST USD / UGX"
+      : branchSettings.transferRateSubtitle?.trim() || null;
+  const videoSoundOn = branchSettings.videoSoundOn === true;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
+
+  // Browsers block UNMUTED autoplay until the page gets a user gesture. When the
+  // branch wants sound, unmute every video on the first tap/click/key or when
+  // entering fullscreen, so audio kicks in as soon as the screen is touched.
+  useEffect(() => {
+    if (!videoSoundOn) return;
+    const unmuteAll = () => {
+      document.querySelectorAll("video").forEach((v) => {
+        // Leave the blurred backdrop copies muted (they're aria-hidden).
+        if (v.getAttribute("aria-hidden") === "true") return;
+        v.muted = false;
+        void v.play().catch(() => {});
+      });
+    };
+    window.addEventListener("pointerdown", unmuteAll);
+    window.addEventListener("keydown", unmuteAll);
+    document.addEventListener("fullscreenchange", unmuteAll);
+    return () => {
+      window.removeEventListener("pointerdown", unmuteAll);
+      window.removeEventListener("keydown", unmuteAll);
+      document.removeEventListener("fullscreenchange", unmuteAll);
+    };
+  }, [videoSoundOn]);
   const rateCardNote = branchSettings.rateCardNote?.trim() || null;
   const rateNotePlacement = (branchSettings.rateNotePlacement ?? "first") as "first" | "all";
   // ONE font for the whole screen. When set, it overrides every element's font
@@ -367,6 +413,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerMessageFontCss = messageFontCss(
     masterFont || activeTicker?.messageFont || branchSettings.tickerMessageFont,
   );
+  // Gold headline box follows the whole-screen master font (one place controls it).
+  const tickerHeadlineFontCss = messageFontCss(masterFont || branchSettings.tickerMessageFont);
   // The gold "breaking" headline tab is its OWN text, fully independent from the
   // scrolling ticker message (edited separately in Settings → "Yellow headline
   // box text"). It never mirrors the scrolling message: when blank it falls back
@@ -454,6 +502,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       loopVideo={activeVideos.length <= 1}
       fit={videoFit}
       widthPercent={effectivePromoWidth}
+      soundOn={videoSoundOn}
       onMediaAspectChange={setMediaAspect}
       onVideoLoaded={() => {
         setVideoLoaded(true);
@@ -503,6 +552,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       valueScale={rateValueScale}
       widthPercent={rateWidthPercent}
       headerLogoUrl={headerLogoUrl}
+      headerLogoUrl2={headerLogoUrl2}
+      headerLogoDisplay={headerLogoDisplay}
+      promoLogoMode={promoLogoMode}
+      transferRateSubtitle={transferRateSubtitle}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
       fontCss={rateCardFontCss}
@@ -513,6 +566,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoText={ratePromoText}
       promoDurationSeconds={ratePromoDurationSeconds}
       rateCardOrder={rateCardOrder}
+      videoSoundOn={videoSoundOn}
     />
   );
 
@@ -576,6 +630,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         logoAnimation={tickerLogoAnimation}
         scrollingLogos={scrollingLogos}
         headlineMaxWidthPercent={effectivePromoWidth}
+        headlineFontCss={tickerHeadlineFontCss}
       />
 
       {/* Animated announcement strip: "band" takes over the bottom message area,

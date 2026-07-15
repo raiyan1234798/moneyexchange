@@ -43,6 +43,14 @@ interface UnimoniRatesPanelProps {
   widthPercent?: number;
   /** Custom brand logo (rebrand) for the header — overrides the unimoni logo. */
   headerLogoUrl?: string | null;
+  /** Optional second header logo (co-brand). */
+  headerLogoUrl2?: string | null;
+  /** Show just the first header logo or both side by side on normal slides. */
+  headerLogoDisplay?: "single" | "both";
+  /** Header logo behaviour on the PROMO slide: keep / hide / show only the 2nd logo. */
+  promoLogoMode?: "keep" | "hide" | "second";
+  /** Subtitle under the transfer card title (e.g. "T.T : AGAINST USD / UGX"). */
+  transferRateSubtitle?: string | null;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
   /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
@@ -63,6 +71,8 @@ interface UnimoniRatesPanelProps {
   promoDurationSeconds?: number;
   /** Order the rotating slides appear in. Missing/absent slides are skipped. */
   rateCardOrder?: Array<"forex" | "transfer" | "promo">;
+  /** Play promo videos WITH sound (default muted). */
+  videoSoundOn?: boolean;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -114,6 +124,10 @@ export function UnimoniRatesPanel({
   valueScale = 1,
   widthPercent,
   headerLogoUrl,
+  headerLogoUrl2,
+  headerLogoDisplay = "single",
+  promoLogoMode = "keep",
+  transferRateSubtitle,
   rateCardNote,
   rateNotePlacement = "first",
   fontCss,
@@ -124,6 +138,7 @@ export function UnimoniRatesPanel({
   promoText,
   promoDurationSeconds,
   rateCardOrder,
+  videoSoundOn = false,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -305,26 +320,56 @@ export function UnimoniRatesPanel({
             when the card is narrow. Overlap is impossible at any width. */}
         <div className="min-w-0 flex-1" aria-hidden />
         <div className="flex min-w-0 shrink flex-col items-center justify-center">
-          {headerLogoUrl ? (
-            // Custom rebrand logo uploaded by an admin.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={headerLogoUrl}
-              alt="Brand logo"
-              className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
-            />
-          ) : (
-            <UnimoniLogoImage
-              variant="onDark"
-              width={280}
-              height={72}
-              className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain"
-              priority
-            />
-          )}
+          {/* Logo behaviour:
+              - normal slide: first logo, or BOTH side by side (headerLogoDisplay).
+              - promo slide: keep the normal logo(s), HIDE them, or show only the
+                2nd logo (promoLogoMode) — lets a partner/co-brand logo take over
+                while the promotion plays, or clear the header entirely. */}
+          {(() => {
+            const custom1 = headerLogoUrl?.trim() || "";
+            const custom2 = headerLogoUrl2?.trim() || "";
+            let logos: string[];
+            if (isPromoSheet) {
+              if (promoLogoMode === "hide") logos = [];
+              else if (promoLogoMode === "second") logos = custom2 ? [custom2] : custom1 ? [custom1] : [];
+              else logos = headerLogoDisplay === "both" ? [custom1, custom2].filter(Boolean) : custom1 ? [custom1] : [];
+            } else {
+              logos = headerLogoDisplay === "both" ? [custom1, custom2].filter(Boolean) : custom1 ? [custom1] : [];
+            }
+            if (isPromoSheet && promoLogoMode === "hide") return null;
+            if (logos.length === 0) {
+              return (
+                <UnimoniLogoImage
+                  variant="onDark"
+                  width={280}
+                  height={72}
+                  className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain"
+                  priority
+                />
+              );
+            }
+            return (
+              <div className="flex min-w-0 items-center justify-center gap-[0.8vw]">
+                {logos.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={`${src}-${i}`}
+                    src={src}
+                    alt="Brand logo"
+                    className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
+                  />
+                ))}
+              </div>
+            );
+          })()}
           {headerSubLabel ? (
             <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
               {headerSubLabel}
+            </p>
+          ) : null}
+          {isTransferSheet && transferRateSubtitle?.trim() ? (
+            <p className="whitespace-nowrap text-[clamp(0.5rem,0.9vw,0.85rem)] font-semibold uppercase tracking-[0.14em] text-white/80">
+              {transferRateSubtitle.trim()}
             </p>
           ) : null}
         </div>
@@ -361,7 +406,7 @@ export function UnimoniRatesPanel({
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
                   color: NAVY_TEXT,
-                  fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+                  fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
                 }}
               >
@@ -378,15 +423,20 @@ export function UnimoniRatesPanel({
                     key={activeSheet.promoMedia.url}
                     src={activeSheet.promoMedia.url}
                     autoPlay
-                    muted
+                    muted={!videoSoundOn}
                     loop
                     playsInline
                     controls={false}
                     disablePictureInPicture
                     onCanPlay={(e) => {
                       const v = e.currentTarget;
-                      v.muted = true;
-                      void v.play().catch(() => {});
+                      // Try to honour the sound setting; if the browser blocks
+                      // unmuted autoplay, fall back to muted so it still plays.
+                      v.muted = !videoSoundOn;
+                      void v.play().catch(() => {
+                        v.muted = true;
+                        void v.play().catch(() => {});
+                      });
                     }}
                     className="relative z-10 h-full w-full object-contain"
                   />
@@ -414,7 +464,7 @@ export function UnimoniRatesPanel({
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
                   color: NAVY_TEXT,
-                  fontFamily: "var(--font-brand), 'Trebuchet MS', sans-serif",
+                  fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
                 }}
               >

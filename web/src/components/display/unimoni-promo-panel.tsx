@@ -13,6 +13,8 @@ interface UnimoniPromoPanelProps {
   fit?: "contain" | "cover" | "auto" | "stretch";
   /** Width of the promo area as a % of the screen (desktop/TV only). */
   widthPercent?: number;
+  /** Play the branch video WITH sound (default muted). */
+  soundOn?: boolean;
   /** Reports the current media's aspect ratio (w/h) so "auto" can size the area to it. */
   onMediaAspectChange?: (aspect: number | null) => void;
   onVideoLoaded?: () => void;
@@ -30,6 +32,7 @@ export function UnimoniPromoPanel({
   loopVideo = true,
   fit = "stretch",
   widthPercent,
+  soundOn = false,
   onMediaAspectChange,
   onVideoLoaded,
   onVideoError,
@@ -89,7 +92,7 @@ export function UnimoniPromoPanel({
             src={videoUrl ?? undefined}
             className={`absolute inset-0 z-[1] h-full w-full ${objectClass}`}
             autoPlay
-            muted
+            muted={!soundOn}
             loop={loopVideo}
             playsInline
             // No native controls / picture-in-picture — this is signage, not a
@@ -104,11 +107,15 @@ export function UnimoniPromoPanel({
             onLoadedData={onVideoLoaded}
             onCanPlay={(e) => {
               // Some TV WebViews leave a freshly-loaded video paused (showing the
-              // big play button) until told to play — force it, muted so the
-              // browser never blocks autoplay.
+              // big play button) until told to play — force it. Try with sound if
+              // requested; if the browser blocks unmuted autoplay, fall back to
+              // muted so the video always plays (a tap/fullscreen unmutes later).
               const v = e.currentTarget;
-              v.muted = true;
-              void v.play().catch(() => {});
+              v.muted = !soundOn;
+              void v.play().catch(() => {
+                v.muted = true;
+                void v.play().catch(() => {});
+              });
               onVideoLoaded?.();
             }}
             onError={onVideoError}

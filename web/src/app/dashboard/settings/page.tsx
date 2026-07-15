@@ -253,6 +253,117 @@ function BranchSettingsForm({
         </div>
       </div>
 
+      {/* Second rate-card header logo (co-brand / partner) + how the two logos behave. */}
+      <div className="space-y-2">
+        <Label>Second rate-card logo (optional)</Label>
+        <p className="text-xs text-muted-foreground">
+          Upload a second logo to show alongside the first, or to swap in only while the promotion
+          card is on screen.
+        </p>
+        <div className="flex items-center gap-3">
+          <Input
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+            aria-label="Upload second header logo"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              try {
+                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                setSettings({ ...settings, headerLogoUrl2: dataUrl });
+                toast.success("Second logo ready — click Save Branch Settings to apply");
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not read image");
+              }
+            }}
+            className="rounded-xl"
+          />
+          {settings.headerLogoUrl2 ? (
+            <div className="flex shrink-0 items-center gap-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={settings.headerLogoUrl2}
+                alt="Second logo preview"
+                className="h-9 w-16 shrink-0 rounded-md bg-[#0D2680] object-contain p-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => setSettings({ ...settings, headerLogoUrl2: null })}
+              >
+                Clear
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Show logos (normal slides)</Label>
+          <Select
+            value={settings.headerLogoDisplay ?? "single"}
+            onValueChange={(value) =>
+              setSettings({ ...settings, headerLogoDisplay: (value as "single" | "both") ?? "single" })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="single">First logo only</SelectItem>
+              <SelectItem value="both">Both logos side by side</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Logo on the promotion slide</Label>
+          <Select
+            value={settings.promoLogoMode ?? "keep"}
+            onValueChange={(value) =>
+              setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "keep" })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="keep">Keep the logo(s)</SelectItem>
+              <SelectItem value="hide">Hide the logo</SelectItem>
+              <SelectItem value="second">Show only the second logo</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Transfer card subtitle</Label>
+        <Input
+          value={settings.transferRateSubtitle ?? ""}
+          onChange={(event) =>
+            setSettings({ ...settings, transferRateSubtitle: event.target.value || null })
+          }
+          placeholder="e.g. T.T : AGAINST USD / UGX"
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          Small line under the &quot;Transfer Rates&quot; title on the transfer card. Leave blank to hide it.
+        </p>
+      </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Play video sound</Label>
+          <p className="text-xs text-muted-foreground">
+            Play branch, promotion and rate-card videos WITH audio. Browsers keep videos muted until
+            the screen is tapped or made fullscreen once — then sound turns on automatically.
+          </p>
+        </div>
+        <Switch
+          checked={settings.videoSoundOn === true}
+          onCheckedChange={(checked) => setSettings({ ...settings, videoSoundOn: checked })}
+        />
+      </div>
+
       {/* Extra logos that scroll right-to-left in the ticker with the message text. */}
       <div className="space-y-2">
         <Label>Scrolling ticker logos</Label>

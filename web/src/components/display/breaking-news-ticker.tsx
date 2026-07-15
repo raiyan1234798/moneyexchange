@@ -33,9 +33,11 @@ interface BreakingNewsTickerProps {
   logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Logo images that scroll right-to-left with the messages. */
   scrollingLogos?: string[];
-  /** The promo/video area width as a % of the screen. Stretches the gold
-   *  headline tab so it ENDS just before the rate card (never onto it). */
+  /** The promo/video area width as a % of the screen. Caps the gold headline
+   *  tab so it can grow up to — but never onto — the rate card. */
   headlineMaxWidthPercent?: number;
+  /** Font for the gold headline box (follows the whole-screen master font). */
+  headlineFontCss?: string;
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
@@ -57,6 +59,7 @@ function BreakingNewsTickerInner({
   logoAnimation = "spin",
   scrollingLogos = [],
   headlineMaxWidthPercent,
+  headlineFontCss,
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
   const resolvedText = logoText?.trim() || null;
@@ -137,19 +140,20 @@ function BreakingNewsTickerInner({
       {headline ? (
         <div
           // Flush against the logo's right edge so it reads as one continuous
-          // gold band FROM the logo TO just before the rate card. Width is tied
-          // to the live promo/video width (not content), with a small gap so it
-          // never runs onto the rate card. Long text ellipsizes inside the band.
+          // gold band extending FROM the logo. It sizes to the text — short text
+          // = short box, long text = wider box — and is CAPPED so it can grow up
+          // to but never onto the rate card (long text then ellipsizes).
           className="absolute top-0 z-30 -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
             left: badgeWidth,
-            // Prefer a single calc (no nested calc()) so TV WebViews resolve it.
-            // 0.5vw gap keeps the band near — but not onto — the rate card.
-            width: headlineMaxWidthPercent
+            // Single calc (no nested calc()) so TV WebViews resolve it. 0.5vw gap
+            // keeps the widest box just short of the rate card.
+            maxWidth: headlineMaxWidthPercent
               ? `calc(${headlineMaxWidthPercent}vw - (${baseBadgeWidth}) * ${logoScale} - 0.5vw)`
               : "60vw",
             backgroundColor: UNIMONI_COLORS.gold,
             color: UNIMONI_COLORS.navy,
+            fontFamily: headlineFontCss,
           }}
         >
           {headline}

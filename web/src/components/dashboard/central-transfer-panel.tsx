@@ -39,6 +39,7 @@ export function CentralTransferPanel({
   const [newLocal, setNewLocal] = useState("");
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleTransferUpload(file: File) {
@@ -156,30 +157,27 @@ export function CentralTransferPanel({
       title="Money Transfer Rate — Update & Upload"
       description="One remittance rate for ALL branches — upload a file or edit below."
     >
-      {/* ONE Excel/CSV upload updates the transfer rates on ALL branches at once. */}
-      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-sky-500/30 bg-sky-500/[0.05] p-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
+      {/* ONE Excel/CSV upload updates the transfer rates on ALL branches at once —
+          a BIG drop zone matching the forex upload. */}
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-xl">
           <p className="text-sm font-semibold">Upload one file for ALL branches</p>
           <p className="text-xs text-muted-foreground">
             Excel/CSV with columns CURRENCY | $ (USD) | {localLabel} — updates the transfer card on
             every branch at once.
           </p>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={downloadTransferTemplate}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-3 rounded-lg"
+            onClick={downloadTransferTemplate}
+          >
             <Download className="mr-1.5 h-3.5 w-3.5" />
             Template
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="rounded-lg"
-            disabled={uploading}
-            onClick={() => fileRef.current?.click()}
-          >
-            <Upload className="mr-1.5 h-3.5 w-3.5" />
-            {uploading ? "Uploading…" : "Upload Excel"}
-          </Button>
+        </div>
+        <div className="flex w-full shrink-0 flex-col gap-3 lg:max-w-sm">
           <input
             ref={fileRef}
             type="file"
@@ -191,6 +189,35 @@ export function CentralTransferPanel({
               if (f) void handleTransferUpload(f);
             }}
           />
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              const f = e.dataTransfer.files?.[0];
+              if (f) void handleTransferUpload(f);
+            }}
+            className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+              dragOver
+                ? "border-sky-500 bg-sky-500/10"
+                : "border-sky-500/40 bg-background/60 hover:border-sky-500/60 hover:bg-sky-500/5"
+            } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+          >
+            <Upload className="h-8 w-8 text-sky-600 dark:text-sky-400" />
+            <span className="text-sm font-medium">
+              {uploading ? "Uploading…" : "Drop the transfer Excel/CSV file here"}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              .xlsx, .xls, .csv — CURRENCY | $ (USD) | {localLabel}
+            </span>
+          </button>
         </div>
       </div>
       <div className="space-y-2">

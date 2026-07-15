@@ -686,18 +686,15 @@ export default function ExchangeRatesPage() {
         ) : null}
 
         {canManageRates && effectiveBranchId ? (
-          <div className="overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-500/15 via-emerald-500/5 to-transparent p-5 sm:p-6">
+          <div className="overflow-hidden rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="max-w-xl">
-                <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                <div className="flex items-center gap-2 text-foreground">
                   <FileSpreadsheet className="h-5 w-5" />
-                  <p className="text-sm font-semibold">Forex Currency Rate — Update &amp; Upload</p>
+                  <p className="text-base font-semibold tracking-tight">Foreign Exchange Rate: Update &amp; Upload</p>
                 </div>
-                <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
-                  We Buy / We Sell
-                </h2>
                 {lastImport ? (
-                  <p className="mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                  <p className="mt-3 text-xs font-medium text-muted-foreground">
                     Last import: {lastImport.count} currencies for {branch?.name ?? "this branch"} ·{" "}
                     {safeFormatDistanceToNow(lastImport.at, { addSuffix: true })}
                   </p>
@@ -732,11 +729,11 @@ export default function ExchangeRatesPage() {
                   }}
                   className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
                     dragOver
-                      ? "border-emerald-500 bg-emerald-500/10"
-                      : "border-emerald-500/40 bg-background/60 hover:border-emerald-500/60 hover:bg-emerald-500/5"
+                      ? "border-primary bg-primary/10"
+                      : "border-border bg-background/60 hover:border-primary/60 hover:bg-primary/5"
                   } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
                 >
-                  <Upload className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                  <Upload className="h-8 w-8 text-primary" />
                   <span className="text-sm font-medium">
                     {uploading ? "Working… photos take up to a minute — please wait" : "Drop Excel file OR a photo of your rate board"}
                   </span>
