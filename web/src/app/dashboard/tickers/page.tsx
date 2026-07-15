@@ -245,14 +245,14 @@ export default function TickersPage() {
           <PageActions>
             <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
               <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add scrolling text</Button>} />
-              <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-md">
+              <DialogContent className="max-h-[85vh] overflow-y-auto overflow-x-hidden rounded-2xl sm:max-w-md">
                 <DialogHeader>
                   <DialogTitle>{editTarget ? "Edit scrolling text" : "Scrolling display text"}</DialogTitle>
                 </DialogHeader>
                 <p className="text-sm text-muted-foreground">
                   Type one message per line — they scroll right-to-left on your TV footer.
                 </p>
-                <div className="space-y-4 py-2">
+                <div className="min-w-0 space-y-4 py-2">
                   <div className="space-y-2">
                     <Label>Your messages (one per line)</Label>
                     <Textarea
@@ -287,9 +287,9 @@ export default function TickersPage() {
                         ))}
                       </SelectContent>
                     </Select>
-                    <div className="flex items-center rounded-lg bg-slate-900 px-3 py-2">
+                    <div className="flex min-w-0 items-center rounded-lg bg-slate-900 px-3 py-2">
                       <span
-                        className="truncate text-sm font-bold uppercase tracking-[0.08em] text-white"
+                        className="min-w-0 truncate text-sm font-bold uppercase tracking-[0.08em] text-white"
                         style={{ fontFamily: messageFontCss(messageFont) }}
                       >
                         {messages.split("\n").find((l) => l.trim()) ?? "Best rates in town"}
@@ -344,9 +344,9 @@ export default function TickersPage() {
                           </SelectContent>
                         </Select>
                         {logoText.trim() ? (
-                          <div className="flex items-center justify-center rounded-lg bg-slate-900 py-3">
+                          <div className="flex min-w-0 items-center justify-center rounded-lg bg-slate-900 px-3 py-3">
                             <span
-                              className="text-xl font-extrabold uppercase tracking-tight text-white"
+                              className="max-w-full truncate text-xl font-extrabold uppercase tracking-tight text-white"
                               style={{ fontFamily: logoFontCss(logoFont) }}
                             >
                               {logoText}
