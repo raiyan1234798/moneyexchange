@@ -31,6 +31,8 @@ interface AnnouncementBannerProps {
   colorStyle?: "white" | "logo" | "gold" | "navy";
   /** Entrance/exit motion. "none" = instant (no animation). */
   animation?: "none" | "slide" | "fade" | "zoom" | "flip";
+  /** Top or bottom of the video for the over-video caption. Default "bottom". */
+  anchor?: "top" | "bottom";
 }
 
 /**
@@ -307,6 +309,7 @@ export function AnnouncementBanner({
   fontCss,
   colorStyle = "white",
   animation = "slide",
+  anchor = "bottom",
 }: AnnouncementBannerProps) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -355,26 +358,33 @@ export function AnnouncementBanner({
     transition: animation === "none" ? "none" : CINEMATIC_TRANSITION,
   } as const;
 
-  // Broadcast lower-third: a translucent gradient caption anchored to the bottom
-  // of the video, with a gold accent bar and optional small media — like a TV
-  // news graphic that belongs to the footage, not a modal pop-up.
+  // Broadcast lower-third: a translucent gradient caption anchored to the top or
+  // bottom of the video, with a gold accent bar and optional small media — like a
+  // TV news graphic that belongs to the footage, not a modal pop-up.
   if (displayStyle === "lower-third") {
+    const atTop = anchor === "top";
+    // Slide the caption in from whichever edge it is anchored to.
+    const lowerThirdAnimStyle =
+      animation === "slide"
+        ? { ...animStyle, transform: visible ? "translateY(0)" : atTop ? "translateY(-8vh)" : "translateY(8vh)" }
+        : animStyle;
     return (
       <div
         aria-live="polite"
-        className="pointer-events-none absolute inset-0 z-40 flex flex-col justify-end overflow-hidden"
+        className={`pointer-events-none absolute inset-0 z-40 flex flex-col overflow-hidden ${atTop ? "justify-start" : "justify-end"}`}
         style={{ perspective: animation === "flip" ? "1400px" : undefined }}
       >
         <div
           className="w-full"
-          style={{ transformOrigin: "bottom center", ...animStyle }}
+          style={{ transformOrigin: atTop ? "top center" : "bottom center", ...lowerThirdAnimStyle }}
         >
           <div
-            className="flex items-end gap-[1.5vw] px-[3vw] pb-[4.5vh]"
+            className={`flex gap-[1.5vw] px-[3vw] ${atTop ? "items-start pt-[4.5vh]" : "items-end pb-[4.5vh]"}`}
             style={{
-              paddingTop: "14vh",
-              background:
-                "linear-gradient(to top, rgba(13,38,128,0.94) 0%, rgba(13,38,128,0.78) 42%, rgba(13,38,128,0) 100%)",
+              ...(atTop ? { paddingBottom: "14vh" } : { paddingTop: "14vh" }),
+              background: atTop
+                ? "linear-gradient(to bottom, rgba(13,38,128,0.94) 0%, rgba(13,38,128,0.78) 42%, rgba(13,38,128,0) 100%)"
+                : "linear-gradient(to top, rgba(13,38,128,0.94) 0%, rgba(13,38,128,0.78) 42%, rgba(13,38,128,0) 100%)",
             }}
           >
             {video ? (

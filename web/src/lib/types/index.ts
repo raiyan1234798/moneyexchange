@@ -155,6 +155,8 @@ export interface BranchSettings {
   announcementEnabled?: boolean;
   /** Where the announcement appears on the TV. */
   announcementStyle?: "popup" | "fullscreen" | "band" | "video-top" | "rate-card" | "lower-third";
+  /** Top or bottom of the video area for the over-video styles (lower-third etc). Default "bottom". */
+  announcementPosition?: "top" | "bottom";
   /** Entrance/exit animation for the announcement. "none" shows it instantly (no motion). */
   announcementAnimation?: "none" | "slide" | "fade" | "zoom" | "flip";
   /** Font key for the announcement text — see MESSAGE_FONTS. */

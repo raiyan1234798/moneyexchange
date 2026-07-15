@@ -249,6 +249,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     | "video-top"
     | "rate-card"
     | "lower-third";
+  const announcementPosition = (branchSettings.announcementPosition ?? "bottom") as
+    | "top"
+    | "bottom";
   const announcementAnimation = (branchSettings.announcementAnimation ?? "slide") as
     | "slide"
     | "fade"
@@ -536,6 +539,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           fontCss={announcementFontCss}
           colorStyle={announcementColorStyle}
           animation={announcementAnimation}
+          anchor={announcementPosition}
         />
       ) : null}
     </UnimoniPromoPanel>

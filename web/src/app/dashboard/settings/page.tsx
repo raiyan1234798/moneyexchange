@@ -1039,6 +1039,29 @@ function BranchSettingsForm({
             </Select>
           </div>
           <div className="space-y-2">
+            <Label>Position (top / bottom of the video)</Label>
+            <Select
+              value={settings.announcementPosition ?? "bottom"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  announcementPosition: (value as "top" | "bottom") ?? "bottom",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="bottom">Bottom of the video (default)</SelectItem>
+                <SelectItem value="top">Top of the video</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Places the over-video caption at the top or bottom of the video player. Applies to the lower-third caption.
+            </p>
+          </div>
+          <div className="space-y-2">
             <Label>Animation</Label>
             <Select
               value={settings.announcementAnimation ?? "slide"}

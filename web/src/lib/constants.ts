@@ -107,6 +107,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
     | "video-top"
     | "rate-card"
     | "lower-third",
+  // Top or bottom of the video for the over-video announcement styles.
+  announcementPosition: "bottom" as "top" | "bottom",
   announcementAnimation: "slide" as "none" | "slide" | "fade" | "zoom" | "flip",
   // Font + colour treatment for the announcement text.
   announcementFont: null as string | null,
