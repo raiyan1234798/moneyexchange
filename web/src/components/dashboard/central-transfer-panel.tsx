@@ -165,7 +165,8 @@ export function CentralTransferPanel({
           <p className="text-sm font-semibold">Upload one file for ALL branches</p>
           <p className="text-xs text-muted-foreground">
             Excel/CSV with columns CURRENCY | $ (USD) | {localLabel} — updates the transfer card on
-            every branch at once.
+            every branch at once. Rates are <strong>T.T : Against USD / {localLabel}</strong> (telegraphic
+            transfer against USD and local currency).
           </p>
           <Button
             type="button"
@@ -217,6 +218,9 @@ export function CentralTransferPanel({
             </span>
             <span className="text-xs text-muted-foreground">
               .xlsx, .xls, .csv — CURRENCY | $ (USD) | {localLabel}
+            </span>
+            <span className="text-[11px] text-muted-foreground/90">
+              T.T : Against USD / {localLabel}
             </span>
           </button>
         </div>

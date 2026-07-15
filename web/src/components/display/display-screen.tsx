@@ -42,7 +42,6 @@ interface TimedRatesPanelProps {
   headerLogoUrl2: string | null;
   headerLogoDisplay: "single" | "both";
   promoLogoMode: "keep" | "hide" | "second";
-  transferRateSubtitle: string | null;
   rateCardNote: string | null;
   rateNotePlacement: "first" | "all";
   fontCss: string;
@@ -73,7 +72,6 @@ function TimedRatesPanel({
   headerLogoUrl2,
   headerLogoDisplay,
   promoLogoMode,
-  transferRateSubtitle,
   rateCardNote,
   rateNotePlacement,
   fontCss,
@@ -116,7 +114,6 @@ function TimedRatesPanel({
       headerLogoUrl2={headerLogoUrl2}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
-      transferRateSubtitle={transferRateSubtitle}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
       fontCss={fontCss}
@@ -204,10 +201,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
   const promoLogoMode = (branchSettings.promoLogoMode ?? "keep") as "keep" | "hide" | "second";
-  const transferRateSubtitle =
-    branchSettings.transferRateSubtitle === undefined
-      ? "T.T : AGAINST USD / UGX"
-      : branchSettings.transferRateSubtitle?.trim() || null;
   const videoSoundOn = branchSettings.videoSoundOn === true;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
 
@@ -564,7 +557,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       headerLogoUrl2={headerLogoUrl2}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
-      transferRateSubtitle={transferRateSubtitle}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
       fontCss={rateCardFontCss}

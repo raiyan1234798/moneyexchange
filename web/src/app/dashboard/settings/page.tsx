@@ -336,20 +336,6 @@ function BranchSettingsForm({
           </Select>
         </div>
       </div>
-      <div className="space-y-2">
-        <Label>Transfer card subtitle</Label>
-        <Input
-          value={settings.transferRateSubtitle ?? ""}
-          onChange={(event) =>
-            setSettings({ ...settings, transferRateSubtitle: event.target.value || null })
-          }
-          placeholder="e.g. T.T : AGAINST USD / UGX"
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          Small line under the &quot;Transfer Rates&quot; title on the transfer card. Leave blank to hide it.
-        </p>
-      </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>
           <Label>Play video sound</Label>

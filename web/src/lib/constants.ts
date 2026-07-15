@@ -76,7 +76,6 @@ export const DEFAULT_BRANCH_SETTINGS = {
   headerLogoUrl2: null as string | null,
   headerLogoDisplay: "single" as "single" | "both",
   promoLogoMode: "keep" as "keep" | "hide" | "second",
-  transferRateSubtitle: "T.T : AGAINST USD / UGX" as string | null,
   videoSoundOn: false,
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,

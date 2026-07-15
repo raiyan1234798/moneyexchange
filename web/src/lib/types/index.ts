@@ -112,8 +112,6 @@ export interface BranchSettings {
   headerLogoDisplay?: "single" | "both";
   /** What the header logo does on the PROMO slide: keep it, hide it, or show only the 2nd logo. */
   promoLogoMode?: "keep" | "hide" | "second";
-  /** Subtitle under the TRANSFER card title (e.g. "T.T : AGAINST USD / UGX"). */
-  transferRateSubtitle?: string | null;
   /** Play signage videos WITH sound (default muted). Browsers may require a tap/fullscreen first. */
   videoSoundOn?: boolean;
   /** Logo images that scroll right-to-left in the ticker alongside the messages. */

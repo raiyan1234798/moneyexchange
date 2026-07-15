@@ -51,8 +51,6 @@ interface UnimoniRatesPanelProps {
   headerLogoDisplay?: "single" | "both";
   /** Header logo behaviour on the PROMO slide: keep / hide / show only the 2nd logo. */
   promoLogoMode?: "keep" | "hide" | "second";
-  /** Subtitle under the transfer card title (e.g. "T.T : AGAINST USD / UGX"). */
-  transferRateSubtitle?: string | null;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
   /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
@@ -130,7 +128,6 @@ export function UnimoniRatesPanel({
   headerLogoUrl2,
   headerLogoDisplay = "single",
   promoLogoMode = "keep",
-  transferRateSubtitle,
   rateCardNote,
   rateNotePlacement = "first",
   fontCss,
@@ -370,11 +367,6 @@ export function UnimoniRatesPanel({
           {headerSubLabel ? (
             <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
               {headerSubLabel}
-            </p>
-          ) : null}
-          {isTransferSheet && transferRateSubtitle?.trim() ? (
-            <p className="whitespace-nowrap text-[clamp(0.5rem,0.9vw,0.85rem)] font-semibold uppercase tracking-[0.14em] text-white/80">
-              {transferRateSubtitle.trim()}
             </p>
           ) : null}
         </div>
