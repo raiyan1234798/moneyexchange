@@ -153,8 +153,8 @@ export function CentralTransferPanel({
 
   return (
     <ContentPanel
-      title="Transfer Rates — All Branches (centralized)"
-      description="Money-transfer rates are set once by head office and appear identically on every branch's TRANSFER card. Branch staff cannot edit these."
+      title="Money Transfer Rate — Update & Upload"
+      description="One remittance rate for ALL branches — upload a file or edit below."
     >
       {/* ONE Excel/CSV upload updates the transfer rates on ALL branches at once. */}
       <div className="mb-4 flex flex-col gap-3 rounded-xl border border-sky-500/30 bg-sky-500/[0.05] p-3 sm:flex-row sm:items-center sm:justify-between">

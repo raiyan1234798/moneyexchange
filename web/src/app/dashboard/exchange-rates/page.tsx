@@ -7,7 +7,6 @@ import {
   ArrowUp,
   Check,
   Coins,
-  Download,
   Eye,
   EyeOff,
   FileSpreadsheet,
@@ -73,10 +72,7 @@ import {
   subscribePendingApprovals,
 } from "@/lib/services/pending-approval-service";
 import {
-  downloadRateTemplateCsv,
-  downloadRateTemplateXlsx,
   parseRateFile,
-  TEMPLATE_CURRENCIES,
   type RateImportRow,
 } from "@/lib/rate-import";
 import { ocrRatesFromImage } from "@/lib/ocr-rates";
@@ -560,9 +556,37 @@ export default function ExchangeRatesPage() {
       // FOREX rows go to THIS branch. TRANSFER values are CENTRALIZED (head
       // office, same for all branches): admins publish them to the shared set;
       // branch staff imports simply skip them.
-      const forexRows = rows.filter((r) => r.buyRate > 0 && r.sellRate > 0);
+      let forexRows = rows.filter((r) => r.buyRate > 0 && r.sellRate > 0);
       const transferRows = rows.filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0);
       const canEditCentralTransfer = isSuperAdmin || isAdmin;
+
+      // Branch users can ONLY update currencies the admin has already added to
+      // this branch — they may never introduce brand-new currencies via an
+      // upload (per client). Any code not already on the branch is rejected
+      // (not saved) and named back to them; the known ones still publish.
+      if (isBranchUser) {
+        const known = new Set(rates.map((r) => r.currencyCode.toUpperCase()));
+        const rejected = [
+          ...new Set(
+            forexRows
+              .filter((r) => !known.has(r.currencyCode.toUpperCase()))
+              .map((r) => r.currencyCode.toUpperCase()),
+          ),
+        ];
+        if (rejected.length > 0) {
+          toast.error(
+            `Not added — ${rejected.join(", ")} ${rejected.length === 1 ? "is" : "are"} not set up on this branch. Only currencies your admin has added can be updated; ask your admin to add ${rejected.length === 1 ? "it" : "them"} first.`,
+            { duration: 11000 },
+          );
+        }
+        forexRows = forexRows.filter((r) => known.has(r.currencyCode.toUpperCase()));
+        if (forexRows.length === 0) {
+          // Nothing a branch user is allowed to publish (transfer is admin-only).
+          setUploading(false);
+          setImportPreview(null);
+          return;
+        }
+      }
 
       const result =
         forexRows.length > 0
@@ -667,41 +691,11 @@ export default function ExchangeRatesPage() {
               <div className="max-w-xl">
                 <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
                   <FileSpreadsheet className="h-5 w-5" />
-                  <p className="text-sm font-semibold">Step 2: Import FOREX rates from Excel</p>
+                  <p className="text-sm font-semibold">Forex Currency Rate — Update &amp; Upload</p>
                 </div>
                 <h2 className="mt-2 text-xl font-semibold tracking-tight sm:text-2xl">
-                  Forex (WE BUY / WE SELL) — update all in one upload
+                  We Buy / We Sell
                 </h2>
-                <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                  This is for FOREX rates only. Money-transfer rates are separate —{" "}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      document
-                        .getElementById("transfer-rates")
-                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
-                    }
-                    className="underline decoration-dotted underline-offset-2 hover:text-amber-700 dark:hover:text-amber-300"
-                  >
-                    jump to the Transfer Rates section
-                  </button>{" "}
-                  (they apply to every branch).
-                </p>
-                <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground">
-                  <li>
-                    <strong className="text-foreground">Download</strong> the template below
-                  </li>
-                  <li>
-                    <strong className="text-foreground">Fill in</strong> the CURRENCY name, <strong>WE BUY</strong>, and{" "}
-                    <strong>WE SELL</strong> columns
-                  </li>
-                  <li>
-                    <strong className="text-foreground">Upload</strong> the file — rates appear on your TV instantly
-                  </li>
-                </ol>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  Template columns: CURRENCY | WE BUY | WE SELL — e.g. {TEMPLATE_CURRENCIES.slice(0, 4).join(", ")}…
-                </p>
                 {lastImport ? (
                   <p className="mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-400">
                     Last import: {lastImport.count} currencies for {branch?.name ?? "this branch"} ·{" "}
@@ -750,24 +744,6 @@ export default function ExchangeRatesPage() {
                     .xlsx, .xls, .csv — or a .jpg/.png photo (AI reads the rates)
                   </span>
                 </button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-12 rounded-xl px-6"
-                  onClick={() => downloadRateTemplateXlsx()}
-                >
-                  <Download className="mr-2 h-5 w-5" />
-                  Download Excel Template
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-xl text-muted-foreground"
-                  onClick={() => downloadRateTemplateCsv()}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  CSV template (alternative)
-                </Button>
               </div>
             </div>
           </div>
@@ -1298,7 +1274,7 @@ export default function ExchangeRatesPage() {
             description={
               currencies.length === 0
                 ? "Add currencies using New Currency above, then set buy/sell values and click Publish."
-                : "Download the Excel template above, fill in your rates, and upload — or click Initialize from catalog."
+                : "Upload your Excel file above, or click Initialize from catalog."
             }
           />
         ) : (

@@ -394,6 +394,38 @@
   to { opacity: 1; }
 }
 
+/* Kiosk video hygiene: on smart-TV WebViews (Android TV / Chromium) a muted
+   video that momentarily pauses — e.g. while the next clip loads between
+   videos — shows the browser's native BIG play-button overlay and the
+   ◀◀ ▶ ▶▶ control bar right over the advert. The signage must never show
+   those. Hide every native media-control pseudo-element on every video, and
+   block interaction so a passer-by can't pause it either. */
+video::-webkit-media-controls,
+video::-webkit-media-controls-enclosure,
+video::-webkit-media-controls-panel,
+video::-webkit-media-controls-panel-container,
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-start-playback-button,
+video::-webkit-media-controls-overlay-play-button,
+video::-webkit-media-controls-overlay-enclosure,
+video::-webkit-media-controls-timeline,
+video::-webkit-media-controls-current-time-display,
+video::-webkit-media-controls-time-remaining-display,
+video::-webkit-media-controls-mute-button,
+video::-webkit-media-controls-toggle-closed-captions-button,
+video::-webkit-media-controls-fullscreen-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+/* The signage videos are decorative and driven by the app, never the viewer. */
+.display-promo-panel video,
+.display-rates-panel video {
+  pointer-events: none;
+}
+
 @keyframes ticker-scroll-rtl {
   from {
     transform: translateX(0);

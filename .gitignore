@@ -6,3 +6,12 @@ out
 *.log
 .DS_Store
 web/TEST_CREDENTIALS.local.md
+
+# Local Wrangler/Miniflare state (not source)
+.wrangler/
+web/.wrangler/
+
+# User-shared context media dropped in the repo root (not project assets)
+*.opus
+WhatsApp*.mp4
+WhatsApp*.opus

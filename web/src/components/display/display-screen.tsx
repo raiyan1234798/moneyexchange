@@ -172,10 +172,13 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateValueScale = branchSettings.rateValueScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
-  // Transfer is its own rotating card now (not a column). Back-compat: honour the
-  // old showRemittanceScreen flag if the newer showTransferCard isn't set yet.
-  const showTransferCard =
-    branchSettings.showTransferCard ?? branchSettings.showRemittanceScreen ?? true;
+  // Transfer is its OWN rotating card now (centralized head-office rates), a
+  // different feature from the OLD remittance column. Default it ON when the
+  // branch hasn't explicitly chosen — otherwise a stale `showRemittanceScreen:
+  // false` (set for the old column) silently hides the transfer card even after
+  // an admin uploads transfer rates. Only an explicit showTransferCard === false
+  // turns it off now.
+  const showTransferCard = branchSettings.showTransferCard ?? true;
   const transferLocalLabel = branchSettings.transferLocalLabel?.trim() || "UGX";
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
@@ -569,6 +572,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         logoScale={logoScale}
         logoAnimation={tickerLogoAnimation}
         scrollingLogos={scrollingLogos}
+        headlineMaxWidthPercent={effectivePromoWidth}
       />
 
       {/* Animated announcement strip: "band" takes over the bottom message area,

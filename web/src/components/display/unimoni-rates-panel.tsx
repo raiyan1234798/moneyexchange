@@ -183,8 +183,20 @@ export function UnimoniRatesPanel({
       : hasPromoText
         ? [{ kind: "promo", rows: [] } as Sheet]
         : [];
-  const order =
-    rateCardOrder && rateCardOrder.length > 0 ? rateCardOrder : (["forex", "transfer", "promo"] as const);
+  const baseOrder: Array<"forex" | "transfer" | "promo"> =
+    rateCardOrder && rateCardOrder.length > 0
+      ? [...rateCardOrder]
+      : ["forex", "transfer", "promo"];
+  // Safety net: if there ARE transfer rates to show (showTransferCard is on and
+  // head office has published rates) but the saved slide order somehow omits
+  // "transfer", still include it — otherwise the uploaded transfer rates would
+  // never appear on the TV. Slot it before the promo card, matching the default.
+  if (transferSheets.length > 0 && !baseOrder.includes("transfer")) {
+    const promoAt = baseOrder.indexOf("promo");
+    if (promoAt >= 0) baseOrder.splice(promoAt, 0, "transfer");
+    else baseOrder.push("transfer");
+  }
+  const order = baseOrder;
   const groupFor = (slide: "forex" | "transfer" | "promo"): Sheet[] =>
     slide === "forex" ? forexSheets : slide === "transfer" ? transferSheets : promoSheets;
   const sheets: Sheet[] = order.flatMap(groupFor);
@@ -369,6 +381,13 @@ export function UnimoniRatesPanel({
                     muted
                     loop
                     playsInline
+                    controls={false}
+                    disablePictureInPicture
+                    onCanPlay={(e) => {
+                      const v = e.currentTarget;
+                      v.muted = true;
+                      void v.play().catch(() => {});
+                    }}
                     className="relative z-10 h-full w-full object-contain"
                   />
                 ) : (

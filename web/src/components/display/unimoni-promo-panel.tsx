@@ -92,12 +92,25 @@ export function UnimoniPromoPanel({
             muted
             loop={loopVideo}
             playsInline
+            // No native controls / picture-in-picture — this is signage, not a
+            // player. Belt-and-suspenders with the global CSS that hides the
+            // WebView's play-button overlay on smart TVs.
+            controls={false}
+            disablePictureInPicture
             onLoadedMetadata={(e) => {
               const v = e.currentTarget;
               if (v.videoWidth && v.videoHeight) onMediaAspectChange?.(v.videoWidth / v.videoHeight);
             }}
             onLoadedData={onVideoLoaded}
-            onCanPlay={onVideoLoaded}
+            onCanPlay={(e) => {
+              // Some TV WebViews leave a freshly-loaded video paused (showing the
+              // big play button) until told to play — force it, muted so the
+              // browser never blocks autoplay.
+              const v = e.currentTarget;
+              v.muted = true;
+              void v.play().catch(() => {});
+              onVideoLoaded?.();
+            }}
             onError={onVideoError}
             onEnded={onVideoEnded}
           />

@@ -33,6 +33,9 @@ interface BreakingNewsTickerProps {
   logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Logo images that scroll right-to-left with the messages. */
   scrollingLogos?: string[];
+  /** The promo/video area width as a % of the screen. Caps the gold headline
+   *  tab so it ENDS just before the rate card starts (never runs under it). */
+  headlineMaxWidthPercent?: number;
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
@@ -53,6 +56,7 @@ function BreakingNewsTickerInner({
   logoScale = 1,
   logoAnimation = "spin",
   scrollingLogos = [],
+  headlineMaxWidthPercent,
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
   const resolvedText = logoText?.trim() || null;
@@ -135,10 +139,15 @@ function BreakingNewsTickerInner({
           // Flush against the logo's right edge so it reads as one continuous band
           // extending FROM the logo. Both top corners are rounded (the start
           // curves like the end). It extends with the text but is capped so it
-          // stops before the rate card (ellipsis if the text is very long).
-          className="absolute top-0 z-30 max-w-[60vw] -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
+          // ENDS just before the rate card starts (ellipsis if the text is very
+          // long) — the cap is tied to the live video width so it never runs
+          // under the rate card at any screen size.
+          className="absolute top-0 z-30 -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
             left: badgeWidth,
+            maxWidth: headlineMaxWidthPercent
+              ? `calc(${headlineMaxWidthPercent}vw - ${badgeWidth} - 1vw)`
+              : "60vw",
             backgroundColor: UNIMONI_COLORS.gold,
             color: UNIMONI_COLORS.navy,
           }}
