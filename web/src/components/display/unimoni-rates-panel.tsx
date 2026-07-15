@@ -133,7 +133,7 @@ export function UnimoniRatesPanel({
   headerLogoUrl,
   headerLogoUrl2,
   headerLogoDisplay = "single",
-  promoLogoMode = "keep",
+  promoLogoMode = "hide",
   replaceDefaultLogo = false,
   headerLogoRotationEnabled = false,
   headerLogoRotationIntervalSeconds = 10,
@@ -232,7 +232,12 @@ export function UnimoniRatesPanel({
   const customLogo1 = headerLogoUrl?.trim() || "";
   const customLogo2 = headerLogoUrl2?.trim() || "";
   const isPromoSheetEarly = (sheets[sheetIndex % sheetCount] ?? { kind: "rates" }).kind === "promo";
-  const hidePromoHeader = isPromoSheetEarly && promoLogoMode === "hide";
+  // Promo fills the panel: hide logo + clock. Default is "hide". Legacy saved
+  // "keep" (previous default) is also treated as hide so existing TVs pick up
+  // the full-bleed promo without a settings change; "second" still shows the
+  // alternate logo bar. Admins who want logos back can use "second", or we
+  // re-enable "keep" via an explicit opt-in if needed later.
+  const hidePromoHeader = isPromoSheetEarly && promoLogoMode !== "second";
 
   useEffect(() => {
     if (!headerLogoRotationEnabled || hidePromoHeader || !customLogo1 || !customLogo2) return;
@@ -421,14 +426,19 @@ export function UnimoniRatesPanel({
       </div>
       ) : null}
 
-      {/* White table card FILLS the panel height (no empty blue area below the
-          last row); rows grow evenly to share the space and the type auto-scales. */}
+      {/* Rate table / promo card FILLS the panel height. On promo with a hidden
+          header the media uses the full aside (navy letterbox, object-contain). */}
       <div
-        className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)] ${
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.25)] ${
           hidePromoHeader
             ? "mx-0 mb-0 rounded-none"
-            : "mx-[0.6vw] mb-[0.8vh] rounded-[10px]"
+            : "mx-[0.6vw] mb-[0.8vh] rounded-[10px] bg-white"
         }`}
+        style={
+          hidePromoHeader
+            ? { backgroundColor: UNIMONI_COLORS.navy }
+            : undefined
+        }
       >
         {isPromoSheet ? (
           <div
@@ -443,7 +453,7 @@ export function UnimoniRatesPanel({
               <p
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
-                  color: NAVY_TEXT,
+                  color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
                 }}
@@ -453,11 +463,12 @@ export function UnimoniRatesPanel({
             ) : null}
             {activeSheet.promoMedia ? (
               <div
-                className={`relative min-h-0 w-full overflow-hidden ${
+                className={`relative flex min-h-0 w-full items-center justify-center overflow-hidden ${
                   activeSheet.promoMedia && !promoTop && !promoMessage
                     ? "flex-1"
                     : "flex-1 rounded-md"
                 }`}
+                style={{ backgroundColor: UNIMONI_COLORS.navy }}
               >
                 {activeSheet.promoMedia.type === "video" ? (
                   <video
@@ -477,14 +488,14 @@ export function UnimoniRatesPanel({
                         void v.play().catch(() => {});
                       });
                     }}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={activeSheet.promoMedia.url}
                     alt="Promotion"
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-contain"
                   />
                 )}
               </div>
@@ -493,7 +504,7 @@ export function UnimoniRatesPanel({
               <p
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
-                  color: NAVY_TEXT,
+                  color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
                 }}
@@ -570,14 +581,24 @@ export function UnimoniRatesPanel({
         )}
 
         {sheetCount > 1 ? (
-          <div className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh]">
+          <div
+            className={`flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] ${
+              hidePromoHeader ? "pt-[0.4vh]" : ""
+            }`}
+          >
             {sheets.map((sheet, i) => (
               <span
                 key={`${sheet.kind}-${i}`}
                 className="h-[7px] w-[7px] rounded-full transition-colors"
                 style={{
                   backgroundColor:
-                    i === sheetIndex % sheetCount ? UNIMONI_COLORS.headerBlue : "#C9D8E8",
+                    i === sheetIndex % sheetCount
+                      ? hidePromoHeader
+                        ? "#FFFFFF"
+                        : UNIMONI_COLORS.headerBlue
+                      : hidePromoHeader
+                        ? "rgba(255,255,255,0.35)"
+                        : "#C9D8E8",
                 }}
               />
             ))}

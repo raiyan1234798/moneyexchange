@@ -75,7 +75,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   headerLogoUrl: null as string | null,
   headerLogoUrl2: null as string | null,
   headerLogoDisplay: "single" as "single" | "both",
-  promoLogoMode: "keep" as "keep" | "hide" | "second",
+  promoLogoMode: "hide" as "keep" | "hide" | "second",
   replaceDefaultLogo: false,
   headerLogoRotationEnabled: false,
   headerLogoRotationIntervalSeconds: 10,

@@ -209,7 +209,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
-  const promoLogoMode = (branchSettings.promoLogoMode ?? "keep") as "keep" | "hide" | "second";
+  const promoLogoMode = (branchSettings.promoLogoMode ?? "hide") as "keep" | "hide" | "second";
   const replaceDefaultLogo = branchSettings.replaceDefaultLogo === true;
   const headerLogoRotationEnabled = branchSettings.headerLogoRotationEnabled === true;
   const headerLogoRotationIntervalSeconds = branchSettings.headerLogoRotationIntervalSeconds ?? 10;

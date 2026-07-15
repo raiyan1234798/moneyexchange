@@ -320,21 +320,20 @@ function BranchSettingsForm({
         <div className="space-y-2">
           <Label>Logo on the promotion slide</Label>
           <p className="text-xs text-muted-foreground">
-            Controls the rate-card header during the promo rotation slide only. &quot;Hide&quot; removes
-            all logos including the default Unimoni logo so the promo image can fill the panel.
+            The rate-card header (logos + clock) is hidden on the promo slide by default so the
+            image fills the panel. Choose &quot;Show alternate logo&quot; to keep a slim logo bar.
           </p>
           <Select
-            value={settings.promoLogoMode ?? "keep"}
+            value={settings.promoLogoMode === "second" ? "second" : "hide"}
             onValueChange={(value) =>
-              setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "keep" })
+              setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide" })
             }
           >
             <SelectTrigger className="rounded-xl">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="keep">Keep the logo(s)</SelectItem>
-              <SelectItem value="hide">Hide all logos (incl. Unimoni default)</SelectItem>
+              <SelectItem value="hide">Hide header (full promo)</SelectItem>
               <SelectItem value="second">Show only the alternate / second logo</SelectItem>
             </SelectContent>
           </Select>

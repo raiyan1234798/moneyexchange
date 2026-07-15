@@ -110,7 +110,7 @@ export interface BranchSettings {
   headerLogoUrl2?: string | null;
   /** How the header logos show on normal slides: just the first, or both side by side. */
   headerLogoDisplay?: "single" | "both";
-  /** What the header logo does on the PROMO slide: keep it, hide it, or show only the 2nd logo. */
+  /** What the header logo does on the PROMO slide: keep it, hide it (default), or show only the 2nd logo. */
   promoLogoMode?: "keep" | "hide" | "second";
   /** When true, uploaded header logo replaces the default Unimoni logo (no fallback). */
   replaceDefaultLogo?: boolean;
