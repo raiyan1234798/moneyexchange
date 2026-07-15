@@ -272,9 +272,9 @@ service cloud.firestore {
         (isActiveUser() && (isSuperAdmin() || isAdmin() || canAccessBranch(branchId)));
       allow list: if resource.data.status == 'active' ||
         (isActiveUser() && (isSuperAdmin() || isAdmin() || isBranchManager() || isBranchUser()));
-      // Admins can create branches (per client); only superAdmin deletes.
+      // Admins can create, update and delete branches (client request 2026-07-15).
       allow create: if isSuperAdmin() || isAdmin();
-      allow delete: if isSuperAdmin();
+      allow delete: if isSuperAdmin() || isAdmin();
       allow update: if isSuperAdmin() || isAdmin();
     }
 

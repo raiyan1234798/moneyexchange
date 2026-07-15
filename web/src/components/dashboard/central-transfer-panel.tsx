@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Download, Plus, Save, Trash2, Upload } from "lucide-react";
+import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  bulkUpsertTransferRates,
   deleteTransferRate,
   subscribeTransferRates,
   upsertTransferRate,
 } from "@/lib/services/transfer-rate-service";
+import { parseRateFile, TEMPLATE_CURRENCIES } from "@/lib/rate-import";
 import { getCurrencyMeta } from "@/lib/currency-utils";
 import type { TransferRate } from "@/lib/types";
 
@@ -35,6 +38,44 @@ export function CentralTransferPanel({
   const [newUsd, setNewUsd] = useState("");
   const [newLocal, setNewLocal] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function handleTransferUpload(file: File) {
+    setUploading(true);
+    try {
+      const parsed = await parseRateFile(file);
+      const transferRows = parsed
+        .filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0)
+        .map((r) => ({
+          currencyCode: r.currencyCode,
+          transferUsd: r.transferUsd ?? null,
+          transferLocal: r.transferLocal ?? null,
+        }));
+      if (transferRows.length === 0) {
+        toast.error(
+          `No transfer rates found. The file needs columns: CURRENCY | $ (USD) | ${localLabel}.`,
+        );
+        return;
+      }
+      const count = await bulkUpsertTransferRates(transferRows, actor);
+      toast.success(`${count} transfer rate(s) published to ALL branches`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not read the transfer file");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  function downloadTransferTemplate() {
+    const header = ["CURRENCY", "$ (USD)", localLabel];
+    const data = [header, ...TEMPLATE_CURRENCIES.map((c) => [c, "", ""])];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Transfer");
+    XLSX.writeFile(wb, "transfer-rates-template.xlsx");
+  }
 
   useEffect(() => {
     return subscribeTransferRates(
@@ -115,6 +156,43 @@ export function CentralTransferPanel({
       title="Transfer Rates — All Branches (centralized)"
       description="Money-transfer rates are set once by head office and appear identically on every branch's TRANSFER card. Branch staff cannot edit these."
     >
+      {/* ONE Excel/CSV upload updates the transfer rates on ALL branches at once. */}
+      <div className="mb-4 flex flex-col gap-3 rounded-xl border border-sky-500/30 bg-sky-500/[0.05] p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">Upload one file for ALL branches</p>
+          <p className="text-xs text-muted-foreground">
+            Excel/CSV with columns CURRENCY | $ (USD) | {localLabel} — updates the transfer card on
+            every branch at once.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={downloadTransferTemplate}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Template
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-lg"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload className="mr-1.5 h-3.5 w-3.5" />
+            {uploading ? "Uploading…" : "Upload Excel"}
+          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            aria-label="Upload transfer rates Excel for all branches"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleTransferUpload(f);
+            }}
+          />
+        </div>
+      </div>
       <div className="space-y-2">
         {rows.map((row) => {
           const draft = drafts[row.id] ?? { transferUsd: "", transferLocal: "" };

@@ -520,7 +520,12 @@ export default function ExchangeRatesPage() {
       // the user can edit or remove lines before publishing. Photos of a rate
       // board go through the AI reader; Excel/CSV through the sheet parser.
       const isImage = file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name);
-      if (isImage) toast.info("Reading rates from the photo…", { duration: 8000 });
+      if (isImage) {
+        toast.info(
+          "Reading the photo… the AI can take up to a minute — please wait, don't re-upload. (An Excel/CSV file is instant.)",
+          { duration: 60000 },
+        );
+      }
       const rows = isImage ? await ocrRatesFromImage(file) : await parseRateFile(file);
       setImportPreview(rows);
       toast.success(
@@ -668,8 +673,19 @@ export default function ExchangeRatesPage() {
                   Forex (WE BUY / WE SELL) — update all in one upload
                 </h2>
                 <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                  This is for FOREX rates only. Money-transfer rates are separate — set them in the
-                  &quot;Transfer Rates&quot; section further down (they apply to every branch).
+                  This is for FOREX rates only. Money-transfer rates are separate —{" "}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      document
+                        .getElementById("transfer-rates")
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                    className="underline decoration-dotted underline-offset-2 hover:text-amber-700 dark:hover:text-amber-300"
+                  >
+                    jump to the Transfer Rates section
+                  </button>{" "}
+                  (they apply to every branch).
                 </p>
                 <ol className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                   <li>
@@ -728,7 +744,7 @@ export default function ExchangeRatesPage() {
                 >
                   <Upload className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                   <span className="text-sm font-medium">
-                    {uploading ? "Importing your file…" : "Drop Excel file OR a photo of your rate board"}
+                    {uploading ? "Working… photos take up to a minute — please wait" : "Drop Excel file OR a photo of your rate board"}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     .xlsx, .xls, .csv — or a .jpg/.png photo (AI reads the rates)
@@ -1000,10 +1016,12 @@ export default function ExchangeRatesPage() {
 
         {/* Centralized transfer rates — head office sets ONE list for all branches. */}
         {(isSuperAdmin || isAdmin) && user && profile ? (
-          <CentralTransferPanel
-            actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
-            localLabel={transferLocalLabel}
-          />
+          <div id="transfer-rates" className="scroll-mt-20">
+            <CentralTransferPanel
+              actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
+              localLabel={transferLocalLabel}
+            />
+          </div>
         ) : null}
 
         {canManageRates && !isBranchUser && effectiveBranchId ? (

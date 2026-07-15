@@ -476,22 +476,33 @@ function BranchSettingsForm({
             <Label>Images &amp; videos — each rotates as its own screen</Label>
             <Input
               type="file"
-              accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,.png,.jpg,.jpeg,.webp,.mp4,.webm"
               multiple
-              aria-label="Upload promotion images"
+              aria-label="Upload promotion images or videos"
               onChange={async (event) => {
                 const files = Array.from(event.target.files ?? []);
                 let added = 0;
                 for (const file of files) {
                   try {
-                    const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
-                    addPromoMedia({ type: "image", url: dataUrl });
+                    if (file.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(file.name)) {
+                      // Videos go to R2 (a data URL would be far too big for the doc).
+                      if (!isR2UploadConfigured()) {
+                        toast.error("Video upload is unavailable here — paste a video link instead.");
+                        continue;
+                      }
+                      toast.info(`Uploading ${file.name}…`);
+                      const r2 = await uploadVideoToR2(file, branchId);
+                      addPromoMedia({ type: "video", url: r2.downloadUrl });
+                    } else {
+                      const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
+                      addPromoMedia({ type: "image", url: dataUrl });
+                    }
                     added += 1;
                   } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Could not read an image");
+                    toast.error(error instanceof Error ? error.message : `Could not add ${file.name}`);
                   }
                 }
-                if (added) toast.success(`${added} image(s) added — Save Branch Settings to apply`);
+                if (added) toast.success(`${added} item(s) added — Save Branch Settings to apply`);
                 event.target.value = "";
               }}
               className="rounded-xl"

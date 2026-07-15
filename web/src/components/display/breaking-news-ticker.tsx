@@ -133,9 +133,10 @@ function BreakingNewsTickerInner({
       {headline ? (
         <div
           // Flush against the logo's right edge so it reads as one continuous band
-          // extending FROM the logo; whitespace-nowrap lets the full text show
-          // (no truncation) and extend as far right as it needs.
-          className="absolute top-0 z-30 -translate-y-full whitespace-nowrap rounded-tr-md px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
+          // extending FROM the logo. Both top corners are rounded (the start
+          // curves like the end). It extends with the text but is capped so it
+          // stops before the rate card (ellipsis if the text is very long).
+          className="absolute top-0 z-30 max-w-[60vw] -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
             left: badgeWidth,
             backgroundColor: UNIMONI_COLORS.gold,

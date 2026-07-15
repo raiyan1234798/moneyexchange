@@ -357,30 +357,38 @@ export function UnimoniRatesPanel({
               </p>
             ) : null}
             {activeSheet.promoMedia ? (
-              activeSheet.promoMedia.type === "video" ? (
-                <video
-                  key={activeSheet.promoMedia.url}
-                  src={activeSheet.promoMedia.url}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  className={`min-h-0 w-full flex-1 ${
-                    promoTop || promoMessage ? "object-contain" : "object-cover"
-                  }`}
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={activeSheet.promoMedia.url}
-                  alt="Promotion"
-                  // With no text the media FILLS the card (no gaps); with text it
-                  // uses contain so the whole image/video + text both fit.
-                  className={`min-h-0 w-full flex-1 ${
-                    promoTop || promoMessage ? "object-contain" : "object-cover"
-                  }`}
-                />
-              )
+              // The WHOLE media shows (object-contain, never cropped) over a
+              // blurred fill of itself — so it fills the card with no empty gaps
+              // and nothing is cut off.
+              <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-md">
+                {activeSheet.promoMedia.type === "video" ? (
+                  <video
+                    key={activeSheet.promoMedia.url}
+                    src={activeSheet.promoMedia.url}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    className="relative z-10 h-full w-full object-contain"
+                  />
+                ) : (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeSheet.promoMedia.url}
+                      alt=""
+                      aria-hidden
+                      className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl brightness-95"
+                    />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeSheet.promoMedia.url}
+                      alt="Promotion"
+                      className="relative z-10 h-full w-full object-contain"
+                    />
+                  </>
+                )}
+              </div>
             ) : null}
             {promoMessage ? (
               <p

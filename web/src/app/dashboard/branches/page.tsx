@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Building2, Copy, ExternalLink, Pencil } from "lucide-react";
+import { Plus, Building2, Copy, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
@@ -43,7 +43,7 @@ import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
-import { createBranch, disableBranch, subscribeBranches, updateBranch } from "@/lib/services/branch-service";
+import { createBranch, deleteBranch, disableBranch, subscribeBranches, updateBranch } from "@/lib/services/branch-service";
 import { createUserInvite } from "@/lib/services/manager-service";
 import type { Branch } from "@/lib/types";
 
@@ -219,6 +219,19 @@ export default function BranchesPage() {
       toast.success(`${branch.name} has been disabled`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to disable branch");
+    }
+  }
+
+  async function handleDelete(branch: Branch) {
+    if (!user || !profile) return;
+    try {
+      await deleteBranch(branch.id, {
+        userId: user.uid,
+        userName: profile.displayName || profile.email,
+      });
+      toast.success(`${branch.name} has been deleted`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to delete branch");
     }
   }
 
@@ -455,6 +468,42 @@ export default function BranchesPage() {
                             Enable
                           </Button>
                         )
+                      ) : null}
+                      {hasPermission("deleteBranch") ? (
+                        <AlertDialog>
+                          <AlertDialogTrigger
+                            render={
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="rounded-lg text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="mr-1 h-3 w-3" />
+                                Delete
+                              </Button>
+                            }
+                          />
+                          <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete {b.name} permanently?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This removes the branch <span className="font-mono font-semibold">{b.code}</span>{" "}
+                                permanently. Its display link will stop working and it will no longer appear
+                                anywhere. This cannot be undone — if you only want to hide it, use{" "}
+                                <strong>Disable</strong> instead.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="rounded-xl bg-destructive text-white hover:bg-destructive/90"
+                                onClick={() => void handleDelete(b)}
+                              >
+                                Delete permanently
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       ) : null}
                     </div>
                   ),

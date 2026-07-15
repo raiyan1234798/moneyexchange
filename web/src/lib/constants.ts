@@ -275,6 +275,7 @@ export const SUPER_ADMIN_PERMISSIONS = [
 export const ADMIN_PERMISSIONS = [
   "createBranch",
   "editBranch",
+  "deleteBranch",
   "manageUsers",
   "manageVideos",
   "managePlaylists",
