@@ -887,6 +887,34 @@ function BranchSettingsForm({
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-2">
+              <Label>Announcement font</Label>
+              <Select
+                value={settings.announcementFont ?? "__master"}
+                onValueChange={(value) =>
+                  setSettings({
+                    ...settings,
+                    announcementFont: value === "__master" ? null : value,
+                  })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__master">Use display font (whole-screen font)</SelectItem>
+                  {MESSAGE_FONTS.map((f) => (
+                    <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                A font just for the announcement. When set, it overrides the whole-screen display
+                font for this message only.
+              </p>
+            </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

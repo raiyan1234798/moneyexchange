@@ -323,7 +323,7 @@ export function UnimoniRatesPanel({
             />
           )}
           {headerSubLabel ? (
-            <p className="whitespace-nowrap text-[clamp(0.5rem,0.85vw,0.75rem)] font-bold uppercase tracking-[0.18em] text-white/85">
+            <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
               {headerSubLabel}
             </p>
           ) : null}

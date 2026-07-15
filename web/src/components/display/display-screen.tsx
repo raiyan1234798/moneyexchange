@@ -206,7 +206,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     | "flip";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
   const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
-  const announcementFontCss = messageFontCss(masterFont || branchSettings.announcementFont);
+  // A per-announcement font WINS over the master font when the admin picks one,
+  // so the announcement can read in a different typeface than the rest of the
+  // screen; otherwise it follows the whole-screen display font.
+  const announcementFontCss = messageFontCss(branchSettings.announcementFont || masterFont);
   const announcementColorStyle = (branchSettings.announcementColorStyle ?? "white") as
     | "white"
     | "logo"
