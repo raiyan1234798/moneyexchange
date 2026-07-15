@@ -51,6 +51,12 @@ interface UnimoniRatesPanelProps {
   headerLogoDisplay?: "single" | "both";
   /** Header logo behaviour on the PROMO slide: keep / hide / show only the 2nd logo. */
   promoLogoMode?: "keep" | "hide" | "second";
+  /** When true, never fall back to the default Unimoni logo when a custom logo is expected. */
+  replaceDefaultLogo?: boolean;
+  /** Alternate between header logo 1 and 2 on normal slides. */
+  headerLogoRotationEnabled?: boolean;
+  /** Seconds each logo stays visible when rotation is enabled. */
+  headerLogoRotationIntervalSeconds?: number;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
   /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
@@ -128,6 +134,9 @@ export function UnimoniRatesPanel({
   headerLogoUrl2,
   headerLogoDisplay = "single",
   promoLogoMode = "keep",
+  replaceDefaultLogo = false,
+  headerLogoRotationEnabled = false,
+  headerLogoRotationIntervalSeconds = 10,
   rateCardNote,
   rateNotePlacement = "first",
   fontCss,
@@ -218,6 +227,25 @@ export function UnimoniRatesPanel({
   const sheets: Sheet[] = order.flatMap(groupFor);
   const sheetCount = Math.max(sheets.length, 1);
   const [sheetIndex, setSheetIndex] = useState(0);
+  const [logoRotationIndex, setLogoRotationIndex] = useState(0);
+
+  const customLogo1 = headerLogoUrl?.trim() || "";
+  const customLogo2 = headerLogoUrl2?.trim() || "";
+  const isPromoSheetEarly = (sheets[sheetIndex % sheetCount] ?? { kind: "rates" }).kind === "promo";
+  const hidePromoHeader = isPromoSheetEarly && promoLogoMode === "hide";
+
+  useEffect(() => {
+    if (!headerLogoRotationEnabled || hidePromoHeader || !customLogo1 || !customLogo2) return;
+    const ms = Math.max(2, headerLogoRotationIntervalSeconds ?? 10) * 1000;
+    const timer = window.setInterval(() => setLogoRotationIndex((i) => (i + 1) % 2), ms);
+    return () => window.clearInterval(timer);
+  }, [
+    headerLogoRotationEnabled,
+    headerLogoRotationIntervalSeconds,
+    customLogo1,
+    customLogo2,
+    hidePromoHeader,
+  ]);
 
   // Manually adjustable sequence timing (per the client: "3 seconds, 6 seconds,
   // 10 seconds — set manually"). The promo card can hold its own duration.
@@ -298,6 +326,39 @@ export function UnimoniRatesPanel({
       ? "Transfer Rates"
       : "Exchange Rates";
 
+  /** Which logo URLs to render in the rate-card header, or null to hide the logo area. */
+  function resolveHeaderLogos(): string[] | null {
+    if (isPromoSheet) {
+      if (promoLogoMode === "hide") return null;
+      if (promoLogoMode === "second") {
+        if (customLogo2) return [customLogo2];
+        if (customLogo1) return [customLogo1];
+        return replaceDefaultLogo ? [] : null;
+      }
+      if (headerLogoDisplay === "both") return [customLogo1, customLogo2].filter(Boolean);
+      if (customLogo1) return [customLogo1];
+      if (customLogo2 && replaceDefaultLogo) return [customLogo2];
+      return [];
+    }
+
+    if (headerLogoRotationEnabled && customLogo1 && customLogo2) {
+      return logoRotationIndex === 0 ? [customLogo1] : [customLogo2];
+    }
+    if (headerLogoDisplay === "both") return [customLogo1, customLogo2].filter(Boolean);
+    if (customLogo1) return [customLogo1];
+    if (customLogo2 && replaceDefaultLogo) return [customLogo2];
+    return [];
+  }
+
+  const headerLogos = resolveHeaderLogos();
+  const showDefaultLogo =
+    headerLogos !== null &&
+    headerLogos.length === 0 &&
+    !replaceDefaultLogo &&
+    (!isPromoSheet || promoLogoMode === "keep");
+  const showCustomLogos = headerLogos !== null && headerLogos.length > 0;
+  const showHeaderBar = !hidePromoHeader;
+
   const asideStyle = {
     background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
     fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
@@ -312,66 +373,39 @@ export function UnimoniRatesPanel({
       className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col transition-[width] duration-500 ease-out lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
       style={asideStyle}
     >
-      {/* Header: a BIG centered logo with date + time stacked in the right
-          corner (values only, no labels). Flex — not absolute — so the date
-          block can NEVER overlap the logo, even on a narrow card: the logo
-          just shifts left when space runs out. */}
+      {/* Header: logo + date/time. Hidden entirely on promo slides when logos are hidden
+          so the promotion can fill the full panel. */}
+      {showHeaderBar ? (
       <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.1vh]">
-        {/* Date/time is shrink-0 (it always keeps its corner) and the LOGO is
-            the flexible one — it scales down via max-w-full + object-contain
-            when the card is narrow. Overlap is impossible at any width. */}
         <div className="min-w-0 flex-1" aria-hidden />
         <div className="flex min-w-0 shrink flex-col items-center justify-center">
-          {/* Logo behaviour:
-              - normal slide: first logo, or BOTH side by side (headerLogoDisplay).
-              - promo slide: keep the normal logo(s), HIDE them, or show only the
-                2nd logo (promoLogoMode) — lets a partner/co-brand logo take over
-                while the promotion plays, or clear the header entirely. */}
-          {(() => {
-            const custom1 = headerLogoUrl?.trim() || "";
-            const custom2 = headerLogoUrl2?.trim() || "";
-            let logos: string[];
-            if (isPromoSheet) {
-              if (promoLogoMode === "hide") logos = [];
-              else if (promoLogoMode === "second") logos = custom2 ? [custom2] : custom1 ? [custom1] : [];
-              else logos = headerLogoDisplay === "both" ? [custom1, custom2].filter(Boolean) : custom1 ? [custom1] : [];
-            } else {
-              logos = headerLogoDisplay === "both" ? [custom1, custom2].filter(Boolean) : custom1 ? [custom1] : [];
-            }
-            if (isPromoSheet && promoLogoMode === "hide") return null;
-            if (logos.length === 0) {
-              return (
-                <UnimoniLogoImage
-                  variant="onDark"
-                  width={280}
-                  height={72}
-                  className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain"
-                  priority
+          {headerLogos === null ? null : showCustomLogos ? (
+            <div className="flex min-w-0 items-center justify-center gap-[0.8vw]">
+              {headerLogos!.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={`${src}-${i}`}
+                  src={src}
+                  alt="Brand logo"
+                  className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
                 />
-              );
-            }
-            return (
-              <div className="flex min-w-0 items-center justify-center gap-[0.8vw]">
-                {logos.map((src, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={`${src}-${i}`}
-                    src={src}
-                    alt="Brand logo"
-                    className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
-                  />
-                ))}
-              </div>
-            );
-          })()}
+              ))}
+            </div>
+          ) : showDefaultLogo ? (
+            <UnimoniLogoImage
+              variant="onDark"
+              width={280}
+              height={72}
+              className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain"
+              priority
+            />
+          ) : null}
           {headerSubLabel ? (
             <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
               {headerSubLabel}
             </p>
           ) : null}
         </div>
-        {/* Date + time — hidden on the promotion screen (client request); the
-            balancing spacer keeps the logo centered when it's gone. */}
         {isPromoSheet ? (
           <div className="min-w-0 flex-1" aria-hidden />
         ) : (
@@ -385,17 +419,24 @@ export function UnimoniRatesPanel({
           </div>
         )}
       </div>
+      ) : null}
 
       {/* White table card FILLS the panel height (no empty blue area below the
           last row); rows grow evenly to share the space and the type auto-scales. */}
-      <div className="mx-[0.6vw] mb-[0.8vh] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)]">
+      <div
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-white shadow-[0_2px_10px_rgba(0,0,0,0.25)] ${
+          hidePromoHeader
+            ? "mx-0 mb-0 rounded-none"
+            : "mx-[0.6vw] mb-[0.8vh] rounded-[10px]"
+        }`}
+      >
         {isPromoSheet ? (
-          // Promotional card — its own rotating screen in the rate-card space:
-          // uploaded image (whole image visible) and/or a message.
           <div
             key={`promo-${sheetIndex}`}
-            className={`rates-sheet-fade flex min-h-0 flex-1 flex-col items-center justify-center ${
-              promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""
+            className={`rates-sheet-fade flex min-h-0 flex-1 flex-col ${
+              activeSheet.promoMedia && !promoTop && !promoMessage
+                ? "overflow-hidden"
+                : `items-center justify-center ${promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""}`
             }`}
           >
             {promoTop ? (
@@ -411,10 +452,13 @@ export function UnimoniRatesPanel({
               </p>
             ) : null}
             {activeSheet.promoMedia ? (
-              // The WHOLE media shows (object-contain, never cropped) over a
-              // blurred fill of itself — so it fills the card with no empty gaps
-              // and nothing is cut off.
-              <div className="relative min-h-0 w-full flex-1 overflow-hidden rounded-md">
+              <div
+                className={`relative min-h-0 w-full overflow-hidden ${
+                  activeSheet.promoMedia && !promoTop && !promoMessage
+                    ? "flex-1"
+                    : "flex-1 rounded-md"
+                }`}
+              >
                 {activeSheet.promoMedia.type === "video" ? (
                   <video
                     key={activeSheet.promoMedia.url}
@@ -427,32 +471,21 @@ export function UnimoniRatesPanel({
                     disablePictureInPicture
                     onCanPlay={(e) => {
                       const v = e.currentTarget;
-                      // Try to honour the sound setting; if the browser blocks
-                      // unmuted autoplay, fall back to muted so it still plays.
                       v.muted = !videoSoundOn;
                       void v.play().catch(() => {
                         v.muted = true;
                         void v.play().catch(() => {});
                       });
                     }}
-                    className="relative z-10 h-full w-full object-contain"
+                    className="h-full w-full object-cover"
                   />
                 ) : (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={activeSheet.promoMedia.url}
-                      alt=""
-                      aria-hidden
-                      className="absolute inset-0 h-full w-full scale-110 object-cover blur-xl brightness-95"
-                    />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={activeSheet.promoMedia.url}
-                      alt="Promotion"
-                      className="relative z-10 h-full w-full object-contain"
-                    />
-                  </>
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={activeSheet.promoMedia.url}
+                    alt="Promotion"
+                    className="h-full w-full object-cover"
+                  />
                 )}
               </div>
             ) : null}

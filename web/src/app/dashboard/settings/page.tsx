@@ -208,10 +208,10 @@ function BranchSettingsForm({
 
       {/* Rebrand: custom logo for the rate-card header (overrides the unimoni logo). */}
       <div className="space-y-2">
-        <Label>Brand logo — rate-card header (rebrand)</Label>
+        <Label>Primary brand logo — rate-card header</Label>
         <p className="text-xs text-muted-foreground">
-          Upload your logo (PNG with transparency works best on the blue header). Leave blank to keep
-          the unimoni logo.
+          Upload your main logo (PNG with transparency works best on the blue header). Enable
+          &quot;Replace Unimoni default&quot; below to use this instead of the built-in Unimoni logo.
         </p>
         <div className="flex items-center gap-3">
           <Input
@@ -255,10 +255,10 @@ function BranchSettingsForm({
 
       {/* Second rate-card header logo (co-brand / partner) + how the two logos behave. */}
       <div className="space-y-2">
-        <Label>Second rate-card logo (optional)</Label>
+        <Label>Alternate / second logo (optional)</Label>
         <p className="text-xs text-muted-foreground">
-          Upload a second logo to show alongside the first, or to swap in only while the promotion
-          card is on screen.
+          Upload a partner logo (e.g. Wizz Financial). Show it alongside the primary logo, rotate
+          between the two on a timer, or swap it in only while the promotion slide is on screen.
         </p>
         <div className="flex items-center gap-3">
           <Input
@@ -319,6 +319,10 @@ function BranchSettingsForm({
         </div>
         <div className="space-y-2">
           <Label>Logo on the promotion slide</Label>
+          <p className="text-xs text-muted-foreground">
+            Controls the rate-card header during the promo rotation slide only. &quot;Hide&quot; removes
+            all logos including the default Unimoni logo so the promo image can fill the panel.
+          </p>
           <Select
             value={settings.promoLogoMode ?? "keep"}
             onValueChange={(value) =>
@@ -330,12 +334,56 @@ function BranchSettingsForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="keep">Keep the logo(s)</SelectItem>
-              <SelectItem value="hide">Hide the logo</SelectItem>
-              <SelectItem value="second">Show only the second logo</SelectItem>
+              <SelectItem value="hide">Hide all logos (incl. Unimoni default)</SelectItem>
+              <SelectItem value="second">Show only the alternate / second logo</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Replace Unimoni default logo</Label>
+          <p className="text-xs text-muted-foreground">
+            When enabled, your uploaded primary logo is used instead of the built-in Unimoni logo on
+            the rate card and ticker badge (when no separate ticker logo is set).
+          </p>
+        </div>
+        <Switch
+          checked={settings.replaceDefaultLogo === true}
+          onCheckedChange={(checked) => setSettings({ ...settings, replaceDefaultLogo: checked })}
+        />
+      </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Rotate between primary and alternate logo</Label>
+          <p className="text-xs text-muted-foreground">
+            On normal rate-card slides, alternate between the two uploaded header logos on a timer.
+            Requires both logos to be uploaded.
+          </p>
+        </div>
+        <Switch
+          checked={settings.headerLogoRotationEnabled === true}
+          onCheckedChange={(checked) => setSettings({ ...settings, headerLogoRotationEnabled: checked })}
+        />
+      </div>
+      {settings.headerLogoRotationEnabled ? (
+        <div className="space-y-2">
+          <Label>Logo rotation interval (seconds)</Label>
+          <Input
+            type="number"
+            min={2}
+            max={120}
+            value={settings.headerLogoRotationIntervalSeconds ?? 10}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                headerLogoRotationIntervalSeconds: Math.max(2, Number(event.target.value) || 10),
+              })
+            }
+            className="max-w-[10rem] rounded-xl"
+          />
+        </div>
+      ) : null}
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>
           <Label>Play video sound</Label>

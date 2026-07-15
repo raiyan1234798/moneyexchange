@@ -14,6 +14,7 @@ import {
   PageShell,
   StatusBadge,
 } from "@/components/shared/page-elements";
+import { SortableDataTable } from "@/components/shared/sortable-data-table";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
@@ -456,6 +457,26 @@ export default function VideosPage() {
       );
     } finally {
       setImageUploading(false);
+    }
+  }
+
+  async function reorderVideosList(ordered: VideoAsset[]) {
+    if (!actor) return;
+    try {
+      await reorderVideos(ordered.map((x) => x.id), actor);
+      toast.success("Play order updated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reorder videos");
+    }
+  }
+
+  async function reorderImagesList(ordered: ImageAdvert[]) {
+    if (!actor) return;
+    try {
+      await reorderImageAdverts(ordered.map((x) => x.id), actor);
+      toast.success("Image order updated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reorder images");
     }
   }
 
@@ -909,12 +930,14 @@ export default function VideosPage() {
         ) : (
           <ContentPanel
             title="Branch Videos"
-            description="Videos rotate in this order — use ▲ ▼ to choose which plays first, second, etc."
+            description="Drag rows to set play order, or use ▲ ▼ as a fallback."
           >
-            <DataTable
+            <SortableDataTable
               data={videos}
               keyExtractor={(v) => v.id}
               mobileTitle={(v) => v.title}
+              onReorder={(ordered) => void reorderVideosList(ordered)}
+              reorderDisabled={!canManageVideos}
               columns={[
                 { key: "title", header: "Title", cell: (v) => <span className="font-medium">{v.title}</span> },
                 {
@@ -1030,11 +1053,13 @@ export default function VideosPage() {
         )}
 
         {images.length > 0 ? (
-          <ContentPanel title="Active Image Adverts" description="Shown when no video is playing — use ▲ ▼ to set the order">
-            <DataTable
+          <ContentPanel title="Active Image Adverts" description="Drag rows to set order, or use ▲ ▼ as a fallback">
+            <SortableDataTable
               data={images}
               keyExtractor={(img) => img.id}
               mobileTitle={(img) => img.title}
+              onReorder={(ordered) => void reorderImagesList(ordered)}
+              reorderDisabled={!canManageImages}
               columns={[
                 { key: "title", header: "Title", cell: (img) => img.title },
                 {

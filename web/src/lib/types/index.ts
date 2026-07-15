@@ -112,6 +112,12 @@ export interface BranchSettings {
   headerLogoDisplay?: "single" | "both";
   /** What the header logo does on the PROMO slide: keep it, hide it, or show only the 2nd logo. */
   promoLogoMode?: "keep" | "hide" | "second";
+  /** When true, uploaded header logo replaces the default Unimoni logo (no fallback). */
+  replaceDefaultLogo?: boolean;
+  /** Alternate between the two header logos on normal rate-card slides. */
+  headerLogoRotationEnabled?: boolean;
+  /** Seconds each logo stays visible when header logo rotation is on. Default 10. */
+  headerLogoRotationIntervalSeconds?: number;
   /** Play signage videos WITH sound (default muted). Browsers may require a tap/fullscreen first. */
   videoSoundOn?: boolean;
   /** Logo images that scroll right-to-left in the ticker alongside the messages. */

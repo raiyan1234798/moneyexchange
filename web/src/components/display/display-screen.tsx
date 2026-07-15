@@ -42,6 +42,9 @@ interface TimedRatesPanelProps {
   headerLogoUrl2: string | null;
   headerLogoDisplay: "single" | "both";
   promoLogoMode: "keep" | "hide" | "second";
+  replaceDefaultLogo: boolean;
+  headerLogoRotationEnabled: boolean;
+  headerLogoRotationIntervalSeconds: number;
   rateCardNote: string | null;
   rateNotePlacement: "first" | "all";
   fontCss: string;
@@ -72,6 +75,9 @@ function TimedRatesPanel({
   headerLogoUrl2,
   headerLogoDisplay,
   promoLogoMode,
+  replaceDefaultLogo,
+  headerLogoRotationEnabled,
+  headerLogoRotationIntervalSeconds,
   rateCardNote,
   rateNotePlacement,
   fontCss,
@@ -114,6 +120,9 @@ function TimedRatesPanel({
       headerLogoUrl2={headerLogoUrl2}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
+      replaceDefaultLogo={replaceDefaultLogo}
+      headerLogoRotationEnabled={headerLogoRotationEnabled}
+      headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
       fontCss={fontCss}
@@ -201,6 +210,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
   const promoLogoMode = (branchSettings.promoLogoMode ?? "keep") as "keep" | "hide" | "second";
+  const replaceDefaultLogo = branchSettings.replaceDefaultLogo === true;
+  const headerLogoRotationEnabled = branchSettings.headerLogoRotationEnabled === true;
+  const headerLogoRotationIntervalSeconds = branchSettings.headerLogoRotationIntervalSeconds ?? 10;
   const videoSoundOn = branchSettings.videoSoundOn === true;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
 
@@ -405,7 +417,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerSpeed = activeTicker?.scrollSpeed || branchSettings.tickerSpeed || 35;
   const tickerPaused = activeTicker?.paused === true;
   const tickerLogoUrl =
-    branch?.logoUrl || branchSettings.tickerLogoUrl || activeTicker?.logoUrl || null;
+    branch?.logoUrl ||
+    branchSettings.tickerLogoUrl ||
+    activeTicker?.logoUrl ||
+    (replaceDefaultLogo && headerLogoUrl) ||
+    null;
   const tickerLogoText = activeTicker?.logoText || branchSettings.tickerLogoText || null;
   const tickerLogoFontCss = logoFontCss(
     masterFont || activeTicker?.logoFont || branchSettings.tickerLogoFont,
@@ -557,6 +573,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       headerLogoUrl2={headerLogoUrl2}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
+      replaceDefaultLogo={replaceDefaultLogo}
+      headerLogoRotationEnabled={headerLogoRotationEnabled}
+      headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
       fontCss={rateCardFontCss}
