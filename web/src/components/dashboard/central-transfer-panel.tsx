@@ -56,12 +56,25 @@ export function CentralTransferPanel({
         }));
       if (transferRows.length === 0) {
         toast.error(
-          `No transfer rates found. The file needs columns: CURRENCY | $ (USD) | ${localLabel}.`,
+          `No transfer rates found. The file needs columns: CURRENCY | $ (USD) | ${localLabel}, with a number in at least one rate column.`,
+          { duration: 10000 },
         );
         return;
       }
       const count = await bulkUpsertTransferRates(transferRows, actor);
-      toast.success(`${count} transfer rate(s) published to ALL branches`);
+      // Name the currencies so a partial read (e.g. rows the file left blank)
+      // is visible immediately instead of looking like "not reflecting".
+      const codes = transferRows.map((r) => r.currencyCode).join(", ");
+      toast.success(`${count} transfer rate(s) published to ALL branches: ${codes}`, {
+        duration: 10000,
+      });
+      const skipped = parsed.length - transferRows.length;
+      if (skipped > 0) {
+        toast.warning(
+          `${skipped} row(s) in the file had no readable transfer rate and were skipped.`,
+          { duration: 10000 },
+        );
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read the transfer file");
     } finally {

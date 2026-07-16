@@ -889,6 +889,17 @@ export default function ExchangeRatesPage() {
           </ContentPanel>
         ) : null}
 
+        {/* Money Transfer card sits DIRECTLY under the Forex card — its own
+            separate upload (one file → ALL branches), per the client. */}
+        {(isSuperAdmin || isAdmin) && user && profile ? (
+          <div id="transfer-rates" className="scroll-mt-20">
+            <CentralTransferPanel
+              actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
+              localLabel={transferLocalLabel}
+            />
+          </div>
+        ) : null}
+
         <PreviewDisplayLink branchCode={branch?.code} />
 
         {isAdmin && effectiveBranchId && !canManageRates ? (
@@ -985,16 +996,6 @@ export default function ExchangeRatesPage() {
               click saves and publishes it straight to this branch&apos;s display.
             </p>
           </ContentPanel>
-        ) : null}
-
-        {/* Centralized transfer rates — head office sets ONE list for all branches. */}
-        {(isSuperAdmin || isAdmin) && user && profile ? (
-          <div id="transfer-rates" className="scroll-mt-20">
-            <CentralTransferPanel
-              actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
-              localLabel={transferLocalLabel}
-            />
-          </div>
         ) : null}
 
         {canManageRates && !isBranchUser && effectiveBranchId ? (

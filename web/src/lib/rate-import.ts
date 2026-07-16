@@ -95,6 +95,17 @@ function normalizeHeader(value: unknown): string {
     .replace(/\s+/g, " ");
 }
 
+/** Excel/CSV cells often arrive as TEXT with thousand separators ("3,680") or
+    a stray "$" — read those as plain numbers instead of silently dropping the
+    row (the classic "uploaded but not reflecting" failure). */
+function toNumber(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const s = String(v ?? "").replace(/[$,\s]/g, "");
+  if (s === "") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 function findColumnIndex(headers: string[], candidates: string[]): number {
   for (const candidate of candidates) {
     const idx = headers.findIndex((h) => h === candidate || h.includes(candidate));
@@ -146,34 +157,55 @@ function parseSheet(sheet: XLSX.WorkSheet, sheetLabel: string): RateImportRow[] 
   const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
   if (rawRows.length < 2) return null;
 
-  const headers = (rawRows[0] as unknown[]).map(normalizeHeader);
-  const currencyIdx = findColumnIndex(headers, ["CURRENCY", "CODE", "CURRENCY CODE"]);
-  const buyIdx = findColumnIndex(headers, ["WE BUY", "BUY", "BUY RATE"]);
-  const sellIdx = findColumnIndex(headers, ["WE SELL", "SELL", "SELL RATE"]);
-  // Separate TRANSFER table columns: "$" (USD) and "UGX"/local. Also accept
-  // a single legacy TRANSFER/REMITTANCE column as the local transfer rate.
-  const transferUsdIdx = findColumnIndex(headers, ["USD $", "$ USD", "US$", "USD", "$", "DOLLAR"]);
-  const transferLocalIdx = findColumnIndex(headers, [
-    "UGX",
-    "LOCAL",
-    "SHILLING",
-    "TRANSFER",
-    "REMITTANCE",
-    "REMIT",
-    "TT RATE",
-  ]);
+  // The header row isn't always row 1 — real files often carry a title row
+  // ("MONEY TRANSFER RATES") or a blank line above it. Scan the first rows for
+  // one that has a CURRENCY column plus at least one rate column.
+  let headerRowIdx = -1;
+  let currencyIdx = -1;
+  let buyIdx = -1;
+  let sellIdx = -1;
+  let transferUsdIdx = -1;
+  let transferLocalIdx = -1;
+  for (let r = 0; r < Math.min(rawRows.length - 1, 10); r++) {
+    const headers = (rawRows[r] as unknown[]).map(normalizeHeader);
+    const cIdx = findColumnIndex(headers, ["CURRENCY", "CODE", "CURRENCY CODE"]);
+    const bIdx = findColumnIndex(headers, ["WE BUY", "BUY", "BUY RATE"]);
+    const sIdx = findColumnIndex(headers, ["WE SELL", "SELL", "SELL RATE"]);
+    // Separate TRANSFER table columns: "$" (USD) and "UGX"/local. Also accept
+    // a single legacy TRANSFER/REMITTANCE column as the local transfer rate.
+    const tuIdx = findColumnIndex(headers, ["USD $", "$ USD", "US$", "USD", "$", "DOLLAR"]);
+    const tlIdx = findColumnIndex(headers, [
+      "UGX",
+      "LOCAL",
+      "SHILLING",
+      "TRANSFER",
+      "REMITTANCE",
+      "REMIT",
+      "TT RATE",
+      "T.T RATE",
+      "T.T",
+    ]);
+    if (cIdx >= 0 && ((bIdx >= 0 && sIdx >= 0) || tuIdx >= 0 || tlIdx >= 0)) {
+      headerRowIdx = r;
+      currencyIdx = cIdx;
+      buyIdx = bIdx;
+      sellIdx = sIdx;
+      transferUsdIdx = tuIdx;
+      transferLocalIdx = tlIdx;
+      break;
+    }
+  }
+  if (headerRowIdx < 0) return null;
 
   const hasForex = buyIdx >= 0 && sellIdx >= 0;
-  const hasTransfer = transferUsdIdx >= 0 || transferLocalIdx >= 0;
-  if (currencyIdx < 0 || (!hasForex && !hasTransfer)) return null;
 
   const num = (v: unknown): number | null => {
-    const n = Number(v);
-    return Number.isFinite(n) && n > 0 ? n : null;
+    const n = toNumber(v);
+    return n != null && n > 0 ? n : null;
   };
 
   const parsed: RateImportRow[] = [];
-  for (let i = 1; i < rawRows.length; i++) {
+  for (let i = headerRowIdx + 1; i < rawRows.length; i++) {
     const row = rawRows[i] as unknown[];
     const rawCurrency = String(row[currencyIdx] ?? "").trim();
     if (!rawCurrency || rawCurrency.toUpperCase() === "CURRENCY") continue;
@@ -184,12 +216,12 @@ function parseSheet(sheet: XLSX.WorkSheet, sheetLabel: string): RateImportRow[] 
     let buyRate = 0;
     let sellRate = 0;
     if (hasForex) {
-      const b = Number(row[buyIdx]);
-      const s = Number(row[sellIdx]);
+      const b = toNumber(row[buyIdx]);
+      const s = toNumber(row[sellIdx]);
       // A blank forex row inside a transfer-only sheet is fine — skip it.
       const blank = String(row[buyIdx] ?? "").trim() === "" && String(row[sellIdx] ?? "").trim() === "";
       if (!blank) {
-        if (!Number.isFinite(b) || !Number.isFinite(s)) {
+        if (b == null || s == null) {
           throw new Error(`Invalid rates for ${displayName} on ${sheetLabel} row ${i + 1}`);
         }
         if (b <= 0 || s <= 0) {

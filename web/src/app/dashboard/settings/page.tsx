@@ -41,6 +41,52 @@ import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/typ
 
 const SETTINGS_ID = "global";
 
+/** Jump-nav for the branch display settings — one chip per section below. */
+const SETTINGS_NAV: Array<{ id: string; label: string }> = [
+  { id: "sec-logos", label: "Logos & branding" },
+  { id: "sec-font", label: "Font" },
+  { id: "sec-video", label: "Video & sound" },
+  { id: "sec-ratecard", label: "Rate card" },
+  { id: "sec-promo", label: "Promotion slide" },
+  { id: "sec-ticker", label: "Bottom ticker" },
+  { id: "sec-announcement", label: "Announcement" },
+  { id: "sec-sizing", label: "Sizing" },
+];
+
+/** One titled, boxed settings section — keeps related controls together so the
+    page reads as a short list of topics instead of one long wall of fields. */
+function SettingsGroup({
+  id,
+  icon,
+  title,
+  description,
+  children,
+}: {
+  id: string;
+  icon: string;
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      id={id}
+      className="scroll-mt-16 overflow-hidden rounded-2xl border border-border/50 bg-card/40"
+    >
+      <div className="border-b border-border/40 bg-muted/40 px-4 py-3 sm:px-5">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <span aria-hidden>{icon}</span>
+          {title}
+        </p>
+        {description ? (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      <div className="space-y-4 p-4 sm:p-5">{children}</div>
+    </section>
+  );
+}
+
 function BranchSettingsForm({
   branchId,
   branchName,
@@ -127,7 +173,27 @@ function BranchSettingsForm({
   }
 
   return (
-    <FormSection title={`${branchName} Branding`}>
+    <div className="space-y-5">
+      {/* Sticky chip nav — jump straight to any section. */}
+      <nav className="sticky top-2 z-20 flex flex-wrap gap-1.5 rounded-2xl border border-border/40 bg-background/95 p-2 shadow-sm backdrop-blur">
+        {SETTINGS_NAV.map((item) => (
+          <a
+            key={item.id}
+            href={`#${item.id}`}
+            className="rounded-lg border border-border/50 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {item.label}
+          </a>
+        ))}
+      </nav>
+
+      <SettingsGroup
+        id="sec-logos"
+        icon="🏷️"
+        title="Logos & branding"
+        description="Every logo on the TV — the rate-card header, the ticker badge, and logos that scroll with the message."
+      >
+      <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
         <Label>Logo URL</Label>
         <Input
@@ -152,6 +218,7 @@ function BranchSettingsForm({
             className="flex-1 rounded-xl font-mono text-sm"
           />
         </div>
+      </div>
       </div>
       <div className="space-y-2">
         <Label>Ticker Logo (pop-out breaking-news badge)</Label>
@@ -383,20 +450,6 @@ function BranchSettingsForm({
           />
         </div>
       ) : null}
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Play video sound</Label>
-          <p className="text-xs text-muted-foreground">
-            Play branch, promotion and rate-card videos WITH audio. Browsers keep videos muted until
-            the screen is tapped or made fullscreen once — then sound turns on automatically.
-          </p>
-        </div>
-        <Switch
-          checked={settings.videoSoundOn === true}
-          onCheckedChange={(checked) => setSettings({ ...settings, videoSoundOn: checked })}
-        />
-      </div>
-
       {/* Extra logos that scroll right-to-left in the ticker with the message text. */}
       <div className="space-y-2">
         <Label>Scrolling ticker logos</Label>
@@ -453,7 +506,105 @@ function BranchSettingsForm({
           </div>
         ) : null}
       </div>
+      </SettingsGroup>
 
+      <SettingsGroup
+        id="sec-font"
+        icon="🔤"
+        title="Display font"
+        description="ONE font for all text on the TV — rate card, scrolling message, announcement and logo text."
+      >
+        <Select
+          value={settings.displayFont ?? MESSAGE_FONTS[0].key}
+          onValueChange={(value) => setSettings({ ...settings, displayFont: value ?? null })}
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MESSAGE_FONTS.map((f) => (
+              <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                {f.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="rounded-lg bg-[#0D2680] px-3 py-2" style={{ fontFamily: messageFontCss(settings.displayFont) }}>
+          <span className="block text-sm font-bold uppercase tracking-wide text-white">
+            Exchange Rates · USD 3650 / 3680
+          </span>
+          <span className="block text-xs font-semibold uppercase tracking-wide text-white/80">
+            Welcome to Unimoni · We Buy US $ Small Bills
+          </span>
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="sec-video"
+        icon="🎬"
+        title="Video & sound"
+        description="The advert video area on the left of the TV."
+      >
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Play video sound</Label>
+          <p className="text-xs text-muted-foreground">
+            Play branch, promotion and rate-card videos WITH audio. Browsers keep videos muted until
+            the screen is tapped or made fullscreen once — then sound turns on automatically.
+          </p>
+        </div>
+        <Switch
+          checked={settings.videoSoundOn === true}
+          onCheckedChange={(checked) => setSettings({ ...settings, videoSoundOn: checked })}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Video area width (% of screen)</Label>
+          <Input
+            type="number"
+            min={40}
+            max={75}
+            step={1}
+            value={settings.videoWidthPercent ?? 72}
+            onChange={(event) =>
+              setSettings({ ...settings, videoWidthPercent: Number(event.target.value) })
+            }
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            Rate card takes the rest ({100 - (settings.videoWidthPercent ?? 65)}%).
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Video fit</Label>
+          <Select
+            value={settings.videoFit ?? "stretch"}
+            onValueChange={(value) =>
+              setSettings({ ...settings, videoFit: (value as "contain" | "cover" | "auto" | "stretch") ?? "stretch" })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stretch">Stretch to fill — like the previous display (recommended)</SelectItem>
+              <SelectItem value="auto">Auto-fit — area resizes to the video (no stretch)</SelectItem>
+              <SelectItem value="cover">Fill a fixed area (may crop edges)</SelectItem>
+              <SelectItem value="contain">Whole frame + blurred fill (nothing cropped)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="sec-ratecard"
+        icon="💱"
+        title="Rate card"
+        description="The rates panel — position, which cards rotate, the WE BUY note, timing and slide order."
+      >
+      <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
         <Label>Rate Card Position</Label>
         <Select
@@ -483,59 +634,6 @@ function BranchSettingsForm({
           className="rounded-xl"
         />
       </div>
-      <div className="space-y-2">
-        <Label>Default Ticker Speed (seconds)</Label>
-        <Input
-          type="number"
-          value={settings.tickerSpeed}
-          onChange={(event) => setSettings({ ...settings, tickerSpeed: Number(event.target.value) })}
-          className="rounded-xl"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Ticker Font Size</Label>
-        <Input
-          type="number"
-          value={settings.tickerFontSize}
-          onChange={(event) => setSettings({ ...settings, tickerFontSize: Number(event.target.value) })}
-          className="rounded-xl"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Ticker Font Color</Label>
-        <Input
-          value={settings.tickerFontColor}
-          onChange={(event) => setSettings({ ...settings, tickerFontColor: event.target.value })}
-          className="rounded-xl"
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Show yellow headline box</Label>
-          <p className="text-xs text-muted-foreground">
-            The gold curved box above the ticker (e.g. &quot;WELCOME TO UNIMONI&quot;). Turn off
-            to remove it.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showTickerHeadline !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showTickerHeadline: checked })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Yellow headline box text</Label>
-        <Input
-          value={settings.tickerHeadline ?? ""}
-          onChange={(event) => setSettings({ ...settings, tickerHeadline: event.target.value || null })}
-          placeholder="e.g. WELCOME TO UNIMONI"
-          disabled={settings.showTickerHeadline === false}
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          This is separate from the scrolling ticker message (edited on the Tickers page). Set one
-          message here for the yellow box and a different one for the scrolling ticker. Leave blank to
-          use the branch name.
-        </p>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>
@@ -657,14 +755,43 @@ function BranchSettingsForm({
           </p>
         </div>
       </div>
-
-      {/* ---- Promotion card in the rate-card rotation ---- */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
-        <p className="mb-1 text-sm font-semibold">Promotion card (rate-card rotation)</p>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Add a message above and/or below the image — it appears as its own screen in the rate-card
-          rotation. With no text the image fills the whole card; leave everything empty to hide it.
+      <div className="space-y-2">
+        <Label>Rate-card slide order</Label>
+        <Select
+          value={(settings.rateCardOrder ?? ["forex", "transfer", "promo"]).join(",")}
+          onValueChange={(value) =>
+            setSettings({
+              ...settings,
+              rateCardOrder: (value ?? "forex,transfer,promo").split(",") as Array<
+                "forex" | "transfer" | "promo"
+              >,
+            })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="forex,transfer,promo">Forex → Transfer → Promotion (default)</SelectItem>
+            <SelectItem value="transfer,forex,promo">Transfer → Forex → Promotion</SelectItem>
+            <SelectItem value="promo,forex,transfer">Promotion → Forex → Transfer</SelectItem>
+            <SelectItem value="forex,promo,transfer">Forex → Promotion → Transfer</SelectItem>
+            <SelectItem value="transfer,promo,forex">Transfer → Promotion → Forex</SelectItem>
+            <SelectItem value="promo,transfer,forex">Promotion → Transfer → Forex</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Which slide the rotating rate card shows first, then next. Slides with no content are skipped.
         </p>
+      </div>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="sec-promo"
+        icon="🎁"
+        title="Promotion slide"
+        description="Its own screen in the rate-card rotation: message above and/or below, with images and videos. With no text the image fills the whole card; leave everything empty to hide it."
+      >
         <div className="space-y-3">
           <div className="space-y-2">
             <Label>Message ABOVE the image (optional)</Label>
@@ -830,78 +957,78 @@ function BranchSettingsForm({
             />
           </div>
         </div>
-      </div>
+      </SettingsGroup>
 
+      <SettingsGroup
+        id="sec-ticker"
+        icon="📜"
+        title="Bottom ticker"
+        description="The scrolling message bar at the bottom of the TV — speed, text size and colour, and the yellow headline box. The message itself is edited on the Display Messages page."
+      >
+      <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
-        <Label>Rate-card slide order</Label>
-        <Select
-          value={(settings.rateCardOrder ?? ["forex", "transfer", "promo"]).join(",")}
-          onValueChange={(value) =>
-            setSettings({
-              ...settings,
-              rateCardOrder: (value ?? "forex,transfer,promo").split(",") as Array<
-                "forex" | "transfer" | "promo"
-              >,
-            })
-          }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="forex,transfer,promo">Forex → Transfer → Promotion (default)</SelectItem>
-            <SelectItem value="transfer,forex,promo">Transfer → Forex → Promotion</SelectItem>
-            <SelectItem value="promo,forex,transfer">Promotion → Forex → Transfer</SelectItem>
-            <SelectItem value="forex,promo,transfer">Forex → Promotion → Transfer</SelectItem>
-            <SelectItem value="transfer,promo,forex">Transfer → Promotion → Forex</SelectItem>
-            <SelectItem value="promo,transfer,forex">Promotion → Transfer → Forex</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          Which slide the rotating rate card shows first, then next. Slides with no content are skipped.
-        </p>
+        <Label>Default Ticker Speed (seconds)</Label>
+        <Input
+          type="number"
+          value={settings.tickerSpeed}
+          onChange={(event) => setSettings({ ...settings, tickerSpeed: Number(event.target.value) })}
+          className="rounded-xl"
+        />
       </div>
-
-      {/* ---- ONE font for the whole screen ---- */}
-      <div className="space-y-2 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
-        <Label className="text-base">Display font — changes ALL text on the TV</Label>
-        <p className="text-xs text-muted-foreground">
-          One font for the whole screen: the rate card (WE BUY / WE SELL, currency codes and every
-          number), the scrolling message, the announcement, and the logo text — all at once.
-        </p>
-        <Select
-          value={settings.displayFont ?? MESSAGE_FONTS[0].key}
-          onValueChange={(value) => setSettings({ ...settings, displayFont: value ?? null })}
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MESSAGE_FONTS.map((f) => (
-              <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
-                {f.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="rounded-lg bg-[#0D2680] px-3 py-2" style={{ fontFamily: messageFontCss(settings.displayFont) }}>
-          <span className="block text-sm font-bold uppercase tracking-wide text-white">
-            Exchange Rates · USD 3650 / 3680
-          </span>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-white/80">
-            Welcome to Unimoni · We Buy US $ Small Bills
-          </span>
+      <div className="space-y-2">
+        <Label>Ticker Font Size</Label>
+        <Input
+          type="number"
+          value={settings.tickerFontSize}
+          onChange={(event) => setSettings({ ...settings, tickerFontSize: Number(event.target.value) })}
+          className="rounded-xl"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label>Ticker Font Color</Label>
+        <Input
+          value={settings.tickerFontColor}
+          onChange={(event) => setSettings({ ...settings, tickerFontColor: event.target.value })}
+          className="rounded-xl"
+        />
+      </div>
+      </div>
+      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Show yellow headline box</Label>
+          <p className="text-xs text-muted-foreground">
+            The gold curved box above the ticker (e.g. &quot;WELCOME TO UNIMONI&quot;). Turn off
+            to remove it.
+          </p>
         </div>
+        <Switch
+          checked={settings.showTickerHeadline !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showTickerHeadline: checked })}
+        />
       </div>
-
-      {/* ---- Pop-up announcement over the video area (admin-only) ---- */}
-      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4">
-        <p className="mb-1 text-sm font-semibold">Announcement / display message</p>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Play an announcement (text, image or video) for a set time, then it animates away and the
-          screen returns to normal — repeating on the interval you choose. Show it in the message
-          area (bottom strip), as a big pop-up over the video, or full screen. Leave empty to turn it off.
+      <div className="space-y-2">
+        <Label>Yellow headline box text</Label>
+        <Input
+          value={settings.tickerHeadline ?? ""}
+          onChange={(event) => setSettings({ ...settings, tickerHeadline: event.target.value || null })}
+          placeholder="e.g. WELCOME TO UNIMONI"
+          disabled={settings.showTickerHeadline === false}
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          This is separate from the scrolling ticker message (edited on the Tickers page). Set one
+          message here for the yellow box and a different one for the scrolling ticker. Leave blank to
+          use the branch name.
         </p>
+      </div>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="sec-announcement"
+        icon="📢"
+        title="Announcement / display message"
+        description="Play an announcement (text, image or video) for a set time, then it animates away and the screen returns to normal — repeating on the interval you choose. Leave empty to turn it off."
+      >
         <div className="mb-4 flex items-center justify-between rounded-xl border border-border/30 p-3">
           <div>
             <Label>Show announcement on the display</Label>
@@ -1241,51 +1368,15 @@ function BranchSettingsForm({
             ) : null}
           </div>
         </div>
-      </div>
+      </SettingsGroup>
 
-      {/* ---- Independent display sizing: each area resizes on its own ---- */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
-        <p className="mb-1 text-sm font-semibold">Display sizing</p>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Resize each area of the TV screen independently. 100% is the normal size.
-        </p>
+      <SettingsGroup
+        id="sec-sizing"
+        icon="📐"
+        title="Display sizing"
+        description="Resize each area of the TV screen independently. 100% is the normal size."
+      >
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Video area width (% of screen)</Label>
-            <Input
-              type="number"
-              min={40}
-              max={75}
-              step={1}
-              value={settings.videoWidthPercent ?? 72}
-              onChange={(event) =>
-                setSettings({ ...settings, videoWidthPercent: Number(event.target.value) })
-              }
-              className="rounded-xl"
-            />
-            <p className="text-xs text-muted-foreground">
-              Rate card takes the rest ({100 - (settings.videoWidthPercent ?? 65)}%).
-            </p>
-          </div>
-          <div className="space-y-2">
-            <Label>Video fit</Label>
-            <Select
-              value={settings.videoFit ?? "stretch"}
-              onValueChange={(value) =>
-                setSettings({ ...settings, videoFit: (value as "contain" | "cover" | "auto" | "stretch") ?? "stretch" })
-              }
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="stretch">Stretch to fill — like the previous display (recommended)</SelectItem>
-                <SelectItem value="auto">Auto-fit — area resizes to the video (no stretch)</SelectItem>
-                <SelectItem value="cover">Fill a fixed area (may crop edges)</SelectItem>
-                <SelectItem value="contain">Whole frame + blurred fill (nothing cropped)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
           <div className="space-y-2">
             <Label>Rate card size (%)</Label>
             <Input
@@ -1385,7 +1476,13 @@ function BranchSettingsForm({
             </Select>
           </div>
         </div>
-      </div>
+      </SettingsGroup>
+
+      {/* Sticky save bar — always in reach, no matter how far you scroll. */}
+      <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
+        <p className="text-xs text-muted-foreground">
+          Changes go live on the <strong>{branchName}</strong> TV only after you save.
+        </p>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogTrigger
           render={
@@ -1424,7 +1521,8 @@ function BranchSettingsForm({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </FormSection>
+      </div>
+    </div>
   );
 }
 
@@ -1666,6 +1764,10 @@ export default function SettingsPage() {
         <ContentPanel
           title="Branch Display Control"
           description="Everything on the branch TV in ONE place — with a live preview. Changes apply after you confirm Save."
+          // overflow must stay visible here or every sticky child (section nav,
+          // save bar, live preview) silently stops sticking.
+          className="overflow-visible"
+          contentClassName="overflow-x-visible"
         >
           {isSuperAdmin || isAdmin ? (
             <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />

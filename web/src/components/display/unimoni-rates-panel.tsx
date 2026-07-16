@@ -426,8 +426,8 @@ export function UnimoniRatesPanel({
       </div>
       ) : null}
 
-      {/* Rate table / promo card FILLS the panel height. On promo with a hidden
-          header the media uses the full aside (navy letterbox, object-contain). */}
+      {/* Rate table / promo card FILLS the panel height. On promo the media is
+          stretched to fill the whole card — nothing cropped, no empty bands. */}
       <div
         className={`flex min-h-0 flex-1 flex-col overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.25)] ${
           hidePromoHeader
@@ -488,14 +488,17 @@ export function UnimoniRatesPanel({
                         void v.play().catch(() => {});
                       });
                     }}
-                    className="h-full w-full object-contain"
+                    // Stretch to exactly FILL the card: the whole frame stays
+                    // visible (nothing cropped) and there are no navy bands.
+                    // Same trade-off the client chose for the main video area.
+                    className="h-full w-full object-fill"
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={activeSheet.promoMedia.url}
                     alt="Promotion"
-                    className="h-full w-full object-contain"
+                    className="h-full w-full object-fill"
                   />
                 )}
               </div>
