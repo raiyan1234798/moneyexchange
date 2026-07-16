@@ -44,6 +44,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { updateBranch } from "@/lib/services/branch-service";
+import { cn } from "@/lib/utils";
 import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
 
 const SETTINGS_ID = "global";
@@ -146,11 +147,14 @@ function SettingsCard({
   description,
   children,
   variant = "default",
+  span = "half",
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
   variant?: "default" | "primary" | "amber";
+  /** half = one column in the 2-col grid; full = spans both columns */
+  span?: "half" | "full";
 }) {
   const shell =
     variant === "amber"
@@ -159,14 +163,26 @@ function SettingsCard({
         ? "border-[var(--unimoni-blue)]/25 bg-[var(--unimoni-blue)]/[0.04]"
         : "border-border/45 bg-card/35";
   return (
-    <section className={`rounded-2xl border p-4 sm:p-5 ${shell}`}>
-      <header className="mb-4 border-b border-border/30 pb-3">
+    <section
+      className={cn(
+        "flex h-full flex-col rounded-2xl border p-4 sm:p-5",
+        shell,
+        span === "full" && "md:col-span-2",
+      )}
+    >
+      <header className="mb-3 shrink-0 border-b border-border/30 pb-2.5">
         <h4 className="text-sm font-semibold tracking-tight">{title}</h4>
-        {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
+        {description ? (
+          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{description}</p>
+        ) : null}
       </header>
-      <div className="space-y-4">{children}</div>
+      <div className="min-h-0 flex-1 space-y-3">{children}</div>
     </section>
   );
+}
+
+function SettingsFieldGrid({ children }: { children: React.ReactNode }) {
+  return <div className="grid gap-3 sm:grid-cols-2">{children}</div>;
 }
 
 function SettingsSwitchRow({
@@ -311,8 +327,10 @@ function BranchSettingsForm({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
+      <div className="grid items-start gap-4 md:grid-cols-2">
       <SettingsCard
+        span="half"
         title="Brand & colours"
         description={`Logo URL and accent colour for ${branchName}. Used on the dashboard and as fallbacks on the TV.`}
       >
@@ -346,6 +364,7 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        span="full"
         title="Display logos"
         description="Upload logos for the rate-card header and main video area. Click or drag a file into each box, then Save Branch Settings at the bottom."
         variant="primary"
@@ -404,10 +423,11 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        span="half"
         title="Logo display options"
         description="How logos appear on rate-card slides, the promotion slide, and during video playback."
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <SettingsFieldGrid>
           <div className="space-y-2">
             <Label>Show logos (normal slides)</Label>
             <Select
@@ -445,19 +465,21 @@ function BranchSettingsForm({
               </SelectContent>
             </Select>
           </div>
-        </div>
-        <SettingsSwitchRow
-          label="Replace Unimoni default logo"
-          hint="When enabled, your uploaded primary logo is used instead of the built-in Unimoni logo on the rate card and ticker badge."
-          checked={settings.replaceDefaultLogo === true}
-          onCheckedChange={(checked) => setSettings({ ...settings, replaceDefaultLogo: checked })}
-        />
-        <SettingsSwitchRow
-          label="Rotate between primary and alternate logo"
-          hint="On normal rate-card slides, alternate between the two uploaded header logos on a timer. Requires both logos."
-          checked={settings.headerLogoRotationEnabled === true}
-          onCheckedChange={(checked) => setSettings({ ...settings, headerLogoRotationEnabled: checked })}
-        />
+        </SettingsFieldGrid>
+        <SettingsFieldGrid>
+          <SettingsSwitchRow
+            label="Replace Unimoni default logo"
+            hint="Use your uploaded logo instead of the built-in Unimoni logo."
+            checked={settings.replaceDefaultLogo === true}
+            onCheckedChange={(checked) => setSettings({ ...settings, replaceDefaultLogo: checked })}
+          />
+          <SettingsSwitchRow
+            label="Rotate primary & alternate logo"
+            hint="Alternate header logos on a timer. Requires both logos."
+            checked={settings.headerLogoRotationEnabled === true}
+            onCheckedChange={(checked) => setSettings({ ...settings, headerLogoRotationEnabled: checked })}
+          />
+        </SettingsFieldGrid>
         {settings.headerLogoRotationEnabled ? (
           <div className="space-y-2">
             <Label>Logo rotation interval (seconds)</Label>
@@ -485,6 +507,7 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        span="half"
         title="Ticker badge & scrolling logos"
         description="Logo on the breaking-news pop-out badge and extra logos that scroll with the ticker message."
       >
@@ -597,6 +620,7 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        span="half"
         title="Scrolling message bar"
         description="Bottom ticker speed, colour, and the yellow headline box above it. Edit the scrolling text on the Tickers page."
       >
@@ -641,6 +665,7 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        span="half"
         title="Rate card — layout & timing"
         description="Where the rate card sits on screen, how long it shows, and how fast each slide rotates."
       >
@@ -740,33 +765,34 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        span="half"
         title="Rate card — forex & transfer"
         description="Which rate tables appear on the TV and optional note text below the forex card."
       >
-        <SettingsSwitchRow
-          label="Show Foreign Exchange card on Display"
-          hint="The We Buy / We Sell forex card. Turn off to hide the whole forex card from the display."
-          checked={settings.showForexCard !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showForexCard: checked })}
-        />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <SettingsFieldGrid>
           <SettingsSwitchRow
-            label="Show Buy Rate on Display"
+            label="Show Foreign Exchange card"
+            hint="We Buy / We Sell forex table."
+            checked={settings.showForexCard !== false}
+            onCheckedChange={(checked) => setSettings({ ...settings, showForexCard: checked })}
+          />
+          <SettingsSwitchRow
+            label="Separate TRANSFER card"
+            hint="$ (USD) and local currency columns."
+            checked={settings.showTransferCard !== false}
+            onCheckedChange={(checked) => setSettings({ ...settings, showTransferCard: checked })}
+          />
+          <SettingsSwitchRow
+            label="Show Buy Rate"
             checked={settings.showBuyRate}
             onCheckedChange={(checked) => setSettings({ ...settings, showBuyRate: checked })}
           />
           <SettingsSwitchRow
-            label="Show Sell Rate on Display"
+            label="Show Sell Rate"
             checked={settings.showSellRate}
             onCheckedChange={(checked) => setSettings({ ...settings, showSellRate: checked })}
           />
-        </div>
-        <SettingsSwitchRow
-          label="Separate TRANSFER card on Display"
-          hint='Rotates in its own "TRANSFER EXCHANGE RATES" card with $ (USD) and local currency columns.'
-          checked={settings.showTransferCard !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showTransferCard: checked })}
-        />
+        </SettingsFieldGrid>
         <div className="space-y-2">
           <Label>Transfer card — local currency label</Label>
           <Input
@@ -813,21 +839,35 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        span="full"
         title="Rate card — promotion slide"
         description="Images and videos that rotate on the narrow rate-card panel. With no text, media fills the whole slide."
         variant="primary"
       >
-        <div className="space-y-2">
-          <Label>Message ABOVE the image (optional)</Label>
-          <Input
-            value={settings.ratePromoTextTop ?? ""}
-            onChange={(event) =>
-              setSettings({ ...settings, ratePromoTextTop: event.target.value || null })
-            }
-            placeholder="e.g. HI UNIMONI !"
-            className="rounded-xl"
-          />
-        </div>
+        <SettingsFieldGrid>
+          <div className="space-y-2">
+            <Label>Message ABOVE the image (optional)</Label>
+            <Input
+              value={settings.ratePromoTextTop ?? ""}
+              onChange={(event) =>
+                setSettings({ ...settings, ratePromoTextTop: event.target.value || null })
+              }
+              placeholder="e.g. HI UNIMONI !"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Message BELOW the image (optional)</Label>
+            <Input
+              value={settings.ratePromoText ?? ""}
+              onChange={(event) =>
+                setSettings({ ...settings, ratePromoText: event.target.value || null })
+              }
+              placeholder="e.g. ZERO FEES ON BANK TRANSFERS!"
+              className="rounded-xl"
+            />
+          </div>
+        </SettingsFieldGrid>
         <div className="space-y-2">
           <Label>Images &amp; videos — each rotates as its own screen</Label>
           <p className="text-[11px] text-muted-foreground/90">
@@ -972,20 +1012,10 @@ function BranchSettingsForm({
               order). Use ‹ › to set which plays first, second, and so on. Videos play muted.
             </p>
           </div>
-        <div className="space-y-2">
-          <Label>Message BELOW the image (optional)</Label>
-          <Input
-            value={settings.ratePromoText ?? ""}
-            onChange={(event) =>
-              setSettings({ ...settings, ratePromoText: event.target.value || null })
-            }
-            placeholder="e.g. ZERO FEES ON BANK TRANSFERS THIS WEEK!"
-            className="rounded-xl"
-          />
-        </div>
       </SettingsCard>
 
       <SettingsCard
+        span="full"
         title="Fonts & sizes"
         description="Choose a font style and size for each area of the TV screen independently."
         variant="primary"
@@ -1049,51 +1079,47 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
-        title="Announcement / display message"
-        description="Timed pop-up over the video area — text, image or video. Leave empty to turn off."
+        span="half"
+        title="Announcement — content"
+        description="Text, image or video for the timed pop-up. Leave empty to turn off."
         variant="amber"
       >
         <SettingsSwitchRow
           label="Show announcement on the display"
-          hint="Turn off to hide it from the TV without deleting your content — switch it back on anytime."
+          hint="Hide from TV without deleting your content."
           checked={settings.announcementEnabled !== false}
           onCheckedChange={(checked) => setSettings({ ...settings, announcementEnabled: checked })}
         />
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>Announcement text</Label>
-            <Input
-              value={settings.announcementText ?? ""}
-              onChange={(event) =>
-                setSettings({ ...settings, announcementText: event.target.value || null })
-              }
-              placeholder="CONGRATULATIONS TO OUR SEND & WIN CONTEST WINNERS!"
-              className="rounded-xl"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Image link (paste any link — direct image, Google Drive, or YouTube)</Label>
-            <Input
-              value={
-                settings.announcementImageUrl?.startsWith("data:")
-                  ? ""
-                  : settings.announcementImageUrl ?? ""
-              }
-              onChange={(event) =>
-                setSettings({
-                  ...settings,
-                  announcementImageUrl: normalizeImageLink(event.target.value) || null,
-                })
-              }
-              placeholder="https://drive.google.com/file/d/… or https://youtu.be/… or image URL"
-              disabled={settings.announcementImageUrl?.startsWith("data:")}
-              className="rounded-xl"
-            />
-            <p className="text-xs text-muted-foreground">
-              Drive links convert automatically; YouTube links use the video&apos;s thumbnail image.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+        <div className="space-y-2">
+          <Label>Announcement text</Label>
+          <Input
+            value={settings.announcementText ?? ""}
+            onChange={(event) =>
+              setSettings({ ...settings, announcementText: event.target.value || null })
+            }
+            placeholder="CONGRATULATIONS TO OUR SEND & WIN CONTEST WINNERS!"
+            className="rounded-xl"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Image link</Label>
+          <Input
+            value={
+              settings.announcementImageUrl?.startsWith("data:")
+                ? ""
+                : settings.announcementImageUrl ?? ""
+            }
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                announcementImageUrl: normalizeImageLink(event.target.value) || null,
+              })
+            }
+            placeholder="Drive, YouTube, or direct image URL"
+            disabled={settings.announcementImageUrl?.startsWith("data:")}
+            className="rounded-xl"
+          />
+          <div className="flex flex-wrap items-center gap-2">
             <Input
               type="file"
               accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
@@ -1109,7 +1135,7 @@ function BranchSettingsForm({
                   toast.error(error instanceof Error ? error.message : "Could not read image");
                 }
               }}
-              className="rounded-xl"
+              className="max-w-[12rem] rounded-xl"
             />
             {settings.announcementImageUrl ? (
               <div className="flex shrink-0 items-center gap-2">
@@ -1131,66 +1157,72 @@ function BranchSettingsForm({
               </div>
             ) : null}
           </div>
-          <div className="space-y-2">
-            <Label>Video (optional) — link or upload</Label>
+        </div>
+        <div className="space-y-2">
+          <Label>Video (optional)</Label>
+          <Input
+            value={settings.announcementVideoUrl ?? ""}
+            onChange={(event) => {
+              const raw = event.target.value;
+              if (isYouTubeUrl(raw)) {
+                setSettings({
+                  ...settings,
+                  announcementVideoUrl: null,
+                  announcementImageUrl: normalizeImageLink(raw),
+                });
+                toast.info("YouTube can't play inside the pop-up — using the video's thumbnail image instead.");
+                return;
+              }
+              setSettings({ ...settings, announcementVideoUrl: normalizeVideoLink(raw) || null });
+            }}
+            placeholder="MP4/WebM or Drive link"
+            className="rounded-xl"
+          />
+          <div className="flex flex-wrap items-center gap-2">
             <Input
-              value={settings.announcementVideoUrl ?? ""}
-              onChange={(event) => {
-                const raw = event.target.value;
-                if (isYouTubeUrl(raw)) {
-                  // YouTube can't stream inside the pop-up — use its thumbnail image.
-                  setSettings({
-                    ...settings,
-                    announcementVideoUrl: null,
-                    announcementImageUrl: normalizeImageLink(raw),
-                  });
-                  toast.info("YouTube can't play inside the pop-up — using the video's thumbnail image instead.");
+              type="file"
+              accept="video/mp4,video/webm,.mp4,.webm"
+              aria-label="Upload announcement video"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                if (!isR2UploadConfigured()) {
+                  toast.error("Video upload is unavailable — paste a video link instead.");
                   return;
                 }
-                setSettings({ ...settings, announcementVideoUrl: normalizeVideoLink(raw) || null });
+                try {
+                  toast.info("Uploading announcement video…");
+                  const r2 = await uploadVideoToR2(file, branchId);
+                  setSettings({ ...settings, announcementVideoUrl: r2.downloadUrl });
+                  toast.success("Video ready — click Save Branch Settings to apply");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Video upload failed");
+                }
               }}
-              placeholder="Direct MP4/WebM link or Google Drive share link"
-              className="rounded-xl"
+              className="max-w-[12rem] rounded-xl"
             />
-            <div className="flex items-center gap-3">
-              <Input
-                type="file"
-                accept="video/mp4,video/webm,.mp4,.webm"
-                aria-label="Upload announcement video"
-                onChange={async (event) => {
-                  const file = event.target.files?.[0];
-                  if (!file) return;
-                  if (!isR2UploadConfigured()) {
-                    toast.error("Video upload is unavailable — paste a video link instead.");
-                    return;
-                  }
-                  try {
-                    toast.info("Uploading announcement video…");
-                    const r2 = await uploadVideoToR2(file, branchId);
-                    setSettings({ ...settings, announcementVideoUrl: r2.downloadUrl });
-                    toast.success("Video ready — click Save Branch Settings to apply");
-                  } catch (error) {
-                    toast.error(error instanceof Error ? error.message : "Video upload failed");
-                  }
-                }}
-                className="rounded-xl"
-              />
-              {settings.announcementVideoUrl ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg"
-                  onClick={() => setSettings({ ...settings, announcementVideoUrl: null })}
-                >
-                  Clear video
-                </Button>
-              ) : null}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Keep it short — the pop-up shows for a few seconds. Video plays muted.
-            </p>
+            {settings.announcementVideoUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-lg"
+                onClick={() => setSettings({ ...settings, announcementVideoUrl: null })}
+              >
+                Clear video
+              </Button>
+            ) : null}
           </div>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        span="half"
+        title="Announcement — timing & style"
+        description="Where it appears, animation, colours, and how often it repeats."
+        variant="amber"
+      >
+        <SettingsFieldGrid>
           <div className="space-y-2">
             <Label>Where it appears</Label>
             <Select
@@ -1207,17 +1239,17 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="lower-third">Lower third — broadcast caption over the video (recommended, looks native)</SelectItem>
-                <SelectItem value="video-top">Video — top strip (like an L-band)</SelectItem>
-                <SelectItem value="band">Message area — bottom strip (below the video)</SelectItem>
-                <SelectItem value="fullscreen">Full screen — cinematic takeover of the video area</SelectItem>
-                <SelectItem value="rate-card">Rate-card panel (over the rates)</SelectItem>
-                <SelectItem value="popup">Centered card (classic pop-up)</SelectItem>
+                <SelectItem value="lower-third">Lower third (recommended)</SelectItem>
+                <SelectItem value="video-top">Video — top strip</SelectItem>
+                <SelectItem value="band">Message area — bottom strip</SelectItem>
+                <SelectItem value="fullscreen">Full screen</SelectItem>
+                <SelectItem value="rate-card">Rate-card panel</SelectItem>
+                <SelectItem value="popup">Centered pop-up</SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Position (top / bottom of the video)</Label>
+            <Label>Position on video</Label>
             <Select
               value={settings.announcementPosition ?? "bottom"}
               onValueChange={(value) =>
@@ -1231,13 +1263,10 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="bottom">Bottom of the video (default)</SelectItem>
-                <SelectItem value="top">Top of the video</SelectItem>
+                <SelectItem value="bottom">Bottom (default)</SelectItem>
+                <SelectItem value="top">Top</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Places the over-video caption at the top or bottom of the video player. Applies to the lower-third caption.
-            </p>
           </div>
           <div className="space-y-2">
             <Label>Animation</Label>
@@ -1254,146 +1283,132 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None — appears instantly (no animation)</SelectItem>
-                <SelectItem value="slide">Slide in / out</SelectItem>
-                <SelectItem value="fade">Fade in / out</SelectItem>
-                <SelectItem value="zoom">Zoom in / out</SelectItem>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="slide">Slide</SelectItem>
+                <SelectItem value="fade">Fade</SelectItem>
+                <SelectItem value="zoom">Zoom</SelectItem>
                 <SelectItem value="flip">Flip</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              How the announcement enters and leaves — pick “None” for no motion. Applies to every placement.
-            </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Text colour</Label>
-              <Select
-                value={settings.announcementColorStyle ?? "white"}
-                onValueChange={(value) =>
-                  setSettings({
-                    ...settings,
-                    announcementColorStyle: (value as "white" | "logo" | "gold" | "navy") ?? "white",
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="white">White</SelectItem>
-                  <SelectItem value="logo">Unimoni logo colours (blue → gold)</SelectItem>
-                  <SelectItem value="gold">Gold</SelectItem>
-                  <SelectItem value="navy">Navy blue</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Announcement font</Label>
-              <Select
-                value={settings.announcementFont ?? MESSAGE_FONTS[0].key}
-                onValueChange={(value) =>
-                  setSettings({
-                    ...settings,
-                    announcementFont: value ?? null,
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {MESSAGE_FONTS.map((f) => (
-                    <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                Font for the over-video announcement only — separate from rate card and scrolling message.
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label>Text colour</Label>
+            <Select
+              value={settings.announcementColorStyle ?? "white"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  announcementColorStyle: (value as "white" | "logo" | "gold" | "navy") ?? "white",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="white">White</SelectItem>
+                <SelectItem value="logo">Unimoni colours</SelectItem>
+                <SelectItem value="gold">Gold</SelectItem>
+                <SelectItem value="navy">Navy blue</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Announcement font</Label>
+            <Select
+              value={settings.announcementFont ?? MESSAGE_FONTS[0].key}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  announcementFont: value ?? null,
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MESSAGE_FONTS.map((f) => (
+                  <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Visible for (seconds)</Label>
+            <Input
+              type="number"
+              min={2}
+              max={120}
+              value={settings.announcementSeconds ?? 5}
+              onChange={(event) =>
+                setSettings({ ...settings, announcementSeconds: Number(event.target.value) })
+              }
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Gap between shows (minutes)</Label>
+            <Input
+              type="number"
+              min={1}
+              max={240}
+              value={settings.announcementRepeatMinutes ?? 3}
+              onChange={(event) =>
+                setSettings({ ...settings, announcementRepeatMinutes: Number(event.target.value) })
+              }
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>How many times</Label>
+            <Select
+              value={settings.announcementPlayMode ?? "repeat"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  announcementPlayMode: (value as "repeat" | "times") ?? "repeat",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="repeat">Repeat forever</SelectItem>
+                <SelectItem value="times">Set number of times</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {(settings.announcementPlayMode ?? "repeat") === "times" ? (
             <div className="space-y-2">
-              <Label>Visible for (seconds)</Label>
-              <Input
-                type="number"
-                min={2}
-                max={120}
-                value={settings.announcementSeconds ?? 5}
-                onChange={(event) =>
-                  setSettings({ ...settings, announcementSeconds: Number(event.target.value) })
-                }
-                className="rounded-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Gap between shows (minutes)</Label>
+              <Label>Number of times</Label>
               <Input
                 type="number"
                 min={1}
-                max={240}
-                value={settings.announcementRepeatMinutes ?? 3}
+                max={50}
+                value={settings.announcementPlayTimes ?? 1}
                 onChange={(event) =>
-                  setSettings({ ...settings, announcementRepeatMinutes: Number(event.target.value) })
+                  setSettings({ ...settings, announcementPlayTimes: Number(event.target.value) })
                 }
                 className="rounded-xl"
               />
             </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>How many times</Label>
-              <Select
-                value={settings.announcementPlayMode ?? "repeat"}
-                onValueChange={(value) =>
-                  setSettings({
-                    ...settings,
-                    announcementPlayMode: (value as "repeat" | "times") ?? "repeat",
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="repeat">Repeat forever (on the gap above)</SelectItem>
-                  <SelectItem value="times">Play a set number of times, then stop</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {(settings.announcementPlayMode ?? "repeat") === "times" ? (
-              <div className="space-y-2">
-                <Label>Number of times</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={settings.announcementPlayTimes ?? 1}
-                  onChange={(event) =>
-                    setSettings({ ...settings, announcementPlayTimes: Number(event.target.value) })
-                  }
-                  className="rounded-xl"
-                />
-                <p className="text-xs text-muted-foreground">
-                  e.g. set to 1 to show it just once, or 3 to show it three times.
-                </p>
-              </div>
-            ) : null}
-          </div>
-        </div>
+          ) : null}
+        </SettingsFieldGrid>
       </SettingsCard>
 
       <SettingsCard
-        title="Layout & sizing"
-        description="Video area width, ticker bar height, and fine-tuning for rate-card columns."
+        span="half"
+        title="Video layout"
+        description="Main video area width and how media fills the screen."
         variant="primary"
       >
-        <div className="grid gap-4 lg:grid-cols-2">
+        <SettingsFieldGrid>
           <div className="space-y-2">
-            <Label>Video area width (% of screen)</Label>
+            <Label>Video area width (%)</Label>
             <Input
               type="number"
               min={40}
@@ -1406,7 +1421,7 @@ function BranchSettingsForm({
               className="rounded-xl"
             />
             <p className="text-xs text-muted-foreground">
-              Rate card takes the rest ({100 - (settings.videoWidthPercent ?? 65)}%).
+              Rate card takes the rest ({100 - (settings.videoWidthPercent ?? 72)}%).
             </p>
           </div>
           <div className="space-y-2">
@@ -1421,13 +1436,23 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="stretch">Stretch to fill — like the previous display (recommended)</SelectItem>
-                <SelectItem value="auto">Auto-fit — area resizes to the video (no stretch)</SelectItem>
-                <SelectItem value="cover">Fill a fixed area (may crop edges)</SelectItem>
-                <SelectItem value="contain">Whole frame + blurred fill (nothing cropped)</SelectItem>
+                <SelectItem value="stretch">Stretch to fill (recommended)</SelectItem>
+                <SelectItem value="auto">Auto-fit to video</SelectItem>
+                <SelectItem value="cover">Fill (may crop)</SelectItem>
+                <SelectItem value="contain">Whole frame + blur fill</SelectItem>
               </SelectContent>
             </Select>
           </div>
+        </SettingsFieldGrid>
+      </SettingsCard>
+
+      <SettingsCard
+        span="half"
+        title="Rate card & ticker sizing"
+        description="Fine-tune rate-table columns, ticker bar, and badge logo."
+        variant="primary"
+      >
+        <SettingsFieldGrid>
           <div className="space-y-2">
             <Label>Rate card — overall size (%)</Label>
             <Input
@@ -1441,7 +1466,7 @@ function BranchSettingsForm({
               }
               className="rounded-xl"
             />
-            <p className="text-xs text-muted-foreground">Scales the whole rate-card table (header + rows).</p>
+            <p className="text-xs text-muted-foreground">Scales the whole rate-card table.</p>
           </div>
           <div className="space-y-2">
             <Label>Rate card — currency size (%)</Label>
@@ -1527,8 +1552,9 @@ function BranchSettingsForm({
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </SettingsFieldGrid>
       </SettingsCard>
+      </div>
 
       <div className="sticky bottom-0 z-10 border-t border-border/40 bg-background/95 py-4 backdrop-blur-sm">
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -1822,7 +1848,7 @@ export default function SettingsPage() {
           ) : null}
 
           {effectiveBranchId && branch ? (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
+            <div className="space-y-6">
               <BranchSettingsForm
                 key={branch.id}
                 branchId={branch.id}
@@ -1833,20 +1859,18 @@ export default function SettingsPage() {
                 saving={saving}
                 onSave={saveBranchSettings}
               />
-              <div className="hidden xl:block">
-                <div className="sticky top-20 space-y-2">
-                  <Label>Live TV preview — {branch.name}</Label>
-                  <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
-                    <iframe
-                      src={`/display/?branch=${encodeURIComponent(branch.code)}`}
-                      title={`Live display preview for ${branch.name}`}
-                      className="aspect-video w-full border-0"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    This is the real branch display, live. Saved changes appear here within seconds.
-                  </p>
+              <div className="rounded-xl border border-border/60 bg-card/30 p-4">
+                <Label>Live TV preview — {branch.name}</Label>
+                <div className="mt-2 overflow-hidden rounded-xl border border-border/60 shadow-lg">
+                  <iframe
+                    src={`/display/?branch=${encodeURIComponent(branch.code)}`}
+                    title={`Live display preview for ${branch.name}`}
+                    className="aspect-video w-full border-0"
+                  />
                 </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Saved changes appear here within seconds after you confirm Save.
+                </p>
               </div>
             </div>
           ) : (
