@@ -141,6 +141,56 @@ function LogoUploadField({
   );
 }
 
+function SettingsCard({
+  title,
+  description,
+  children,
+  variant = "default",
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+  variant?: "default" | "primary" | "amber";
+}) {
+  const shell =
+    variant === "amber"
+      ? "border-amber-500/25 bg-amber-500/[0.04]"
+      : variant === "primary"
+        ? "border-[var(--unimoni-blue)]/25 bg-[var(--unimoni-blue)]/[0.04]"
+        : "border-border/45 bg-card/35";
+  return (
+    <section className={`rounded-2xl border p-4 sm:p-5 ${shell}`}>
+      <header className="mb-4 border-b border-border/30 pb-3">
+        <h4 className="text-sm font-semibold tracking-tight">{title}</h4>
+        {description ? <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p> : null}
+      </header>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
+function SettingsSwitchRow({
+  label,
+  hint,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-xl border border-border/30 bg-background/30 p-4">
+      <div className="min-w-0">
+        <Label>{label}</Label>
+        {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
+      </div>
+      <Switch checked={checked} onCheckedChange={onCheckedChange} />
+    </div>
+  );
+}
+
 function FontStyleSelect({
   label,
   value,
@@ -261,94 +311,45 @@ function BranchSettingsForm({
   }
 
   return (
-    <FormSection title={`${branchName} Branding`}>
-      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <div className="space-y-2">
-        <Label>Logo URL</Label>
-        <Input
-          value={logoUrl}
-          onChange={(event) => setLogoUrl(event.target.value)}
-          placeholder="https://example.com/logo.png"
-          className="rounded-xl"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Primary Color</Label>
-        <div className="flex items-center gap-3">
-          <input
-            type="color"
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-            className="h-11 w-14 cursor-pointer rounded-xl border border-border bg-transparent"
-          />
-          <Input
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-            className="flex-1 rounded-xl font-mono text-sm"
-          />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <Label>Ticker Logo (pop-out breaking-news badge)</Label>
-        <p className="text-xs text-muted-foreground">
-          Leave blank to show the real animated unimoni logo. Paste an image URL or upload a file to
-          use a custom logo.
-        </p>
-        <Input
-          value={settings.tickerLogoUrl?.startsWith("data:") ? "" : settings.tickerLogoUrl ?? ""}
-          onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
-          placeholder="https://example.com/logo.png — or upload below"
-          disabled={settings.tickerLogoUrl?.startsWith("data:")}
-          className="rounded-xl"
-        />
-        <div className="flex items-center gap-3">
-          <Input
-            type="file"
-            accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif"
-            aria-label="Upload ticker logo image"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              try {
-                const { dataUrl } = await readLogoFileAsDataUrl(file);
-                setSettings({ ...settings, tickerLogoUrl: dataUrl });
-                toast.success("Logo image ready — click Save Branch Settings to apply");
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not read image");
-              }
-            }}
-            className="rounded-xl"
-          />
-          {settings.tickerLogoUrl ? (
-            <div className="flex shrink-0 items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={settings.tickerLogoUrl}
-                alt="Logo preview"
-                className="h-9 w-14 shrink-0 rounded-md bg-slate-800 object-contain p-1"
+    <div className="space-y-5">
+      <SettingsCard
+        title="Brand & colours"
+        description={`Logo URL and accent colour for ${branchName}. Used on the dashboard and as fallbacks on the TV.`}
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Logo URL</Label>
+            <Input
+              value={logoUrl}
+              onChange={(event) => setLogoUrl(event.target.value)}
+              placeholder="https://example.com/logo.png"
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Primary colour</Label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                className="h-11 w-14 cursor-pointer rounded-xl border border-border bg-transparent"
               />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-lg"
-                onClick={() => setSettings({ ...settings, tickerLogoUrl: null })}
-              >
-                Clear
-              </Button>
+              <Input
+                value={color}
+                onChange={(event) => setColor(event.target.value)}
+                className="flex-1 rounded-xl font-mono text-sm"
+              />
             </div>
-          ) : null}
+          </div>
         </div>
-      </div>
+      </SettingsCard>
 
-      <div className="space-y-4 rounded-2xl border border-[var(--unimoni-blue)]/25 bg-card/40 p-4 sm:p-5 lg:col-span-2">
-        <div>
-          <p className="text-sm font-semibold">Upload display logos</p>
-          <p className="text-xs text-muted-foreground">
-            Click or drag a logo file into each box below. PNG with transparency works best. After uploading, click{" "}
-            <strong>Save Branch Settings</strong> at the bottom.
-          </p>
-        </div>
+      <SettingsCard
+        title="Display logos"
+        description="Upload logos for the rate-card header and main video area. Click or drag a file into each box, then Save Branch Settings at the bottom."
+        variant="primary"
+      >
         <div className="grid gap-4 lg:grid-cols-3">
           <LogoUploadField
             label="Primary logo (rate card header)"
@@ -393,396 +394,445 @@ function BranchSettingsForm({
               Scales the rate-card header logo and the glass badge on the main video area. 135% ≈ unimoni ticker size.
             </p>
           </div>
-          <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-            <div>
-              <Label>Glass branding on main video area</Label>
-              <p className="text-xs text-muted-foreground">
-                Frosted-glass overlay with logo, website and locations on the large promo / video panel.
-              </p>
-            </div>
-            <Switch
-              checked={settings.showPromoGlassBranding !== false}
-              onCheckedChange={(checked) => setSettings({ ...settings, showPromoGlassBranding: checked })}
-            />
+          <SettingsSwitchRow
+            label="Glass branding on main video area"
+            hint="Frosted-glass overlay with logo, website and locations on the large promo / video panel."
+            checked={settings.showPromoGlassBranding !== false}
+            onCheckedChange={(checked) => setSettings({ ...settings, showPromoGlassBranding: checked })}
+          />
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Logo display options"
+        description="How logos appear on rate-card slides, the promotion slide, and during video playback."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Show logos (normal slides)</Label>
+            <Select
+              value={settings.headerLogoDisplay ?? "single"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, headerLogoDisplay: (value as "single" | "both") ?? "single" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="single">First logo only</SelectItem>
+                <SelectItem value="both">Both logos side by side</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Logo on the promotion slide</Label>
+            <p className="text-xs text-muted-foreground">
+              The rate-card header is hidden on the promo slide by default so the image fills the panel.
+            </p>
+            <Select
+              value={settings.promoLogoMode === "second" ? "second" : "hide"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hide">Hide header (full promo)</SelectItem>
+                <SelectItem value="second">Show only the alternate / second logo</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
-        <div className="space-y-2">
-          <Label>Show logos (normal slides)</Label>
-          <Select
-            value={settings.headerLogoDisplay ?? "single"}
-            onValueChange={(value) =>
-              setSettings({ ...settings, headerLogoDisplay: (value as "single" | "both") ?? "single" })
-            }
-          >
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="single">First logo only</SelectItem>
-              <SelectItem value="both">Both logos side by side</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Logo on the promotion slide</Label>
-          <p className="text-xs text-muted-foreground">
-            The rate-card header (logos + clock) is hidden on the promo slide by default so the
-            image fills the panel. Choose &quot;Show alternate logo&quot; to keep a slim logo bar.
-          </p>
-          <Select
-            value={settings.promoLogoMode === "second" ? "second" : "hide"}
-            onValueChange={(value) =>
-              setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide" })
-            }
-          >
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hide">Hide header (full promo)</SelectItem>
-              <SelectItem value="second">Show only the alternate / second logo</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Replace Unimoni default logo</Label>
-          <p className="text-xs text-muted-foreground">
-            When enabled, your uploaded primary logo is used instead of the built-in Unimoni logo on
-            the rate card and ticker badge (when no separate ticker logo is set).
-          </p>
-        </div>
-        <Switch
+        <SettingsSwitchRow
+          label="Replace Unimoni default logo"
+          hint="When enabled, your uploaded primary logo is used instead of the built-in Unimoni logo on the rate card and ticker badge."
           checked={settings.replaceDefaultLogo === true}
           onCheckedChange={(checked) => setSettings({ ...settings, replaceDefaultLogo: checked })}
         />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Rotate between primary and alternate logo</Label>
-          <p className="text-xs text-muted-foreground">
-            On normal rate-card slides, alternate between the two uploaded header logos on a timer.
-            Requires both logos to be uploaded.
-          </p>
-        </div>
-        <Switch
+        <SettingsSwitchRow
+          label="Rotate between primary and alternate logo"
+          hint="On normal rate-card slides, alternate between the two uploaded header logos on a timer. Requires both logos."
           checked={settings.headerLogoRotationEnabled === true}
           onCheckedChange={(checked) => setSettings({ ...settings, headerLogoRotationEnabled: checked })}
         />
-      </div>
-      {settings.headerLogoRotationEnabled ? (
-        <div className="space-y-2">
-          <Label>Logo rotation interval (seconds)</Label>
-          <Input
-            type="number"
-            min={2}
-            max={120}
-            value={settings.headerLogoRotationIntervalSeconds ?? 10}
-            onChange={(event) =>
-              setSettings({
-                ...settings,
-                headerLogoRotationIntervalSeconds: Math.max(2, Number(event.target.value) || 10),
-              })
-            }
-            className="max-w-[10rem] rounded-xl"
-          />
-        </div>
-      ) : null}
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Play video sound</Label>
-          <p className="text-xs text-muted-foreground">
-            Play branch, promotion and rate-card videos WITH audio. Browsers keep videos muted until
-            the screen is tapped or made fullscreen once — then sound turns on automatically.
-          </p>
-        </div>
-        <Switch
+        {settings.headerLogoRotationEnabled ? (
+          <div className="space-y-2">
+            <Label>Logo rotation interval (seconds)</Label>
+            <Input
+              type="number"
+              min={2}
+              max={120}
+              value={settings.headerLogoRotationIntervalSeconds ?? 10}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  headerLogoRotationIntervalSeconds: Math.max(2, Number(event.target.value) || 10),
+                })
+              }
+              className="max-w-[10rem] rounded-xl"
+            />
+          </div>
+        ) : null}
+        <SettingsSwitchRow
+          label="Play video sound"
+          hint="Play branch, promotion and rate-card videos WITH audio. Browsers keep videos muted until the screen is tapped once."
           checked={settings.videoSoundOn === true}
           onCheckedChange={(checked) => setSettings({ ...settings, videoSoundOn: checked })}
         />
-      </div>
+      </SettingsCard>
 
-      {/* Extra logos that scroll right-to-left in the ticker with the message text. */}
-      <div className="space-y-2 lg:col-span-2">
-        <Label>Scrolling ticker logos</Label>
-        <p className="text-xs text-muted-foreground">
-          Upload logos to scroll alongside the ticker text (right to left). Add as many as you like.
-        </p>
-        <Input
-          type="file"
-          multiple
-          accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif"
-          aria-label="Upload scrolling ticker logos"
-          onChange={async (event) => {
-            const files = Array.from(event.target.files ?? []);
-            if (files.length === 0) return;
-            try {
-              const urls: string[] = [];
-              for (const file of files) {
-                const { dataUrl } = await readLogoFileAsDataUrl(file);
-                urls.push(dataUrl);
-              }
-              setSettings({ ...settings, scrollingLogos: [...(settings.scrollingLogos ?? []), ...urls] });
-              toast.success(`${urls.length} logo(s) added — click Save Branch Settings to apply`);
-            } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Could not read image");
-            }
-          }}
-          className="rounded-xl"
-        />
-        {(settings.scrollingLogos ?? []).length > 0 ? (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {(settings.scrollingLogos ?? []).map((src, i) => (
-              <div key={i} className="relative">
+      <SettingsCard
+        title="Ticker badge & scrolling logos"
+        description="Logo on the breaking-news pop-out badge and extra logos that scroll with the ticker message."
+      >
+        <div className="space-y-2">
+          <Label>Ticker logo (pop-out breaking-news badge)</Label>
+          <p className="text-xs text-muted-foreground">
+            Leave blank to show the animated unimoni logo. Paste a URL or upload a file below.
+          </p>
+          <Input
+            value={settings.tickerLogoUrl?.startsWith("data:") ? "" : settings.tickerLogoUrl ?? ""}
+            onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
+            placeholder="https://example.com/logo.png — or upload below"
+            disabled={settings.tickerLogoUrl?.startsWith("data:")}
+            className="rounded-xl"
+          />
+          <div className="flex flex-wrap items-center gap-3">
+            <Input
+              type="file"
+              accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif"
+              aria-label="Upload ticker logo image"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                try {
+                  const { dataUrl } = await readLogoFileAsDataUrl(file);
+                  setSettings({ ...settings, tickerLogoUrl: dataUrl });
+                  toast.success("Logo image ready — click Save Branch Settings to apply");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Could not read image");
+                }
+              }}
+              className="max-w-xs rounded-xl"
+            />
+            {settings.tickerLogoUrl ? (
+              <div className="flex shrink-0 items-center gap-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={src}
-                  alt={`Scrolling logo ${i + 1}`}
-                  className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
+                  src={settings.tickerLogoUrl}
+                  alt="Logo preview"
+                  className="h-9 w-14 shrink-0 rounded-md bg-slate-800 object-contain p-1"
                 />
-                <button
+                <Button
                   type="button"
-                  aria-label="Remove logo"
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      scrollingLogos: (settings.scrollingLogos ?? []).filter((_, idx) => idx !== i),
-                    })
-                  }
-                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => setSettings({ ...settings, tickerLogoUrl: null })}
                 >
-                  ×
-                </button>
+                  Clear
+                </Button>
               </div>
-            ))}
+            ) : null}
           </div>
-        ) : null}
-      </div>
-
-      <div className="space-y-2">
-        <Label>Rate card position</Label>
-        <Select
-          value={settings.rateCardPosition ?? "right"}
-          onValueChange={(value) =>
-            setSettings({ ...settings, rateCardPosition: value as RateCardPosition })
-          }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="right">Video left, rates right (default)</SelectItem>
-            <SelectItem value="left">Rates left, video right</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div className="space-y-2">
-        <Label>Rate card duration (seconds)</Label>
-        <p className="text-xs text-muted-foreground">0 = always show the rate card.</p>
-        <Input
-          type="number"
-          min={0}
-          value={settings.rateCardDisplaySeconds ?? 0}
-          onChange={(event) =>
-            setSettings({ ...settings, rateCardDisplaySeconds: Number(event.target.value) })
-          }
-          className="rounded-xl"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Scrolling speed (seconds)</Label>
-        <Input
-          type="number"
-          value={settings.tickerSpeed}
-          onChange={(event) => setSettings({ ...settings, tickerSpeed: Number(event.target.value) })}
-          className="rounded-xl"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Scrolling message colour</Label>
-        <Input
-          value={settings.tickerFontColor}
-          onChange={(event) => setSettings({ ...settings, tickerFontColor: event.target.value })}
-          className="rounded-xl"
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Show yellow headline box</Label>
-          <p className="text-xs text-muted-foreground">
-            The gold curved box above the ticker (e.g. &quot;WELCOME TO UNIMONI&quot;). Turn off
-            to remove it.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showTickerHeadline !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showTickerHeadline: checked })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Yellow headline box text</Label>
-        <Input
-          value={settings.tickerHeadline ?? ""}
-          onChange={(event) => setSettings({ ...settings, tickerHeadline: event.target.value || null })}
-          placeholder="e.g. WELCOME TO UNIMONI"
-          disabled={settings.showTickerHeadline === false}
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          This is separate from the scrolling ticker message (edited on the Tickers page). Set one
-          message here for the yellow box and a different one for the scrolling ticker. Leave blank to
-          use the branch name.
-        </p>
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Show Foreign Exchange card on Display</Label>
-          <p className="text-xs text-muted-foreground">
-            The We Buy / We Sell forex card. Turn off to hide the whole forex card from the display.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showForexCard !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showForexCard: checked })}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <Label>Show Buy Rate on Display</Label>
-        <Switch
-          checked={settings.showBuyRate}
-          onCheckedChange={(checked) => setSettings({ ...settings, showBuyRate: checked })}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <Label>Show Sell Rate on Display</Label>
-        <Switch
-          checked={settings.showSellRate}
-          onCheckedChange={(checked) => setSettings({ ...settings, showSellRate: checked })}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Separate TRANSFER card on Display</Label>
-          <p className="text-xs text-muted-foreground">
-            Rotates in its own &quot;TRANSFER EXCHANGE RATES&quot; card with two columns — $ (USD) and
-            the local currency — for currencies that have transfer rates set.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showTransferCard !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showTransferCard: checked })}
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Transfer card — local currency label</Label>
-        <Input
-          value={settings.transferLocalLabel ?? "UGX"}
-          onChange={(event) => setSettings({ ...settings, transferLocalLabel: event.target.value })}
-          placeholder="UGX"
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          Header for the second transfer column (the branch&apos;s local currency). The first column is
-          always $ (USD).
-        </p>
-      </div>
-      <div className="space-y-2">
-        <Label>Rate card note (WE BUY @ …)</Label>
-        <Input
-          value={settings.rateCardNote ?? ""}
-          onChange={(event) =>
-            setSettings({ ...settings, rateCardNote: event.target.value.toUpperCase() || null })
-          }
-          placeholder="WE BUY US $ SMALL BILLS 20,10,5,2 & 1 @3300"
-          className="rounded-xl"
-        />
-        <div className="pt-1">
-          <Label className="mb-1 block text-xs">Show the note on</Label>
-          <Select
-            value={settings.rateNotePlacement ?? "first"}
-            onValueChange={(value) =>
-              setSettings({ ...settings, rateNotePlacement: (value as "first" | "all") ?? "first" })
-            }
-          >
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="first">The first forex rate page only</SelectItem>
-              <SelectItem value="all">Every forex rate page</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          Bold text at the bottom of the forex rates. It follows the forex page wherever you put it in
-          the slide order — so it appears even when transfer or promo is first. Leave blank to hide it.
-        </p>
-      </div>
-
-      {/* ---- Rate-screen sequence timing (per the client: 3s / 6s / 10s, manual) ---- */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label>Rate screen duration (seconds)</Label>
-          <Input
-            type="number"
-            min={2}
-            max={60}
-            value={settings.rateSheetIntervalSeconds ?? 5}
-            onChange={(event) =>
-              setSettings({ ...settings, rateSheetIntervalSeconds: Number(event.target.value) })
-            }
-            className="rounded-xl"
-          />
-          <p className="text-xs text-muted-foreground">
-            How long each rotating rate screen stays (forex pages, transfer card) — e.g. 3, 6, 10.
-          </p>
         </div>
         <div className="space-y-2">
-          <Label>Promotion card duration (seconds)</Label>
-          <Input
-            type="number"
-            min={2}
-            max={120}
-            value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 5}
-            onChange={(event) =>
-              setSettings({ ...settings, ratePromoDurationSeconds: Number(event.target.value) })
-            }
-            className="rounded-xl"
-          />
+          <Label>Scrolling ticker logos</Label>
           <p className="text-xs text-muted-foreground">
-            How long the promotion card (below) stays on screen in the rotation.
+            Upload logos to scroll alongside the ticker text (right to left). Add as many as you like.
           </p>
-        </div>
-      </div>
-
-      {/* ---- Promotion card in the rate-card rotation ---- */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 lg:col-span-2">
-        <p className="mb-1 text-sm font-semibold">Promotion card (rate-card rotation)</p>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Add a message above and/or below the image — it appears as its own screen in the rate-card
-          rotation. With no text the image fills the whole card; leave everything empty to hide it.
-        </p>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>Message ABOVE the image (optional)</Label>
-            <Input
-              value={settings.ratePromoTextTop ?? ""}
-              onChange={(event) =>
-                setSettings({ ...settings, ratePromoTextTop: event.target.value || null })
+          <Input
+            type="file"
+            multiple
+            accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif"
+            aria-label="Upload scrolling ticker logos"
+            onChange={async (event) => {
+              const files = Array.from(event.target.files ?? []);
+              if (files.length === 0) return;
+              try {
+                const urls: string[] = [];
+                for (const file of files) {
+                  const { dataUrl } = await readLogoFileAsDataUrl(file);
+                  urls.push(dataUrl);
+                }
+                setSettings({ ...settings, scrollingLogos: [...(settings.scrollingLogos ?? []), ...urls] });
+                toast.success(`${urls.length} logo(s) added — click Save Branch Settings to apply`);
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not read image");
               }
-              placeholder="e.g. HI UNIMONI !"
+            }}
+            className="rounded-xl"
+          />
+          {(settings.scrollingLogos ?? []).length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {(settings.scrollingLogos ?? []).map((src, i) => (
+                <div key={i} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={`Scrolling logo ${i + 1}`}
+                    className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
+                  />
+                  <button
+                    type="button"
+                    aria-label="Remove logo"
+                    onClick={() =>
+                      setSettings({
+                        ...settings,
+                        scrollingLogos: (settings.scrollingLogos ?? []).filter((_, idx) => idx !== i),
+                      })
+                    }
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Scrolling message bar"
+        description="Bottom ticker speed, colour, and the yellow headline box above it. Edit the scrolling text on the Tickers page."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Scrolling speed (seconds)</Label>
+            <Input
+              type="number"
+              value={settings.tickerSpeed}
+              onChange={(event) => setSettings({ ...settings, tickerSpeed: Number(event.target.value) })}
               className="rounded-xl"
             />
           </div>
           <div className="space-y-2">
-            <Label>Images &amp; videos — each rotates as its own screen</Label>
-            <p className="text-[11px] text-muted-foreground/90">
-              Recommended: {MEDIA_DIMENSION_HINTS.rateCardPromo}. Portrait photos/videos fill the rate-card panel best.
+            <Label>Scrolling message colour</Label>
+            <Input
+              value={settings.tickerFontColor}
+              onChange={(event) => setSettings({ ...settings, tickerFontColor: event.target.value })}
+              className="rounded-xl"
+            />
+          </div>
+        </div>
+        <SettingsSwitchRow
+          label="Show yellow headline box"
+          hint='The gold curved box above the ticker (e.g. "WELCOME TO UNIMONI"). Turn off to remove it.'
+          checked={settings.showTickerHeadline !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showTickerHeadline: checked })}
+        />
+        <div className="space-y-2">
+          <Label>Yellow headline box text</Label>
+          <Input
+            value={settings.tickerHeadline ?? ""}
+            onChange={(event) => setSettings({ ...settings, tickerHeadline: event.target.value || null })}
+            placeholder="e.g. WELCOME TO UNIMONI"
+            disabled={settings.showTickerHeadline === false}
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            Separate from the scrolling ticker message (Tickers page). Leave blank to use the branch name.
+          </p>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Rate card — layout & timing"
+        description="Where the rate card sits on screen, how long it shows, and how fast each slide rotates."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Rate card position</Label>
+            <Select
+              value={settings.rateCardPosition ?? "right"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, rateCardPosition: value as RateCardPosition })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="right">Video left, rates right (default)</SelectItem>
+                <SelectItem value="left">Rates left, video right</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Rate card duration (seconds)</Label>
+            <p className="text-xs text-muted-foreground">0 = always show the rate card.</p>
+            <Input
+              type="number"
+              min={0}
+              value={settings.rateCardDisplaySeconds ?? 0}
+              onChange={(event) =>
+                setSettings({ ...settings, rateCardDisplaySeconds: Number(event.target.value) })
+              }
+              className="rounded-xl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Rate screen duration (seconds)</Label>
+            <Input
+              type="number"
+              min={2}
+              max={60}
+              value={settings.rateSheetIntervalSeconds ?? 5}
+              onChange={(event) =>
+                setSettings({ ...settings, rateSheetIntervalSeconds: Number(event.target.value) })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              How long each rotating rate screen stays (forex pages, transfer card) — e.g. 3, 6, 10.
             </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Promotion card duration (seconds)</Label>
+            <Input
+              type="number"
+              min={2}
+              max={120}
+              value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 5}
+              onChange={(event) =>
+                setSettings({ ...settings, ratePromoDurationSeconds: Number(event.target.value) })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              How long the promotion slide stays on screen in the rotation.
+            </p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label>Rate-card slide order</Label>
+          <Select
+            value={(settings.rateCardOrder ?? ["forex", "transfer", "promo"]).join(",")}
+            onValueChange={(value) =>
+              setSettings({
+                ...settings,
+                rateCardOrder: (value ?? "forex,transfer,promo").split(",") as Array<
+                  "forex" | "transfer" | "promo"
+                >,
+              })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="forex,transfer,promo">Forex → Transfer → Promotion (default)</SelectItem>
+              <SelectItem value="transfer,forex,promo">Transfer → Forex → Promotion</SelectItem>
+              <SelectItem value="promo,forex,transfer">Promotion → Forex → Transfer</SelectItem>
+              <SelectItem value="forex,promo,transfer">Forex → Promotion → Transfer</SelectItem>
+              <SelectItem value="transfer,promo,forex">Transfer → Promotion → Forex</SelectItem>
+              <SelectItem value="promo,transfer,forex">Promotion → Transfer → Forex</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Which slide the rotating rate card shows first, then next. Slides with no content are skipped.
+          </p>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Rate card — forex & transfer"
+        description="Which rate tables appear on the TV and optional note text below the forex card."
+      >
+        <SettingsSwitchRow
+          label="Show Foreign Exchange card on Display"
+          hint="The We Buy / We Sell forex card. Turn off to hide the whole forex card from the display."
+          checked={settings.showForexCard !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showForexCard: checked })}
+        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SettingsSwitchRow
+            label="Show Buy Rate on Display"
+            checked={settings.showBuyRate}
+            onCheckedChange={(checked) => setSettings({ ...settings, showBuyRate: checked })}
+          />
+          <SettingsSwitchRow
+            label="Show Sell Rate on Display"
+            checked={settings.showSellRate}
+            onCheckedChange={(checked) => setSettings({ ...settings, showSellRate: checked })}
+          />
+        </div>
+        <SettingsSwitchRow
+          label="Separate TRANSFER card on Display"
+          hint='Rotates in its own "TRANSFER EXCHANGE RATES" card with $ (USD) and local currency columns.'
+          checked={settings.showTransferCard !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showTransferCard: checked })}
+        />
+        <div className="space-y-2">
+          <Label>Transfer card — local currency label</Label>
+          <Input
+            value={settings.transferLocalLabel ?? "UGX"}
+            onChange={(event) => setSettings({ ...settings, transferLocalLabel: event.target.value })}
+            placeholder="UGX"
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            Header for the second transfer column. The first column is always $ (USD).
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Rate card note (WE BUY @ …)</Label>
+          <Input
+            value={settings.rateCardNote ?? ""}
+            onChange={(event) =>
+              setSettings({ ...settings, rateCardNote: event.target.value.toUpperCase() || null })
+            }
+            placeholder="WE BUY US $ SMALL BILLS 20,10,5,2 & 1 @3300"
+            className="rounded-xl"
+          />
+          <div className="pt-1">
+            <Label className="mb-1 block text-xs">Show the note on</Label>
+            <Select
+              value={settings.rateNotePlacement ?? "first"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, rateNotePlacement: (value as "first" | "all") ?? "first" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="first">The first forex rate page only</SelectItem>
+                <SelectItem value="all">Every forex rate page</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Bold text at the bottom of the forex rates. Leave blank to hide it.
+          </p>
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        title="Rate card — promotion slide"
+        description="Images and videos that rotate on the narrow rate-card panel. With no text, media fills the whole slide."
+        variant="primary"
+      >
+        <div className="space-y-2">
+          <Label>Message ABOVE the image (optional)</Label>
+          <Input
+            value={settings.ratePromoTextTop ?? ""}
+            onChange={(event) =>
+              setSettings({ ...settings, ratePromoTextTop: event.target.value || null })
+            }
+            placeholder="e.g. HI UNIMONI !"
+            className="rounded-xl"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Images &amp; videos — each rotates as its own screen</Label>
+          <p className="text-[11px] text-muted-foreground/90">
+            Recommended: {MEDIA_DIMENSION_HINTS.rateCardPromo}. Portrait photos/videos fill the rate-card panel best.
+          </p>
             <Input
               type="file"
               accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,.png,.jpg,.jpeg,.webp,.mp4,.webm"
@@ -922,58 +972,24 @@ function BranchSettingsForm({
               order). Use ‹ › to set which plays first, second, and so on. Videos play muted.
             </p>
           </div>
-          <div className="space-y-2">
-            <Label>Message BELOW the image (optional)</Label>
-            <Input
-              value={settings.ratePromoText ?? ""}
-              onChange={(event) =>
-                setSettings({ ...settings, ratePromoText: event.target.value || null })
-              }
-              placeholder="e.g. ZERO FEES ON BANK TRANSFERS THIS WEEK!"
-              className="rounded-xl"
-            />
-          </div>
+        <div className="space-y-2">
+          <Label>Message BELOW the image (optional)</Label>
+          <Input
+            value={settings.ratePromoText ?? ""}
+            onChange={(event) =>
+              setSettings({ ...settings, ratePromoText: event.target.value || null })
+            }
+            placeholder="e.g. ZERO FEES ON BANK TRANSFERS THIS WEEK!"
+            className="rounded-xl"
+          />
         </div>
-      </div>
+      </SettingsCard>
 
-      <div className="space-y-2">
-        <Label>Rate-card slide order</Label>
-        <Select
-          value={(settings.rateCardOrder ?? ["forex", "transfer", "promo"]).join(",")}
-          onValueChange={(value) =>
-            setSettings({
-              ...settings,
-              rateCardOrder: (value ?? "forex,transfer,promo").split(",") as Array<
-                "forex" | "transfer" | "promo"
-              >,
-            })
-          }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="forex,transfer,promo">Forex → Transfer → Promotion (default)</SelectItem>
-            <SelectItem value="transfer,forex,promo">Transfer → Forex → Promotion</SelectItem>
-            <SelectItem value="promo,forex,transfer">Promotion → Forex → Transfer</SelectItem>
-            <SelectItem value="forex,promo,transfer">Forex → Promotion → Transfer</SelectItem>
-            <SelectItem value="transfer,promo,forex">Transfer → Promotion → Forex</SelectItem>
-            <SelectItem value="promo,transfer,forex">Promotion → Transfer → Forex</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          Which slide the rotating rate card shows first, then next. Slides with no content are skipped.
-        </p>
-      </div>
-
-      {/* ---- Fonts & sizes (separate per area) ---- */}
-      <div className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4 lg:col-span-2">
-        <div>
-          <p className="text-sm font-semibold">Fonts &amp; sizes</p>
-          <p className="text-xs text-muted-foreground">
-            Choose a font style and size for each area of the TV screen independently.
-          </p>
-        </div>
+      <SettingsCard
+        title="Fonts & sizes"
+        description="Choose a font style and size for each area of the TV screen independently."
+        variant="primary"
+      >
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="space-y-3 rounded-xl border border-border/30 bg-background/40 p-4">
             <p className="text-sm font-semibold">Rate card</p>
@@ -982,20 +998,9 @@ function BranchSettingsForm({
               value={settings.rateCardFont}
               onChange={(key) => setSettings({ ...settings, rateCardFont: key })}
             />
-            <div className="space-y-2">
-              <Label>Font size (%)</Label>
-              <Input
-                type="number"
-                min={70}
-                max={150}
-                step={5}
-                value={Math.round((settings.rateCardScale ?? 1) * 100)}
-                onChange={(event) =>
-                  setSettings({ ...settings, rateCardScale: Number(event.target.value) / 100 })
-                }
-                className="rounded-xl"
-              />
-            </div>
+            <p className="text-xs text-muted-foreground">
+              Overall table size is in Layout &amp; sizing below.
+            </p>
           </div>
           <div className="space-y-3 rounded-xl border border-border/30 bg-background/40 p-4">
             <p className="text-sm font-semibold">Scrolling message</p>
@@ -1041,28 +1046,19 @@ function BranchSettingsForm({
             </div>
           </div>
         </div>
-      </div>
+      </SettingsCard>
 
-      {/* ---- Pop-up announcement over the video area (admin-only) ---- */}
-      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4 lg:col-span-2">
-        <p className="mb-1 text-sm font-semibold">Announcement / display message</p>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Play an announcement (text, image or video) for a set time, then it animates away and the
-          screen returns to normal — repeating on the interval you choose. Show it in the message
-          area (bottom strip), as a big pop-up over the video, or full screen. Leave empty to turn it off.
-        </p>
-        <div className="mb-4 flex items-center justify-between rounded-xl border border-border/30 p-3">
-          <div>
-            <Label>Show announcement on the display</Label>
-            <p className="text-xs text-muted-foreground">
-              Turn off to hide it from the TV without deleting your text/image/video — switch it back on anytime.
-            </p>
-          </div>
-          <Switch
-            checked={settings.announcementEnabled !== false}
-            onCheckedChange={(checked) => setSettings({ ...settings, announcementEnabled: checked })}
-          />
-        </div>
+      <SettingsCard
+        title="Announcement / display message"
+        description="Timed pop-up over the video area — text, image or video. Leave empty to turn off."
+        variant="amber"
+      >
+        <SettingsSwitchRow
+          label="Show announcement on the display"
+          hint="Turn off to hide it from the TV without deleting your content — switch it back on anytime."
+          checked={settings.announcementEnabled !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, announcementEnabled: checked })}
+        />
         <div className="space-y-3">
           <div className="space-y-2">
             <Label>Announcement text</Label>
@@ -1388,14 +1384,13 @@ function BranchSettingsForm({
             ) : null}
           </div>
         </div>
-      </div>
+      </SettingsCard>
 
-      {/* ---- Layout & sizing ---- */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 lg:col-span-2">
-        <p className="mb-1 text-sm font-semibold">Layout &amp; sizing</p>
-        <p className="mb-4 text-xs text-muted-foreground">
-          Video area, ticker bar height, and fine-tuning for rate-card columns. Font sizes are in the section above.
-        </p>
+      <SettingsCard
+        title="Layout & sizing"
+        description="Video area width, ticker bar height, and fine-tuning for rate-card columns."
+        variant="primary"
+      >
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
             <Label>Video area width (% of screen)</Label>
@@ -1518,8 +1513,9 @@ function BranchSettingsForm({
             </Select>
           </div>
         </div>
-      </div>
-      <div className="lg:col-span-2">
+      </SettingsCard>
+
+      <div className="sticky bottom-0 z-10 border-t border-border/40 bg-background/95 py-4 backdrop-blur-sm">
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogTrigger
           render={
@@ -1559,8 +1555,7 @@ function BranchSettingsForm({
         </AlertDialogContent>
       </AlertDialog>
       </div>
-      </div>
-    </FormSection>
+    </div>
   );
 }
 
