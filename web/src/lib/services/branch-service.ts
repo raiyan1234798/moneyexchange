@@ -10,7 +10,7 @@ import {
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { db } from "@/lib/firebase/client";
-import { COLLECTIONS, DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_BRANCH_SETTINGS, MAX_BRANCHES } from "@/lib/constants";
 import { normalizeBranchCode } from "@/lib/display-url";
 import type { Branch, DashboardStats, EntityStatus } from "@/lib/types";
 
@@ -126,6 +126,10 @@ export async function createBranch(
   data: Omit<Branch, "id" | "createdAt" | "updatedAt">,
   actor: { userId: string; userName: string },
 ): Promise<string> {
+  const existing = await listDocuments<Branch>(COLLECTIONS.branches);
+  if (existing.length >= MAX_BRANCHES) {
+    throw new Error("Cannot create branch — the maximum number of branches has been reached.");
+  }
   const id = await createDocument(COLLECTIONS.branches, {
     ...data,
     code: normalizeBranchCode(data.code),

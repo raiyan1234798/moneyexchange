@@ -63,6 +63,10 @@ interface UnimoniRatesPanelProps {
   rateNotePlacement?: "first" | "all";
   /** CSS font-family for the whole rate card (header + table). */
   fontCss?: string;
+  /** Font for promotional slide text (falls back to fontCss). */
+  promoFontCss?: string;
+  /** Size multiplier for promotional slide text. */
+  promoScale?: number;
   /** Seconds each rotating rate screen stays visible. Default 5. */
   sheetIntervalSeconds?: number;
   /** Promotional card: image shown as its own rotating screen. Hidden when empty. */
@@ -142,6 +146,8 @@ export function UnimoniRatesPanel({
   rateCardNote,
   rateNotePlacement = "first",
   fontCss,
+  promoFontCss,
+  promoScale = 1,
   sheetIntervalSeconds,
   promoImageUrl,
   promoMedia,
@@ -202,6 +208,8 @@ export function UnimoniRatesPanel({
         : []
   ).filter((m) => m.url?.trim());
   const hasPromoText = Boolean(promoMessage || promoTop);
+  const promoTextFont = promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif";
+  const promoTextSize = (base: string) => `calc(${base} * ${promoScale})`;
   // Build each slide group, then lay them out in the admin-chosen order.
   // Forex can be turned off entirely (showForexCard) — then no forex slide shows.
   const forexSheets = showForexCard ? chunkRows(rows, "rates") : [];
@@ -477,8 +485,10 @@ export function UnimoniRatesPanel({
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
-                  fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-                  fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  fontFamily: promoTextFont,
+                  fontSize: promoTextSize(
+                    activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  ),
                 }}
               >
                 {promoTop}
@@ -547,8 +557,10 @@ export function UnimoniRatesPanel({
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
-                  fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-                  fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  fontFamily: promoTextFont,
+                  fontSize: promoTextSize(
+                    activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  ),
                 }}
               >
                 {promoMessage}

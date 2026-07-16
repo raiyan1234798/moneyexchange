@@ -11,6 +11,8 @@ export const CLIENT_ADMIN_EMAIL = "admin@unimoni-signage.com";
 export const RECOMMENDED_BRANCH_USERS = 8;
 /** Hard cap to prevent accidental bulk invites. */
 export const MAX_BRANCH_USERS = 50;
+/** Maximum branches any admin may create (enforced on create only). */
+export const MAX_BRANCHES = 6;
 
 export const COLLECTIONS = {
   users: "users",
@@ -98,6 +100,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   // ONE font for the whole display — overrides all the individual fonts below.
   displayFont: null as string | null,
   rateCardFont: null as string | null,
+  promoFont: null as string | null,
+  promoScale: 1,
   announcementText: null as string | null,
   announcementImageUrl: null as string | null,
   announcementVideoUrl: null as string | null,

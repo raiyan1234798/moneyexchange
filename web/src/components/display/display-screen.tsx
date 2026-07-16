@@ -57,6 +57,8 @@ interface TimedRatesPanelProps {
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
   videoSoundOn: boolean;
   headerLogoScale: number;
+  promoFontCss: string;
+  promoScale: number;
 }
 
 function TimedRatesPanel({
@@ -91,6 +93,8 @@ function TimedRatesPanel({
   rateCardOrder,
   videoSoundOn,
   headerLogoScale,
+  promoFontCss,
+  promoScale,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -137,6 +141,8 @@ function TimedRatesPanel({
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
       headerLogoScale={headerLogoScale}
+      promoFontCss={promoFontCss}
+      promoScale={promoScale}
     />
   );
 }
@@ -253,8 +259,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateNotePlacement = (branchSettings.rateNotePlacement ?? "first") as "first" | "all";
   // ONE font for the whole screen. When set, it overrides every element's font
   // below (rate card, announcement, ticker message, ticker logo).
-  const masterFont = branchSettings.displayFont?.trim() || null;
-  const rateCardFontCss = messageFontCss(masterFont || branchSettings.rateCardFont);
+  const rateCardFontCss = messageFontCss(branchSettings.rateCardFont);
+  const promoFontCss = messageFontCss(branchSettings.promoFont || branchSettings.rateCardFont);
+  const promoScale = branchSettings.promoScale ?? 1;
   const announcementText = branchSettings.announcementText?.trim() || null;
   const announcementImageUrl = branchSettings.announcementImageUrl?.trim() || null;
   const announcementVideoUrl = branchSettings.announcementVideoUrl?.trim() || null;
@@ -278,7 +285,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // A per-announcement font WINS over the master font when the admin picks one,
   // so the announcement can read in a different typeface than the rest of the
   // screen; otherwise it follows the whole-screen display font.
-  const announcementFontCss = messageFontCss(branchSettings.announcementFont || masterFont);
+  const announcementFontCss = messageFontCss(branchSettings.announcementFont);
   const announcementColorStyle = (branchSettings.announcementColorStyle ?? "white") as
     | "white"
     | "logo"
@@ -435,13 +442,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     null;
   const tickerLogoText = activeTicker?.logoText || branchSettings.tickerLogoText || null;
   const tickerLogoFontCss = logoFontCss(
-    masterFont || activeTicker?.logoFont || branchSettings.tickerLogoFont,
+    activeTicker?.logoFont || branchSettings.tickerLogoFont,
   );
   const tickerMessageFontCss = messageFontCss(
-    masterFont || activeTicker?.messageFont || branchSettings.tickerMessageFont,
+    activeTicker?.messageFont || branchSettings.tickerMessageFont,
   );
-  // Gold headline box follows the whole-screen master font (one place controls it).
-  const tickerHeadlineFontCss = messageFontCss(masterFont || branchSettings.tickerMessageFont);
+  const tickerHeadlineFontCss = messageFontCss(branchSettings.tickerMessageFont);
   // The gold "breaking" headline tab is its OWN text, fully independent from the
   // scrolling ticker message (edited separately in Settings → "Yellow headline
   // box text"). It never mirrors the scrolling message: when blank it falls back
@@ -594,6 +600,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
       fontCss={rateCardFontCss}
+      promoFontCss={promoFontCss}
+      promoScale={promoScale}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={ratePromoImageUrl}
       promoMedia={ratePromoMedia}

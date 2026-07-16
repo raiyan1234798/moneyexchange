@@ -21,7 +21,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -92,6 +92,40 @@ function LogoUploadField({
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function FontStyleSelect({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: string | null | undefined;
+  onChange: (key: string | null) => void;
+  hint?: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
+      <Select
+        value={value ?? MESSAGE_FONTS[0].key}
+        onValueChange={(v) => onChange(v ?? null)}
+      >
+        <SelectTrigger className="rounded-xl">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {MESSAGE_FONTS.map((f) => (
+            <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+              {f.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -183,6 +217,7 @@ function BranchSettingsForm({
 
   return (
     <FormSection title={`${branchName} Branding`}>
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <div className="space-y-2">
         <Label>Logo URL</Label>
         <Input
@@ -261,7 +296,7 @@ function BranchSettingsForm({
         </div>
       </div>
 
-      <div className="space-y-4 rounded-2xl border border-[var(--unimoni-blue)]/25 bg-card/40 p-4 sm:p-5">
+      <div className="space-y-4 rounded-2xl border border-[var(--unimoni-blue)]/25 bg-card/40 p-4 sm:p-5 lg:col-span-2">
         <div>
           <p className="text-sm font-semibold">Upload display logos</p>
           <p className="text-xs text-muted-foreground">
@@ -327,7 +362,7 @@ function BranchSettingsForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:col-span-2">
         <div className="space-y-2">
           <Label>Show logos (normal slides)</Label>
           <Select
@@ -426,7 +461,7 @@ function BranchSettingsForm({
       </div>
 
       {/* Extra logos that scroll right-to-left in the ticker with the message text. */}
-      <div className="space-y-2">
+      <div className="space-y-2 lg:col-span-2">
         <Label>Scrolling ticker logos</Label>
         <p className="text-xs text-muted-foreground">
           Upload logos to scroll alongside the ticker text (right to left). Add as many as you like.
@@ -483,7 +518,7 @@ function BranchSettingsForm({
       </div>
 
       <div className="space-y-2">
-        <Label>Rate Card Position</Label>
+        <Label>Rate card position</Label>
         <Select
           value={settings.rateCardPosition ?? "right"}
           onValueChange={(value) =>
@@ -500,7 +535,8 @@ function BranchSettingsForm({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>Rate Card Display Duration (seconds, 0 = always show)</Label>
+        <Label>Rate card duration (seconds)</Label>
+        <p className="text-xs text-muted-foreground">0 = always show the rate card.</p>
         <Input
           type="number"
           min={0}
@@ -512,7 +548,7 @@ function BranchSettingsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Default Ticker Speed (seconds)</Label>
+        <Label>Scrolling speed (seconds)</Label>
         <Input
           type="number"
           value={settings.tickerSpeed}
@@ -521,16 +557,7 @@ function BranchSettingsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Ticker Font Size</Label>
-        <Input
-          type="number"
-          value={settings.tickerFontSize}
-          onChange={(event) => setSettings({ ...settings, tickerFontSize: Number(event.target.value) })}
-          className="rounded-xl"
-        />
-      </div>
-      <div className="space-y-2">
-        <Label>Ticker Font Color</Label>
+        <Label>Scrolling message colour</Label>
         <Input
           value={settings.tickerFontColor}
           onChange={(event) => setSettings({ ...settings, tickerFontColor: event.target.value })}
@@ -687,7 +714,7 @@ function BranchSettingsForm({
       </div>
 
       {/* ---- Promotion card in the rate-card rotation ---- */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 lg:col-span-2">
         <p className="mb-1 text-sm font-semibold">Promotion card (rate-card rotation)</p>
         <p className="mb-4 text-xs text-muted-foreground">
           Add a message above and/or below the image — it appears as its own screen in the rate-card
@@ -890,40 +917,85 @@ function BranchSettingsForm({
         </p>
       </div>
 
-      {/* ---- ONE font for the whole screen ---- */}
-      <div className="space-y-2 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
-        <Label className="text-base">Display font — changes ALL text on the TV</Label>
-        <p className="text-xs text-muted-foreground">
-          One font for the whole screen: the rate card (WE BUY / WE SELL, currency codes and every
-          number), the scrolling message, the announcement, and the logo text — all at once.
-        </p>
-        <Select
-          value={settings.displayFont ?? MESSAGE_FONTS[0].key}
-          onValueChange={(value) => setSettings({ ...settings, displayFont: value ?? null })}
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {MESSAGE_FONTS.map((f) => (
-              <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
-                {f.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="rounded-lg bg-[#0D2680] px-3 py-2" style={{ fontFamily: messageFontCss(settings.displayFont) }}>
-          <span className="block text-sm font-bold uppercase tracking-wide text-white">
-            Exchange Rates · USD 3650 / 3680
-          </span>
-          <span className="block text-xs font-semibold uppercase tracking-wide text-white/80">
-            Welcome to Unimoni · We Buy US $ Small Bills
-          </span>
+      {/* ---- Fonts & sizes (separate per area) ---- */}
+      <div className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4 lg:col-span-2">
+        <div>
+          <p className="text-sm font-semibold">Fonts &amp; sizes</p>
+          <p className="text-xs text-muted-foreground">
+            Choose a font style and size for each area of the TV screen independently.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="space-y-3 rounded-xl border border-border/30 bg-background/40 p-4">
+            <p className="text-sm font-semibold">Rate card</p>
+            <FontStyleSelect
+              label="Font style"
+              value={settings.rateCardFont}
+              onChange={(key) => setSettings({ ...settings, rateCardFont: key })}
+            />
+            <div className="space-y-2">
+              <Label>Font size (%)</Label>
+              <Input
+                type="number"
+                min={70}
+                max={150}
+                step={5}
+                value={Math.round((settings.rateCardScale ?? 1) * 100)}
+                onChange={(event) =>
+                  setSettings({ ...settings, rateCardScale: Number(event.target.value) / 100 })
+                }
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+          <div className="space-y-3 rounded-xl border border-border/30 bg-background/40 p-4">
+            <p className="text-sm font-semibold">Scrolling message</p>
+            <FontStyleSelect
+              label="Font style"
+              value={settings.tickerMessageFont}
+              onChange={(key) => setSettings({ ...settings, tickerMessageFont: key })}
+            />
+            <div className="space-y-2">
+              <Label>Font size (px)</Label>
+              <Input
+                type="number"
+                min={12}
+                max={48}
+                value={settings.tickerFontSize}
+                onChange={(event) =>
+                  setSettings({ ...settings, tickerFontSize: Number(event.target.value) })
+                }
+                className="rounded-xl"
+              />
+            </div>
+          </div>
+          <div className="space-y-3 rounded-xl border border-border/30 bg-background/40 p-4">
+            <p className="text-sm font-semibold">Promotional page</p>
+            <FontStyleSelect
+              label="Font style"
+              value={settings.promoFont}
+              onChange={(key) => setSettings({ ...settings, promoFont: key })}
+            />
+            <div className="space-y-2">
+              <Label>Font size (%)</Label>
+              <Input
+                type="number"
+                min={70}
+                max={200}
+                step={5}
+                value={Math.round((settings.promoScale ?? 1) * 100)}
+                onChange={(event) =>
+                  setSettings({ ...settings, promoScale: Number(event.target.value) / 100 })
+                }
+                className="rounded-xl"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       {/* ---- Pop-up announcement over the video area (admin-only) ---- */}
-      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4">
+      <div className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-4 lg:col-span-2">
         <p className="mb-1 text-sm font-semibold">Announcement / display message</p>
         <p className="mb-4 text-xs text-muted-foreground">
           Play an announcement (text, image or video) for a set time, then it animates away and the
@@ -1174,11 +1246,11 @@ function BranchSettingsForm({
             <div className="space-y-2">
               <Label>Announcement font</Label>
               <Select
-                value={settings.announcementFont ?? "__master"}
+                value={settings.announcementFont ?? MESSAGE_FONTS[0].key}
                 onValueChange={(value) =>
                   setSettings({
                     ...settings,
-                    announcementFont: value === "__master" ? null : value,
+                    announcementFont: value ?? null,
                   })
                 }
               >
@@ -1186,7 +1258,6 @@ function BranchSettingsForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__master">Use display font (whole-screen font)</SelectItem>
                   {MESSAGE_FONTS.map((f) => (
                     <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
                       {f.label}
@@ -1195,8 +1266,7 @@ function BranchSettingsForm({
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                A font just for the announcement. When set, it overrides the whole-screen display
-                font for this message only.
+                Font for the over-video announcement only — separate from rate card and scrolling message.
               </p>
             </div>
           </div>
@@ -1271,13 +1341,13 @@ function BranchSettingsForm({
         </div>
       </div>
 
-      {/* ---- Independent display sizing: each area resizes on its own ---- */}
-      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4">
-        <p className="mb-1 text-sm font-semibold">Display sizing</p>
+      {/* ---- Layout & sizing ---- */}
+      <div className="rounded-xl border border-primary/20 bg-primary/[0.03] p-4 lg:col-span-2">
+        <p className="mb-1 text-sm font-semibold">Layout &amp; sizing</p>
         <p className="mb-4 text-xs text-muted-foreground">
-          Resize each area of the TV screen independently. 100% is the normal size.
+          Video area, ticker bar height, and fine-tuning for rate-card columns. Font sizes are in the section above.
         </p>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
             <Label>Video area width (% of screen)</Label>
             <Input
@@ -1315,21 +1385,7 @@ function BranchSettingsForm({
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Rate card size (%)</Label>
-            <Input
-              type="number"
-              min={70}
-              max={150}
-              step={5}
-              value={Math.round((settings.rateCardScale ?? 1) * 100)}
-              onChange={(event) =>
-                setSettings({ ...settings, rateCardScale: Number(event.target.value) / 100 })
-              }
-              className="rounded-xl"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Currency code size (%)</Label>
+            <Label>Rate card — currency size (%)</Label>
             <Input
               type="number"
               min={50}
@@ -1341,10 +1397,10 @@ function BranchSettingsForm({
               }
               className="rounded-xl"
             />
-            <p className="text-xs text-muted-foreground">Size of the currency code (USD, GBP…) only.</p>
+            <p className="text-xs text-muted-foreground">Currency codes only (USD, GBP…).</p>
           </div>
           <div className="space-y-2">
-            <Label>We Buy / We Sell number size (%)</Label>
+            <Label>Rate card — rate numbers (%)</Label>
             <Input
               type="number"
               min={50}
@@ -1359,7 +1415,7 @@ function BranchSettingsForm({
             <p className="text-xs text-muted-foreground">Size of the rate numbers only — set separately from the currency.</p>
           </div>
           <div className="space-y-2">
-            <Label>Ticker size (%)</Label>
+            <Label>Scrolling bar height (%)</Label>
             <Input
               type="number"
               min={70}
@@ -1373,7 +1429,7 @@ function BranchSettingsForm({
             />
           </div>
           <div className="space-y-2">
-            <Label>Logo size (%)</Label>
+            <Label>Ticker badge logo size (%)</Label>
             <Input
               type="number"
               min={60}
@@ -1414,6 +1470,7 @@ function BranchSettingsForm({
           </div>
         </div>
       </div>
+      <div className="lg:col-span-2">
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogTrigger
           render={
@@ -1452,6 +1509,8 @@ function BranchSettingsForm({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
+      </div>
     </FormSection>
   );
 }

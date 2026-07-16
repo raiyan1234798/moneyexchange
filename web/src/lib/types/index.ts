@@ -151,6 +151,10 @@ export interface BranchSettings {
   displayFont?: string | null;
   /** Font key for the rate card (header + table) — see MESSAGE_FONTS. */
   rateCardFont?: string | null;
+  /** Font key for promotional slides (rate-card promo + main promo text). */
+  promoFont?: string | null;
+  /** Size multiplier for promotional page text (1 = normal). */
+  promoScale?: number;
   /** Size multiplier for the CURRENCY code text on the rate card (1 = normal). */
   rateCurrencyScale?: number;
   /** Size multiplier for the WE BUY / WE SELL value numbers (1 = normal). */
