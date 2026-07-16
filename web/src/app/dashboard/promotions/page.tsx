@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
 import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
-import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
 import type { BranchSettings } from "@/lib/types";
@@ -353,6 +353,18 @@ export default function PromotionsPage() {
               description="An image and/or message that appears as its own screen in the rate-card rotation. Leave empty to hide."
             >
               <div className="space-y-4">
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 p-3">
+                  <div>
+                    <p className="text-sm font-semibold">Show the promotion slide on the TV</p>
+                    <p className="text-xs text-muted-foreground">
+                      Turn off to hide it from the rotation without deleting your images/videos/text.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={s.ratePromoEnabled !== false}
+                    onCheckedChange={(v) => set({ ratePromoEnabled: v })}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Promotion image</Label>
                   <div className="flex items-center gap-3">
@@ -458,7 +470,7 @@ export default function PromotionsPage() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         try {
-                          const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                          const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                           set({ promoSlideLogoUrl: dataUrl });
                           toast.success("Promotion-slide logo ready — Save to apply");
                         } catch (err) {
@@ -488,8 +500,28 @@ export default function PromotionsPage() {
                     ) : null}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Shown in the logo bar only while the promotion plays. Falls back to the
-                    alternate/main logo when empty.
+                    Shown in the logo bar only while the promotion plays. A white/solid background
+                    is removed automatically on upload. Falls back to the alternate/main logo when
+                    empty.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Promotion-slide logo size (%)</Label>
+                  <Input
+                    type="number"
+                    min={50}
+                    max={300}
+                    step={10}
+                    value={Math.round((s.promoSlideLogoScale ?? 1) * 100)}
+                    onChange={(e) =>
+                      set({
+                        promoSlideLogoScale: Math.min(3, Math.max(0.5, Number(e.target.value) / 100 || 1)),
+                      })
+                    }
+                    className="rounded-xl sm:max-w-[200px]"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Make the logo on the promotion slide bigger or smaller (100% = normal).
                   </p>
                 </div>
               </div>

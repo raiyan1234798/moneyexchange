@@ -91,6 +91,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoMedia: [] as Array<{ type: "image" | "video"; url: string }>,
   ratePromoSoundOn: null as boolean | null,
   promoSlideLogoUrl: null as string | null,
+  promoSlideLogoScale: 1,
+  ratePromoEnabled: true,
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,

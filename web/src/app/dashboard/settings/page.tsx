@@ -23,7 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
-import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
 import {
@@ -721,6 +721,19 @@ function BranchSettingsForm({
         title="Promotion slide"
         description="Its own screen in the rate-card rotation: message above and/or below, with images and videos. With no text the image fills the whole card; leave everything empty to hide it."
       >
+        <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+          <div>
+            <Label>Show the promotion slide on the TV</Label>
+            <p className="text-xs text-muted-foreground">
+              Turn off to remove the promotion from the rotation WITHOUT deleting your images,
+              videos or text — switch it back on anytime.
+            </p>
+          </div>
+          <Switch
+            checked={settings.ratePromoEnabled !== false}
+            onCheckedChange={(checked) => setSettings({ ...settings, ratePromoEnabled: checked })}
+          />
+        </div>
         <div className="space-y-3">
           <div className="space-y-2">
             <Label>Message ABOVE the image (optional)</Label>
@@ -944,7 +957,8 @@ function BranchSettingsForm({
             <Label>Promotion-slide logo (optional — a DIFFERENT logo during the promo)</Label>
             <p className="text-xs text-muted-foreground">
               Shown in the logo bar only while the promotion image/video plays — so the promo can
-              carry its own branding. Leave empty to fall back to the alternate/main logo.
+              carry its own branding. A white/solid background is removed automatically on upload.
+              Leave empty to fall back to the alternate/main logo.
             </p>
             <div className="flex items-center gap-3">
               <Input
@@ -955,7 +969,7 @@ function BranchSettingsForm({
                   const file = event.target.files?.[0];
                   if (!file) return;
                   try {
-                    const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                    const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                     setSettings({ ...settings, promoSlideLogoUrl: dataUrl });
                     toast.success("Promotion-slide logo ready — click Save Branch Settings to apply");
                   } catch (error) {
@@ -984,6 +998,26 @@ function BranchSettingsForm({
                 </div>
               ) : null}
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Promotion-slide logo size (%)</Label>
+            <Input
+              type="number"
+              min={50}
+              max={300}
+              step={10}
+              value={Math.round((settings.promoSlideLogoScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  promoSlideLogoScale: Math.min(3, Math.max(0.5, Number(event.target.value) / 100 || 1)),
+                })
+              }
+              className="max-w-[10rem] rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Make the logo on the promotion slide bigger or smaller (100% = normal).
+            </p>
           </div>
         </div>
       </SettingsGroup>
@@ -1038,9 +1072,9 @@ function BranchSettingsForm({
                 const file = event.target.files?.[0];
                 if (!file) return;
                 try {
-                  const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                  const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                   setSettings({ ...settings, tickerLogoUrl: dataUrl });
-                  toast.success("Corner logo ready — click Save Branch Settings to apply");
+                  toast.success("Corner logo ready (background removed) — click Save Branch Settings to apply");
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : "Could not read image");
                 }

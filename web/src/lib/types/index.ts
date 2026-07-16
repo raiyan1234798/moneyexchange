@@ -141,6 +141,11 @@ export interface BranchSettings {
       appear while the promo image/video runs. Falls back to alternate → main →
       unimoni when empty. Only shown when promoLogoMode enables the logo bar. */
   promoSlideLogoUrl?: string | null;
+  /** Size multiplier for the promo-slide logo (1 = normal). */
+  promoSlideLogoScale?: number;
+  /** Master on/off for the promotion slide — off hides it from the rotation
+      WITHOUT deleting the uploaded images/videos/text. Default true. */
+  ratePromoEnabled?: boolean;
   /** Promotional card: text message ABOVE the image. */
   ratePromoTextTop?: string | null;
   /** Promotional card: text message below the image (shown alone or under the image). */

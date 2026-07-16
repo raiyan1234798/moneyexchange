@@ -49,6 +49,8 @@ interface UnimoniRatesPanelProps {
   headerLogoUrl2?: string | null;
   /** Dedicated logo for the PROMOTION slide's logo bar (different logo during promo). */
   promoSlideLogoUrl?: string | null;
+  /** Size multiplier for the promo-slide logo (1 = normal). */
+  promoSlideLogoScale?: number;
   /** Show just the first header logo or both side by side on normal slides. */
   headerLogoDisplay?: "single" | "both";
   /** Header logo behaviour on the PROMO slide: keep / hide / show only the 2nd logo. */
@@ -135,6 +137,7 @@ export function UnimoniRatesPanel({
   headerLogoUrl,
   headerLogoUrl2,
   promoSlideLogoUrl,
+  promoSlideLogoScale = 1,
   headerLogoDisplay = "single",
   promoLogoMode = "hide",
   replaceDefaultLogo = false,
@@ -399,6 +402,12 @@ export function UnimoniRatesPanel({
                   src={src}
                   alt="Brand logo"
                   className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
+                  // Manual size control applies on the promo slide only.
+                  style={
+                    isPromoSheet && promoSlideLogoScale !== 1
+                      ? { height: `calc(clamp(2rem,4.2vh,3.6rem) * ${promoSlideLogoScale})` }
+                      : undefined
+                  }
                 />
               ))}
             </div>
