@@ -294,6 +294,22 @@ export default function PromotionsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
+                    <Label>Announcement text size (%)</Label>
+                    <Input
+                      type="number"
+                      min={50}
+                      max={300}
+                      step={10}
+                      value={Math.round((s.announcementTextScale ?? 1) * 100)}
+                      onChange={(e) =>
+                        set({
+                          announcementTextScale: Math.min(3, Math.max(0.5, Number(e.target.value) / 100 || 1)),
+                        })
+                      }
+                      className="rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
                     <Label>Visible for (seconds)</Label>
                     <Input
                       type="number"
@@ -523,6 +539,20 @@ export default function PromotionsPage() {
                   <p className="text-xs text-muted-foreground">
                     Make the logo on the promotion slide bigger or smaller (100% = normal).
                   </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Promotion message size (%)</Label>
+                  <Input
+                    type="number"
+                    min={50}
+                    max={300}
+                    step={10}
+                    value={Math.round((s.ratePromoTextScale ?? 1) * 100)}
+                    onChange={(e) =>
+                      set({ ratePromoTextScale: Math.min(3, Math.max(0.5, Number(e.target.value) / 100 || 1)) })
+                    }
+                    className="rounded-xl sm:max-w-[200px]"
+                  />
                 </div>
               </div>
             </ContentPanel>

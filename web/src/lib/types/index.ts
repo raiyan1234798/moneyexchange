@@ -143,6 +143,24 @@ export interface BranchSettings {
   promoSlideLogoUrl?: string | null;
   /** Size multiplier for the promo-slide logo (1 = normal). */
   promoSlideLogoScale?: number;
+  /** Size multiplier for the promotion slide's text messages (1 = normal). */
+  ratePromoTextScale?: number;
+  /** Animated effect for the rate-card header logo. Default "none". */
+  headerLogoAnimation?:
+    | "none"
+    | "spin"
+    | "flip"
+    | "bounce"
+    | "float"
+    | "swing"
+    | "pulse"
+    | "wave"
+    | "heartbeat"
+    | "tilt"
+    | "shine"
+    | "drift";
+  /** Size multiplier for the announcement text (1 = normal). */
+  announcementTextScale?: number;
   /** Master on/off for the promotion slide — off hides it from the rotation
       WITHOUT deleting the uploaded images/videos/text. Default true. */
   ratePromoEnabled?: boolean;

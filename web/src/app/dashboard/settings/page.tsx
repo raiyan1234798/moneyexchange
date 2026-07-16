@@ -383,6 +383,41 @@ function BranchSettingsForm({
           onCheckedChange={(checked) => setSettings({ ...settings, headerLogoRotationEnabled: checked })}
         />
       </div>
+      <div className="space-y-2">
+        <Label>Rate-card logo animation</Label>
+        <Select
+          value={settings.headerLogoAnimation ?? "none"}
+          onValueChange={(value) =>
+            setSettings({
+              ...settings,
+              headerLogoAnimation: (value ?? "none") as NonNullable<
+                BranchSettings["headerLogoAnimation"]
+              >,
+            })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No animation (default)</SelectItem>
+            <SelectItem value="wave">Wave — gentle rocking</SelectItem>
+            <SelectItem value="spin">Rotating flip (Y)</SelectItem>
+            <SelectItem value="flip">Flip (X)</SelectItem>
+            <SelectItem value="tilt">3D tilt</SelectItem>
+            <SelectItem value="bounce">Bounce</SelectItem>
+            <SelectItem value="float">Float</SelectItem>
+            <SelectItem value="drift">Drift — slow figure-8</SelectItem>
+            <SelectItem value="swing">Swing</SelectItem>
+            <SelectItem value="pulse">Gentle pulse</SelectItem>
+            <SelectItem value="heartbeat">Heartbeat</SelectItem>
+            <SelectItem value="shine">Shine — glow pulse</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Movement effect for the logo at the top of the rate card (unimoni or your uploaded logo).
+        </p>
+      </div>
       {settings.headerLogoRotationEnabled ? (
         <div className="space-y-2">
           <Label>Logo rotation interval (seconds)</Label>
@@ -1041,6 +1076,26 @@ function BranchSettingsForm({
               Make the logo on the promotion slide bigger or smaller (100% = normal).
             </p>
           </div>
+          <div className="space-y-2">
+            <Label>Promotion message size (%)</Label>
+            <Input
+              type="number"
+              min={50}
+              max={300}
+              step={10}
+              value={Math.round((settings.ratePromoTextScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  ratePromoTextScale: Math.min(3, Math.max(0.5, Number(event.target.value) / 100 || 1)),
+                })
+              }
+              className="max-w-[10rem] rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Size of the messages above/below the promotion image (100% = normal).
+            </p>
+          </div>
         </div>
       </SettingsGroup>
 
@@ -1458,6 +1513,26 @@ function BranchSettingsForm({
                 font for this message only.
               </p>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Announcement text size (%)</Label>
+            <Input
+              type="number"
+              min={50}
+              max={300}
+              step={10}
+              value={Math.round((settings.announcementTextScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  announcementTextScale: Math.min(3, Math.max(0.5, Number(event.target.value) / 100 || 1)),
+                })
+              }
+              className="max-w-[10rem] rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Size of the announcement text on the TV (100% = normal).
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -1972,7 +2047,7 @@ export default function SettingsPage() {
                 onSave={saveBranchSettings}
               />
               <div className="hidden xl:block">
-                <div className="sticky top-20 space-y-2">
+                <div className="sticky top-3 space-y-2">
                   <Label>Live TV preview — {branch.name}</Label>
                   <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
                     <iframe

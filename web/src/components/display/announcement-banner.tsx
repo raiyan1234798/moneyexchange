@@ -33,6 +33,8 @@ interface AnnouncementBannerProps {
   animation?: "none" | "slide" | "fade" | "zoom" | "flip";
   /** Top or bottom of the video for the over-video caption. Default "bottom". */
   anchor?: "top" | "bottom";
+  /** Admin-set multiplier for the announcement text size (1 = normal). */
+  textScale?: number;
 }
 
 /**
@@ -127,12 +129,15 @@ export function TickerAnnouncementBand({
   text,
   imageUrl,
   heightScale = 1,
+  textScale = 1,
   fontCss,
   colorStyle = "white",
 }: {
   text?: string | null;
   imageUrl?: string | null;
   heightScale?: number;
+  /** Admin-set multiplier for the announcement text size (1 = normal). */
+  textScale?: number;
   fontCss?: string;
   colorStyle?: "white" | "logo" | "gold" | "navy";
 }) {
@@ -158,7 +163,7 @@ export function TickerAnnouncementBand({
         className="line-clamp-2 min-w-0 text-center font-extrabold uppercase leading-tight"
         style={{
           fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-          fontSize: `calc(clamp(1.4rem,3vh,2.6rem) * ${heightScale})`,
+          fontSize: `calc(clamp(1.4rem,3vh,2.6rem) * ${heightScale} * ${textScale})`,
           textShadow: colorStyle === "logo" ? "none" : "0 2px 4px rgba(0,0,0,0.35)",
           letterSpacing: "0.04em",
           ...announcementTextStyle(colorStyle),
@@ -193,6 +198,7 @@ export function MessageAreaAnnouncement({
   visible,
   animation = "slide",
   heightScale = 1,
+  textScale = 1,
   anchor = "bottom",
   fontCss,
   colorStyle = "white",
@@ -203,6 +209,8 @@ export function MessageAreaAnnouncement({
   visible: boolean;
   animation?: "none" | "slide" | "fade" | "zoom" | "flip";
   heightScale?: number;
+  /** Admin-set multiplier for the announcement text size (1 = normal). */
+  textScale?: number;
   /** Where the strip sits — bottom message area (default) or top of the video. */
   anchor?: "bottom" | "top";
   fontCss?: string;
@@ -280,6 +288,7 @@ export function MessageAreaAnnouncement({
               <TickerAnnouncementBand
                 text={message}
                 heightScale={heightScale}
+                textScale={textScale}
                 fontCss={fontCss}
                 colorStyle={colorStyle}
               />
@@ -289,6 +298,7 @@ export function MessageAreaAnnouncement({
           <TickerAnnouncementBand
             text={message}
             heightScale={heightScale}
+            textScale={textScale}
             fontCss={fontCss}
             colorStyle={colorStyle}
           />
@@ -310,6 +320,7 @@ export function AnnouncementBanner({
   colorStyle = "white",
   animation = "slide",
   anchor = "bottom",
+  textScale = 1,
 }: AnnouncementBannerProps) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -411,7 +422,7 @@ export function AnnouncementBanner({
                   className="font-extrabold uppercase leading-tight"
                   style={{
                     fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-                    fontSize: "clamp(1.2rem,2.8vw,3rem)",
+                    fontSize: `calc(clamp(1.2rem,2.8vw,3rem) * ${textScale})`,
                     textShadow: colorStyle === "logo" ? "none" : "0 2px 10px rgba(0,0,0,0.5)",
                     ...announcementTextStyle(colorStyle),
                   }}
@@ -462,7 +473,7 @@ export function AnnouncementBanner({
             className="shrink-0 px-[3vw] py-[2.2vh] text-center font-extrabold uppercase leading-tight text-white"
             style={{
               fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-              fontSize: hasMedia ? "clamp(1.1rem,2.4vw,2.6rem)" : "clamp(1.6rem,3.6vw,4rem)",
+              fontSize: `calc(${hasMedia ? "clamp(1.1rem,2.4vw,2.6rem)" : "clamp(1.6rem,3.6vw,4rem)"} * ${textScale})`,
               textShadow: colorStyle === "logo" ? "none" : "0 2px 10px rgba(0,0,0,0.55)",
               // Text-only gets its own readable band so it stands out over the video.
               background: hasMedia
@@ -525,7 +536,7 @@ export function AnnouncementBanner({
               // (gold / logo gradient) was explicitly chosen.
               color: "#0D2680",
               fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-              fontSize: video || image ? "clamp(1rem,1.9vw,2rem)" : "clamp(1.4rem,3vw,3.2rem)",
+              fontSize: `calc(${video || image ? "clamp(1rem,1.9vw,2rem)" : "clamp(1.4rem,3vw,3.2rem)"} * ${textScale})`,
               ...(colorStyle && colorStyle !== "white" ? announcementTextStyle(colorStyle) : {}),
             }}
           >

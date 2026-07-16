@@ -51,6 +51,10 @@ interface UnimoniRatesPanelProps {
   promoSlideLogoUrl?: string | null;
   /** Size multiplier for the promo-slide logo (1 = normal). */
   promoSlideLogoScale?: number;
+  /** Size multiplier for the promotion text messages (1 = normal). */
+  promoTextScale?: number;
+  /** Animated effect for the header logo (default none). */
+  headerLogoAnimation?: string;
   /** Show just the first header logo or both side by side on normal slides. */
   headerLogoDisplay?: "single" | "both";
   /** Header logo behaviour on the PROMO slide: keep / hide / show only the 2nd logo. */
@@ -138,6 +142,8 @@ export function UnimoniRatesPanel({
   headerLogoUrl2,
   promoSlideLogoUrl,
   promoSlideLogoScale = 1,
+  promoTextScale = 1,
+  headerLogoAnimation = "none",
   headerLogoDisplay = "single",
   promoLogoMode = "hide",
   replaceDefaultLogo = false,
@@ -373,6 +379,32 @@ export function UnimoniRatesPanel({
   const showCustomLogos = headerLogos !== null && headerLogos.length > 0;
   const showHeaderBar = !hidePromoHeader;
 
+  // Animation class for whichever logo shows in the header (default or custom).
+  const headerAnimClass =
+    headerLogoAnimation === "spin"
+      ? "ticker-logo-spin"
+      : headerLogoAnimation === "flip"
+        ? "ticker-logo-flipx"
+        : headerLogoAnimation === "bounce"
+          ? "ticker-logo-bounce"
+          : headerLogoAnimation === "float"
+            ? "ticker-logo-float"
+            : headerLogoAnimation === "swing"
+              ? "ticker-logo-swing"
+              : headerLogoAnimation === "pulse"
+                ? "ticker-logo-pulse"
+                : headerLogoAnimation === "wave"
+                  ? "logo-anim-wave"
+                  : headerLogoAnimation === "heartbeat"
+                    ? "logo-anim-heartbeat"
+                    : headerLogoAnimation === "tilt"
+                      ? "logo-anim-tilt"
+                      : headerLogoAnimation === "shine"
+                        ? "logo-anim-shine"
+                        : headerLogoAnimation === "drift"
+                          ? "logo-anim-drift"
+                          : "";
+
   const asideStyle = {
     background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
     fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
@@ -401,7 +433,7 @@ export function UnimoniRatesPanel({
                   key={`${src}-${i}`}
                   src={src}
                   alt="Brand logo"
-                  className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
+                  className={`h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
                   // Manual size control applies on the promo slide only.
                   style={
                     isPromoSheet && promoSlideLogoScale !== 1
@@ -416,7 +448,7 @@ export function UnimoniRatesPanel({
               variant="onDark"
               width={280}
               height={72}
-              className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain"
+              className={`h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
               priority
             />
           ) : null}
@@ -470,7 +502,7 @@ export function UnimoniRatesPanel({
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-                  fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  fontSize: `calc(${activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)"} * ${promoTextScale})`,
                 }}
               >
                 {promoTop}
@@ -524,7 +556,7 @@ export function UnimoniRatesPanel({
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
-                  fontSize: activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                  fontSize: `calc(${activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)"} * ${promoTextScale})`,
                 }}
               >
                 {promoMessage}

@@ -42,6 +42,8 @@ interface TimedRatesPanelProps {
   headerLogoUrl2: string | null;
   promoSlideLogoUrl: string | null;
   promoSlideLogoScale: number;
+  promoTextScale: number;
+  headerLogoAnimation: string;
   headerLogoDisplay: "single" | "both";
   promoLogoMode: "keep" | "hide" | "second";
   replaceDefaultLogo: boolean;
@@ -77,6 +79,8 @@ function TimedRatesPanel({
   headerLogoUrl2,
   promoSlideLogoUrl,
   promoSlideLogoScale,
+  promoTextScale,
+  headerLogoAnimation,
   headerLogoDisplay,
   promoLogoMode,
   replaceDefaultLogo,
@@ -124,6 +128,8 @@ function TimedRatesPanel({
       headerLogoUrl2={headerLogoUrl2}
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
+      promoTextScale={promoTextScale}
+      headerLogoAnimation={headerLogoAnimation}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
       replaceDefaultLogo={replaceDefaultLogo}
@@ -216,6 +222,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
   const promoSlideLogoUrl = branchSettings.promoSlideLogoUrl?.trim() || null;
   const promoSlideLogoScale = branchSettings.promoSlideLogoScale ?? 1;
+  const ratePromoTextScale = branchSettings.ratePromoTextScale ?? 1;
+  const announcementTextScale = branchSettings.announcementTextScale ?? 1;
+  const headerLogoAnimation = branchSettings.headerLogoAnimation ?? "none";
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
   // Promo slides always hide the rate-card header unless the admin explicitly
   // chose "second" — legacy Firestore "keep" values are treated as hide.
@@ -580,6 +589,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           colorStyle={announcementColorStyle}
           animation={announcementAnimation}
           anchor={announcementPosition}
+          textScale={announcementTextScale}
         />
       ) : null}
     </UnimoniPromoPanel>
@@ -604,6 +614,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       headerLogoUrl2={headerLogoUrl2}
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
+      promoTextScale={ratePromoTextScale}
+      headerLogoAnimation={headerLogoAnimation}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
       replaceDefaultLogo={replaceDefaultLogo}
@@ -700,6 +712,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           anchor={announcementStyle === "video-top" ? "top" : "bottom"}
           fontCss={announcementFontCss}
           colorStyle={announcementColorStyle}
+          textScale={announcementTextScale}
         />
       ) : null}
 
@@ -723,6 +736,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
             fontCss={announcementFontCss}
             colorStyle={announcementColorStyle}
             animation={announcementAnimation}
+            textScale={announcementTextScale}
           />
         </div>
       ) : null}

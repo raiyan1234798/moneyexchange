@@ -344,6 +344,23 @@
   .ticker-logo-float {
     animation: ticker-logo-float 3.6s ease-in-out infinite;
   }
+  .logo-anim-wave {
+    animation: logo-anim-wave 3s ease-in-out infinite;
+    transform-origin: 50% 100%;
+  }
+  .logo-anim-heartbeat {
+    animation: logo-anim-heartbeat 2.4s ease-in-out infinite;
+  }
+  .logo-anim-tilt {
+    animation: logo-anim-tilt 5s ease-in-out infinite;
+    transform-style: preserve-3d;
+  }
+  .logo-anim-shine {
+    animation: logo-anim-shine 3.4s ease-in-out infinite;
+  }
+  .logo-anim-drift {
+    animation: logo-anim-drift 6s ease-in-out infinite;
+  }
   .ticker-logo-swing {
     animation: ticker-logo-swing 3.2s ease-in-out infinite;
     transform-origin: top center;
@@ -460,6 +477,33 @@ video::-webkit-media-controls-fullscreen-button {
   50% { transform: translateY(-8%); }
 }
 
+@keyframes logo-anim-wave {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  25% { transform: rotate(-4deg) translateY(-3%); }
+  50% { transform: rotate(0deg) translateY(0); }
+  75% { transform: rotate(4deg) translateY(-3%); }
+}
+@keyframes logo-anim-heartbeat {
+  0%, 40%, 100% { transform: scale(1); }
+  10% { transform: scale(1.12); }
+  20% { transform: scale(1); }
+  30% { transform: scale(1.08); }
+}
+@keyframes logo-anim-tilt {
+  0%, 100% { transform: perspective(600px) rotateY(0deg); }
+  25% { transform: perspective(600px) rotateY(18deg); }
+  75% { transform: perspective(600px) rotateY(-18deg); }
+}
+@keyframes logo-anim-shine {
+  0%, 100% { filter: brightness(1) drop-shadow(0 0 0 rgba(255,255,255,0)); }
+  50% { filter: brightness(1.35) drop-shadow(0 0 14px rgba(255,255,255,0.55)); }
+}
+@keyframes logo-anim-drift {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  25% { transform: translateX(2.5%) translateY(-4%); }
+  50% { transform: translateX(0) translateY(-7%); }
+  75% { transform: translateX(-2.5%) translateY(-4%); }
+}
 @keyframes ticker-logo-swing {
   0%, 100% { transform: rotate(-7deg); }
   50% { transform: rotate(7deg); }
