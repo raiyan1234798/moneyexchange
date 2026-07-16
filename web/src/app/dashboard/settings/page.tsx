@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Upload } from "lucide-react";
+import { LayoutGrid, Megaphone, MonitorPlay, Palette, Upload } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -156,12 +156,14 @@ function SettingsCard({
   title,
   description,
   children,
+  id,
   variant = "default",
   span = "half",
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
+  id?: string;
   variant?: "default" | "primary" | "amber";
   /** half = one column in the 2-col grid; full = spans both columns */
   span?: "half" | "full";
@@ -174,25 +176,26 @@ function SettingsCard({
         : "border-border/45 bg-card/35";
   return (
     <section
+      id={id}
       className={cn(
-        "flex h-full flex-col rounded-2xl border p-4 sm:p-5",
+        "scroll-mt-24 flex h-full flex-col rounded-2xl border p-4 shadow-sm sm:p-5",
         shell,
-        span === "full" && "md:col-span-2",
+        span === "full" && "2xl:col-span-2",
       )}
     >
-      <header className="mb-3 shrink-0 border-b border-border/30 pb-2.5">
-        <h4 className="text-sm font-semibold tracking-tight">{title}</h4>
+      <header className="mb-4 shrink-0 border-b border-border/30 pb-3">
+        <h4 className="text-base font-semibold tracking-tight">{title}</h4>
         {description ? (
-          <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{description}</p>
+          <p className="mt-1 text-sm leading-snug text-muted-foreground">{description}</p>
         ) : null}
       </header>
-      <div className="min-h-0 flex-1 space-y-3">{children}</div>
+      <div className="min-h-0 flex-1 space-y-4">{children}</div>
     </section>
   );
 }
 
 function SettingsFieldGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-3 sm:grid-cols-2">{children}</div>;
+  return <div className="grid gap-4 xl:grid-cols-2">{children}</div>;
 }
 
 function SettingsSwitchRow({
@@ -248,6 +251,33 @@ function FontStyleSelect({
         </SelectContent>
       </Select>
     </div>
+  );
+}
+
+function SectionJumpLink({
+  href,
+  icon: Icon,
+  title,
+  description,
+}: {
+  href: string;
+  icon: typeof Palette;
+  title: string;
+  description: string;
+}) {
+  return (
+    <a
+      href={href}
+      className="group flex items-start gap-3 rounded-xl border border-border/35 bg-background/35 p-3 transition-colors hover:border-[var(--unimoni-blue)]/35 hover:bg-[var(--unimoni-blue)]/5"
+    >
+      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--unimoni-blue)]/10 text-[var(--unimoni-blue)]">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground">{description}</p>
+      </div>
+    </a>
   );
 }
 
@@ -338,13 +368,35 @@ function BranchSettingsForm({
 
   return (
     <div className="space-y-4">
-      <div className="grid items-start gap-4 md:grid-cols-2">
+      <div className="rounded-2xl border border-border/45 bg-card/30 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 border-b border-border/30 pb-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h3 className="text-lg font-semibold tracking-tight">Branch display settings</h3>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Configure what customers see on the TV. Sections are grouped below so logos, ticker, rate card,
+              promotions, and announcements are easier to find.
+            </p>
+          </div>
+          <div className="rounded-xl border border-[var(--unimoni-blue)]/20 bg-[var(--unimoni-blue)]/5 px-3 py-2 text-xs text-muted-foreground">
+            Save after making changes to update the display.
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <SectionJumpLink href="#section-branding" icon={Palette} title="Branding" description="Logos, colours, and badge branding" />
+          <SectionJumpLink href="#section-rate-card" icon={LayoutGrid} title="Rate card" description="Position, timing, promotion, and sizing" />
+          <SectionJumpLink href="#section-ticker" icon={MonitorPlay} title="Ticker" description="Bottom bar text, logos, and headline" />
+          <SectionJumpLink href="#section-announcements" icon={Megaphone} title="Announcements" description="Pop-up content, timing, and style" />
+        </div>
+      </div>
+
+      <div className="grid items-start gap-5 2xl:grid-cols-2">
       <SettingsCard
+        id="section-branding"
         span="half"
         title="Brand & colours"
         description={`Logo URL and accent colour for ${branchName}. Used on the dashboard and as fallbacks on the TV.`}
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-2">
             <Label>Logo URL</Label>
             <Input
@@ -379,7 +431,7 @@ function BranchSettingsForm({
         description="Upload logos for the rate-card header and main video area. Click or drag a file into each box, then Save Branch Settings at the bottom."
         variant="primary"
       >
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-3">
           <LogoUploadField
             label="Primary logo (rate card header)"
             hint="Main brand logo on the rate-card header. Enable Replace Unimoni below to swap out the default."
@@ -402,7 +454,7 @@ function BranchSettingsForm({
             onClear={() => setSettings({ ...settings, promoPanelLogoUrl: null })}
           />
         </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-2">
             <Label>Rate-card &amp; promo logo size (%)</Label>
             <Input
@@ -517,6 +569,7 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        id="section-ticker"
         span="half"
         title="Ticker badge & scrolling logos"
         description="Bottom-left pop-out logo on the ticker bar, plus optional logos that scroll with the message."
@@ -625,7 +678,7 @@ function BranchSettingsForm({
         title="Scrolling message bar"
         description="Bottom ticker speed, colour, and the yellow headline box above it. Edit the scrolling text on the Tickers page."
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-2">
             <Label>Scrolling speed (seconds)</Label>
             <Input
@@ -666,11 +719,12 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        id="section-rate-card"
         span="half"
         title="Rate card — layout & timing"
         description="Where the rate card sits on screen, how long it shows, and how fast each slide rotates."
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-2">
             <Label>Rate card position</Label>
             <Select
@@ -956,11 +1010,12 @@ function BranchSettingsForm({
               </Button>
             </div>
             {promoMediaList.length ? (
-              <div className="flex flex-wrap gap-3 pt-1">
+              <div className="grid gap-3 pt-1 sm:grid-cols-2 xl:grid-cols-3">
                 {promoMediaList.map((m, i) => (
-                  <div key={`${m.url}-${i}`} className="relative flex flex-col items-center gap-1">
+                  <div key={`${m.url}-${i}`} className="relative flex rounded-xl border border-border/35 bg-background/40 p-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
                     {m.type === "video" ? (
-                      <div className="flex h-14 w-20 items-center justify-center rounded-md bg-slate-800 text-[10px] font-semibold text-white ring-1 ring-border">
+                      <div className="flex h-14 w-20 shrink-0 items-center justify-center rounded-md bg-slate-800 text-[10px] font-semibold text-white ring-1 ring-border">
                         🎬 Video
                       </div>
                     ) : (
@@ -968,9 +1023,33 @@ function BranchSettingsForm({
                       <img
                         src={m.url}
                         alt="Promotion item"
-                        className="h-14 w-20 rounded-md bg-white object-contain p-1 ring-1 ring-border"
+                        className="h-14 w-20 shrink-0 rounded-md bg-white object-contain p-1 ring-1 ring-border"
                       />
                     )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{m.type === "video" ? `Video ${i + 1}` : `Image ${i + 1}`}</p>
+                      <p className="truncate text-xs text-muted-foreground">{m.url}</p>
+                      <div className="mt-2 flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => movePromoMedia(i, -1)}
+                          disabled={i === 0}
+                          aria-label="Move earlier in the rotation"
+                          className="flex h-7 w-8 items-center justify-center rounded border border-border text-xs font-bold disabled:opacity-30"
+                        >
+                          ‹
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => movePromoMedia(i, 1)}
+                          disabled={i === promoMediaList.length - 1}
+                          aria-label="Move later in the rotation"
+                          className="flex h-7 w-8 items-center justify-center rounded border border-border text-xs font-bold disabled:opacity-30"
+                        >
+                          ›
+                        </button>
+                      </div>
+                    </div>
                     {/* Order badge: shows the rotation position (1 = first). */}
                     <span className="absolute -left-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground shadow">
                       {i + 1}
@@ -983,26 +1062,6 @@ function BranchSettingsForm({
                     >
                       ×
                     </button>
-                    {/* Reorder controls: move earlier / later in the rotation. */}
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => movePromoMedia(i, -1)}
-                        disabled={i === 0}
-                        aria-label="Move earlier in the rotation"
-                        className="flex h-5 w-6 items-center justify-center rounded border border-border text-xs font-bold disabled:opacity-30"
-                      >
-                        ‹
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => movePromoMedia(i, 1)}
-                        disabled={i === promoMediaList.length - 1}
-                        aria-label="Move later in the rotation"
-                        className="flex h-5 w-6 items-center justify-center rounded border border-border text-xs font-bold disabled:opacity-30"
-                      >
-                        ›
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -1080,6 +1139,7 @@ function BranchSettingsForm({
       </SettingsCard>
 
       <SettingsCard
+        id="section-announcements"
         span="half"
         title="Announcement — content"
         description="Text, image or video for the timed pop-up. Leave empty to turn off."
@@ -1558,13 +1618,21 @@ function BranchSettingsForm({
       </SettingsCard>
       </div>
 
-      <div className="sticky bottom-0 z-10 border-t border-border/40 bg-background/95 py-4 backdrop-blur-sm">
+      <div className="sticky bottom-0 z-10 rounded-2xl border border-border/45 bg-background/95 px-4 py-4 shadow-lg backdrop-blur-sm">
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogTrigger
           render={
-            <Button disabled={saving} className="rounded-xl">
-              {saving ? "Saving..." : "Save Branch Settings"}
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Ready to apply changes?</p>
+                <p className="text-xs text-muted-foreground">
+                  The live TV updates immediately after you confirm save.
+                </p>
+              </div>
+              <Button disabled={saving} className="rounded-xl sm:min-w-[12rem]">
+                {saving ? "Saving..." : "Save Branch Settings"}
+              </Button>
+            </div>
           }
         />
         <AlertDialogContent className="rounded-2xl">
@@ -1850,7 +1918,7 @@ export default function SettingsPage() {
           ) : null}
 
           {effectiveBranchId && branch ? (
-            <div className="space-y-6">
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start">
               <BranchSettingsForm
                 key={branch.id}
                 branchId={branch.id}
@@ -1861,18 +1929,25 @@ export default function SettingsPage() {
                 saving={saving}
                 onSave={saveBranchSettings}
               />
-              <div className="rounded-xl border border-border/60 bg-card/30 p-4">
-                <Label>Live TV preview — {branch.name}</Label>
-                <div className="mt-2 overflow-hidden rounded-xl border border-border/60 shadow-lg">
-                  <iframe
-                    src={`/display/?branch=${encodeURIComponent(branch.code)}`}
-                    title={`Live display preview for ${branch.name}`}
-                    className="aspect-video w-full border-0"
-                  />
+              <div className="xl:sticky xl:top-24">
+                <div className="rounded-2xl border border-border/60 bg-card/30 p-4 shadow-sm">
+                  <div className="border-b border-border/30 pb-3">
+                    <Label>Live TV preview — {branch.name}</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Use this panel to check your layout while editing settings.
+                    </p>
+                  </div>
+                  <div className="mt-4 overflow-hidden rounded-xl border border-border/60 shadow-lg">
+                    <iframe
+                      src={`/display/?branch=${encodeURIComponent(branch.code)}`}
+                      title={`Live display preview for ${branch.name}`}
+                      className="aspect-video w-full border-0"
+                    />
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    Saved changes appear here within seconds after you confirm Save.
+                  </p>
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Saved changes appear here within seconds after you confirm Save.
-                </p>
               </div>
             </div>
           ) : (
