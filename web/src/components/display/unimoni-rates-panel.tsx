@@ -389,7 +389,7 @@ export function UnimoniRatesPanel({
       {/* Header: logo + date/time. Hidden entirely on promo slides when logos are hidden
           so the promotion can fill the full panel. */}
       {showHeaderBar ? (
-      <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.1vh]">
+      <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.5vh]">
         <div className="min-w-0 flex-1" aria-hidden />
         <div className="flex min-w-0 shrink flex-col items-center justify-center">
           {headerLogos === null ? null : showCustomLogos ? (
@@ -400,16 +400,16 @@ export function UnimoniRatesPanel({
                   key={`${src}-${i}`}
                   src={src}
                   alt="Brand logo"
-                  className="h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain"
+                  className="h-[clamp(2.75rem,6.5vh,5.5rem)] w-auto max-w-full object-contain"
                 />
               ))}
             </div>
           ) : showDefaultLogo ? (
             <UnimoniLogoImage
               variant="onDark"
-              width={280}
-              height={72}
-              className="h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain"
+              width={360}
+              height={92}
+              className="h-[clamp(2.75rem,6.5vh,5.5rem)] w-auto max-w-full object-contain"
               priority
             />
           ) : null}

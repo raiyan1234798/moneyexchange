@@ -48,13 +48,13 @@ function GlassLogoBadge({ logoUrl }: { logoUrl?: string | null }) {
         <img
           src={logoUrl}
           alt="Brand logo"
-          className="h-[clamp(2rem,4.5vh,3.5rem)] w-auto max-w-[min(18vw,14rem)] object-contain"
+          className="h-[clamp(2.75rem,6vh,5rem)] w-auto max-w-[min(22vw,18rem)] object-contain"
         />
       ) : (
         <UnimoniLogoImage
           variant="onDark"
-          height={56}
-          className="h-[clamp(2rem,4.5vh,3.5rem)] w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+          height={80}
+          className="h-[clamp(2.75rem,6vh,5rem)] w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
           priority
         />
       )}

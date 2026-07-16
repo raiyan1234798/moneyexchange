@@ -107,7 +107,7 @@ function BreakingNewsTickerInner({
   // logos (the real wordmark) sit on a horizontal white card. The scrolling
   // strip and headline tab shift right to clear the badge; the whole badge and
   // the inset scale together with logoScale.
-  const baseBadgeWidth = isTextLogo ? "clamp(8rem,19vw,15rem)" : "clamp(8.5rem,18vw,13rem)";
+  const baseBadgeWidth = isTextLogo ? "clamp(9.5rem,21vw,17rem)" : "clamp(10rem,20vw,15.5rem)";
   const badgeWidth = `calc(${baseBadgeWidth} * ${logoScale})`;
   const textLen = resolvedText?.length ?? 0;
   const textLogoSize =
@@ -197,7 +197,7 @@ function BreakingNewsTickerInner({
             alt={`${BRAND.name} logo`}
             width={260}
             height={84}
-            className={`h-[80%] w-[90%] object-contain drop-shadow-sm ${logoAnimClass}`}
+            className={`h-[88%] w-[94%] object-contain drop-shadow-sm ${logoAnimClass}`}
             unoptimized
             priority
             onError={() => setLogoFailed(true)}
