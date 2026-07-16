@@ -45,6 +45,7 @@ interface TimedRatesPanelProps {
   promoTextScale: number;
   promoFontCss?: string;
   headerLogoAnimation: string;
+  promoSlideLogoAnimation: string | null;
   headerLogoDisplay: "single" | "both";
   promoLogoMode: "keep" | "hide" | "second";
   replaceDefaultLogo: boolean;
@@ -83,6 +84,7 @@ function TimedRatesPanel({
   promoTextScale,
   promoFontCss,
   headerLogoAnimation,
+  promoSlideLogoAnimation,
   headerLogoDisplay,
   promoLogoMode,
   replaceDefaultLogo,
@@ -133,6 +135,7 @@ function TimedRatesPanel({
       promoTextScale={promoTextScale}
       promoFontCss={promoFontCss}
       headerLogoAnimation={headerLogoAnimation}
+      promoSlideLogoAnimation={promoSlideLogoAnimation}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
       replaceDefaultLogo={replaceDefaultLogo}
@@ -228,6 +231,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const ratePromoTextScale = branchSettings.ratePromoTextScale ?? 1;
   const announcementTextScale = branchSettings.announcementTextScale ?? 1;
   const headerLogoAnimation = branchSettings.headerLogoAnimation ?? "none";
+  const promoSlideLogoAnimation = branchSettings.promoSlideLogoAnimation ?? null;
   // Promo message font: its own choice, else the (master-aware) card font.
   const ratePromoFontCss = branchSettings.ratePromoFont
     ? messageFontCss(branchSettings.ratePromoFont)
@@ -624,6 +628,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoTextScale={ratePromoTextScale}
       promoFontCss={ratePromoFontCss}
       headerLogoAnimation={headerLogoAnimation}
+      promoSlideLogoAnimation={promoSlideLogoAnimation}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
       replaceDefaultLogo={replaceDefaultLogo}

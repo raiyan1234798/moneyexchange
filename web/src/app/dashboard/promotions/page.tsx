@@ -541,6 +541,34 @@ export default function PromotionsPage() {
                   </p>
                 </div>
                 <div className="space-y-2">
+                  <Label>Promotion-slide logo animation</Label>
+                  <Select
+                    value={s.promoSlideLogoAnimation ?? "__inherit"}
+                    onValueChange={(value) =>
+                      set({ promoSlideLogoAnimation: value === "__inherit" ? null : value })
+                    }
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                <SelectItem value="__inherit">Same as rate-card logo animation (default)</SelectItem>
+                <SelectItem value="none">No animation</SelectItem>
+                <SelectItem value="wave">Wave — gentle rocking</SelectItem>
+                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
+                <SelectItem value="flip">Flip (X)</SelectItem>
+                <SelectItem value="tilt">3D tilt</SelectItem>
+                <SelectItem value="bounce">Bounce</SelectItem>
+                <SelectItem value="float">Float</SelectItem>
+                <SelectItem value="drift">Drift — slow figure-8</SelectItem>
+                <SelectItem value="swing">Swing</SelectItem>
+                <SelectItem value="pulse">Gentle pulse</SelectItem>
+                <SelectItem value="heartbeat">Heartbeat</SelectItem>
+                <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
                   <Label>Promotion message font</Label>
                   <Select
                     value={s.ratePromoFont ?? "__master"}

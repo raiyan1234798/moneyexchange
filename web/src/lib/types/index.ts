@@ -143,6 +143,8 @@ export interface BranchSettings {
   promoSlideLogoUrl?: string | null;
   /** Size multiplier for the promo-slide logo (1 = normal). */
   promoSlideLogoScale?: number;
+  /** Animation for the promo-slide logo — null follows headerLogoAnimation. */
+  promoSlideLogoAnimation?: string | null;
   /** Size multiplier for the promotion slide's text messages (1 = normal). */
   ratePromoTextScale?: number;
   /** Font for the promotion slide's text messages — null = the display font. */

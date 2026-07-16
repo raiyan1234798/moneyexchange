@@ -57,6 +57,8 @@ interface UnimoniRatesPanelProps {
   promoFontCss?: string;
   /** Animated effect for the header logo (default none). */
   headerLogoAnimation?: string;
+  /** Animation for the promo-slide logo — undefined/null follows headerLogoAnimation. */
+  promoSlideLogoAnimation?: string | null;
   /** Show just the first header logo or both side by side on normal slides. */
   headerLogoDisplay?: "single" | "both";
   /** Header logo behaviour on the PROMO slide: keep / hide / show only the 2nd logo. */
@@ -147,6 +149,7 @@ export function UnimoniRatesPanel({
   promoTextScale = 1,
   promoFontCss,
   headerLogoAnimation = "none",
+  promoSlideLogoAnimation = null,
   headerLogoDisplay = "single",
   promoLogoMode = "hide",
   replaceDefaultLogo = false,
@@ -383,30 +386,34 @@ export function UnimoniRatesPanel({
   const showHeaderBar = !hidePromoHeader;
 
   // Animation class for whichever logo shows in the header (default or custom).
-  const headerAnimClass =
-    headerLogoAnimation === "spin"
+  const animClassFor = (name: string): string =>
+    name === "spin"
       ? "ticker-logo-spin"
-      : headerLogoAnimation === "flip"
+      : name === "flip"
         ? "ticker-logo-flipx"
-        : headerLogoAnimation === "bounce"
+        : name === "bounce"
           ? "ticker-logo-bounce"
-          : headerLogoAnimation === "float"
+          : name === "float"
             ? "ticker-logo-float"
-            : headerLogoAnimation === "swing"
+            : name === "swing"
               ? "ticker-logo-swing"
-              : headerLogoAnimation === "pulse"
+              : name === "pulse"
                 ? "ticker-logo-pulse"
-                : headerLogoAnimation === "wave"
+                : name === "wave"
                   ? "logo-anim-wave"
-                  : headerLogoAnimation === "heartbeat"
+                  : name === "heartbeat"
                     ? "logo-anim-heartbeat"
-                    : headerLogoAnimation === "tilt"
+                    : name === "tilt"
                       ? "logo-anim-tilt"
-                      : headerLogoAnimation === "shine"
+                      : name === "shine"
                         ? "logo-anim-shine"
-                        : headerLogoAnimation === "drift"
+                        : name === "drift"
                           ? "logo-anim-drift"
                           : "";
+  // The promo slide can carry its OWN animation; unset follows the rate-card one.
+  const headerAnimClass = isPromoSheet
+    ? animClassFor(promoSlideLogoAnimation ?? headerLogoAnimation)
+    : animClassFor(headerLogoAnimation);
 
   const asideStyle = {
     background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,

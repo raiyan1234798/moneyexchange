@@ -92,6 +92,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoSoundOn: null as boolean | null,
   promoSlideLogoUrl: null as string | null,
   promoSlideLogoScale: 1,
+  promoSlideLogoAnimation: null as string | null,
   ratePromoTextScale: 1,
   ratePromoFont: null as string | null,
   headerLogoAnimation: "none" as
