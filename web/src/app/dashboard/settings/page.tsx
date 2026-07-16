@@ -1429,6 +1429,21 @@ function BranchSettingsForm({
             </Select>
           </div>
           <div className="space-y-2">
+            <Label>Rate card — overall size (%)</Label>
+            <Input
+              type="number"
+              min={70}
+              max={150}
+              step={5}
+              value={Math.round((settings.rateCardScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({ ...settings, rateCardScale: Number(event.target.value) / 100 })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">Scales the whole rate-card table (header + rows).</p>
+          </div>
+          <div className="space-y-2">
             <Label>Rate card — currency size (%)</Label>
             <Input
               type="number"
