@@ -89,6 +89,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateCardOrder: ["forex", "transfer", "promo"] as Array<"forex" | "transfer" | "promo">,
   ratePromoImageUrl: null as string | null,
   ratePromoMedia: [] as Array<{ type: "image" | "video"; url: string }>,
+  ratePromoSoundOn: null as boolean | null,
+  promoSlideLogoUrl: null as string | null,
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,

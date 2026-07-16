@@ -47,6 +47,8 @@ interface UnimoniRatesPanelProps {
   headerLogoUrl?: string | null;
   /** Optional second header logo (co-brand). */
   headerLogoUrl2?: string | null;
+  /** Dedicated logo for the PROMOTION slide's logo bar (different logo during promo). */
+  promoSlideLogoUrl?: string | null;
   /** Show just the first header logo or both side by side on normal slides. */
   headerLogoDisplay?: "single" | "both";
   /** Header logo behaviour on the PROMO slide: keep / hide / show only the 2nd logo. */
@@ -132,6 +134,7 @@ export function UnimoniRatesPanel({
   widthPercent,
   headerLogoUrl,
   headerLogoUrl2,
+  promoSlideLogoUrl,
   headerLogoDisplay = "single",
   promoLogoMode = "hide",
   replaceDefaultLogo = false,
@@ -337,8 +340,10 @@ export function UnimoniRatesPanel({
       if (hidePromoHeader) return null;
       if (promoLogoMode === "second") {
         // Logo bar ENABLED for the promo slide: always show something — the
-        // alternate logo, else the primary, else the default unimoni logo
-        // (an empty navy band must never appear).
+        // dedicated promo-slide logo first, then the alternate, then the
+        // primary, else the default unimoni logo (never an empty navy band).
+        const promoLogo = promoSlideLogoUrl?.trim();
+        if (promoLogo) return [promoLogo];
         if (customLogo2) return [customLogo2];
         if (customLogo1) return [customLogo1];
         return [];

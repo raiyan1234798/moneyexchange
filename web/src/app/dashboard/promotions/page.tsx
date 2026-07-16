@@ -21,7 +21,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
 import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
-import { ADVERT_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
 import type { BranchSettings } from "@/lib/types";
@@ -405,6 +405,92 @@ export default function PromotionsPage() {
                     onChange={(e) => set({ ratePromoDurationSeconds: Number(e.target.value) })}
                     className="rounded-xl sm:max-w-[200px]"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Promotion video sound (rate card)</Label>
+                  <Select
+                    value={s.ratePromoSoundOn == null ? "inherit" : s.ratePromoSoundOn ? "on" : "off"}
+                    onValueChange={(value) =>
+                      set({ ratePromoSoundOn: value === "inherit" ? null : value === "on" })
+                    }
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inherit">Same as “Play video sound” (default)</SelectItem>
+                      <SelectItem value="on">Sound ON for promotion videos</SelectItem>
+                      <SelectItem value="off">Always muted</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Audio for videos on the promotion slide. Browsers keep sound off until the
+                    screen has been tapped or made fullscreen once.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Logo on the promotion slide</Label>
+                  <Select
+                    value={s.promoLogoMode === "second" ? "second" : "hide"}
+                    onValueChange={(value) =>
+                      set({ promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide" })
+                    }
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hide">No logo — the promotion fills the whole card (default)</SelectItem>
+                      <SelectItem value="second">
+                        Show a logo bar (promo logo below → alternate → main → unimoni)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Promotion-slide logo (optional — a DIFFERENT logo during the promo)</Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+                      aria-label="Upload promotion-slide logo"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        try {
+                          const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                          set({ promoSlideLogoUrl: dataUrl });
+                          toast.success("Promotion-slide logo ready — Save to apply");
+                        } catch (err) {
+                          toast.error(err instanceof Error ? err.message : "Could not read image");
+                        }
+                      }}
+                      className="rounded-xl"
+                    />
+                    {s.promoSlideLogoUrl ? (
+                      <div className="flex shrink-0 items-center gap-2">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={s.promoSlideLogoUrl}
+                          alt="Promotion-slide logo preview"
+                          className="h-9 w-16 shrink-0 rounded-md bg-[#0D2680] object-contain p-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => set({ promoSlideLogoUrl: null })}
+                        >
+                          Clear
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Shown in the logo bar only while the promotion plays. Falls back to the
+                    alternate/main logo when empty.
+                  </p>
                 </div>
               </div>
             </ContentPanel>

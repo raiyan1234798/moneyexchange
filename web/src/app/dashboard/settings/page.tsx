@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -34,7 +35,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
@@ -94,6 +94,7 @@ function BranchSettingsForm({
   initialColor,
   initialSettings,
   saving,
+  saveSlot,
   onSave,
 }: {
   branchId: string;
@@ -102,6 +103,8 @@ function BranchSettingsForm({
   initialColor: string;
   initialSettings: BranchSettings;
   saving: boolean;
+  /** Element under the live TV preview that hosts the save bar on xl screens. */
+  saveSlot?: HTMLElement | null;
   onSave: (data: { logoUrl: string; brandingColor: string; settings: BranchSettings }) => Promise<void>;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
@@ -381,29 +384,6 @@ function BranchSettingsForm({
             <SelectContent>
               <SelectItem value="single">First logo only</SelectItem>
               <SelectItem value="both">Both logos side by side</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>Logo on the promotion slide</Label>
-          <p className="text-xs text-muted-foreground">
-            The rate-card header (logos + clock) is hidden on the promo slide by default so the
-            image fills the panel. Choose &quot;Show alternate logo&quot; to keep a slim logo bar.
-          </p>
-          <Select
-            value={settings.promoLogoMode === "second" ? "second" : "hide"}
-            onValueChange={(value) =>
-              setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide" })
-            }
-          >
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hide">No logo — the promotion fills the whole card (default)</SelectItem>
-              <SelectItem value="second">
-                Show a logo bar (alternate logo if uploaded, otherwise the main logo)
-              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -958,6 +938,106 @@ function BranchSettingsForm({
               className="rounded-xl"
             />
           </div>
+          <div className="space-y-2">
+            <Label>Promotion video sound (rate card)</Label>
+            <Select
+              value={
+                settings.ratePromoSoundOn == null
+                  ? "inherit"
+                  : settings.ratePromoSoundOn
+                    ? "on"
+                    : "off"
+              }
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  ratePromoSoundOn: value === "inherit" ? null : value === "on",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">Same as “Play video sound” (default)</SelectItem>
+                <SelectItem value="on">Sound ON for promotion videos</SelectItem>
+                <SelectItem value="off">Always muted</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Audio for videos playing on the promotion slide of the rate card. Browsers keep
+              sound off until the screen has been tapped or made fullscreen once — then it plays
+              automatically.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Logo on the promotion slide</Label>
+            <p className="text-xs text-muted-foreground">
+              The rate-card header (logos + clock) is hidden on the promo slide by default so the
+              media fills the panel. Turn the logo bar on to keep a logo visible during the promo.
+            </p>
+            <Select
+              value={settings.promoLogoMode === "second" ? "second" : "hide"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="hide">No logo — the promotion fills the whole card (default)</SelectItem>
+                <SelectItem value="second">
+                  Show a logo bar (promo logo below → alternate → main → unimoni)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Promotion-slide logo (optional — a DIFFERENT logo during the promo)</Label>
+            <p className="text-xs text-muted-foreground">
+              Shown in the logo bar only while the promotion image/video plays — so the promo can
+              carry its own branding. Leave empty to fall back to the alternate/main logo.
+            </p>
+            <div className="flex items-center gap-3">
+              <Input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+                aria-label="Upload promotion-slide logo"
+                onChange={async (event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                    setSettings({ ...settings, promoSlideLogoUrl: dataUrl });
+                    toast.success("Promotion-slide logo ready — click Save Branch Settings to apply");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Could not read image");
+                  }
+                }}
+                className="rounded-xl"
+              />
+              {settings.promoSlideLogoUrl ? (
+                <div className="flex shrink-0 items-center gap-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={settings.promoSlideLogoUrl}
+                    alt="Promotion-slide logo preview"
+                    className="h-9 w-16 shrink-0 rounded-md bg-[#0D2680] object-contain p-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg"
+                    onClick={() => setSettings({ ...settings, promoSlideLogoUrl: null })}
+                  >
+                    Clear
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          </div>
         </div>
       </SettingsGroup>
 
@@ -1480,19 +1560,36 @@ function BranchSettingsForm({
         </div>
       </SettingsGroup>
 
-      {/* Sticky save bar — always in reach, no matter how far you scroll. */}
-      <div className="sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg backdrop-blur">
+      {/* Save bar: on large screens it lives in the RIGHT column, right below
+          the live TV preview (via portal); smaller screens keep a sticky
+          bottom bar so Save is always in reach. */}
+      {saveSlot
+        ? createPortal(
+            <div className="space-y-2 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg">
+              <p className="text-xs text-muted-foreground">
+                Changes go live on the <strong>{branchName}</strong> TV only after you save.
+              </p>
+              <Button
+                disabled={saving}
+                className="w-full rounded-xl"
+                onClick={() => setConfirmOpen(true)}
+              >
+                {saving ? "Saving..." : "Save Branch Settings"}
+              </Button>
+            </div>,
+            saveSlot,
+          )
+        : null}
+      <div
+        className={`${saveSlot ? "xl:hidden " : ""}sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg backdrop-blur`}
+      >
         <p className="text-xs text-muted-foreground">
           Changes go live on the <strong>{branchName}</strong> TV only after you save.
         </p>
+        <Button disabled={saving} className="rounded-xl" onClick={() => setConfirmOpen(true)}>
+          {saving ? "Saving..." : "Save Branch Settings"}
+        </Button>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogTrigger
-          render={
-            <Button disabled={saving} className="rounded-xl">
-              {saving ? "Saving..." : "Save Branch Settings"}
-            </Button>
-          }
-        />
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Apply these display changes?</AlertDialogTitle>
@@ -1534,6 +1631,8 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [globalLoading, setGlobalLoading] = useState(isSuperAdmin);
   const [saving, setSaving] = useState(false);
+  // Slot under the live TV preview that hosts the form's save bar (xl screens).
+  const [saveSlot, setSaveSlot] = useState<HTMLElement | null>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
@@ -1789,6 +1888,7 @@ export default function SettingsPage() {
                 initialColor={branch.brandingColor ?? "#0066B3"}
                 initialSettings={branch.settings}
                 saving={saving}
+                saveSlot={saveSlot}
                 onSave={saveBranchSettings}
               />
               <div className="hidden xl:block">
@@ -1804,6 +1904,7 @@ export default function SettingsPage() {
                   <p className="text-xs text-muted-foreground">
                     This is the real branch display, live. Saved changes appear here within seconds.
                   </p>
+                  <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
                 </div>
               </div>
             </div>

@@ -40,6 +40,7 @@ interface TimedRatesPanelProps {
   widthPercent: number;
   headerLogoUrl: string | null;
   headerLogoUrl2: string | null;
+  promoSlideLogoUrl: string | null;
   headerLogoDisplay: "single" | "both";
   promoLogoMode: "keep" | "hide" | "second";
   replaceDefaultLogo: boolean;
@@ -73,6 +74,7 @@ function TimedRatesPanel({
   widthPercent,
   headerLogoUrl,
   headerLogoUrl2,
+  promoSlideLogoUrl,
   headerLogoDisplay,
   promoLogoMode,
   replaceDefaultLogo,
@@ -118,6 +120,7 @@ function TimedRatesPanel({
       widthPercent={widthPercent}
       headerLogoUrl={headerLogoUrl}
       headerLogoUrl2={headerLogoUrl2}
+      promoSlideLogoUrl={promoSlideLogoUrl}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
       replaceDefaultLogo={replaceDefaultLogo}
@@ -208,6 +211,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
+  const promoSlideLogoUrl = branchSettings.promoSlideLogoUrl?.trim() || null;
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
   // Promo slides always hide the rate-card header unless the admin explicitly
   // chose "second" — legacy Firestore "keep" values are treated as hide.
@@ -305,6 +309,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     : ["forex", "transfer", "promo"]) as Array<"forex" | "transfer" | "promo">;
   const ratePromoImageUrl = branchSettings.ratePromoImageUrl?.trim() || null;
   const ratePromoMedia = (branchSettings.ratePromoMedia ?? []).filter((m) => m?.url?.trim());
+  // Promo-card video sound: its own option; unset falls back to the main
+  // "Play video sound" setting so existing branches keep their behaviour.
+  const ratePromoSoundOn =
+    branchSettings.ratePromoSoundOn ?? (branchSettings.videoSoundOn === true);
   const ratePromoText = branchSettings.ratePromoText?.trim() || null;
   const ratePromoTextTop = branchSettings.ratePromoTextTop?.trim() || null;
   const ratePromoDurationSeconds =
@@ -576,6 +584,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       widthPercent={rateWidthPercent}
       headerLogoUrl={headerLogoUrl}
       headerLogoUrl2={headerLogoUrl2}
+      promoSlideLogoUrl={promoSlideLogoUrl}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
       replaceDefaultLogo={replaceDefaultLogo}
@@ -591,7 +600,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoText={ratePromoText}
       promoDurationSeconds={ratePromoDurationSeconds}
       rateCardOrder={rateCardOrder}
-      videoSoundOn={videoSoundOn}
+      videoSoundOn={ratePromoSoundOn}
     />
   );
 

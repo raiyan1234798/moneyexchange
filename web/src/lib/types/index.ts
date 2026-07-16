@@ -134,6 +134,13 @@ export interface BranchSettings {
   ratePromoImageUrl?: string | null;
   /** Promotional GALLERY: several images/videos, each rotates as its own promo screen. */
   ratePromoMedia?: Array<{ type: "image" | "video"; url: string }>;
+  /** Sound for promo-card VIDEOS on the rate card. null/undefined = follow the
+      main "Play video sound" setting; true = sound on; false = always muted. */
+  ratePromoSoundOn?: boolean | null;
+  /** Dedicated logo for the PROMOTION slide's logo bar — lets a different logo
+      appear while the promo image/video runs. Falls back to alternate → main →
+      unimoni when empty. Only shown when promoLogoMode enables the logo bar. */
+  promoSlideLogoUrl?: string | null;
   /** Promotional card: text message ABOVE the image. */
   ratePromoTextTop?: string | null;
   /** Promotional card: text message below the image (shown alone or under the image). */
