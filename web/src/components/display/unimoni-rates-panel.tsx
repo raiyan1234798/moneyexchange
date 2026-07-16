@@ -53,6 +53,8 @@ interface UnimoniRatesPanelProps {
   promoSlideLogoScale?: number;
   /** Size multiplier for the promotion text messages (1 = normal). */
   promoTextScale?: number;
+  /** Font for the promotion text messages (falls back to the card font). */
+  promoFontCss?: string;
   /** Animated effect for the header logo (default none). */
   headerLogoAnimation?: string;
   /** Show just the first header logo or both side by side on normal slides. */
@@ -143,6 +145,7 @@ export function UnimoniRatesPanel({
   promoSlideLogoUrl,
   promoSlideLogoScale = 1,
   promoTextScale = 1,
+  promoFontCss,
   headerLogoAnimation = "none",
   headerLogoDisplay = "single",
   promoLogoMode = "hide",
@@ -501,7 +504,7 @@ export function UnimoniRatesPanel({
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
-                  fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
+                  fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: `calc(${activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)"} * ${promoTextScale})`,
                 }}
               >
@@ -555,7 +558,7 @@ export function UnimoniRatesPanel({
                 className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
-                  fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
+                  fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: `calc(${activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)"} * ${promoTextScale})`,
                 }}
               >

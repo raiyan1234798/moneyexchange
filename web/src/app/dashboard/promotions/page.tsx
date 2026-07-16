@@ -20,7 +20,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
-import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -539,6 +539,27 @@ export default function PromotionsPage() {
                   <p className="text-xs text-muted-foreground">
                     Make the logo on the promotion slide bigger or smaller (100% = normal).
                   </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Promotion message font</Label>
+                  <Select
+                    value={s.ratePromoFont ?? "__master"}
+                    onValueChange={(value) =>
+                      set({ ratePromoFont: value === "__master" ? null : value })
+                    }
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__master">Use display font (whole-screen font)</SelectItem>
+                      {MESSAGE_FONTS.map((f) => (
+                        <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                          {f.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion message size (%)</Label>

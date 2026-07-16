@@ -43,6 +43,7 @@ interface TimedRatesPanelProps {
   promoSlideLogoUrl: string | null;
   promoSlideLogoScale: number;
   promoTextScale: number;
+  promoFontCss?: string;
   headerLogoAnimation: string;
   headerLogoDisplay: "single" | "both";
   promoLogoMode: "keep" | "hide" | "second";
@@ -80,6 +81,7 @@ function TimedRatesPanel({
   promoSlideLogoUrl,
   promoSlideLogoScale,
   promoTextScale,
+  promoFontCss,
   headerLogoAnimation,
   headerLogoDisplay,
   promoLogoMode,
@@ -129,6 +131,7 @@ function TimedRatesPanel({
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
       promoTextScale={promoTextScale}
+      promoFontCss={promoFontCss}
       headerLogoAnimation={headerLogoAnimation}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}
@@ -225,6 +228,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const ratePromoTextScale = branchSettings.ratePromoTextScale ?? 1;
   const announcementTextScale = branchSettings.announcementTextScale ?? 1;
   const headerLogoAnimation = branchSettings.headerLogoAnimation ?? "none";
+  // Promo message font: its own choice, else the (master-aware) card font.
+  const ratePromoFontCss = branchSettings.ratePromoFont
+    ? messageFontCss(branchSettings.ratePromoFont)
+    : undefined;
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
   // Promo slides always hide the rate-card header unless the admin explicitly
   // chose "second" — legacy Firestore "keep" values are treated as hide.
@@ -615,6 +622,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
       promoTextScale={ratePromoTextScale}
+      promoFontCss={ratePromoFontCss}
       headerLogoAnimation={headerLogoAnimation}
       headerLogoDisplay={headerLogoDisplay}
       promoLogoMode={promoLogoMode}

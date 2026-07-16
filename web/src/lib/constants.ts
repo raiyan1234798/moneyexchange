@@ -93,6 +93,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   promoSlideLogoUrl: null as string | null,
   promoSlideLogoScale: 1,
   ratePromoTextScale: 1,
+  ratePromoFont: null as string | null,
   headerLogoAnimation: "none" as
     | "none" | "spin" | "flip" | "bounce" | "float" | "swing" | "pulse"
     | "wave" | "heartbeat" | "tilt" | "shine" | "drift",

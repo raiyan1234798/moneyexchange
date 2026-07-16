@@ -1096,6 +1096,30 @@ function BranchSettingsForm({
               Size of the messages above/below the promotion image (100% = normal).
             </p>
           </div>
+          <div className="space-y-2">
+            <Label>Promotion message font</Label>
+            <Select
+              value={settings.ratePromoFont ?? "__master"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, ratePromoFont: value === "__master" ? null : value })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__master">Use display font (whole-screen font)</SelectItem>
+                {MESSAGE_FONTS.map((f) => (
+                  <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              A font just for the promotion messages — overrides the whole-screen font here only.
+            </p>
+          </div>
         </div>
       </SettingsGroup>
 
