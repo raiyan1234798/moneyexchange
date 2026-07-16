@@ -479,38 +479,59 @@ export function UnimoniRatesPanel({
             ) : null}
             {activeSheet.promoMedia ? (
               <div
-                className={`relative flex min-h-0 w-full flex-1 items-center justify-center ${
-                  promoFullBleed ? "p-0" : "overflow-hidden rounded-md"
+                className={`relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden ${
+                  promoFullBleed ? "p-0" : "rounded-md"
                 }`}
                 style={{ backgroundColor: UNIMONI_COLORS.navy }}
               >
                 {activeSheet.promoMedia.type === "video" ? (
-                  <video
-                    key={activeSheet.promoMedia.url}
-                    src={activeSheet.promoMedia.url}
-                    autoPlay
-                    muted={!videoSoundOn}
-                    loop
-                    playsInline
-                    controls={false}
-                    disablePictureInPicture
-                    onCanPlay={(e) => {
-                      const v = e.currentTarget;
-                      v.muted = !videoSoundOn;
-                      void v.play().catch(() => {
-                        v.muted = true;
-                        void v.play().catch(() => {});
-                      });
-                    }}
-                    className="max-h-full max-w-full object-contain object-center"
-                  />
+                  <>
+                    <video
+                      key={`${activeSheet.promoMedia.url}-bg`}
+                      src={activeSheet.promoMedia.url}
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      aria-hidden
+                      className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
+                    />
+                    <video
+                      key={activeSheet.promoMedia.url}
+                      src={activeSheet.promoMedia.url}
+                      autoPlay
+                      muted={!videoSoundOn}
+                      loop
+                      playsInline
+                      controls={false}
+                      disablePictureInPicture
+                      onCanPlay={(e) => {
+                        const v = e.currentTarget;
+                        v.muted = !videoSoundOn;
+                        void v.play().catch(() => {
+                          v.muted = true;
+                          void v.play().catch(() => {});
+                        });
+                      }}
+                      className="relative z-10 max-h-full max-w-full object-contain object-center"
+                    />
+                  </>
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={activeSheet.promoMedia.url}
-                    alt="Promotion"
-                    className="max-h-full max-w-full object-contain object-center"
-                  />
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeSheet.promoMedia.url}
+                      alt=""
+                      aria-hidden
+                      className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
+                    />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeSheet.promoMedia.url}
+                      alt="Promotion"
+                      className="relative z-10 max-h-full max-w-full object-contain object-center"
+                    />
+                  </>
                 )}
               </div>
             ) : null}

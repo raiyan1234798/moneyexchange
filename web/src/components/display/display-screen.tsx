@@ -524,6 +524,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       fit={videoFit}
       widthPercent={effectivePromoWidth}
       soundOn={videoSoundOn}
+      overlayLogoUrl={headerLogoUrl}
+      contactLine={branch?.phone?.trim() || null}
       onMediaAspectChange={setMediaAspect}
       onVideoLoaded={() => {
         setVideoLoaded(true);

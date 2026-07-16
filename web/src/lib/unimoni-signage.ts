@@ -29,9 +29,12 @@ export const UNIMONI_COLORS = {
 } as const;
 
 export const UNIMONI_DEFAULT_TICKER = "WELCOME TO UNIMONI";
-export const UNIMONI_CONTACT_LINE = BRAND.tagline;
-export const UNIMONI_WEBSITE = "unimoni.com";
-export const UNIMONI_LOCATIONS = [BRAND.tagline] as const;
+export const UNIMONI_CONTACT_LINE = "Dial 0759207000/001/002 & 0772207001";
+export const UNIMONI_WEBSITE = "www.unimoni.com";
+export const UNIMONI_LOCATIONS = [
+  "Lugogo Mall | Amber House | Arua Park | Kisementi Arua Park",
+  "Redstone Plaza | X Plus Mall | Metroplex Mall",
+] as const;
 export const UNIMONI_USD_NOTE = "Rates update in real time from your branch dashboard";
 
 /** Max rows visible without scrolling on 1080p signage (landscape). */

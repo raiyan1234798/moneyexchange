@@ -2,7 +2,16 @@
 
 import { useState, type CSSProperties } from "react";
 import Image from "next/image";
-import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
+import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
+import {
+  UNIMONI_COLORS,
+  UNIMONI_CONTACT_LINE,
+  UNIMONI_LOCATIONS,
+  UNIMONI_WEBSITE,
+} from "@/lib/unimoni-signage";
+
+const BRANDING_TEXT_SHADOW =
+  "0 1px 2px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.75), 0 0 20px rgba(0,0,0,0.5)";
 
 interface UnimoniPromoPanelProps {
   videoUrl?: string | null;
@@ -15,6 +24,12 @@ interface UnimoniPromoPanelProps {
   widthPercent?: number;
   /** Play the branch video WITH sound (default muted). */
   soundOn?: boolean;
+  /** Custom logo for the glass branding overlay (top-left). Falls back to unimoni. */
+  overlayLogoUrl?: string | null;
+  /** Optional contact line override (defaults to branch signage line). */
+  contactLine?: string | null;
+  /** Show the frosted-glass branding overlay (logo, website, locations). */
+  showGlassBranding?: boolean;
   /** Reports the current media's aspect ratio (w/h) so "auto" can size the area to it. */
   onMediaAspectChange?: (aspect: number | null) => void;
   onVideoLoaded?: () => void;
@@ -25,6 +40,28 @@ interface UnimoniPromoPanelProps {
   children?: React.ReactNode;
 }
 
+function GlassLogoBadge({ logoUrl }: { logoUrl?: string | null }) {
+  return (
+    <div className="rounded-2xl border border-white/30 bg-white/15 px-[1.2vw] py-[1vh] shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+      {logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={logoUrl}
+          alt="Brand logo"
+          className="h-[clamp(2rem,4.5vh,3.5rem)] w-auto max-w-[min(18vw,14rem)] object-contain"
+        />
+      ) : (
+        <UnimoniLogoImage
+          variant="onDark"
+          height={56}
+          className="h-[clamp(2rem,4.5vh,3.5rem)] w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+          priority
+        />
+      )}
+    </div>
+  );
+}
+
 export function UnimoniPromoPanel({
   videoUrl,
   imageUrl,
@@ -33,6 +70,9 @@ export function UnimoniPromoPanel({
   fit = "stretch",
   widthPercent,
   soundOn = false,
+  overlayLogoUrl,
+  contactLine,
+  showGlassBranding = true,
   onMediaAspectChange,
   onVideoLoaded,
   onVideoError,
@@ -40,23 +80,17 @@ export function UnimoniPromoPanel({
   className = "",
   children,
 }: UnimoniPromoPanelProps) {
-  // A broken advert image URL must fall back to the branded placeholder, not
-  // leave two-thirds of the TV black. Tracking the URL that failed (instead of
-  // a boolean) means a new/fixed URL retries automatically — no reset effect.
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   const imageFailed = Boolean(imageUrl) && failedImageUrl === imageUrl;
 
   const showVideo = Boolean(videoUrl);
   const showImage = Boolean(imageUrl) && !showVideo && !imageFailed;
   const showPlaceholder = !showVideo && !showImage;
-  const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
+  const resolvedContact = contactLine?.trim() || UNIMONI_CONTACT_LINE;
+  // Full glass branding on idle + video; image adverts get top-left logo + footer only.
+  const showGlassOverlay = showGlassBranding && (showPlaceholder || showVideo || showImage);
+  const showFullGlassCenter = showPlaceholder;
 
-  // "stretch" (default): media is stretched to exactly fill the fixed area —
-  // whole content visible, no bars, no crop (matches the client's previous
-  // signage player; the mild distortion is invisible on promo content).
-  // "auto": the promo AREA is resized to the media's shape upstream, then
-  // object-contain fills it. "contain": whole media on a blurred fill.
-  // "cover": fill a fixed area, cropping edges.
   const objectClass =
     fit === "stretch" ? "object-fill" : fit === "cover" ? "object-cover" : "object-contain";
   const useBackdrop = fit === "contain";
@@ -71,9 +105,6 @@ export function UnimoniPromoPanel({
       style={panelStyle}
     >
       {showVideo ? (
-        // Native <video> — including Google Drive direct-stream URLs. The full
-        // video is visible (contain) over a blurred copy of itself (backdrop),
-        // so there is neither cropping nor black/blank space.
         <>
           {useBackdrop ? (
             <video
@@ -95,9 +126,6 @@ export function UnimoniPromoPanel({
             muted={!soundOn}
             loop={loopVideo}
             playsInline
-            // No native controls / picture-in-picture — this is signage, not a
-            // player. Belt-and-suspenders with the global CSS that hides the
-            // WebView's play-button overlay on smart TVs.
             controls={false}
             disablePictureInPicture
             onLoadedMetadata={(e) => {
@@ -106,10 +134,6 @@ export function UnimoniPromoPanel({
             }}
             onLoadedData={onVideoLoaded}
             onCanPlay={(e) => {
-              // Some TV WebViews leave a freshly-loaded video paused (showing the
-              // big play button) until told to play — force it. Try with sound if
-              // requested; if the browser blocks unmuted autoplay, fall back to
-              // muted so the video always plays (a tap/fullscreen unmutes later).
               const v = e.currentTarget;
               v.muted = !soundOn;
               void v.play().catch(() => {
@@ -154,32 +178,65 @@ export function UnimoniPromoPanel({
       ) : null}
 
       {showPlaceholder ? (
-        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-[#0B1F3A]/80 px-6 text-center">
-          <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
-            <Image
-              src="/unimoni-logo-full.png"
-              alt="unimoni"
-              width={300}
-              height={97}
-              className="h-[clamp(2.5rem,7vh,5rem)] w-auto object-contain"
-              unoptimized
-              priority
-            />
-          </div>
-          <p className="text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium tracking-wide text-white/90">
-            Branch promotional video
-          </p>
-          <p className="max-w-md text-[clamp(0.75rem,1.1vw,0.9rem)] leading-relaxed text-white/55">
-            Upload content in Dashboard → Videos for this branch.
-          </p>
-        </div>
+        <div
+          className="absolute inset-0 z-[2] bg-[#0D2680]/90 backdrop-blur-[3px]"
+          aria-hidden
+        />
       ) : null}
 
-      {showBrandingOverlay && showImage ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-6 py-4">
-          <p className="text-center font-[Arial,Helvetica,sans-serif] text-[clamp(0.7rem,1.1vw,0.9rem)] font-medium text-white/90">
-            unimoni.com
-          </p>
+      {showGlassOverlay ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-[12] flex flex-col justify-between font-[Arial,Helvetica,sans-serif] text-white"
+          style={{ textShadow: BRANDING_TEXT_SHADOW }}
+        >
+          <div className="flex justify-start p-[clamp(1rem,2.5vw,2.5rem)] pt-[clamp(1.25rem,3vh,2.75rem)]">
+            <GlassLogoBadge logoUrl={overlayLogoUrl} />
+          </div>
+
+          {showFullGlassCenter ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-[clamp(0.5rem,1.2vh,1rem)] px-[clamp(1.5rem,4vw,3rem)] text-center">
+              <div className="rounded-3xl border border-white/25 bg-white/12 px-[clamp(1.5rem,4vw,3rem)] py-[clamp(1rem,2.5vh,2rem)] shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-2xl">
+                {overlayLogoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={overlayLogoUrl}
+                    alt="Brand logo"
+                    className="mx-auto h-[clamp(3rem,8vh,5.5rem)] w-auto object-contain"
+                  />
+                ) : (
+                  <Image
+                    src="/unimoni-logo-full.png"
+                    alt="unimoni"
+                    width={300}
+                    height={97}
+                    className="mx-auto h-[clamp(3rem,8vh,5.5rem)] w-auto object-contain"
+                    unoptimized
+                    priority
+                  />
+                )}
+              </div>
+              <p className="text-[clamp(1rem,1.8vw,1.5rem)] font-medium tracking-wide">
+                {UNIMONI_WEBSITE}
+              </p>
+              <p className="text-[clamp(0.85rem,1.4vw,1.15rem)] font-medium leading-snug">
+                {resolvedContact}
+              </p>
+            </div>
+          ) : null}
+
+          <div className="mx-[clamp(1rem,2.5vw,2.5rem)] mb-[clamp(1rem,2.5vh,2.5rem)] rounded-2xl border border-white/20 bg-[#0D2680]/45 px-[clamp(1rem,2.5vw,2rem)] py-[clamp(0.75rem,1.5vh,1.25rem)] shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
+            <p className="mb-[clamp(0.25rem,0.6vh,0.5rem)] text-center text-[clamp(0.8rem,1.2vw,1rem)] font-semibold uppercase tracking-wide">
+              Visit us at
+            </p>
+            {UNIMONI_LOCATIONS.map((line) => (
+              <p
+                key={line}
+                className="text-center text-[clamp(0.7rem,1.1vw,0.95rem)] leading-snug text-white/95"
+              >
+                {line}
+              </p>
+            ))}
+          </div>
         </div>
       ) : null}
 
