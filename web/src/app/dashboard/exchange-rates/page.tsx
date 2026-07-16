@@ -45,6 +45,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS } from "@/lib/constants";
@@ -125,6 +135,10 @@ export default function ExchangeRatesPage() {
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const { notice: loadNotice, onError, clearNotice } = useFirestoreNotice("exchange rates");
   const [lastImport, setLastImport] = useState<{ count: number; at: Date } | null>(null);
+  // Confirm-before-publish for the uploaded sheet. Admins additionally choose
+  // whether the forex rates apply to the selected branch or to ALL branches.
+  const [confirmPublishOpen, setConfirmPublishOpen] = useState(false);
+  const [publishScope, setPublishScope] = useState<"branch" | "all">("branch");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
@@ -535,7 +549,7 @@ export default function ExchangeRatesPage() {
     }
   }
 
-  async function handlePublishImport() {
+  async function handlePublishImport(scope: "branch" | "all" = "branch") {
     if (!user || !profile || !effectiveBranchId || !importPreview) return;
     for (const row of importPreview) {
       const hasForex = row.buyRate > 0 && row.sellRate > 0;
@@ -588,31 +602,47 @@ export default function ExchangeRatesPage() {
         }
       }
 
-      const result =
-        forexRows.length > 0
-          ? await bulkUpdateRates(
-              effectiveBranchId,
-              forexRows.map((r) => ({
-                currencyCode: r.currencyCode,
-                displayName: r.displayName,
-                currencyName: r.currencyName,
-                country: r.country,
-                flag: r.flag,
-                buyRate: r.buyRate,
-                sellRate: r.sellRate,
-              })),
-              {
-                userId: user.uid,
-                userName: profile.displayName || profile.email,
-                branchName: branch?.name || effectiveBranchId,
-              },
-              {
-                autoCreateCurrencies: canCreateCatalog,
-                requireApproval,
-                actorRole: profile.role,
-              },
-            )
-          : { processed: 0, created: 0, skippedNeedApproval: 0 };
+      // Scope (admin-only choice in the confirm pop-up): the selected branch
+      // only, or the SAME forex rates on ALL branches at once.
+      const applyAll = scope === "all" && (isSuperAdmin || isAdmin);
+      const targetBranches = applyAll
+        ? branches
+        : branches.filter((b) => b.id === effectiveBranchId);
+      if (targetBranches.length === 0) {
+        targetBranches.push({ id: effectiveBranchId, name: branch?.name ?? effectiveBranchId } as (typeof branches)[number]);
+      }
+
+      const mappedForex = forexRows.map((r) => ({
+        currencyCode: r.currencyCode,
+        displayName: r.displayName,
+        currencyName: r.currencyName,
+        country: r.country,
+        flag: r.flag,
+        buyRate: r.buyRate,
+        sellRate: r.sellRate,
+      }));
+      const result = { processed: 0, created: 0, skippedNeedApproval: 0 };
+      if (forexRows.length > 0) {
+        for (const target of targetBranches) {
+          const r = await bulkUpdateRates(
+            target.id,
+            mappedForex,
+            {
+              userId: user.uid,
+              userName: profile.displayName || profile.email,
+              branchName: target.name || target.id,
+            },
+            {
+              autoCreateCurrencies: canCreateCatalog,
+              requireApproval,
+              actorRole: profile.role,
+            },
+          );
+          result.processed += r.processed;
+          result.created += r.created;
+          result.skippedNeedApproval += r.skippedNeedApproval;
+        }
+      }
 
       if (transferRows.length > 0 && canEditCentralTransfer) {
         const count = await bulkUpsertTransferRates(
@@ -637,7 +667,10 @@ export default function ExchangeRatesPage() {
         toast.success(
           requireApproval && isBranchUser
             ? `${updatedCount} rate change${updatedCount === 1 ? "" : "s"} submitted for approval`
-            : `${result.processed} currencies updated for ${branchLabel} — live on your displays`,
+            : applyAll
+              ? `${forexRows.length} currencies updated on ALL ${targetBranches.length} branches — live on every TV`
+              : `${result.processed} currencies updated for ${branchLabel} — live on your displays`,
+          { duration: 8000 },
         );
       }
       if (result.skippedNeedApproval > 0) {
@@ -877,7 +910,10 @@ export default function ExchangeRatesPage() {
                 <Button
                   className="rounded-xl"
                   disabled={uploading || importPreview.length === 0}
-                  onClick={() => void handlePublishImport()}
+                  onClick={() => {
+                    setPublishScope("branch");
+                    setConfirmPublishOpen(true);
+                  }}
                 >
                   <Upload className="mr-2 h-4 w-4" />
                   {uploading
@@ -885,6 +921,74 @@ export default function ExchangeRatesPage() {
                     : `Publish ${importPreview.length} rate${importPreview.length === 1 ? "" : "s"}`}
                 </Button>
               </div>
+
+              {/* Confirm BEFORE anything goes live. Admins also choose the scope:
+                  this branch only, or the same forex rates on ALL branches. */}
+              <AlertDialog open={confirmPublishOpen} onOpenChange={setConfirmPublishOpen}>
+                <AlertDialogContent className="rounded-2xl">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Publish these rates online?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {importPreview.length} rate{importPreview.length === 1 ? "" : "s"} will go
+                      LIVE on the TV displays immediately after publishing.
+                      {isSuperAdmin || isAdmin
+                        ? " Any transfer-rate columns always apply to every branch (centralized)."
+                        : ""}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  {isSuperAdmin || isAdmin ? (
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wide">
+                        Apply the forex rates to
+                      </Label>
+                      <div className="grid gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPublishScope("branch")}
+                          className={`rounded-xl border p-3 text-left transition-colors ${
+                            publishScope === "branch"
+                              ? "border-primary bg-primary/10 ring-1 ring-primary"
+                              : "border-border/60 hover:bg-muted/40"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold">
+                            Only {branch?.name ?? "the selected branch"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Forex rates change on this branch&apos;s TV only.
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPublishScope("all")}
+                          className={`rounded-xl border p-3 text-left transition-colors ${
+                            publishScope === "all"
+                              ? "border-primary bg-primary/10 ring-1 ring-primary"
+                              : "border-border/60 hover:bg-muted/40"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold">ALL branches (centralized)</p>
+                          <p className="text-xs text-muted-foreground">
+                            The same forex rates go live on every branch&apos;s TV at once.
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="rounded-xl"
+                      onClick={() => {
+                        setConfirmPublishOpen(false);
+                        void handlePublishImport(publishScope);
+                      }}
+                    >
+                      Yes, publish{publishScope === "all" ? " to ALL branches" : ""}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </ContentPanel>
         ) : null}

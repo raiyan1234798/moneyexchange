@@ -16,9 +16,24 @@ import {
 } from "@/lib/services/transfer-rate-service";
 import { parseRateFile } from "@/lib/rate-import";
 import { getCurrencyMeta } from "@/lib/currency-utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import type { TransferRate } from "@/lib/types";
 
 type Draft = { transferUsd: string; transferLocal: string };
+
+type PendingUpload = {
+  rows: Array<{ currencyCode: string; transferUsd: number | null; transferLocal: number | null }>;
+  parsedTotal: number;
+};
 
 /**
  * ADMIN-ONLY editor for the centralized money-transfer rates — one set from
@@ -40,6 +55,8 @@ export function CentralTransferPanel({
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  // Parsed file waiting for the admin's confirmation — nothing goes live yet.
+  const [pending, setPending] = useState<PendingUpload | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleTransferUpload(file: File) {
@@ -60,6 +77,22 @@ export function CentralTransferPanel({
         );
         return;
       }
+      // Confirm before anything goes live on the TVs.
+      setPending({ rows: transferRows, parsedTotal: parsed.length });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not read the transfer file");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function publishPending() {
+    if (!pending) return;
+    const { rows: transferRows, parsedTotal } = pending;
+    setPending(null);
+    setUploading(true);
+    try {
       const count = await bulkUpsertTransferRates(transferRows, actor);
       // Name the currencies so a partial read (e.g. rows the file left blank)
       // is visible immediately instead of looking like "not reflecting".
@@ -74,7 +107,7 @@ export function CentralTransferPanel({
           { duration: 10000 },
         );
       }
-      const skipped = parsed.length - transferRows.length;
+      const skipped = parsedTotal - transferRows.length;
       if (skipped > 0) {
         toast.warning(
           `${skipped} row(s) in the file had no readable transfer rate and were skipped.`,
@@ -82,10 +115,9 @@ export function CentralTransferPanel({
         );
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not read the transfer file");
+      toast.error(e instanceof Error ? e.message : "Could not publish the transfer rates");
     } finally {
       setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -372,6 +404,30 @@ export function CentralTransferPanel({
           </Button>
         </div>
       </div>
+
+      {/* Confirm BEFORE the uploaded file goes live — transfer rates are
+          centralized, so this always applies to every branch at once. */}
+      <AlertDialog open={Boolean(pending)} onOpenChange={(open) => !open && setPending(null)}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Publish transfer rates to ALL branches?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pending
+                ? `${pending.rows.length} transfer rate(s) — ${pending.rows
+                    .map((r) => r.currencyCode)
+                    .slice(0, 12)
+                    .join(", ")}${pending.rows.length > 12 ? "…" : ""} — will go LIVE on every branch's TV immediately. Transfer rates are centralized: the same rate shows on all branches.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="rounded-xl" onClick={() => void publishPending()}>
+              Yes, publish to ALL branches
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </ContentPanel>
   );
 }
