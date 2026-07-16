@@ -23,6 +23,37 @@ export const LOGO_IMAGE_OPTIONS: CompressOptions = {
   targetBytes: 90_000,
 };
 
+/** Recommended upload sizes shown in Settings (TV layout reference). */
+export const MEDIA_DIMENSION_HINTS = {
+  logo: "400 × 120 px — PNG with transparency works best (max ~400 px wide)",
+  rateCardPromo: "720 × 1280 px portrait (9:16) — fits the narrow rate-card promo slide",
+  mainPromo: "1920 × 1080 px landscape (16:9) — fits the main video / promo area",
+} as const;
+
+const LOGO_ACCEPTED_EXT = /\.(png|jpe?g|webp|gif|bmp|svg|ico)$/i;
+
+/**
+ * Read any common logo image (PNG, JPG, WebP, SVG, GIF) into a data URL small
+ * enough for Firestore. SVG is stored as-is; rasters are compressed.
+ */
+export async function readLogoFileAsDataUrl(
+  file: File,
+): Promise<{ dataUrl: string; width?: number; height?: number }> {
+  const name = file.name.toLowerCase();
+  if (file.type === "image/svg+xml" || name.endsWith(".svg")) {
+    const text = await file.text();
+    if (text.length > 120_000) {
+      throw new Error("SVG is too large — simplify it or use PNG/JPEG instead.");
+    }
+    return { dataUrl: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(text)))}` };
+  }
+  if (!file.type.startsWith("image/") && !LOGO_ACCEPTED_EXT.test(name)) {
+    throw new Error("Please choose an image file — PNG, JPG, JPEG, WebP, SVG, or GIF.");
+  }
+  const { dataUrl, width, height } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+  return { dataUrl, width, height };
+}
+
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

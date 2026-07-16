@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Upload } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -22,7 +23,13 @@ import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
-import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import {
+  ADVERT_IMAGE_OPTIONS,
+  LOGO_IMAGE_OPTIONS,
+  MEDIA_DIMENSION_HINTS,
+  compressImageToDataUrl,
+  readLogoFileAsDataUrl,
+} from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
 import {
@@ -56,29 +63,67 @@ function LogoUploadField({
   onUpload: (dataUrl: string) => void;
   onClear: () => void;
 }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  async function handleLogoFile(file: File | undefined) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const { dataUrl } = await readLogoFileAsDataUrl(file);
+      onUpload(dataUrl);
+      toast.success(`${label} uploaded — click Save Branch Settings at the bottom to apply`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not read image");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="space-y-2 rounded-xl border border-dashed border-border/50 bg-muted/20 p-4">
       <Label>{label}</Label>
       <p className="text-xs text-muted-foreground">{hint}</p>
-      <Input
+      <p className="text-[11px] text-muted-foreground/90">Recommended: {MEDIA_DIMENSION_HINTS.logo}</p>
+      <input
+        ref={fileRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+        accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.bmp"
         aria-label={`Upload ${label}`}
-        className="rounded-xl"
+        className="hidden"
         onChange={async (event) => {
           const file = event.target.files?.[0];
-          if (!file) return;
-          try {
-            const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
-            onUpload(dataUrl);
-            toast.success(`${label} ready — click Save Branch Settings to apply`);
-          } catch (error) {
-            toast.error(error instanceof Error ? error.message : "Could not read image");
-          } finally {
-            event.target.value = "";
-          }
+          await handleLogoFile(file);
+          event.target.value = "";
         }}
       />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => fileRef.current?.click()}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          void handleLogoFile(e.dataTransfer.files?.[0]);
+        }}
+        className={`flex min-h-[100px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-3 py-4 text-center transition-colors ${
+          dragOver
+            ? "border-[var(--unimoni-blue)] bg-[var(--unimoni-blue)]/10"
+            : "border-border/60 bg-background/50 hover:border-[var(--unimoni-blue)]/50 hover:bg-[var(--unimoni-blue)]/5"
+        } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+      >
+        <Upload className="h-6 w-6 text-[var(--unimoni-blue)]" />
+        <span className="text-sm font-medium">
+          {uploading ? "Processing…" : "Click or drop your logo here"}
+        </span>
+        <span className="text-[11px] text-muted-foreground">PNG, JPG, JPEG, WebP, SVG, GIF</span>
+      </button>
       {value ? (
         <div className="flex items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -259,13 +304,13 @@ function BranchSettingsForm({
         <div className="flex items-center gap-3">
           <Input
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+            accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif"
             aria-label="Upload ticker logo image"
             onChange={async (event) => {
               const file = event.target.files?.[0];
               if (!file) return;
               try {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                const { dataUrl } = await readLogoFileAsDataUrl(file);
                 setSettings({ ...settings, tickerLogoUrl: dataUrl });
                 toast.success("Logo image ready — click Save Branch Settings to apply");
               } catch (error) {
@@ -300,7 +345,8 @@ function BranchSettingsForm({
         <div>
           <p className="text-sm font-semibold">Upload display logos</p>
           <p className="text-xs text-muted-foreground">
-            PNG with transparency works best. Upload here, then click Save Branch Settings at the bottom.
+            Click or drag a logo file into each box below. PNG with transparency works best. After uploading, click{" "}
+            <strong>Save Branch Settings</strong> at the bottom.
           </p>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
@@ -469,7 +515,7 @@ function BranchSettingsForm({
         <Input
           type="file"
           multiple
-          accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+          accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif"
           aria-label="Upload scrolling ticker logos"
           onChange={async (event) => {
             const files = Array.from(event.target.files ?? []);
@@ -477,7 +523,7 @@ function BranchSettingsForm({
             try {
               const urls: string[] = [];
               for (const file of files) {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                const { dataUrl } = await readLogoFileAsDataUrl(file);
                 urls.push(dataUrl);
               }
               setSettings({ ...settings, scrollingLogos: [...(settings.scrollingLogos ?? []), ...urls] });
@@ -734,6 +780,9 @@ function BranchSettingsForm({
           </div>
           <div className="space-y-2">
             <Label>Images &amp; videos — each rotates as its own screen</Label>
+            <p className="text-[11px] text-muted-foreground/90">
+              Recommended: {MEDIA_DIMENSION_HINTS.rateCardPromo}. Portrait photos/videos fill the rate-card panel best.
+            </p>
             <Input
               type="file"
               accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,.png,.jpg,.jpeg,.webp,.mp4,.webm"

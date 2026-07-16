@@ -450,7 +450,7 @@ export function UnimoniRatesPanel({
       ) : null}
 
       {/* Rate table / promo card FILLS the panel height. On promo with a hidden
-          header the media uses the full aside (navy letterbox, object-contain). */}
+          header the media covers the full aside (portrait 9:16 assets fit best). */}
       <div
         className={`flex min-h-0 flex-1 flex-col ${
           promoFullBleed
@@ -496,23 +496,15 @@ export function UnimoniRatesPanel({
             ) : null}
             {activeSheet.promoMedia ? (
               <div
-                className={`relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#0D2680]/30 shadow-[inset_0_0_40px_rgba(255,255,255,0.06)] backdrop-blur-sm ${
-                  promoFullBleed ? "p-0" : ""
-                }`}
-                style={{ backgroundColor: UNIMONI_COLORS.navy }}
+                className={
+                  promoFullBleed
+                    ? "absolute inset-0 overflow-hidden"
+                    : "relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#0D2680]/30 shadow-[inset_0_0_40px_rgba(255,255,255,0.06)] backdrop-blur-sm"
+                }
+                style={promoFullBleed ? undefined : { backgroundColor: UNIMONI_COLORS.navy }}
               >
                 {activeSheet.promoMedia.type === "video" ? (
-                  <>
-                    <video
-                      key={`${activeSheet.promoMedia.url}-bg`}
-                      src={activeSheet.promoMedia.url}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      aria-hidden
-                      className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
-                    />
+                  promoFullBleed ? (
                     <video
                       key={activeSheet.promoMedia.url}
                       src={activeSheet.promoMedia.url}
@@ -530,9 +522,48 @@ export function UnimoniRatesPanel({
                           void v.play().catch(() => {});
                         });
                       }}
-                      className="relative z-10 max-h-full max-w-full object-contain object-center"
+                      className="absolute inset-0 z-0 h-full w-full object-cover object-center"
                     />
-                  </>
+                  ) : (
+                    <>
+                      <video
+                        key={`${activeSheet.promoMedia.url}-bg`}
+                        src={activeSheet.promoMedia.url}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        aria-hidden
+                        className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
+                      />
+                      <video
+                        key={activeSheet.promoMedia.url}
+                        src={activeSheet.promoMedia.url}
+                        autoPlay
+                        muted={!videoSoundOn}
+                        loop
+                        playsInline
+                        controls={false}
+                        disablePictureInPicture
+                        onCanPlay={(e) => {
+                          const v = e.currentTarget;
+                          v.muted = !videoSoundOn;
+                          void v.play().catch(() => {
+                            v.muted = true;
+                            void v.play().catch(() => {});
+                          });
+                        }}
+                        className="relative z-10 max-h-full max-w-full object-contain object-center"
+                      />
+                    </>
+                  )
+                ) : promoFullBleed ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={activeSheet.promoMedia.url}
+                    alt="Promotion"
+                    className="absolute inset-0 z-0 h-full w-full object-cover object-center"
+                  />
                 ) : (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
