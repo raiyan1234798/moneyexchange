@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Eye, EyeOff, Plus, Save, Trash2, Upload } from "lucide-react";
-import * as XLSX from "xlsx";
+import { Eye, EyeOff, Plus, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
@@ -15,7 +14,7 @@ import {
   subscribeTransferRates,
   upsertTransferRate,
 } from "@/lib/services/transfer-rate-service";
-import { parseRateFile, TEMPLATE_CURRENCIES } from "@/lib/rate-import";
+import { parseRateFile } from "@/lib/rate-import";
 import { getCurrencyMeta } from "@/lib/currency-utils";
 import type { TransferRate } from "@/lib/types";
 
@@ -68,6 +67,13 @@ export function CentralTransferPanel({
       toast.success(`${count} transfer rate(s) published to ALL branches: ${codes}`, {
         duration: 10000,
       });
+      const failed = transferRows.length - count;
+      if (failed > 0) {
+        toast.warning(
+          `${failed} row(s) could not be published (invalid currency code) — check the CURRENCY column.`,
+          { duration: 10000 },
+        );
+      }
       const skipped = parsed.length - transferRows.length;
       if (skipped > 0) {
         toast.warning(
@@ -81,15 +87,6 @@ export function CentralTransferPanel({
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
     }
-  }
-
-  function downloadTransferTemplate() {
-    const header = ["CURRENCY", "$ (USD)", localLabel];
-    const data = [header, ...TEMPLATE_CURRENCIES.map((c) => [c, "", ""])];
-    const ws = XLSX.utils.aoa_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Transfer");
-    XLSX.writeFile(wb, "transfer-rates-template.xlsx");
   }
 
   useEffect(() => {
@@ -181,16 +178,6 @@ export function CentralTransferPanel({
             every branch at once. Rates are <strong>T.T Rate : Against USD/{localLabel}</strong> (telegraphic
             transfer against USD and local currency).
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-3 rounded-lg"
-            onClick={downloadTransferTemplate}
-          >
-            <Download className="mr-1.5 h-3.5 w-3.5" />
-            Template
-          </Button>
         </div>
         <div className="flex w-full shrink-0 flex-col gap-3 lg:max-w-sm">
           <input
@@ -293,12 +280,13 @@ export function CentralTransferPanel({
               </div>
               <div className="flex items-center gap-1.5 sm:justify-end">
                 <Button
-                  size="sm"
                   disabled={busy || !changed}
                   onClick={() => void saveRow(row)}
-                  className={`rounded-lg ${changed ? "" : "opacity-50"}`}
+                  className={`h-10 rounded-lg bg-sky-500 px-5 text-sm font-semibold text-white hover:bg-sky-400 ${
+                    changed ? "" : "opacity-50"
+                  }`}
                 >
-                  <Save className="mr-1 h-3 w-3" />
+                  <Save className="mr-1.5 h-4 w-4" />
                   Publish
                 </Button>
                 <Button

@@ -400,8 +400,10 @@ function BranchSettingsForm({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="hide">Hide header (full promo)</SelectItem>
-              <SelectItem value="second">Show only the alternate / second logo</SelectItem>
+              <SelectItem value="hide">No logo — the promotion fills the whole card (default)</SelectItem>
+              <SelectItem value="second">
+                Show a logo bar (alternate logo if uploaded, otherwise the main logo)
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>

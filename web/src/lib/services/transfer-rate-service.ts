@@ -97,11 +97,14 @@ export async function bulkUpsertTransferRates(
   let count = 0;
   for (const row of rows) {
     if (!row.transferUsd && !row.transferLocal) continue;
-    await upsertTransferRate(
-      { ...row, displayOrder: count + 1 },
-      actor,
-    );
-    count += 1;
+    try {
+      await upsertTransferRate({ ...row, displayOrder: count + 1 }, actor);
+      count += 1;
+    } catch (error) {
+      // One bad row (e.g. an invalid currency label) must not abort the whole
+      // upload — publish the rest and let the caller report the shortfall.
+      console.warn(`Transfer upsert skipped ${row.currencyCode}:`, error);
+    }
   }
   return count;
 }

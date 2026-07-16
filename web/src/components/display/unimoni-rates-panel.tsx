@@ -336,9 +336,12 @@ export function UnimoniRatesPanel({
     if (isPromoSheet) {
       if (hidePromoHeader) return null;
       if (promoLogoMode === "second") {
+        // Logo bar ENABLED for the promo slide: always show something — the
+        // alternate logo, else the primary, else the default unimoni logo
+        // (an empty navy band must never appear).
         if (customLogo2) return [customLogo2];
         if (customLogo1) return [customLogo1];
-        return replaceDefaultLogo ? [] : null;
+        return [];
       }
       if (headerLogoDisplay === "both") return [customLogo1, customLogo2].filter(Boolean);
       if (customLogo1) return [customLogo1];
@@ -356,11 +359,9 @@ export function UnimoniRatesPanel({
   }
 
   const headerLogos = resolveHeaderLogos();
-  const showDefaultLogo =
-    headerLogos !== null &&
-    headerLogos.length === 0 &&
-    !replaceDefaultLogo &&
-    (!isPromoSheet || promoLogoMode === "keep");
+  // No custom logo resolved but the header is visible → default unimoni logo.
+  // (Even with "Replace Unimoni default" on: an empty band is always worse.)
+  const showDefaultLogo = headerLogos !== null && headerLogos.length === 0;
   const showCustomLogos = headerLogos !== null && headerLogos.length > 0;
   const showHeaderBar = !hidePromoHeader;
 

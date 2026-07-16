@@ -294,8 +294,21 @@ export function parseRateWorkbook(workbook: XLSX.WorkBook): RateImportRow[] {
   }
 
   if (!parsedAnySheet) {
+    // Show what the file ACTUALLY starts with — "invalid columns" alone leaves
+    // the user staring at a file that looks fine to them.
+    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json<unknown[]>(firstSheet, { header: 1, defval: "" });
+    const firstFilled = rows.find((r) => (r as unknown[]).some((c) => String(c).trim() !== "")) as
+      | unknown[]
+      | undefined;
+    const preview = firstFilled
+      ?.map((c) => String(c).trim())
+      .filter(Boolean)
+      .slice(0, 6)
+      .join(" | ");
     throw new Error(
-      "Invalid columns. Use CURRENCY | WE BUY | WE SELL for forex, or CURRENCY | $ | UGX for a transfer table (both sheets can live in one file).",
+      `Could not find the rate columns — your file starts with: "${preview ?? "(empty)"}". ` +
+        "Use CURRENCY | WE BUY | WE SELL for forex, or CURRENCY | $ (USD) | UGX for transfer (both sheets can live in one file).",
     );
   }
 
