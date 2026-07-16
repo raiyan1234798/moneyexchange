@@ -9,6 +9,7 @@ export interface RateCardPromoMediaProps {
   fullBleed?: boolean;
   /** Play promo video with sound when branch setting is on. */
   soundOn?: boolean;
+  className?: string;
 }
 
 function PromoGlassOverlay({ className }: { className?: string }) {
@@ -16,11 +17,45 @@ function PromoGlassOverlay({ className }: { className?: string }) {
     <div
       className={cn(
         "rate-card-promo-glass pointer-events-none absolute inset-0 z-[5]",
-        "bg-[#0D2680]/28 backdrop-blur-[4px]",
+        "bg-[#0D2680]/35 backdrop-blur-md",
         className,
       )}
       aria-hidden
     />
+  );
+}
+
+/** Full-panel frosted glass behind rate-card promo (covers navy gaps above/below media). */
+export function RateCardPromoPanelGlass({
+  url,
+  type,
+}: {
+  url: string;
+  type: "image" | "video";
+}) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
+      {type === "video" ? (
+        <video
+          key={`${url}-panel-glass`}
+          src={url}
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full scale-125 object-cover blur-3xl brightness-[0.42] saturate-[1.2]"
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          className="absolute inset-0 h-full w-full scale-125 object-cover blur-3xl brightness-[0.42] saturate-[1.15]"
+        />
+      )}
+      <div className="absolute inset-0 bg-[#0D2680]/45 backdrop-blur-2xl" />
+      <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-transparent to-[#0D2680]/30" />
+    </div>
   );
 }
 
@@ -32,10 +67,12 @@ export function RateCardPromoMedia({
   type,
   fullBleed = false,
   soundOn = false,
+  className,
 }: RateCardPromoMediaProps) {
   const shellClass = cn(
     "rate-card-promo-shell relative overflow-hidden",
     fullBleed ? "absolute inset-0" : "flex min-h-0 w-full flex-1 items-center justify-center",
+    className,
   );
 
   const mediaGlassCard = cn(

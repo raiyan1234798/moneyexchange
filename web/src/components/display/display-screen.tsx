@@ -205,6 +205,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateValueScale = branchSettings.rateValueScale ?? 1;
   const tickerScale = branchSettings.tickerScale ?? 1;
   const logoScale = branchSettings.logoScale ?? 1;
+  const showTickerLogoBadge = branchSettings.showTickerLogoBadge !== false;
   // Transfer is its OWN rotating card now (centralized head-office rates), a
   // different feature from the OLD remittance column. Default it ON when the
   // branch hasn't explicitly chosen — otherwise a stale `showRemittanceScreen:
@@ -671,6 +672,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         headline={tickerHeadline}
         heightScale={tickerScale}
         logoScale={logoScale}
+        showLogoBadge={showTickerLogoBadge}
         logoAnimation={tickerLogoAnimation}
         scrollingLogos={scrollingLogos}
         headlineMaxWidthPercent={effectivePromoWidth}

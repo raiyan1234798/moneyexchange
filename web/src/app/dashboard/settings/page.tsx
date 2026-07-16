@@ -519,58 +519,49 @@ function BranchSettingsForm({
       <SettingsCard
         span="half"
         title="Ticker badge & scrolling logos"
-        description="Logo on the breaking-news pop-out badge and extra logos that scroll with the ticker message."
+        description="Bottom-left pop-out logo on the ticker bar, plus optional logos that scroll with the message."
       >
+        <SettingsSwitchRow
+          label="Show bottom-left logo badge"
+          hint="The main brand logo that pops out on the left of the ticker. Turn off if you only want the scrolling text."
+          checked={settings.showTickerLogoBadge !== false}
+          onCheckedChange={(checked) => setSettings({ ...settings, showTickerLogoBadge: checked })}
+        />
         <div className="space-y-2">
-          <Label>Ticker logo (pop-out breaking-news badge)</Label>
+          <Label>Ticker badge logo size (%)</Label>
+          <Input
+            type="number"
+            min={60}
+            max={300}
+            step={5}
+            value={Math.round((settings.logoScale ?? 1) * 100)}
+            onChange={(event) =>
+              setSettings({ ...settings, logoScale: Number(event.target.value) / 100 })
+            }
+            disabled={settings.showTickerLogoBadge === false}
+            className="max-w-[10rem] rounded-xl"
+          />
           <p className="text-xs text-muted-foreground">
-            Leave blank to show the animated unimoni logo. Paste a URL or upload a file below.
+            100% is the default unimoni size. Increase for larger branches or smaller screens.
           </p>
+        </div>
+        <LogoUploadField
+          label="Ticker badge logo"
+          hint="Leave empty to use the animated unimoni logo. Upload a PNG with transparent background for best results."
+          previewBg="bg-[linear-gradient(45deg,#1e293b_25%,transparent_25%),linear-gradient(-45deg,#1e293b_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#1e293b_75%),linear-gradient(-45deg,transparent_75%,#1e293b_75%)] bg-[length:12px_12px] bg-[position:0_0,0_6px,6px_-6px,-6px_0px] bg-slate-900"
+          value={settings.tickerLogoUrl}
+          onUpload={(dataUrl) => setSettings({ ...settings, tickerLogoUrl: dataUrl })}
+          onClear={() => setSettings({ ...settings, tickerLogoUrl: null })}
+        />
+        <div className="space-y-2">
+          <Label>Or paste logo URL</Label>
           <Input
             value={settings.tickerLogoUrl?.startsWith("data:") ? "" : settings.tickerLogoUrl ?? ""}
             onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
-            placeholder="https://example.com/logo.png — or upload below"
+            placeholder="https://example.com/logo.png"
             disabled={settings.tickerLogoUrl?.startsWith("data:")}
             className="rounded-xl"
           />
-          <div className="flex flex-wrap items-center gap-3">
-            <Input
-              type="file"
-              accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif"
-              aria-label="Upload ticker logo image"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file) return;
-                try {
-                  const { dataUrl } = await readLogoFileAsDataUrl(file);
-                  setSettings({ ...settings, tickerLogoUrl: dataUrl });
-                  toast.success("Logo image ready — click Save Branch Settings to apply");
-                } catch (error) {
-                  toast.error(error instanceof Error ? error.message : "Could not read image");
-                }
-              }}
-              className="max-w-xs rounded-xl"
-            />
-            {settings.tickerLogoUrl ? (
-              <div className="flex shrink-0 items-center gap-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={settings.tickerLogoUrl}
-                  alt="Logo preview"
-                  className="h-9 w-14 shrink-0 rounded-md bg-slate-800 object-contain p-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="rounded-lg"
-                  onClick={() => setSettings({ ...settings, tickerLogoUrl: null })}
-                >
-                  Clear
-                </Button>
-              </div>
-            ) : null}
-          </div>
         </div>
         <div className="space-y-2">
           <Label>Scrolling ticker logos</Label>
@@ -1527,7 +1518,7 @@ function BranchSettingsForm({
             <Input
               type="number"
               min={60}
-              max={200}
+              max={300}
               step={5}
               value={Math.round((settings.logoScale ?? 1) * 100)}
               onChange={(event) =>
@@ -1535,6 +1526,7 @@ function BranchSettingsForm({
               }
               className="rounded-xl"
             />
+            <p className="text-xs text-muted-foreground">Also editable in Ticker badge & scrolling logos.</p>
           </div>
           <div className="space-y-2">
             <Label>Logo animation</Label>

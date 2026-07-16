@@ -10,7 +10,7 @@ import {
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { BrandLogoImage, GlassTextPill } from "@/components/display/brand-logo-image";
-import { RateCardPromoMedia } from "@/components/display/rate-card-promo-media";
+import { RateCardPromoMedia, RateCardPromoPanelGlass } from "@/components/display/rate-card-promo-media";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
 import type { ExchangeRate, TransferRate } from "@/lib/types";
 
@@ -479,6 +479,12 @@ export function UnimoniRatesPanel({
                   }`
             }`}
           >
+            {activeSheet.promoMedia ? (
+              <RateCardPromoPanelGlass
+                url={activeSheet.promoMedia.url}
+                type={activeSheet.promoMedia.type}
+              />
+            ) : null}
             {!activeSheet.promoMedia && (promoTop || promoMessage) ? (
               <div
                 className="pointer-events-none absolute inset-0 bg-[#0D2680]/35 backdrop-blur-md"
@@ -486,7 +492,7 @@ export function UnimoniRatesPanel({
               />
             ) : null}
             {promoTop ? (
-              <GlassTextPill className="mx-[0.6vw] shrink-0">
+              <GlassTextPill className="relative z-10 mx-[0.6vw] shrink-0">
                 <p
                   className="text-center font-extrabold uppercase leading-tight"
                   style={{
@@ -507,10 +513,11 @@ export function UnimoniRatesPanel({
                 type={activeSheet.promoMedia.type}
                 fullBleed={promoFullBleed}
                 soundOn={videoSoundOn}
+                className="relative z-10"
               />
             ) : null}
             {promoMessage ? (
-              <GlassTextPill className="mx-[0.6vw] shrink-0">
+              <GlassTextPill className="relative z-10 mx-[0.6vw] shrink-0">
                 <p
                   className="text-center font-extrabold uppercase leading-tight"
                   style={{

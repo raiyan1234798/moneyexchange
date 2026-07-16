@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
@@ -31,6 +30,8 @@ interface BreakingNewsTickerProps {
   logoScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
   logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
+  /** When false, hide the bottom-left pop-out logo badge entirely. Default true. */
+  showLogoBadge?: boolean;
   /** Logo images that scroll right-to-left with the messages. */
   scrollingLogos?: string[];
   /** The promo/video area width as a % of the screen. Caps the gold headline
@@ -57,6 +58,7 @@ function BreakingNewsTickerInner({
   heightScale = 1,
   logoScale = 1,
   logoAnimation = "spin",
+  showLogoBadge = true,
   scrollingLogos = [],
   headlineMaxWidthPercent,
   headlineFontCss,
@@ -108,7 +110,7 @@ function BreakingNewsTickerInner({
   // strip and headline tab shift right to clear the badge; the whole badge and
   // the inset scale together with logoScale.
   const baseBadgeWidth = isTextLogo ? "clamp(9.5rem,21vw,17rem)" : "clamp(10rem,20vw,15.5rem)";
-  const badgeWidth = `calc(${baseBadgeWidth} * ${logoScale})`;
+  const badgeWidth = showLogoBadge ? `calc(${baseBadgeWidth} * ${logoScale})` : "0px";
   const textLen = resolvedText?.length ?? 0;
   const textLogoSize =
     textLen <= 6 ? "clamp(1.1rem,2.4vw,2.5rem)" : textLen <= 10 ? "clamp(0.85rem,1.8vw,1.9rem)" : "clamp(0.6rem,1.3vw,1.35rem)";
@@ -139,18 +141,16 @@ function BreakingNewsTickerInner({
     <footer className="relative shrink-0">
       {headline ? (
         <div
-          // Flush against the logo's right edge so it reads as one continuous
-          // gold band extending FROM the logo. It sizes to the text — short text
-          // = short box, long text = wider box — and is CAPPED so it can grow up
-          // to but never onto the rate card (long text then ellipsizes).
           className="absolute top-0 z-30 -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
           style={{
-            left: badgeWidth,
-            // Single calc (no nested calc()) so TV WebViews resolve it. 0.5vw gap
-            // keeps the widest box just short of the rate card.
+            left: showLogoBadge ? badgeWidth : 0,
             maxWidth: headlineMaxWidthPercent
-              ? `calc(${headlineMaxWidthPercent}vw - (${baseBadgeWidth}) * ${logoScale} - 0.5vw)`
-              : "60vw",
+              ? showLogoBadge
+                ? `calc(${headlineMaxWidthPercent}vw - (${baseBadgeWidth}) * ${logoScale} - 0.5vw)`
+                : `${headlineMaxWidthPercent}vw`
+              : showLogoBadge
+                ? "60vw"
+                : "92vw",
             backgroundColor: UNIMONI_COLORS.gold,
             color: UNIMONI_COLORS.navy,
             fontFamily: headlineFontCss,
@@ -160,20 +160,11 @@ function BreakingNewsTickerInner({
         </div>
       ) : null}
 
-      {/* Pop-out logo badge (like the reference "BREAKING NEWS" shield):
-          bigger than the bar, overlapping it from the left, visually separate
-          from the scrolling strip. Text slides behind it and disappears.
-          Image logos sit on a white card so the navy+gold wordmark reads. */}
+      {showLogoBadge ? (
       <div
-        // bottom-0 keeps the badge's gold bottom border flush with the ticker's
-        // gold underline — one continuous straight line, no double line.
-        // The RIGHT end is fully rounded (a clean, complete shape — not a hard
-        // rectangle); the left sits flush at the screen edge. More padding + a
-        // slightly smaller logo below keep the wordmark clear of the rounded
-        // corners so it never looks cut.
         className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 px-[1vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
           pulse ? "ticker-logo-pulse" : ""
-        } ${isTextLogo ? "" : "border-white/30 bg-white/12 backdrop-blur-xl"}`}
+        } ${isTextLogo ? "" : "border-white/25 bg-[#0D2680]/20 backdrop-blur-2xl"}`}
         style={{
           width: badgeWidth,
           height: `calc(${barHeight} * 1.5)`,
@@ -192,18 +183,16 @@ function BreakingNewsTickerInner({
             {resolvedText}
           </span>
         ) : (
-          <Image
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
             src={imageLogoSrc!}
             alt={`${BRAND.name} logo`}
-            width={260}
-            height={84}
-            className={`h-[88%] w-[94%] object-contain drop-shadow-sm ${logoAnimClass}`}
-            unoptimized
-            priority
+            className={`h-[88%] w-[94%] object-contain drop-shadow-[0_2px_12px_rgba(0,0,0,0.65)] ${logoAnimClass}`}
             onError={() => setLogoFailed(true)}
           />
         )}
       </div>
+      ) : null}
 
       <div
         className="relative flex overflow-hidden"
@@ -237,7 +226,7 @@ function BreakingNewsTickerInner({
                     key={`${src}-${i}`}
                     src={src}
                     alt=""
-                    className="mr-[1.6vw] inline-block h-[1.4em] w-auto rounded-[3px] bg-white/95 px-[0.3em] py-[0.15em] align-middle object-contain"
+                    className="mr-[1.6vw] inline-block h-[1.4em] w-auto align-middle object-contain drop-shadow-[0_1px_8px_rgba(0,0,0,0.75)]"
                   />
                 ))}
                 {activeText}

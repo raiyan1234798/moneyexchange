@@ -106,6 +106,8 @@ export interface BranchSettings {
   tickerHeadline?: string | null;
   /** Show the gold headline tab at all (turn off to remove it). Default true. */
   showTickerHeadline?: boolean;
+  /** Show the pop-out logo badge at the bottom-left of the screen (default on). */
+  showTickerLogoBadge?: boolean;
   /** Optional logo for the main video / promo glass badge (top-left). Falls back to primary header logo. */
   promoPanelLogoUrl?: string | null;
   /** Show frosted-glass branding overlay on the main video / promo area. Default true. */

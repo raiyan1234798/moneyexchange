@@ -75,6 +75,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerLogoAnimation: "spin" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
+  showTickerLogoBadge: true,
   promoPanelLogoUrl: null as string | null,
   showPromoGlassBranding: true,
   headerLogoUrl: null as string | null,
