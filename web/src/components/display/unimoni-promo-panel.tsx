@@ -129,13 +129,14 @@ export function UnimoniPromoPanel({
           <video
             key={videoUrl}
             src={videoUrl ?? undefined}
-            className={`absolute inset-0 z-[1] h-full w-full ${objectClass}`}
+            className={`main-video-player absolute inset-0 z-[1] h-full w-full ${objectClass}`}
             autoPlay
             muted={!soundOn}
             loop={loopVideo}
             playsInline
             controls={false}
             disablePictureInPicture
+            data-signage-role="main-video"
             onLoadedMetadata={(e) => {
               const v = e.currentTarget;
               if (v.videoWidth && v.videoHeight) onMediaAspectChange?.(v.videoWidth / v.videoHeight);

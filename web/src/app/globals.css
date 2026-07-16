@@ -384,12 +384,190 @@
   }
 }
 
-/* Rate-sheet rotation: gentle crossfade when the next 12-currency page shows */
+/* Rate-sheet rotation: gentle crossfade when the next forex/transfer page shows */
 .rates-sheet-fade {
   animation: rates-sheet-in 450ms ease;
 }
 
 @keyframes rates-sheet-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Rate-card PROMO slide — distinct from forex/transfer crossfade and main video */
+.rate-promo-sheet-enter {
+  animation: rate-promo-sheet-in 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rate-promo-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(12%) scale(0.94);
+    filter: brightness(1.15);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+/* Promo chrome — gold frame + corners so the narrow panel reads as a promo slot */
+.rate-card-promo-frame__edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 196, 77, 0.95) 20%,
+    rgba(255, 220, 130, 1) 50%,
+    rgba(255, 196, 77, 0.95) 80%,
+    transparent
+  );
+  animation: rate-promo-frame-shimmer 2.8s ease-in-out infinite;
+}
+
+.rate-card-promo-frame__edge--top {
+  top: 0;
+}
+
+.rate-card-promo-frame__edge--bottom {
+  bottom: 0;
+  animation-delay: 1.4s;
+}
+
+.rate-card-promo-frame__corner {
+  position: absolute;
+  width: clamp(1rem, 3vw, 1.75rem);
+  height: clamp(1rem, 3vw, 1.75rem);
+  border: 2px solid rgba(255, 210, 100, 0.9);
+  animation: rate-promo-corner-pulse 2.4s ease-in-out infinite;
+}
+
+.rate-card-promo-frame__corner--tl {
+  top: 0.35rem;
+  left: 0.35rem;
+  border-right: none;
+  border-bottom: none;
+}
+
+.rate-card-promo-frame__corner--tr {
+  top: 0.35rem;
+  right: 0.35rem;
+  border-left: none;
+  border-bottom: none;
+  animation-delay: 0.6s;
+}
+
+.rate-card-promo-frame__corner--bl {
+  bottom: 0.35rem;
+  left: 0.35rem;
+  border-right: none;
+  border-top: none;
+  animation-delay: 1.2s;
+}
+
+.rate-card-promo-frame__corner--br {
+  bottom: 0.35rem;
+  right: 0.35rem;
+  border-left: none;
+  border-top: none;
+  animation-delay: 1.8s;
+}
+
+.rate-card-promo-frame__badge {
+  position: absolute;
+  top: 0.55rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.15em 0.65em;
+  border-radius: 999px;
+  background: rgba(13, 38, 128, 0.82);
+  border: 1px solid rgba(255, 210, 100, 0.55);
+  color: rgba(255, 220, 130, 0.95);
+  font-size: clamp(0.45rem, 0.75vw, 0.65rem);
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  animation: rate-promo-badge-fade 720ms ease-out both;
+}
+
+@keyframes rate-promo-frame-shimmer {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
+
+@keyframes rate-promo-corner-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+@keyframes rate-promo-badge-fade {
+  from { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* Promo video — zoom-reveal (main player has no enter animation) */
+.rate-card-promo-video {
+  animation: rate-promo-video-enter 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rate-promo-video-enter {
+  from {
+    opacity: 0;
+    transform: scale(1.14);
+    filter: brightness(1.25) saturate(1.1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1) saturate(1);
+  }
+}
+
+/* Promo image — Ken Burns drift (main panel images are static / stretch) */
+.rate-card-promo-image-kenburns {
+  animation: rate-promo-image-wrap-in 800ms ease-out both;
+}
+
+.rate-card-promo-image {
+  animation: rate-promo-image-kenburns 18s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes rate-promo-image-wrap-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(4%);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes rate-promo-image-kenburns {
+  from {
+    transform: scale(1) translate(0, 0);
+  }
+  to {
+    transform: scale(1.08) translate(-2%, -1.5%);
+  }
+}
+
+.rate-card-promo-shell::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  box-shadow: inset 0 0 40px rgba(13, 38, 128, 0.45);
+  animation: rate-promo-vignette-in 1s ease-out both;
+}
+
+@keyframes rate-promo-vignette-in {
   from { opacity: 0; }
   to { opacity: 1; }
 }

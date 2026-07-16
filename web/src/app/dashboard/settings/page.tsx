@@ -500,7 +500,7 @@ function BranchSettingsForm({
         ) : null}
         <SettingsSwitchRow
           label="Play video sound"
-          hint="Play branch, promotion and rate-card videos WITH audio. Browsers keep videos muted until the screen is tapped once."
+          hint="Audio for the main video player AND rate-card promo videos. Tap the screen once to unmute (browser rule)."
           checked={settings.videoSoundOn === true}
           onCheckedChange={(checked) => setSettings({ ...settings, videoSoundOn: checked })}
         />

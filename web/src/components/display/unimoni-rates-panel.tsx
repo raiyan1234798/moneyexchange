@@ -9,6 +9,7 @@ import {
 } from "@/lib/unimoni-signage";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
+import { RateCardPromoMedia } from "@/components/display/rate-card-promo-media";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
 import type { ExchangeRate, TransferRate } from "@/lib/types";
 
@@ -470,7 +471,7 @@ export function UnimoniRatesPanel({
         {isPromoSheet ? (
           <div
             key={`promo-${sheetIndex}`}
-            className={`rates-sheet-fade ${
+            className={`rate-promo-sheet-enter ${
               promoFullBleed
                 ? "absolute inset-0 flex min-h-0 flex-col"
                 : `flex min-h-0 flex-1 flex-col ${
@@ -495,93 +496,25 @@ export function UnimoniRatesPanel({
               </p>
             ) : null}
             {activeSheet.promoMedia ? (
-              <div
-                className={
-                  promoFullBleed
-                    ? "absolute inset-0 overflow-hidden"
-                    : "relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#0D2680]/30 shadow-[inset_0_0_40px_rgba(255,255,255,0.06)] backdrop-blur-sm"
-                }
-                style={promoFullBleed ? undefined : { backgroundColor: UNIMONI_COLORS.navy }}
-              >
-                {activeSheet.promoMedia.type === "video" ? (
-                  promoFullBleed ? (
-                    <video
-                      key={activeSheet.promoMedia.url}
-                      src={activeSheet.promoMedia.url}
-                      autoPlay
-                      muted={!videoSoundOn}
-                      loop
-                      playsInline
-                      controls={false}
-                      disablePictureInPicture
-                      onCanPlay={(e) => {
-                        const v = e.currentTarget;
-                        v.muted = !videoSoundOn;
-                        void v.play().catch(() => {
-                          v.muted = true;
-                          void v.play().catch(() => {});
-                        });
-                      }}
-                      className="absolute inset-0 z-0 h-full w-full object-cover object-center"
-                    />
-                  ) : (
-                    <>
-                      <video
-                        key={`${activeSheet.promoMedia.url}-bg`}
-                        src={activeSheet.promoMedia.url}
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        aria-hidden
-                        className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
-                      />
-                      <video
-                        key={activeSheet.promoMedia.url}
-                        src={activeSheet.promoMedia.url}
-                        autoPlay
-                        muted={!videoSoundOn}
-                        loop
-                        playsInline
-                        controls={false}
-                        disablePictureInPicture
-                        onCanPlay={(e) => {
-                          const v = e.currentTarget;
-                          v.muted = !videoSoundOn;
-                          void v.play().catch(() => {
-                            v.muted = true;
-                            void v.play().catch(() => {});
-                          });
-                        }}
-                        className="relative z-10 max-h-full max-w-full object-contain object-center"
-                      />
-                    </>
-                  )
-                ) : promoFullBleed ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={activeSheet.promoMedia.url}
-                    alt="Promotion"
-                    className="absolute inset-0 z-0 h-full w-full object-cover object-center"
+              promoFullBleed ? (
+                <RateCardPromoMedia
+                  url={activeSheet.promoMedia.url}
+                  type={activeSheet.promoMedia.type}
+                  fullBleed
+                  soundOn={videoSoundOn}
+                />
+              ) : (
+                <div
+                  className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#0D2680]/30 shadow-[inset_0_0_40px_rgba(255,255,255,0.06)] backdrop-blur-sm"
+                  style={{ backgroundColor: UNIMONI_COLORS.navy }}
+                >
+                  <RateCardPromoMedia
+                    url={activeSheet.promoMedia.url}
+                    type={activeSheet.promoMedia.type}
+                    soundOn={videoSoundOn}
                   />
-                ) : (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={activeSheet.promoMedia.url}
-                      alt=""
-                      aria-hidden
-                      className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
-                    />
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={activeSheet.promoMedia.url}
-                      alt="Promotion"
-                      className="relative z-10 max-h-full max-w-full object-contain object-center"
-                    />
-                  </>
-                )}
-              </div>
+                </div>
+              )
             ) : null}
             {promoMessage ? (
               <p
