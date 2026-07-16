@@ -95,6 +95,7 @@ function BranchSettingsForm({
   initialSettings,
   saving,
   saveSlot,
+  navSlot,
   onSave,
 }: {
   branchId: string;
@@ -105,6 +106,8 @@ function BranchSettingsForm({
   saving: boolean;
   /** Element under the live TV preview that hosts the save bar on xl screens. */
   saveSlot?: HTMLElement | null;
+  /** Element below the save bar that hosts the section jump-nav on xl screens. */
+  navSlot?: HTMLElement | null;
   onSave: (data: { logoUrl: string; brandingColor: string; settings: BranchSettings }) => Promise<void>;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
@@ -177,8 +180,27 @@ function BranchSettingsForm({
 
   return (
     <div className="space-y-5">
-      {/* Sticky chip nav — jump straight to any section. */}
-      <nav className="sticky top-2 z-20 flex flex-wrap gap-1.5 rounded-2xl border border-border/40 bg-background/95 p-2 shadow-sm backdrop-blur">
+      {/* Section jump-nav: on xl screens it lives in the RIGHT column below the
+          save card (via portal); smaller screens keep the sticky top bar. */}
+      {navSlot
+        ? createPortal(
+            <nav className="flex flex-wrap gap-1.5 rounded-2xl border border-border/40 bg-background/95 p-2 shadow-sm">
+              {SETTINGS_NAV.map((item) => (
+                <a
+                  key={item.id}
+                  href={`#${item.id}`}
+                  className="rounded-lg border border-border/50 px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>,
+            navSlot,
+          )
+        : null}
+      <nav
+        className={`${navSlot ? "xl:hidden " : ""}sticky top-2 z-20 flex flex-wrap gap-1.5 rounded-2xl border border-border/40 bg-background/95 p-2 shadow-sm backdrop-blur`}
+      >
         {SETTINGS_NAV.map((item) => (
           <a
             key={item.id}
@@ -1687,8 +1709,9 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [globalLoading, setGlobalLoading] = useState(isSuperAdmin);
   const [saving, setSaving] = useState(false);
-  // Slot under the live TV preview that hosts the form's save bar (xl screens).
+  // Slots under the live TV preview: save bar, then the section jump-nav.
   const [saveSlot, setSaveSlot] = useState<HTMLElement | null>(null);
+  const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
@@ -1945,6 +1968,7 @@ export default function SettingsPage() {
                 initialSettings={branch.settings}
                 saving={saving}
                 saveSlot={saveSlot}
+                navSlot={navSlot}
                 onSave={saveBranchSettings}
               />
               <div className="hidden xl:block">
@@ -1961,6 +1985,7 @@ export default function SettingsPage() {
                     This is the real branch display, live. Saved changes appear here within seconds.
                   </p>
                   <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
+                  <div id="branch-nav-slot" ref={setNavSlot} />
                 </div>
               </div>
             </div>
