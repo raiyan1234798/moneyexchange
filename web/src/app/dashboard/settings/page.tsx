@@ -223,59 +223,6 @@ function BranchSettingsForm({
         </div>
       </div>
       </div>
-      <div className="space-y-2">
-        <Label>Ticker Logo (pop-out breaking-news badge)</Label>
-        <p className="text-xs text-muted-foreground">
-          Leave blank to show the real animated unimoni logo. Paste an image URL or upload a file to
-          use a custom logo.
-        </p>
-        <Input
-          value={settings.tickerLogoUrl?.startsWith("data:") ? "" : settings.tickerLogoUrl ?? ""}
-          onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
-          placeholder="https://example.com/logo.png — or upload below"
-          disabled={settings.tickerLogoUrl?.startsWith("data:")}
-          className="rounded-xl"
-        />
-        <div className="flex items-center gap-3">
-          <Input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
-            aria-label="Upload ticker logo image"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              try {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
-                setSettings({ ...settings, tickerLogoUrl: dataUrl });
-                toast.success("Logo image ready — click Save Branch Settings to apply");
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not read image");
-              }
-            }}
-            className="rounded-xl"
-          />
-          {settings.tickerLogoUrl ? (
-            <div className="flex shrink-0 items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={settings.tickerLogoUrl}
-                alt="Logo preview"
-                className="h-9 w-14 shrink-0 rounded-md bg-slate-800 object-contain p-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-lg"
-                onClick={() => setSettings({ ...settings, tickerLogoUrl: null })}
-              >
-                Clear
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </div>
-
       {/* Rebrand: custom logo for the rate-card header (overrides the unimoni logo). */}
       <div className="space-y-2">
         <Label>Primary brand logo — rate-card header</Label>
@@ -1045,8 +992,83 @@ function BranchSettingsForm({
         id="sec-ticker"
         icon="📜"
         title="Bottom ticker"
-        description="The scrolling message bar at the bottom of the TV — speed, text size and colour, and the yellow headline box. The message itself is edited on the Display Messages page."
+        description="The scrolling message bar at the bottom of the TV — the corner logo badge, speed, text size and colour, and the yellow headline box. The message itself is edited on the Display Messages page."
       >
+      {/* The pop-out badge at the bottom-left corner of the TV. ONE clear
+          choice: unimoni logo (default) / your own text / an uploaded image. */}
+      <div className="space-y-3 rounded-xl border border-border/40 bg-muted/20 p-4">
+        <div>
+          <Label className="text-sm">Corner logo — the badge at the bottom-left of the TV</Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Shows the <strong>unimoni logo</strong> by default. Type text below to show text
+            instead, or upload an image. Text wins over the image; clear both to get the unimoni
+            logo back.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            Option 1 — badge TEXT
+          </Label>
+          <Input
+            value={settings.tickerLogoText ?? ""}
+            onChange={(event) =>
+              setSettings({ ...settings, tickerLogoText: event.target.value || null })
+            }
+            placeholder="e.g. UNIMONI — leave empty to use an image / the unimoni logo"
+            className="rounded-xl"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            Option 2 — badge IMAGE (used when no text is set)
+          </Label>
+          <Input
+            value={settings.tickerLogoUrl?.startsWith("data:") ? "" : settings.tickerLogoUrl ?? ""}
+            onChange={(event) => setSettings({ ...settings, tickerLogoUrl: event.target.value || null })}
+            placeholder="https://example.com/logo.png — or upload below"
+            disabled={settings.tickerLogoUrl?.startsWith("data:")}
+            className="rounded-xl"
+          />
+          <div className="flex items-center gap-3">
+            <Input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+              aria-label="Upload ticker corner logo image"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                try {
+                  const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                  setSettings({ ...settings, tickerLogoUrl: dataUrl });
+                  toast.success("Corner logo ready — click Save Branch Settings to apply");
+                } catch (error) {
+                  toast.error(error instanceof Error ? error.message : "Could not read image");
+                }
+              }}
+              className="rounded-xl"
+            />
+            {settings.tickerLogoUrl ? (
+              <div className="flex shrink-0 items-center gap-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={settings.tickerLogoUrl}
+                  alt="Corner logo preview"
+                  className="h-9 w-14 shrink-0 rounded-md bg-slate-800 object-contain p-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => setSettings({ ...settings, tickerLogoUrl: null })}
+                >
+                  Clear
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
         <Label>Default Ticker Speed (seconds)</Label>

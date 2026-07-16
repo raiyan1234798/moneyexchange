@@ -429,9 +429,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   const tickerSpeed = activeTicker?.scrollSpeed || branchSettings.tickerSpeed || 35;
   const tickerPaused = activeTicker?.paused === true;
+  // The DEDICATED corner-badge upload wins over the generic branch Logo URL —
+  // otherwise "change the ticker corner logo" silently does nothing whenever a
+  // branch Logo URL happens to be set.
   const tickerLogoUrl =
-    branch?.logoUrl ||
     branchSettings.tickerLogoUrl ||
+    branch?.logoUrl ||
     activeTicker?.logoUrl ||
     (replaceDefaultLogo && headerLogoUrl) ||
     null;
