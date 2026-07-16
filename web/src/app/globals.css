@@ -562,9 +562,13 @@
   pointer-events: none;
   position: absolute;
   inset: 0;
-  z-index: 15;
-  box-shadow: inset 0 0 40px rgba(13, 38, 128, 0.45);
+  z-index: 4;
+  box-shadow: inset 0 0 32px rgba(13, 38, 128, 0.35);
   animation: rate-promo-vignette-in 1s ease-out both;
+}
+
+.rate-card-promo-glass {
+  animation: rate-promo-vignette-in 0.8s ease-out both;
 }
 
 @keyframes rate-promo-vignette-in {

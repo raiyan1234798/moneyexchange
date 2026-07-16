@@ -9,6 +9,7 @@ import {
 } from "@/lib/unimoni-signage";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
+import { BrandLogoImage, GlassTextPill } from "@/components/display/brand-logo-image";
 import { RateCardPromoMedia } from "@/components/display/rate-card-promo-media";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
 import type { ExchangeRate, TransferRate } from "@/lib/types";
@@ -408,13 +409,10 @@ export function UnimoniRatesPanel({
           {headerLogos === null ? null : showCustomLogos ? (
             <div className="flex min-w-0 items-center justify-center gap-[0.8vw]">
               {headerLogos!.map((src, i) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <BrandLogoImage
                   key={`${src}-${i}`}
                   src={src}
-                  alt="Brand logo"
-                  style={{ height: headerLogoHeight }}
-                  className="w-auto max-w-full object-contain"
+                  height={headerLogoHeight}
                 />
               ))}
             </div>
@@ -474,61 +472,58 @@ export function UnimoniRatesPanel({
             className={`rate-promo-sheet-enter ${
               promoFullBleed
                 ? "absolute inset-0 flex min-h-0 flex-col"
-                : `flex min-h-0 flex-1 flex-col ${
+                : `relative flex min-h-0 flex-1 flex-col ${
                     activeSheet.promoMedia && !promoTop && !promoMessage
                       ? ""
                       : `items-center justify-center ${promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""}`
                   }`
             }`}
           >
+            {!activeSheet.promoMedia && (promoTop || promoMessage) ? (
+              <div
+                className="pointer-events-none absolute inset-0 bg-[#0D2680]/35 backdrop-blur-md"
+                aria-hidden
+              />
+            ) : null}
             {promoTop ? (
-              <p
-                className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
-                style={{
-                  color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
-                  fontFamily: promoTextFont,
-                  fontSize: promoTextSize(
-                    activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
-                  ),
-                }}
-              >
-                {promoTop}
-              </p>
+              <GlassTextPill className="mx-[0.6vw] shrink-0">
+                <p
+                  className="text-center font-extrabold uppercase leading-tight"
+                  style={{
+                    color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
+                    fontFamily: promoTextFont,
+                    fontSize: promoTextSize(
+                      activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                    ),
+                  }}
+                >
+                  {promoTop}
+                </p>
+              </GlassTextPill>
             ) : null}
             {activeSheet.promoMedia ? (
-              promoFullBleed ? (
-                <RateCardPromoMedia
-                  url={activeSheet.promoMedia.url}
-                  type={activeSheet.promoMedia.type}
-                  fullBleed
-                  soundOn={videoSoundOn}
-                />
-              ) : (
-                <div
-                  className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#0D2680]/30 shadow-[inset_0_0_40px_rgba(255,255,255,0.06)] backdrop-blur-sm"
-                  style={{ backgroundColor: UNIMONI_COLORS.navy }}
-                >
-                  <RateCardPromoMedia
-                    url={activeSheet.promoMedia.url}
-                    type={activeSheet.promoMedia.type}
-                    soundOn={videoSoundOn}
-                  />
-                </div>
-              )
+              <RateCardPromoMedia
+                url={activeSheet.promoMedia.url}
+                type={activeSheet.promoMedia.type}
+                fullBleed={promoFullBleed}
+                soundOn={videoSoundOn}
+              />
             ) : null}
             {promoMessage ? (
-              <p
-                className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
-                style={{
-                  color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
-                  fontFamily: promoTextFont,
-                  fontSize: promoTextSize(
-                    activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
-                  ),
-                }}
-              >
-                {promoMessage}
-              </p>
+              <GlassTextPill className="mx-[0.6vw] shrink-0">
+                <p
+                  className="text-center font-extrabold uppercase leading-tight"
+                  style={{
+                    color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
+                    fontFamily: promoTextFont,
+                    fontSize: promoTextSize(
+                      activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)",
+                    ),
+                  }}
+                >
+                  {promoMessage}
+                </p>
+              </GlassTextPill>
             ) : null}
           </div>
         ) : (

@@ -74,6 +74,13 @@ function LogoUploadField({
     try {
       const { dataUrl } = await readLogoFileAsDataUrl(file);
       onUpload(dataUrl);
+      const isOpaque =
+        !file.type.includes("svg") &&
+        !file.name.toLowerCase().endsWith(".png") &&
+        !file.type.includes("png");
+      if (isOpaque) {
+        toast.info("Tip: PNG with a transparent background looks best on the TV — no box around the logo.");
+      }
       toast.success(`${label} uploaded — click Save Branch Settings at the bottom to apply`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not read image");
@@ -86,7 +93,10 @@ function LogoUploadField({
     <div className="space-y-2 rounded-xl border border-dashed border-border/50 bg-muted/20 p-4">
       <Label>{label}</Label>
       <p className="text-xs text-muted-foreground">{hint}</p>
-      <p className="text-[11px] text-muted-foreground/90">Recommended: {MEDIA_DIMENSION_HINTS.logo}</p>
+      <p className="text-[11px] text-muted-foreground/90">
+        Recommended: {MEDIA_DIMENSION_HINTS.logo}. Use a <strong>PNG with transparent background</strong> so only
+        the logo shows on the TV — not a coloured box around it.
+      </p>
       <input
         ref={fileRef}
         type="file"
@@ -131,7 +141,7 @@ function LogoUploadField({
           <img
             src={value}
             alt={`${label} preview`}
-            className={`h-12 w-24 shrink-0 rounded-md object-contain p-1 ${previewBg}`}
+            className={`h-12 w-24 shrink-0 rounded-md object-contain p-1 ${previewBg} [background-image:linear-gradient(45deg,#80808033_25%,transparent_25%,transparent_75%,#80808033_75%),linear-gradient(45deg,#80808033_25%,transparent_25%,transparent_75%,#80808033_75%)] [background-size:8px_8px] [background-position:0_0,4px_4px]`}
           />
           <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={onClear}>
             Clear

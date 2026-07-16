@@ -11,9 +11,21 @@ export interface RateCardPromoMediaProps {
   soundOn?: boolean;
 }
 
+function PromoGlassOverlay({ className }: { className?: string }) {
+  return (
+    <div
+      className={cn(
+        "rate-card-promo-glass pointer-events-none absolute inset-0 z-[5]",
+        "bg-[#0D2680]/28 backdrop-blur-[4px]",
+        className,
+      )}
+      aria-hidden
+    />
+  );
+}
+
 /**
- * Rate-card promo media — visually distinct from the main video panel:
- * framed chrome, slide-in sheet, Ken Burns on images, zoom-reveal on video.
+ * Rate-card promo media — glassmorphism + distinct animations from main video.
  */
 export function RateCardPromoMedia({
   url,
@@ -26,9 +38,41 @@ export function RateCardPromoMedia({
     fullBleed ? "absolute inset-0" : "flex min-h-0 w-full flex-1 items-center justify-center",
   );
 
+  const mediaGlassCard = cn(
+    "relative z-10 overflow-hidden",
+    "rounded-2xl border border-white/28 bg-white/10",
+    "shadow-[0_12px_40px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.12)]",
+    "backdrop-blur-md",
+    fullBleed ? "absolute inset-[0.45rem] sm:inset-[0.55rem]" : "max-h-full max-w-full",
+  );
+
   return (
     <div className={shellClass}>
-      {/* Decorative frame — makes the promo read as a "card" not the main cinema player */}
+      {/* Blurred glass fill — always on (video, image, full bleed or framed) */}
+      {type === "video" ? (
+        <video
+          key={`${url}-glass-bg`}
+          src={url}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden
+          className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.48] saturate-[1.15]"
+        />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={url}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.48] saturate-[1.1]"
+        />
+      )}
+
+      <PromoGlassOverlay />
+
+      {/* Decorative frame */}
       <div className="rate-card-promo-frame pointer-events-none absolute inset-0 z-20" aria-hidden>
         <span className="rate-card-promo-frame__edge rate-card-promo-frame__edge--top" />
         <span className="rate-card-promo-frame__edge rate-card-promo-frame__edge--bottom" />
@@ -39,20 +83,8 @@ export function RateCardPromoMedia({
         <span className="rate-card-promo-frame__badge">Promo</span>
       </div>
 
-      {type === "video" ? (
-        <>
-          {!fullBleed ? (
-            <video
-              key={`${url}-bg`}
-              src={url}
-              autoPlay
-              muted
-              loop
-              playsInline
-              aria-hidden
-              className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
-            />
-          ) : null}
+      <div className={mediaGlassCard}>
+        {type === "video" ? (
           <video
             key={url}
             src={url}
@@ -72,41 +104,31 @@ export function RateCardPromoMedia({
               });
             }}
             className={cn(
-              "rate-card-promo-video z-10 object-center",
-              fullBleed
-                ? "absolute inset-0 h-full w-full object-cover"
-                : "relative max-h-full max-w-full object-contain",
+              "rate-card-promo-video h-full w-full object-cover object-center",
+              fullBleed ? "min-h-full min-w-full" : "max-h-full max-w-full object-contain",
             )}
           />
-        </>
-      ) : fullBleed ? (
-        <div className="rate-card-promo-image-kenburns absolute inset-0 z-0 overflow-hidden">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt="Promotion"
-            className="rate-card-promo-image rate-card-promo-image--bleed h-full w-full object-cover object-center"
-          />
-        </div>
-      ) : (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.42]"
-          />
-          <div className="rate-card-promo-image-kenburns relative z-10 max-h-full max-w-full overflow-hidden rounded-lg">
+        ) : (
+          <div
+            className={cn(
+              "rate-card-promo-image-kenburns h-full w-full overflow-hidden",
+              fullBleed ? "" : "flex items-center justify-center p-[0.4vw]",
+            )}
+          >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={url}
               alt="Promotion"
-              className="rate-card-promo-image rate-card-promo-image--framed max-h-full max-w-full object-contain object-center"
+              className={cn(
+                "rate-card-promo-image object-center",
+                fullBleed
+                  ? "h-full w-full object-cover"
+                  : "max-h-full max-w-full object-contain",
+              )}
             />
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

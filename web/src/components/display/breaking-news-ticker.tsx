@@ -173,11 +173,11 @@ function BreakingNewsTickerInner({
         // corners so it never looks cut.
         className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 px-[1vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
           pulse ? "ticker-logo-pulse" : ""
-        }`}
+        } ${isTextLogo ? "" : "border-white/30 bg-white/12 backdrop-blur-xl"}`}
         style={{
           width: badgeWidth,
           height: `calc(${barHeight} * 1.5)`,
-          backgroundColor: isTextLogo ? UNIMONI_COLORS.tickerBlack : "#FFFFFF",
+          backgroundColor: isTextLogo ? UNIMONI_COLORS.tickerBlack : undefined,
           borderColor: UNIMONI_COLORS.gold,
         }}
       >

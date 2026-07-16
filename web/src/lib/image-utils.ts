@@ -50,7 +50,7 @@ export async function readLogoFileAsDataUrl(
   if (!file.type.startsWith("image/") && !LOGO_ACCEPTED_EXT.test(name)) {
     throw new Error("Please choose an image file — PNG, JPG, JPEG, WebP, SVG, or GIF.");
   }
-  const { dataUrl, width, height } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+  const { dataUrl, width, height } = await compressLogoToDataUrl(file, LOGO_IMAGE_OPTIONS);
   return { dataUrl, width, height };
 }
 
@@ -70,7 +70,84 @@ function loadImage(file: File): Promise<HTMLImageElement> {
   });
 }
 
-function encode(canvas: HTMLCanvasElement, type: string, quality: number): string {
+function encode(canvas: HTMLCanvasElement, type: string, quality?: number): string {
+  return quality !== undefined ? canvas.toDataURL(type, quality) : canvas.toDataURL(type);
+}
+
+/** Detect whether an image has meaningful transparency (for logo handling). */
+function imageHasAlpha(img: HTMLImageElement, file: File): boolean {
+  if (file.type === "image/png" || file.type === "image/webp" || file.type === "image/gif") {
+    return true;
+  }
+  if (file.name.toLowerCase().endsWith(".png")) return true;
+  try {
+    const probe = document.createElement("canvas");
+    probe.width = Math.min(32, img.width);
+    probe.height = Math.min(32, img.height);
+    const ctx = probe.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return false;
+    ctx.drawImage(img, 0, 0, probe.width, probe.height);
+    const data = ctx.getImageData(0, 0, probe.width, probe.height).data;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 250) return true;
+    }
+  } catch {
+    /* canvas tainted — assume opaque */
+  }
+  return false;
+}
+
+/**
+ * Compress a logo while preserving transparency (never JPEG). PNG/WebP only.
+ */
+export async function compressLogoToDataUrl(
+  file: File,
+  options: CompressOptions,
+): Promise<{ dataUrl: string; width: number; height: number; bytes: number }> {
+  const img = await loadImage(file);
+  const preserveAlpha = imageHasAlpha(img, file);
+  let scale = Math.min(1, options.maxDimension / Math.max(img.width, img.height));
+
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const width = Math.max(1, Math.round(img.width * scale));
+    const height = Math.max(1, Math.round(img.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image processing is not supported in this browser.");
+    ctx.clearRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const candidates: string[] = [];
+    if (preserveAlpha) {
+      for (const quality of [0.88, 0.75, 0.62]) {
+        const webp = encode(canvas, "image/webp", quality);
+        candidates.push(webp.startsWith("data:image/webp") ? webp : encode(canvas, "image/png"));
+      }
+      candidates.push(encode(canvas, "image/png"));
+    } else {
+      for (const quality of [0.82, 0.68, 0.55]) {
+        const webp = encode(canvas, "image/webp", quality);
+        candidates.push(webp.startsWith("data:image/webp") ? webp : encode(canvas, "image/jpeg", quality));
+      }
+    }
+
+    for (const dataUrl of candidates) {
+      const bytes = Math.round((dataUrl.length - dataUrl.indexOf(",") - 1) / DATA_URL_OVERHEAD);
+      if (bytes <= options.targetBytes) {
+        return { dataUrl, width, height, bytes };
+      }
+    }
+    scale *= 0.7;
+  }
+
+  throw new Error(
+    "This logo is too large even after compression — use a smaller PNG with transparency, or paste a URL.",
+  );
+}
+
+function encodeLegacy(canvas: HTMLCanvasElement, type: string, quality: number): string {
   return canvas.toDataURL(type, quality);
 }
 
@@ -97,11 +174,11 @@ export async function compressImageToDataUrl(
     ctx.drawImage(img, 0, 0, width, height);
 
     for (const quality of [0.82, 0.68, 0.55]) {
-      const dataUrl = encode(canvas, "image/webp", quality);
+      const dataUrl = encodeLegacy(canvas, "image/webp", quality);
       // Some browsers ignore webp and return png — detect and fall back to jpeg.
       const effective = dataUrl.startsWith("data:image/webp")
         ? dataUrl
-        : encode(canvas, "image/jpeg", quality);
+        : encodeLegacy(canvas, "image/jpeg", quality);
       const bytes = Math.round((effective.length - effective.indexOf(",") - 1) / DATA_URL_OVERHEAD);
       if (bytes <= options.targetBytes) {
         return { dataUrl: effective, width, height, bytes };

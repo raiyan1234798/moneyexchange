@@ -52,7 +52,7 @@ function GlassLogoBadge({ logoUrl, scale = 1.35 }: { logoUrl?: string | null; sc
           src={logoUrl}
           alt="Brand logo"
           style={{ height: logoHeight }}
-          className="w-auto max-w-[min(22vw,18rem)] object-contain"
+          className="w-auto max-w-[min(22vw,18rem)] object-contain drop-shadow-[0_2px_10px_rgba(0,0,0,0.75)]"
         />
       ) : (
         <div style={{ height: logoHeight }}>
