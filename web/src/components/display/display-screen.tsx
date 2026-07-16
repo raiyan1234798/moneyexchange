@@ -56,6 +56,7 @@ interface TimedRatesPanelProps {
   promoDurationSeconds: number;
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
   videoSoundOn: boolean;
+  headerLogoScale: number;
 }
 
 function TimedRatesPanel({
@@ -89,6 +90,7 @@ function TimedRatesPanel({
   promoDurationSeconds,
   rateCardOrder,
   videoSoundOn,
+  headerLogoScale,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -134,6 +136,7 @@ function TimedRatesPanel({
       promoDurationSeconds={promoDurationSeconds}
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
+      headerLogoScale={headerLogoScale}
     />
   );
 }
@@ -218,6 +221,9 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const replaceDefaultLogo = branchSettings.replaceDefaultLogo === true;
   const headerLogoRotationEnabled = branchSettings.headerLogoRotationEnabled === true;
   const headerLogoRotationIntervalSeconds = branchSettings.headerLogoRotationIntervalSeconds ?? 10;
+  const headerLogoScale = branchSettings.headerLogoScale ?? 1.35;
+  const promoPanelLogoUrl = branchSettings.promoPanelLogoUrl?.trim() || null;
+  const showPromoGlassBranding = branchSettings.showPromoGlassBranding !== false;
   const videoSoundOn = branchSettings.videoSoundOn === true;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
 
@@ -524,8 +530,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       fit={videoFit}
       widthPercent={effectivePromoWidth}
       soundOn={videoSoundOn}
-      overlayLogoUrl={headerLogoUrl}
+      overlayLogoUrl={promoPanelLogoUrl ?? headerLogoUrl}
       contactLine={branch?.phone?.trim() || null}
+      showGlassBranding={showPromoGlassBranding}
+      logoScale={headerLogoScale}
       onMediaAspectChange={setMediaAspect}
       onVideoLoaded={() => {
         setVideoLoaded(true);
@@ -594,6 +602,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoDurationSeconds={ratePromoDurationSeconds}
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
+      headerLogoScale={headerLogoScale}
     />
   );
 

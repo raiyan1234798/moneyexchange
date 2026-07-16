@@ -41,6 +41,61 @@ import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/typ
 
 const SETTINGS_ID = "global";
 
+function LogoUploadField({
+  label,
+  hint,
+  previewBg = "bg-[#0D2680]",
+  value,
+  onUpload,
+  onClear,
+}: {
+  label: string;
+  hint: string;
+  previewBg?: string;
+  value: string | null | undefined;
+  onUpload: (dataUrl: string) => void;
+  onClear: () => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-xl border border-dashed border-border/50 bg-muted/20 p-4">
+      <Label>{label}</Label>
+      <p className="text-xs text-muted-foreground">{hint}</p>
+      <Input
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+        aria-label={`Upload ${label}`}
+        className="rounded-xl"
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) return;
+          try {
+            const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+            onUpload(dataUrl);
+            toast.success(`${label} ready — click Save Branch Settings to apply`);
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not read image");
+          } finally {
+            event.target.value = "";
+          }
+        }}
+      />
+      {value ? (
+        <div className="flex items-center gap-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={value}
+            alt={`${label} preview`}
+            className={`h-12 w-24 shrink-0 rounded-md object-contain p-1 ${previewBg}`}
+          />
+          <Button type="button" variant="outline" size="sm" className="rounded-lg" onClick={onClear}>
+            Clear
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function BranchSettingsForm({
   branchId,
   branchName,
@@ -206,99 +261,72 @@ function BranchSettingsForm({
         </div>
       </div>
 
-      {/* Rebrand: custom logo for the rate-card header (overrides the unimoni logo). */}
-      <div className="space-y-2">
-        <Label>Primary brand logo — rate-card header</Label>
-        <p className="text-xs text-muted-foreground">
-          Upload your main logo (PNG with transparency works best on the blue header). Enable
-          &quot;Replace Unimoni default&quot; below to use this instead of the built-in Unimoni logo.
-        </p>
-        <div className="flex items-center gap-3">
-          <Input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
-            aria-label="Upload header brand logo"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              try {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
-                setSettings({ ...settings, headerLogoUrl: dataUrl });
-                toast.success("Header logo ready — click Save Branch Settings to apply");
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not read image");
-              }
-            }}
-            className="rounded-xl"
+      <div className="space-y-4 rounded-2xl border border-[var(--unimoni-blue)]/25 bg-card/40 p-4 sm:p-5">
+        <div>
+          <p className="text-sm font-semibold">Upload display logos</p>
+          <p className="text-xs text-muted-foreground">
+            PNG with transparency works best. Upload here, then click Save Branch Settings at the bottom.
+          </p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <LogoUploadField
+            label="Primary logo (rate card header)"
+            hint="Main brand logo on the rate-card header. Enable Replace Unimoni below to swap out the default."
+            value={settings.headerLogoUrl}
+            onUpload={(dataUrl) => setSettings({ ...settings, headerLogoUrl: dataUrl })}
+            onClear={() => setSettings({ ...settings, headerLogoUrl: null })}
           />
-          {settings.headerLogoUrl ? (
-            <div className="flex shrink-0 items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={settings.headerLogoUrl}
-                alt="Header logo preview"
-                className="h-9 w-16 shrink-0 rounded-md bg-[#0D2680] object-contain p-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-lg"
-                onClick={() => setSettings({ ...settings, headerLogoUrl: null })}
-              >
-                Clear
-              </Button>
+          <LogoUploadField
+            label="Alternate / partner logo"
+            hint="Second logo (e.g. Wizz Financial) — show side by side, rotate, or on promo slides."
+            value={settings.headerLogoUrl2}
+            onUpload={(dataUrl) => setSettings({ ...settings, headerLogoUrl2: dataUrl })}
+            onClear={() => setSettings({ ...settings, headerLogoUrl2: null })}
+          />
+          <LogoUploadField
+            label="Main video / promo screen logo"
+            hint="Top-left glass badge on the big video area. Leave empty to use the primary logo or unimoni default."
+            value={settings.promoPanelLogoUrl}
+            onUpload={(dataUrl) => setSettings({ ...settings, promoPanelLogoUrl: dataUrl })}
+            onClear={() => setSettings({ ...settings, promoPanelLogoUrl: null })}
+          />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Rate-card &amp; promo logo size (%)</Label>
+            <Input
+              type="number"
+              min={80}
+              max={250}
+              step={5}
+              value={Math.round((settings.headerLogoScale ?? 1.35) * 100)}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  headerLogoScale: Math.max(0.8, Math.min(2.5, Number(event.target.value) / 100 || 1.35)),
+                })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Scales the rate-card header logo and the glass badge on the main video area. 135% ≈ unimoni ticker size.
+            </p>
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+            <div>
+              <Label>Glass branding on main video area</Label>
+              <p className="text-xs text-muted-foreground">
+                Frosted-glass overlay with logo, website and locations on the large promo / video panel.
+              </p>
             </div>
-          ) : null}
+            <Switch
+              checked={settings.showPromoGlassBranding !== false}
+              onCheckedChange={(checked) => setSettings({ ...settings, showPromoGlassBranding: checked })}
+            />
+          </div>
         </div>
       </div>
 
-      {/* Second rate-card header logo (co-brand / partner) + how the two logos behave. */}
-      <div className="space-y-2">
-        <Label>Alternate / second logo (optional)</Label>
-        <p className="text-xs text-muted-foreground">
-          Upload a partner logo (e.g. Wizz Financial). Show it alongside the primary logo, rotate
-          between the two on a timer, or swap it in only while the promotion slide is on screen.
-        </p>
-        <div className="flex items-center gap-3">
-          <Input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
-            aria-label="Upload second header logo"
-            onChange={async (event) => {
-              const file = event.target.files?.[0];
-              if (!file) return;
-              try {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
-                setSettings({ ...settings, headerLogoUrl2: dataUrl });
-                toast.success("Second logo ready — click Save Branch Settings to apply");
-              } catch (error) {
-                toast.error(error instanceof Error ? error.message : "Could not read image");
-              }
-            }}
-            className="rounded-xl"
-          />
-          {settings.headerLogoUrl2 ? (
-            <div className="flex shrink-0 items-center gap-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={settings.headerLogoUrl2}
-                alt="Second logo preview"
-                className="h-9 w-16 shrink-0 rounded-md bg-[#0D2680] object-contain p-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-lg"
-                onClick={() => setSettings({ ...settings, headerLogoUrl2: null })}
-              >
-                Clear
-              </Button>
-            </div>
-          ) : null}
-        </div>
-      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Show logos (normal slides)</Label>

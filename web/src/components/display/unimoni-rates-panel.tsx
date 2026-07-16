@@ -79,6 +79,8 @@ interface UnimoniRatesPanelProps {
   rateCardOrder?: Array<"forex" | "transfer" | "promo">;
   /** Play promo videos WITH sound (default muted). */
   videoSoundOn?: boolean;
+  /** Scale multiplier for header logos (from Settings). Default 1.35. */
+  headerLogoScale?: number;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -148,8 +150,10 @@ export function UnimoniRatesPanel({
   promoDurationSeconds,
   rateCardOrder,
   videoSoundOn = false,
+  headerLogoScale = 1.35,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
+  const headerLogoHeight = `calc(clamp(2.75rem, 6.5vh, 5.5rem) * ${headerLogoScale})`;
   // Hooks must run unconditionally (before the board early-return).
   const now = useNow();
   // Transfer is its OWN card (separate rotating screen), never mixed into the
@@ -400,18 +404,21 @@ export function UnimoniRatesPanel({
                   key={`${src}-${i}`}
                   src={src}
                   alt="Brand logo"
-                  className="h-[clamp(2.75rem,6.5vh,5.5rem)] w-auto max-w-full object-contain"
+                  style={{ height: headerLogoHeight }}
+                  className="w-auto max-w-full object-contain"
                 />
               ))}
             </div>
           ) : showDefaultLogo ? (
-            <UnimoniLogoImage
-              variant="onDark"
-              width={360}
-              height={92}
-              className="h-[clamp(2.75rem,6.5vh,5.5rem)] w-auto max-w-full object-contain"
-              priority
-            />
+            <div style={{ height: headerLogoHeight }}>
+              <UnimoniLogoImage
+                variant="onDark"
+                width={Math.round(360 * headerLogoScale)}
+                height={Math.round(92 * headerLogoScale)}
+                className="h-full w-auto max-w-full object-contain"
+                priority
+              />
+            </div>
           ) : null}
           {headerSubLabel ? (
             <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
@@ -479,8 +486,8 @@ export function UnimoniRatesPanel({
             ) : null}
             {activeSheet.promoMedia ? (
               <div
-                className={`relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden ${
-                  promoFullBleed ? "p-0" : "rounded-md"
+                className={`relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden rounded-2xl border border-white/20 bg-[#0D2680]/30 shadow-[inset_0_0_40px_rgba(255,255,255,0.06)] backdrop-blur-sm ${
+                  promoFullBleed ? "p-0" : ""
                 }`}
                 style={{ backgroundColor: UNIMONI_COLORS.navy }}
               >

@@ -26,6 +26,8 @@ interface UnimoniPromoPanelProps {
   soundOn?: boolean;
   /** Custom logo for the glass branding overlay (top-left). Falls back to unimoni. */
   overlayLogoUrl?: string | null;
+  /** Scale multiplier for glass / header logos (from Settings). Default 1.35. */
+  logoScale?: number;
   /** Optional contact line override (defaults to branch signage line). */
   contactLine?: string | null;
   /** Show the frosted-glass branding overlay (logo, website, locations). */
@@ -40,7 +42,8 @@ interface UnimoniPromoPanelProps {
   children?: React.ReactNode;
 }
 
-function GlassLogoBadge({ logoUrl }: { logoUrl?: string | null }) {
+function GlassLogoBadge({ logoUrl, scale = 1.35 }: { logoUrl?: string | null; scale?: number }) {
+  const logoHeight = `calc(clamp(2.75rem, 6vh, 5rem) * ${scale})`;
   return (
     <div className="rounded-2xl border border-white/30 bg-white/15 px-[1.2vw] py-[1vh] shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl">
       {logoUrl ? (
@@ -48,15 +51,18 @@ function GlassLogoBadge({ logoUrl }: { logoUrl?: string | null }) {
         <img
           src={logoUrl}
           alt="Brand logo"
-          className="h-[clamp(2.75rem,6vh,5rem)] w-auto max-w-[min(22vw,18rem)] object-contain"
+          style={{ height: logoHeight }}
+          className="w-auto max-w-[min(22vw,18rem)] object-contain"
         />
       ) : (
-        <UnimoniLogoImage
-          variant="onDark"
-          height={80}
-          className="h-[clamp(2.75rem,6vh,5rem)] w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
-          priority
-        />
+        <div style={{ height: logoHeight }}>
+          <UnimoniLogoImage
+            variant="onDark"
+            height={Math.round(80 * scale)}
+            className="h-full w-auto object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)]"
+            priority
+          />
+        </div>
       )}
     </div>
   );
@@ -73,6 +79,7 @@ export function UnimoniPromoPanel({
   overlayLogoUrl,
   contactLine,
   showGlassBranding = true,
+  logoScale = 1.35,
   onMediaAspectChange,
   onVideoLoaded,
   onVideoError,
@@ -93,7 +100,8 @@ export function UnimoniPromoPanel({
 
   const objectClass =
     fit === "stretch" ? "object-fill" : fit === "cover" ? "object-cover" : "object-contain";
-  const useBackdrop = fit === "contain";
+  // Always show a blurred glass fill behind video/image so the panel never looks flat.
+  const useBackdrop = true;
 
   const panelStyle: CSSProperties =
     showVideo || showImage ? {} : { backgroundColor: UNIMONI_COLORS.panelBlue };
@@ -177,6 +185,13 @@ export function UnimoniPromoPanel({
         </>
       ) : null}
 
+      {(showVideo || showImage) && showGlassBranding ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-[2] bg-[#0D2680]/25 backdrop-blur-[2px]"
+          aria-hidden
+        />
+      ) : null}
+
       {showPlaceholder ? (
         <div
           className="absolute inset-0 z-[2] bg-[#0D2680]/90 backdrop-blur-[3px]"
@@ -190,7 +205,7 @@ export function UnimoniPromoPanel({
           style={{ textShadow: BRANDING_TEXT_SHADOW }}
         >
           <div className="flex justify-start p-[clamp(1rem,2.5vw,2.5rem)] pt-[clamp(1.25rem,3vh,2.75rem)]">
-            <GlassLogoBadge logoUrl={overlayLogoUrl} />
+            <GlassLogoBadge logoUrl={overlayLogoUrl} scale={logoScale} />
           </div>
 
           {showFullGlassCenter ? (
@@ -201,7 +216,8 @@ export function UnimoniPromoPanel({
                   <img
                     src={overlayLogoUrl}
                     alt="Brand logo"
-                    className="mx-auto h-[clamp(3rem,8vh,5.5rem)] w-auto object-contain"
+                    style={{ height: `calc(clamp(3rem, 8vh, 5.5rem) * ${logoScale})` }}
+                    className="mx-auto w-auto object-contain"
                   />
                 ) : (
                   <Image
@@ -209,7 +225,8 @@ export function UnimoniPromoPanel({
                     alt="unimoni"
                     width={300}
                     height={97}
-                    className="mx-auto h-[clamp(3rem,8vh,5.5rem)] w-auto object-contain"
+                    style={{ height: `calc(clamp(3rem, 8vh, 5.5rem) * ${logoScale})` }}
+                    className="mx-auto w-auto object-contain"
                     unoptimized
                     priority
                   />

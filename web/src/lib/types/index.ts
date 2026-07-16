@@ -98,12 +98,18 @@ export interface BranchSettings {
   tickerScale?: number;
   /** Multiplier for the pop-out ticker logo badge size (0.6–2). Default 1. */
   logoScale?: number;
+  /** Multiplier for rate-card header + main promo glass logo (0.8–2.5). Default 1.35. */
+  headerLogoScale?: number;
   /** Animation style for the pop-out ticker logo. Default "spin". */
   tickerLogoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Custom text for the gold "breaking" headline tab above the ticker. */
   tickerHeadline?: string | null;
   /** Show the gold headline tab at all (turn off to remove it). Default true. */
   showTickerHeadline?: boolean;
+  /** Optional logo for the main video / promo glass badge (top-left). Falls back to primary header logo. */
+  promoPanelLogoUrl?: string | null;
+  /** Show frosted-glass branding overlay on the main video / promo area. Default true. */
+  showPromoGlassBranding?: boolean;
   /** Custom brand logo for the rate-card header (rebrand) — overrides the unimoni logo. */
   headerLogoUrl?: string | null;
   /** Optional SECOND rate-card header logo (co-brand / partner). */
