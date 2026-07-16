@@ -413,17 +413,41 @@ export function CentralTransferPanel({
             <AlertDialogTitle>Publish transfer rates to ALL branches?</AlertDialogTitle>
             <AlertDialogDescription>
               {pending
-                ? `${pending.rows.length} transfer rate(s) — ${pending.rows
-                    .map((r) => r.currencyCode)
-                    .slice(0, 12)
-                    .join(", ")}${pending.rows.length > 12 ? "…" : ""} — will go LIVE on every branch's TV immediately. Transfer rates are centralized: the same rate shows on all branches.`
+                ? `These ${pending.rows.length} transfer rate(s) will go LIVE on every branch's TV immediately. Transfer rates are centralized: the same rate shows on all branches.`
                 : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {/* Exactly what will be published — currency and both values. */}
+          {pending ? (
+            <div className="max-h-52 overflow-y-auto rounded-xl border border-border/50">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-muted text-[11px] uppercase tracking-wide">
+                  <tr>
+                    <th className="px-3 py-1.5 text-left">Currency</th>
+                    <th className="px-3 py-1.5 text-right">$ (USD)</th>
+                    <th className="px-3 py-1.5 text-right">{localLabel}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pending.rows.map((r, i) => (
+                    <tr key={`${r.currencyCode}-${i}`} className="odd:bg-muted/20">
+                      <td className="px-3 py-1 font-mono font-semibold">{r.currencyCode}</td>
+                      <td className="px-3 py-1 text-right tabular-nums">
+                        {(r.transferUsd ?? 0) > 0 ? r.transferUsd : "—"}
+                      </td>
+                      <td className="px-3 py-1 text-right tabular-nums">
+                        {(r.transferLocal ?? 0) > 0 ? r.transferLocal : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction className="rounded-xl" onClick={() => void publishPending()}>
-              Yes, publish to ALL branches
+              Yes, publish
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
