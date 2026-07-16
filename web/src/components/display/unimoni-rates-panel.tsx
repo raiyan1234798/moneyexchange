@@ -274,12 +274,6 @@ export function UnimoniRatesPanel({
   const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
   const isPromoSheet = activeSheet.kind === "promo";
-  const promoFullBleed =
-    isPromoSheet &&
-    hidePromoHeader &&
-    Boolean(activeSheet.promoMedia) &&
-    !promoTop &&
-    !promoMessage;
   // The note ("WE BUY US$ small bills @ …") belongs to the FOREX rates. It shows
   // on the first forex page WHEREVER it lands in the chosen slide order (so it
   // still appears even when transfer/promo is set first), or on every forex page
@@ -371,9 +365,7 @@ export function UnimoniRatesPanel({
   const showHeaderBar = !hidePromoHeader;
 
   const asideStyle = {
-    background: promoFullBleed
-      ? UNIMONI_COLORS.navy
-      : `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
+    background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
     fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
     width: widthPercent ? `${widthPercent}%` : undefined,
     "--rate-scale": scale,
@@ -437,17 +429,13 @@ export function UnimoniRatesPanel({
       {/* Rate table / promo card FILLS the panel height. On promo with a hidden
           header the media uses the full aside (navy letterbox, object-contain). */}
       <div
-        className={`flex min-h-0 flex-1 flex-col ${
-          promoFullBleed
-            ? "relative mx-0 mb-0 overflow-visible rounded-none"
-            : `overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.25)] ${
-                hidePromoHeader
-                  ? "mx-0 mb-0 rounded-none"
-                  : "mx-[0.6vw] mb-[0.8vh] rounded-[10px] bg-white"
-              }`
+        className={`flex min-h-0 flex-1 flex-col overflow-hidden shadow-[0_2px_10px_rgba(0,0,0,0.25)] ${
+          hidePromoHeader
+            ? "mx-0 mb-0 rounded-none"
+            : "mx-[0.6vw] mb-[0.8vh] rounded-[10px] bg-white"
         }`}
         style={
-          hidePromoHeader || promoFullBleed
+          hidePromoHeader
             ? { backgroundColor: UNIMONI_COLORS.navy }
             : undefined
         }
@@ -455,14 +443,10 @@ export function UnimoniRatesPanel({
         {isPromoSheet ? (
           <div
             key={`promo-${sheetIndex}`}
-            className={`rates-sheet-fade ${
-              promoFullBleed
-                ? "absolute inset-0 flex min-h-0 flex-col"
-                : `flex min-h-0 flex-1 flex-col ${
-                    activeSheet.promoMedia && !promoTop && !promoMessage
-                      ? ""
-                      : `items-center justify-center ${promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""}`
-                  }`
+            className={`rates-sheet-fade flex min-h-0 flex-1 flex-col ${
+              activeSheet.promoMedia && !promoTop && !promoMessage
+                ? "overflow-hidden"
+                : `items-center justify-center ${promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""}`
             }`}
           >
             {promoTop ? (
@@ -479,8 +463,10 @@ export function UnimoniRatesPanel({
             ) : null}
             {activeSheet.promoMedia ? (
               <div
-                className={`relative flex min-h-0 w-full flex-1 items-center justify-center ${
-                  promoFullBleed ? "p-0" : "overflow-hidden rounded-md"
+                className={`relative flex min-h-0 w-full items-center justify-center overflow-hidden ${
+                  activeSheet.promoMedia && !promoTop && !promoMessage
+                    ? "flex-1"
+                    : "flex-1 rounded-md"
                 }`}
                 style={{ backgroundColor: UNIMONI_COLORS.navy }}
               >
@@ -502,14 +488,14 @@ export function UnimoniRatesPanel({
                         void v.play().catch(() => {});
                       });
                     }}
-                    className="max-h-full max-w-full object-contain object-center"
+                    className="h-full w-full object-contain"
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={activeSheet.promoMedia.url}
                     alt="Promotion"
-                    className="max-h-full max-w-full object-contain object-center"
+                    className="h-full w-full object-contain"
                   />
                 )}
               </div>
@@ -596,10 +582,8 @@ export function UnimoniRatesPanel({
 
         {sheetCount > 1 ? (
           <div
-            className={`flex shrink-0 items-center justify-center gap-[0.5vw] ${
-              promoFullBleed
-                ? "absolute bottom-[0.6vh] left-0 right-0 z-10 pb-0 pt-0"
-                : `pb-[0.6vh] ${hidePromoHeader ? "pt-[0.4vh]" : ""}`
+            className={`flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] ${
+              hidePromoHeader ? "pt-[0.4vh]" : ""
             }`}
           >
             {sheets.map((sheet, i) => (
