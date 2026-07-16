@@ -45,16 +45,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { db } from "@/lib/firebase/client";
@@ -136,9 +126,8 @@ export default function ExchangeRatesPage() {
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const { notice: loadNotice, onError, clearNotice } = useFirestoreNotice("exchange rates");
   const [lastImport, setLastImport] = useState<{ count: number; at: Date } | null>(null);
-  // Confirm-before-publish for the uploaded sheet. Admins additionally choose
-  // whether the forex rates apply to the selected branch or to ALL branches.
-  const [confirmPublishOpen, setConfirmPublishOpen] = useState(false);
+  // Scope for the uploaded sheet (admin checkbox in the review pop-up):
+  // selected branch only (default) or the same forex rates on ALL branches.
   const [publishScope, setPublishScope] = useState<"branch" | "all">("branch");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -538,6 +527,7 @@ export default function ExchangeRatesPage() {
         );
       }
       const rows = isImage ? await ocrRatesFromImage(file) : await parseRateFile(file);
+      setPublishScope("branch");
       setImportPreview(rows);
       toast.success(
         `${rows.length} rows read — review${isImage ? " carefully (photo import)" : ""} and edit below, then Publish`,
@@ -705,10 +695,6 @@ export default function ExchangeRatesPage() {
         ),
       ]
     : [];
-  const importHasTransferCols =
-    (isSuperAdmin || isAdmin) &&
-    importAllowedRows.some((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0);
-
   const availableCurrencies = currencies.filter((c) => {
     if (c.status !== "active" || c.isHidden) return false;
     const existing = rates.find((r) => r.currencyCode === c.currencyCode);
@@ -800,11 +786,26 @@ export default function ExchangeRatesPage() {
           </div>
         ) : null}
 
+        {/* Pop-up card (same style as the Money Transfer upload): review, EDIT,
+            choose scope and publish — all in one place. */}
         {importPreview ? (
-          <ContentPanel
-            title="Review imported rates"
-            description="Nothing is live yet — edit or remove rows, then publish"
+          <Dialog
+            open
+            onOpenChange={(open) => {
+              if (!open) setImportPreview(null);
+            }}
           >
+            <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>Foreign Exchange Rate — review &amp; publish</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Nothing is live yet — edit or remove rows below; the rates go LIVE on the TV
+                immediately after you publish.
+                {isSuperAdmin || isAdmin
+                  ? " Transfer-rate columns always apply to every branch (centralized)."
+                  : " You can update existing currencies only — an upload never adds new currencies to your branch."}
+              </p>
             <div className="space-y-2">
               {/* Column headers so you can tell which box is which while editing. */}
               <div
@@ -924,145 +925,65 @@ export default function ExchangeRatesPage() {
                   </Button>
                 </div>
               ))}
-              <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
-                <Button variant="outline" className="rounded-xl" onClick={() => setImportPreview(null)}>
-                  Cancel import
-                </Button>
-                <Button
-                  className="rounded-xl"
-                  disabled={uploading || importPreview.length === 0}
-                  onClick={() => {
-                    setPublishScope("branch");
-                    setConfirmPublishOpen(true);
-                  }}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {uploading
-                    ? "Publishing…"
-                    : `Publish ${importPreview.length} rate${importPreview.length === 1 ? "" : "s"}`}
-                </Button>
-              </div>
-
-              {/* Confirm BEFORE anything goes live. Admins also choose the scope:
-                  this branch only, or the same forex rates on ALL branches. */}
-              <AlertDialog open={confirmPublishOpen} onOpenChange={setConfirmPublishOpen}>
-                <AlertDialogContent className="rounded-2xl">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Publish these rates online?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {importAllowedRows.length} rate{importAllowedRows.length === 1 ? "" : "s"}{" "}
-                      will go LIVE on the TV displays immediately after publishing.
-                      {isSuperAdmin || isAdmin
-                        ? " Any transfer-rate columns always apply to every branch (centralized)."
-                        : " You can update existing currencies only — an upload never adds new currencies to your branch."}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-
-                  {/* Exactly what will be published — no surprises. */}
-                  <div className="max-h-52 overflow-y-auto rounded-xl border border-border/50">
-                    <table className="w-full text-sm">
-                      <thead className="sticky top-0 bg-muted text-[11px] uppercase tracking-wide">
-                        <tr>
-                          <th className="px-3 py-1.5 text-left">Currency</th>
-                          <th className="px-3 py-1.5 text-right">We Buy</th>
-                          <th className="px-3 py-1.5 text-right">We Sell</th>
-                          {importHasTransferCols ? (
-                            <>
-                              <th className="px-3 py-1.5 text-right">$ Transfer</th>
-                              <th className="px-3 py-1.5 text-right">{transferLocalLabel}</th>
-                            </>
-                          ) : null}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {importAllowedRows.map((r, i) => (
-                          <tr key={`${r.currencyCode}-${i}`} className="odd:bg-muted/20">
-                            <td className="px-3 py-1 font-mono font-semibold">{r.currencyCode}</td>
-                            <td className="px-3 py-1 text-right tabular-nums">
-                              {r.buyRate > 0 ? r.buyRate : "—"}
-                            </td>
-                            <td className="px-3 py-1 text-right tabular-nums">
-                              {r.sellRate > 0 ? r.sellRate : "—"}
-                            </td>
-                            {importHasTransferCols ? (
-                              <>
-                                <td className="px-3 py-1 text-right tabular-nums">
-                                  {(r.transferUsd ?? 0) > 0 ? r.transferUsd : "—"}
-                                </td>
-                                <td className="px-3 py-1 text-right tabular-nums">
-                                  {(r.transferLocal ?? 0) > 0 ? r.transferLocal : "—"}
-                                </td>
-                              </>
-                            ) : null}
-                          </tr>
-                        ))}
-                        {importAllowedRows.length === 0 ? (
-                          <tr>
-                            <td colSpan={3} className="px-3 py-3 text-center text-muted-foreground">
-                              Nothing can be published from this file.
-                            </td>
-                          </tr>
-                        ) : null}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Branch users: currencies not on the branch are named and NEVER added. */}
-                  {importRejectedCodes.length > 0 ? (
-                    <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
-                      <p className="font-semibold text-amber-600 dark:text-amber-400">
-                        Not on your branch — will NOT be published: {importRejectedCodes.join(", ")}
-                      </p>
-                      <p className="mt-1 text-muted-foreground">
-                        You can only edit or update the currencies your admin has added. Ask your
-                        admin to add new currencies first.
-                      </p>
-                    </div>
-                  ) : null}
-
-                  {/* OPTIONAL all-branches checkbox (admins only). Unchecked =
-                      the selected branch only — the default. */}
-                  {isSuperAdmin || isAdmin ? (
-                    <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
-                      <Checkbox
-                        id="publish-all-branches"
-                        checked={publishScope === "all"}
-                        onCheckedChange={(value) =>
-                          setPublishScope(value === true ? "all" : "branch")
-                        }
-                      />
-                      <div className="space-y-0.5">
-                        <Label
-                          htmlFor="publish-all-branches"
-                          className="cursor-pointer text-sm font-medium"
-                        >
-                          Also apply these forex rates to ALL branches
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          Unchecked: rates change only on{" "}
-                          <strong>{branch?.name ?? "the selected branch"}</strong>. Checked: the
-                          same rates go live on every branch&apos;s TV at once.
-                        </p>
-                      </div>
-                    </div>
-                  ) : null}
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="rounded-xl"
-                      disabled={importAllowedRows.length === 0}
-                      onClick={() => {
-                        setConfirmPublishOpen(false);
-                        void handlePublishImport(publishScope);
-                      }}
-                    >
-                      Yes, publish{publishScope === "all" ? " to ALL branches" : ""}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </div>
-          </ContentPanel>
+
+            {/* Branch users: currencies not on the branch are named and NEVER added. */}
+            {importRejectedCodes.length > 0 ? (
+              <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+                <p className="font-semibold text-amber-600 dark:text-amber-400">
+                  Not on your branch — will NOT be published: {importRejectedCodes.join(", ")}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  You can only edit or update the currencies your admin has added. Ask your
+                  admin to add new currencies first.
+                </p>
+              </div>
+            ) : null}
+
+            {/* OPTIONAL all-branches checkbox — ADMINS ONLY. Unchecked (default)
+                publishes to the selected branch only. */}
+            {isSuperAdmin || isAdmin ? (
+              <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+                <Checkbox
+                  id="publish-all-branches"
+                  checked={publishScope === "all"}
+                  onCheckedChange={(value) => setPublishScope(value === true ? "all" : "branch")}
+                />
+                <div className="space-y-0.5">
+                  <Label
+                    htmlFor="publish-all-branches"
+                    className="cursor-pointer text-sm font-medium"
+                  >
+                    Also apply these forex rates to ALL branches
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Unchecked: rates change only on{" "}
+                    <strong>{branch?.name ?? "the selected branch"}</strong>. Checked: the
+                    same rates go live on every branch&apos;s TV at once.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <DialogFooter className="pt-1">
+              <Button variant="outline" className="rounded-xl" onClick={() => setImportPreview(null)}>
+                Cancel import
+              </Button>
+              <Button
+                className="rounded-xl"
+                disabled={uploading || importAllowedRows.length === 0}
+                onClick={() => void handlePublishImport(publishScope)}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {uploading
+                  ? "Publishing…"
+                  : `Publish ${importAllowedRows.length} rate${importAllowedRows.length === 1 ? "" : "s"}${
+                      publishScope === "all" ? " to ALL branches" : ""
+                    }`}
+              </Button>
+            </DialogFooter>
+            </DialogContent>
+          </Dialog>
         ) : null}
 
         {/* Money Transfer card sits DIRECTLY under the Forex card — its own
