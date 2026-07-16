@@ -51,6 +51,8 @@ interface UnimoniRatesPanelProps {
   promoSlideLogoUrl?: string | null;
   /** Size multiplier for the promo-slide logo (1 = normal). */
   promoSlideLogoScale?: number;
+  /** Size multiplier for the header logo on NORMAL slides (1 = normal). */
+  headerLogoScale?: number;
   /** Size multiplier for the promotion text messages (1 = normal). */
   promoTextScale?: number;
   /** Font for the promotion text messages (falls back to the card font). */
@@ -146,6 +148,7 @@ export function UnimoniRatesPanel({
   headerLogoUrl2,
   promoSlideLogoUrl,
   promoSlideLogoScale = 1,
+  headerLogoScale = 1,
   promoTextScale = 1,
   promoFontCss,
   headerLogoAnimation = "none",
@@ -414,6 +417,8 @@ export function UnimoniRatesPanel({
   const headerAnimClass = isPromoSheet
     ? animClassFor(promoSlideLogoAnimation ?? headerLogoAnimation)
     : animClassFor(headerLogoAnimation);
+  // Each logo is sizable separately: promo-slide logo vs normal-slide header logo.
+  const headerSizeScale = isPromoSheet ? promoSlideLogoScale : headerLogoScale;
 
   const asideStyle = {
     background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
@@ -444,10 +449,9 @@ export function UnimoniRatesPanel({
                   src={src}
                   alt="Brand logo"
                   className={`h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
-                  // Manual size control applies on the promo slide only.
                   style={
-                    isPromoSheet && promoSlideLogoScale !== 1
-                      ? { height: `calc(clamp(2rem,4.2vh,3.6rem) * ${promoSlideLogoScale})` }
+                    headerSizeScale !== 1
+                      ? { height: `calc(clamp(2rem,4.2vh,3.6rem) * ${headerSizeScale})` }
                       : undefined
                   }
                 />
@@ -459,6 +463,11 @@ export function UnimoniRatesPanel({
               width={280}
               height={72}
               className={`h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
+              style={
+                headerSizeScale !== 1
+                  ? { height: `calc(clamp(1.9rem,3.9vh,3.3rem) * ${headerSizeScale})` }
+                  : undefined
+              }
               priority
             />
           ) : null}

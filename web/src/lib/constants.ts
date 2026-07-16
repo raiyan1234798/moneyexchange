@@ -95,6 +95,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   promoSlideLogoAnimation: null as string | null,
   ratePromoTextScale: 1,
   ratePromoFont: null as string | null,
+  headerLogoScale: 1,
   headerLogoAnimation: "none" as
     | "none" | "spin" | "flip" | "bounce" | "float" | "swing" | "pulse"
     | "wave" | "heartbeat" | "tilt" | "shine" | "drift",

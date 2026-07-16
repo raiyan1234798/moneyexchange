@@ -149,6 +149,8 @@ export interface BranchSettings {
   ratePromoTextScale?: number;
   /** Font for the promotion slide's text messages — null = the display font. */
   ratePromoFont?: string | null;
+  /** Size multiplier for the rate-card HEADER logo on normal slides (1 = normal). */
+  headerLogoScale?: number;
   /** Animated effect for the rate-card header logo. Default "none". */
   headerLogoAnimation?:
     | "none"

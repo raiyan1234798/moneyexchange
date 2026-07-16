@@ -74,12 +74,14 @@ export function UnimoniLogoImage({
   className,
   height = 72,
   priority = false,
+  style,
 }: {
   variant?: "default" | "onDark";
   className?: string;
   width?: number;
   height?: number;
   priority?: boolean;
+  style?: React.CSSProperties;
 }) {
   // Real brand wordmark (from the official PDFs): white+gold reads on dark
   // backgrounds (e.g. the blue rate-card header); navy+gold reads on white.
@@ -95,7 +97,7 @@ export function UnimoniLogoImage({
       priority={priority}
       unoptimized
       className={cn("w-auto shrink-0 object-contain", className)}
-      style={{ height }}
+      style={{ height, ...style }}
     />
   );
 }

@@ -42,6 +42,7 @@ interface TimedRatesPanelProps {
   headerLogoUrl2: string | null;
   promoSlideLogoUrl: string | null;
   promoSlideLogoScale: number;
+  headerLogoScale: number;
   promoTextScale: number;
   promoFontCss?: string;
   headerLogoAnimation: string;
@@ -81,6 +82,7 @@ function TimedRatesPanel({
   headerLogoUrl2,
   promoSlideLogoUrl,
   promoSlideLogoScale,
+  headerLogoScale,
   promoTextScale,
   promoFontCss,
   headerLogoAnimation,
@@ -132,6 +134,7 @@ function TimedRatesPanel({
       headerLogoUrl2={headerLogoUrl2}
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
+      headerLogoScale={headerLogoScale}
       promoTextScale={promoTextScale}
       promoFontCss={promoFontCss}
       headerLogoAnimation={headerLogoAnimation}
@@ -228,6 +231,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
   const promoSlideLogoUrl = branchSettings.promoSlideLogoUrl?.trim() || null;
   const promoSlideLogoScale = branchSettings.promoSlideLogoScale ?? 1;
+  const headerLogoScale = branchSettings.headerLogoScale ?? 1;
   const ratePromoTextScale = branchSettings.ratePromoTextScale ?? 1;
   const announcementTextScale = branchSettings.announcementTextScale ?? 1;
   const headerLogoAnimation = branchSettings.headerLogoAnimation ?? "none";
@@ -625,6 +629,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       headerLogoUrl2={headerLogoUrl2}
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
+      headerLogoScale={headerLogoScale}
       promoTextScale={ratePromoTextScale}
       promoFontCss={ratePromoFontCss}
       headerLogoAnimation={headerLogoAnimation}

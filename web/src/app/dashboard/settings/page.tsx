@@ -384,6 +384,27 @@ function BranchSettingsForm({
         />
       </div>
       <div className="space-y-2">
+        <Label>Rate-card logo size (%)</Label>
+        <Input
+          type="number"
+          min={50}
+          max={300}
+          step={10}
+          value={Math.round((settings.headerLogoScale ?? 1) * 100)}
+          onChange={(event) =>
+            setSettings({
+              ...settings,
+              headerLogoScale: Math.min(3, Math.max(0.5, Number(event.target.value) / 100 || 1)),
+            })
+          }
+          className="max-w-[10rem] rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          Size of the logo at the top of the rate card on the normal slides (100% = normal). The
+          promotion slide has its own size control; the ticker corner badge is sized under Sizing.
+        </p>
+      </div>
+      <div className="space-y-2">
         <Label>Rate-card logo animation</Label>
         <Select
           value={settings.headerLogoAnimation ?? "none"}
