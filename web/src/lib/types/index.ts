@@ -112,6 +112,11 @@ export interface BranchSettings {
   tickerMessageAnimation?: string | null;
   /** Movement effect on the logos that scroll WITH the message. null/"none" = static. */
   tickerScrollLogoAnimation?: string | null;
+  /** Size multiplier for the logos scrolling WITH the message (1 = normal).
+      The black bar height is NOT affected. */
+  tickerScrollLogoScale?: number;
+  /** Gap between announcement shows in SECONDS (overrides the legacy minutes). */
+  announcementRepeatSeconds?: number | null;
   /** SEVERAL corner-badge logos that take turns (overrides tickerLogoUrl when set). */
   tickerLogoUrls?: string[];
   /** Seconds each corner-badge logo stays before the next (default 6). */

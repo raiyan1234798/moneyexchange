@@ -23,6 +23,8 @@ interface BreakingNewsTickerProps {
   logoBgColor?: string | null;
   /** Movement effect for the logos scrolling WITH the message. Default none. */
   scrollLogoAnimation?: string | null;
+  /** Size multiplier for the scrolling logos (bar height unchanged). Default 1. */
+  scrollLogoScale?: number;
   /** Text logo shown in the badge instead of an image. */
   logoText?: string | null;
   /** CSS font-family for the text logo. */
@@ -65,6 +67,7 @@ function BreakingNewsTickerInner({
   messageAnimation = null,
   logoBgColor = null,
   scrollLogoAnimation = null,
+  scrollLogoScale = 1,
   logoText,
   logoFontCss,
   messageFontCss,
@@ -336,7 +339,10 @@ function BreakingNewsTickerInner({
                     key={`${src}-${i}`}
                     src={src}
                     alt=""
-                    className={`mr-[1.6vw] inline-block h-[1.4em] w-auto rounded-[3px] bg-white/95 px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoAnimClass}`}
+                    className={`mr-[1.6vw] inline-block w-auto rounded-[3px] bg-white/95 px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoAnimClass}`}
+                    // Size is user-adjustable; em-based so it rides the message font,
+                    // and the BAR height never changes with it.
+                    style={{ height: `${(1.4 * scrollLogoScale).toFixed(2)}em` }}
                   />
                 ))}
                 {activeText}

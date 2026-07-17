@@ -345,13 +345,18 @@ export default function PromotionsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Gap between shows (minutes)</Label>
+                    <Label>Gap between shows (seconds)</Label>
                     <Input
                       type="number"
-                      min={1}
-                      max={240}
-                      value={s.announcementRepeatMinutes ?? 3}
-                      onChange={(e) => set({ announcementRepeatMinutes: Number(e.target.value) })}
+                      min={5}
+                      max={14400}
+                      value={
+                        s.announcementRepeatSeconds ??
+                        Math.round((s.announcementRepeatMinutes ?? 3) * 60)
+                      }
+                      onChange={(e) =>
+                        set({ announcementRepeatSeconds: Math.max(5, Number(e.target.value) || 60) })
+                      }
                       className="rounded-xl"
                     />
                   </div>

@@ -1287,7 +1287,7 @@ function BranchSettingsForm({
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-max min-w-(--anchor-width) max-w-[28rem]">
                 <SelectItem value="lower-third">Lower third — broadcast caption over the video (recommended, looks native)</SelectItem>
                 <SelectItem value="video-top">Video — top strip (like an L-band)</SelectItem>
                 <SelectItem value="band">Message area — bottom strip (below the video)</SelectItem>
@@ -1465,17 +1465,26 @@ function BranchSettingsForm({
               />
             </div>
             <div className="space-y-2">
-              <Label>Gap between shows (minutes)</Label>
+              <Label>Gap between shows (seconds)</Label>
               <Input
                 type="number"
-                min={1}
-                max={240}
-                value={settings.announcementRepeatMinutes ?? 3}
+                min={5}
+                max={14400}
+                value={
+                  settings.announcementRepeatSeconds ??
+                  Math.round((settings.announcementRepeatMinutes ?? 3) * 60)
+                }
                 onChange={(event) =>
-                  setSettings({ ...settings, announcementRepeatMinutes: Number(event.target.value) })
+                  setSettings({
+                    ...settings,
+                    announcementRepeatSeconds: Math.max(5, Number(event.target.value) || 60),
+                  })
                 }
                 className="rounded-xl"
               />
+              <p className="text-xs text-muted-foreground">
+                e.g. 60 = show again after a minute.
+              </p>
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

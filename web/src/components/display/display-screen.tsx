@@ -300,7 +300,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     | "zoom"
     | "flip";
   const announcementSeconds = branchSettings.announcementSeconds ?? 5;
-  const announcementRepeatMinutes = branchSettings.announcementRepeatMinutes ?? 3;
+  const announcementRepeatMinutes =
+    branchSettings.announcementRepeatSeconds != null
+      ? branchSettings.announcementRepeatSeconds / 60
+      : (branchSettings.announcementRepeatMinutes ?? 3);
   // A per-announcement font WINS over the master font when the admin picks one,
   // so the announcement can read in a different typeface than the rest of the
   // screen; otherwise it follows the whole-screen display font.
@@ -722,6 +725,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         messageAnimation={branchSettings.tickerMessageAnimation ?? null}
         logoBgColor={branchSettings.tickerLogoBgColor ?? null}
         scrollLogoAnimation={branchSettings.tickerScrollLogoAnimation ?? null}
+        scrollLogoScale={branchSettings.tickerScrollLogoScale ?? 1}
       />
 
       {/* Animated announcement strip: "band" takes over the bottom message area,

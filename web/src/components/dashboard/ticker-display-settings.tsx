@@ -323,7 +323,29 @@ export function TickerDisplaySettings({
               ))}
             </div>
           ) : null}
-          <div className="space-y-2 pt-1">
+          <div className="grid gap-4 pt-1 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Logo size (%)
+            </Label>
+            <Input
+              type="number"
+              min={60}
+              max={250}
+              step={10}
+              value={Math.round((s.tickerScrollLogoScale ?? 1) * 100)}
+              onChange={(e) =>
+                set({
+                  tickerScrollLogoScale: Math.min(2.5, Math.max(0.6, Number(e.target.value) / 100 || 1)),
+                })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Only the scrolling logos grow — the black bar height stays the same.
+            </p>
+          </div>
+          <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
               Logo movement (while scrolling)
             </Label>
@@ -351,6 +373,7 @@ export function TickerDisplaySettings({
             <p className="text-xs text-muted-foreground">
               Movement applied to each logo as it scrolls along with the message.
             </p>
+          </div>
           </div>
         </div>
 

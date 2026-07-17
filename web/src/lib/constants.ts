@@ -76,6 +76,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerHeadlineAnimation: null as string | null,
   tickerMessageAnimation: null as string | null,
   tickerScrollLogoAnimation: null as string | null,
+  tickerScrollLogoScale: 1,
   tickerLogoUrls: [] as string[],
   tickerLogoRotateSeconds: 6,
   tickerLogoBgColor: null as string | null,
@@ -137,6 +138,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   announcementColorStyle: "white" as "white" | "logo" | "gold" | "navy",
   announcementSeconds: 5,
   announcementRepeatMinutes: 3,
+  announcementRepeatSeconds: null as number | null,
   // "repeat" = show every N minutes forever; "times" = show a fixed number of
   // times total then stop until the settings change.
   announcementPlayMode: "repeat" as "repeat" | "times",

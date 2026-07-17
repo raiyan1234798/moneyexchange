@@ -450,6 +450,10 @@ export default function TickersPage() {
           </PageActions>
         ) : null}
 
+        {/* Two-column layout like Settings: content left, LIVE TV sticky on the
+            right — nothing overlaps the settings while editing. */}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,40%)]">
+        <div className="min-w-0 space-y-6">
         {!effectiveBranchId ? (
           <EmptyState title="Select a branch" description="Choose a branch to manage its display messages." icon={TextCursorInput} />
         ) : tickers.length === 0 ? (
@@ -531,23 +535,6 @@ export default function TickersPage() {
           </ContentPanel>
         )}
 
-        {/* Floating LIVE TV mini-preview — see every ticker change instantly
-            while editing, without opening the display in another tab. */}
-        {branch ? (
-          <div className="pointer-events-none fixed bottom-4 right-4 z-40 hidden w-[380px] 2xl:w-[440px] xl:block">
-            <div className="pointer-events-auto overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-2xl">
-              <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                Live TV — {branch.name} (updates within seconds of Save)
-              </p>
-              <iframe
-                src={`/display/?branch=${encodeURIComponent(branch.code)}`}
-                title={`Live TV preview for ${branch.name}`}
-                className="aspect-video w-full border-0"
-              />
-            </div>
-          </div>
-        ) : null}
-
         {/* ALL ticker display settings live here with the messages (per client). */}
         {branch && user && profile ? (
           <TickerDisplaySettings
@@ -555,6 +542,29 @@ export default function TickersPage() {
             actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
           />
         ) : null}
+        </div>
+
+        {/* Sticky LIVE TV preview — follows while you edit, never covers anything. */}
+        <div className="hidden xl:block">
+          {branch ? (
+            <div className="sticky top-6 space-y-2">
+              <p className="text-sm font-medium">
+                Live TV preview — {branch.name}
+              </p>
+              <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
+                <iframe
+                  src={`/display/?branch=${encodeURIComponent(branch.code)}`}
+                  title={`Live TV preview for ${branch.name}`}
+                  className="aspect-video w-full border-0"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                This is the real branch display, live. Saved changes appear here within seconds.
+              </p>
+            </div>
+          ) : null}
+        </div>
+        </div>
 
         <AlertDialog open={!!deleteTarget} onOpenChange={(next) => !next && setDeleteTarget(null)}>
           <AlertDialogContent>
