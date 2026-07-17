@@ -1492,7 +1492,7 @@ function BranchSettingsForm({
               <Label>Gap between shows (seconds)</Label>
               <Input
                 type="number"
-                min={5}
+                min={1}
                 max={14400}
                 value={
                   settings.announcementRepeatSeconds ??
@@ -1501,7 +1501,7 @@ function BranchSettingsForm({
                 onChange={(event) =>
                   setSettings({
                     ...settings,
-                    announcementRepeatSeconds: Math.max(5, Number(event.target.value) || 60),
+                    announcementRepeatSeconds: Math.max(1, Number(event.target.value) || 1),
                   })
                 }
                 className="rounded-xl"

@@ -343,14 +343,14 @@ export default function PromotionsPage() {
                     <Label>Gap between shows (seconds)</Label>
                     <Input
                       type="number"
-                      min={5}
+                      min={1}
                       max={14400}
                       value={
                         s.announcementRepeatSeconds ??
                         Math.round((s.announcementRepeatMinutes ?? 3) * 60)
                       }
                       onChange={(e) =>
-                        set({ announcementRepeatSeconds: Math.max(5, Number(e.target.value) || 60) })
+                        set({ announcementRepeatSeconds: Math.max(1, Number(e.target.value) || 1) })
                       }
                       className="rounded-xl"
                     />

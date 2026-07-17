@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,12 @@ import type { Branch, BranchSettings } from "@/lib/types";
 export function TickerDisplaySettings({
   branch,
   actor,
+  saveSlot,
 }: {
   branch: Branch;
   actor: { userId: string; userName: string };
+  /** Element under the live TV preview that hosts the save bar on xl screens. */
+  saveSlot?: HTMLElement | null;
 }) {
   const seed = (): BranchSettings => ({ ...DEFAULT_BRANCH_SETTINGS, ...(branch.settings ?? {}) });
   const [settings, setSettings] = useState<BranchSettings>(seed);
@@ -519,9 +523,26 @@ export function TickerDisplaySettings({
           </div>
         </div>
 
-        {/* Save on the LEFT — the success toast pops bottom-right, so a
-            right-side button was being covered while updating. */}
-        <div className="flex justify-start">
+        {/* On xl screens the save bar lives right BELOW the live TV preview
+            (portal); smaller screens keep the inline left-side button. */}
+        {saveSlot
+          ? createPortal(
+              <div className="space-y-2 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg">
+                <p className="text-xs text-muted-foreground">
+                  Ticker changes go live on the <strong>{branch.name}</strong> TV only after you save.
+                </p>
+                <Button
+                  disabled={saving}
+                  className="w-full rounded-xl"
+                  onClick={() => void save()}
+                >
+                  {saving ? "Saving…" : "Save ticker settings"}
+                </Button>
+              </div>,
+              saveSlot,
+            )
+          : null}
+        <div className={`${saveSlot ? "xl:hidden " : ""}flex justify-start`}>
           <Button className="rounded-xl" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save ticker settings"}
           </Button>
