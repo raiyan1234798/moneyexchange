@@ -180,6 +180,8 @@ export interface BranchSettings {
     | "drift";
   /** Size multiplier for the announcement text (1 = normal). */
   announcementTextScale?: number;
+  /** Continuous movement of the announcement TEXT while visible. null = none. */
+  announcementTextAnimation?: string | null;
   /** Master on/off for the promotion slide — off hides it from the rotation
       WITHOUT deleting the uploaded images/videos/text. Default true. */
   ratePromoEnabled?: boolean;

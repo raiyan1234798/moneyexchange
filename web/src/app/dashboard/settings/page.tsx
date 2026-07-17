@@ -1346,6 +1346,38 @@ function BranchSettingsForm({
               How the announcement enters and leaves — pick “None” for no motion. Applies to every placement.
             </p>
           </div>
+          <div className="space-y-2">
+            <Label>Text movement (while visible)</Label>
+            <Select
+              value={settings.announcementTextAnimation ?? "none"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  announcementTextAnimation: value === "none" ? null : value,
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No movement (default)</SelectItem>
+                <SelectItem value="pulse">Gentle pulse</SelectItem>
+                <SelectItem value="wave">Wave</SelectItem>
+                <SelectItem value="bounce">Bounce</SelectItem>
+                <SelectItem value="swing">Swing</SelectItem>
+                <SelectItem value="float">Float</SelectItem>
+                <SelectItem value="flip">Flip (X)</SelectItem>
+                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
+                <SelectItem value="heartbeat">Heartbeat</SelectItem>
+                <SelectItem value="shine">Shine — glow pulse</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Keeps the announcement TEXT moving the whole time it is on screen — separate from
+              how it enters and leaves.
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Text colour</Label>

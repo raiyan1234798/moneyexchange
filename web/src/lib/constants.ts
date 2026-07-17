@@ -106,6 +106,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
     | "none" | "spin" | "flip" | "bounce" | "float" | "swing" | "pulse"
     | "wave" | "heartbeat" | "tilt" | "shine" | "drift",
   announcementTextScale: 1,
+  announcementTextAnimation: null as string | null,
   ratePromoEnabled: true,
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,

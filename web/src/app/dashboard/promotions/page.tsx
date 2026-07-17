@@ -273,7 +273,31 @@ export default function PromotionsPage() {
                         <SelectItem value="flip">Flip</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Text movement (while visible)</Label>
+                  <Select
+                    value={s.announcementTextAnimation ?? "none"}
+                    onValueChange={(value) =>
+                      set({ announcementTextAnimation: value === "none" ? null : value })
+                    }
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No movement (default)</SelectItem>
+                      <SelectItem value="pulse">Gentle pulse</SelectItem>
+                      <SelectItem value="wave">Wave</SelectItem>
+                      <SelectItem value="bounce">Bounce</SelectItem>
+                      <SelectItem value="swing">Swing</SelectItem>
+                      <SelectItem value="float">Float</SelectItem>
+                      <SelectItem value="flip">Flip (X)</SelectItem>
+                      <SelectItem value="spin">Rotating flip (Y)</SelectItem>
+                      <SelectItem value="heartbeat">Heartbeat</SelectItem>
+                      <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                    </SelectContent>
+                  </Select>                  </div>
                   <div className="space-y-2">
                     <Label>Text colour</Label>
                     <Select

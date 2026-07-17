@@ -602,6 +602,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           maxTimes={announcementMaxTimes}
           fontCss={announcementFontCss}
           colorStyle={announcementColorStyle}
+          textAnimation={branchSettings.announcementTextAnimation ?? null}
           animation={announcementAnimation}
           anchor={announcementPosition}
           textScale={announcementTextScale}
@@ -736,6 +737,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           anchor={announcementStyle === "video-top" ? "top" : "bottom"}
           fontCss={announcementFontCss}
           colorStyle={announcementColorStyle}
+          textAnimation={branchSettings.announcementTextAnimation ?? null}
           textScale={announcementTextScale}
         />
       ) : null}
@@ -759,6 +761,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
             maxTimes={announcementMaxTimes}
             fontCss={announcementFontCss}
             colorStyle={announcementColorStyle}
+            textAnimation={branchSettings.announcementTextAnimation ?? null}
             animation={announcementAnimation}
             textScale={announcementTextScale}
           />

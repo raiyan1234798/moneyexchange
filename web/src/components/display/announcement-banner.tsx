@@ -35,6 +35,8 @@ interface AnnouncementBannerProps {
   anchor?: "top" | "bottom";
   /** Admin-set multiplier for the announcement text size (1 = normal). */
   textScale?: number;
+  /** Continuous movement of the text while visible. */
+  textAnimation?: string | null;
 }
 
 /**
@@ -125,6 +127,22 @@ export function announcementTextStyle(
  * reference): swapped in for the scrolling bar during the announcement, no
  * animation, back to the normal ticker afterwards. Rendered by display-screen.
  */
+/** Continuous movement class for announcement TEXT while it is visible. */
+function contTextAnimClass(name: string | null | undefined): string {
+  switch (name) {
+    case "pulse": return "ticker-logo-pulse";
+    case "bounce": return "ticker-logo-bounce";
+    case "swing": return "ticker-logo-swing";
+    case "float": return "ticker-logo-float";
+    case "flip": return "ticker-logo-flipx";
+    case "spin": return "ticker-logo-spin";
+    case "wave": return "logo-anim-wave";
+    case "heartbeat": return "logo-anim-heartbeat";
+    case "shine": return "logo-anim-shine";
+    default: return "";
+  }
+}
+
 export function TickerAnnouncementBand({
   text,
   imageUrl,
@@ -132,6 +150,7 @@ export function TickerAnnouncementBand({
   textScale = 1,
   fontCss,
   colorStyle = "white",
+  textAnimation = null,
 }: {
   text?: string | null;
   imageUrl?: string | null;
@@ -140,6 +159,8 @@ export function TickerAnnouncementBand({
   textScale?: number;
   fontCss?: string;
   colorStyle?: "white" | "logo" | "gold" | "navy";
+  /** Continuous movement of the text while visible (none by default). */
+  textAnimation?: string | null;
 }) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -160,7 +181,7 @@ export function TickerAnnouncementBand({
       <p
         // No truncate: the text wraps to 2 lines so longer announcements fit
         // ("increase the text limit").
-        className="line-clamp-2 min-w-0 text-center font-extrabold uppercase leading-tight"
+        className={`line-clamp-2 min-w-0 text-center font-extrabold uppercase leading-tight ${contTextAnimClass(textAnimation)}`}
         style={{
           fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
           fontSize: `calc(clamp(1.4rem,3vh,2.6rem) * ${heightScale} * ${textScale})`,
@@ -197,6 +218,7 @@ export function MessageAreaAnnouncement({
   videoUrl,
   visible,
   animation = "slide",
+  textAnimation = null,
   heightScale = 1,
   textScale = 1,
   anchor = "bottom",
@@ -208,6 +230,8 @@ export function MessageAreaAnnouncement({
   videoUrl?: string | null;
   visible: boolean;
   animation?: "none" | "slide" | "fade" | "zoom" | "flip";
+  /** Continuous movement of the text while visible. */
+  textAnimation?: string | null;
   heightScale?: number;
   /** Admin-set multiplier for the announcement text size (1 = normal). */
   textScale?: number;
@@ -291,6 +315,7 @@ export function MessageAreaAnnouncement({
                 textScale={textScale}
                 fontCss={fontCss}
                 colorStyle={colorStyle}
+                textAnimation={textAnimation}
               />
             ) : null}
           </div>
@@ -301,6 +326,7 @@ export function MessageAreaAnnouncement({
             textScale={textScale}
             fontCss={fontCss}
             colorStyle={colorStyle}
+            textAnimation={textAnimation}
           />
         )}
       </div>
@@ -321,6 +347,7 @@ export function AnnouncementBanner({
   animation = "slide",
   anchor = "bottom",
   textScale = 1,
+  textAnimation = null,
 }: AnnouncementBannerProps) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -419,7 +446,7 @@ export function AnnouncementBanner({
                   style={{ backgroundColor: UNIMONI_COLORS.gold }}
                 />
                 <p
-                  className="font-extrabold uppercase leading-tight"
+                  className={`font-extrabold uppercase leading-tight ${contTextAnimClass(textAnimation)}`}
                   style={{
                     fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                     fontSize: `calc(clamp(1.2rem,2.8vw,3rem) * ${textScale})`,
@@ -470,7 +497,7 @@ export function AnnouncementBanner({
         )}
         {message ? (
           <p
-            className="shrink-0 px-[3vw] py-[2.2vh] text-center font-extrabold uppercase leading-tight text-white"
+            className={`shrink-0 px-[3vw] py-[2.2vh] text-center font-extrabold uppercase leading-tight text-white ${contTextAnimClass(textAnimation)}`}
             style={{
               fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
               fontSize: `calc(${hasMedia ? "clamp(1.1rem,2.4vw,2.6rem)" : "clamp(1.6rem,3.6vw,4rem)"} * ${textScale})`,
@@ -530,7 +557,7 @@ export function AnnouncementBanner({
         ) : null}
         {message ? (
           <p
-            className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
+            className={`shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${contTextAnimClass(textAnimation)}`}
             style={{
               // Popup sits on a WHITE card: keep navy unless a non-white colour
               // (gold / logo gradient) was explicitly chosen.

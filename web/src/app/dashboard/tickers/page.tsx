@@ -531,6 +531,23 @@ export default function TickersPage() {
           </ContentPanel>
         )}
 
+        {/* Floating LIVE TV mini-preview — see every ticker change instantly
+            while editing, without opening the display in another tab. */}
+        {branch ? (
+          <div className="pointer-events-none fixed bottom-4 right-4 z-40 hidden w-[380px] 2xl:w-[440px] xl:block">
+            <div className="pointer-events-auto overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-2xl">
+              <p className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                Live TV — {branch.name} (updates within seconds of Save)
+              </p>
+              <iframe
+                src={`/display/?branch=${encodeURIComponent(branch.code)}`}
+                title={`Live TV preview for ${branch.name}`}
+                className="aspect-video w-full border-0"
+              />
+            </div>
+          </div>
+        ) : null}
+
         {/* ALL ticker display settings live here with the messages (per client). */}
         {branch && user && profile ? (
           <TickerDisplaySettings

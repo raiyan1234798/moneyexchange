@@ -554,6 +554,10 @@ export function UnimoniRatesPanel({
                         void v.play().catch(() => {});
                       });
                     }}
+                    onPause={(e) => {
+                      const v = e.currentTarget;
+                      if (!v.ended && !v.seeking) void v.play().catch(() => {});
+                    }}
                     // Stretch to exactly FILL the card: the whole frame stays
                     // visible (nothing cropped) and there are no navy bands.
                     // Same trade-off the client chose for the main video area.

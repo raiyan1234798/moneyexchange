@@ -104,6 +104,14 @@ export function UnimoniPromoPanel({
               const v = e.currentTarget;
               if (v.videoWidth && v.videoHeight) onMediaAspectChange?.(v.videoWidth / v.videoHeight);
             }}
+            // A paused video is what makes TV browsers paint their own big
+            // play button — never stay paused unless the video actually ended.
+            onPause={(e) => {
+              const v = e.currentTarget;
+              if (!v.ended && !v.seeking) {
+                void v.play().catch(() => {});
+              }
+            }}
             onLoadedData={onVideoLoaded}
             onCanPlay={(e) => {
               // Some TV WebViews leave a freshly-loaded video paused (showing the
