@@ -217,14 +217,23 @@ export async function updateExchangeRate(
     transferLocal?: number | null;
   },
 ): Promise<"published" | "pending"> {
-  const nextDisplayName = options?.displayName?.trim() || rate.displayName || rate.currencyCode;
+  // BRANCH USERS update VALUES ONLY (per client): never the display name, the
+  // transfer fields, or anything that curates the card — Firestore rules would
+  // reject such a write anyway, which used to fail the whole row silently.
+  const isBranchUserActor = options?.actorRole === "branchUser";
+  const nextDisplayName = isBranchUserActor
+    ? rate.displayName || rate.currencyCode
+    : options?.displayName?.trim() || rate.displayName || rate.currencyCode;
   const ratesChanged = newBuyRate !== rate.buyRate || newSellRate !== rate.sellRate;
   const nameChanged = nextDisplayName !== (rate.displayName || rate.currencyCode);
   const remitChanged =
+    !isBranchUserActor &&
     options?.remitRate !== undefined && (options.remitRate ?? null) !== (rate.remitRate ?? null);
   const transferUsdChanged =
+    !isBranchUserActor &&
     options?.transferUsd !== undefined && (options.transferUsd ?? null) !== (rate.transferUsd ?? null);
   const transferLocalChanged =
+    !isBranchUserActor &&
     options?.transferLocal !== undefined && (options.transferLocal ?? null) !== (rate.transferLocal ?? null);
 
   if (!ratesChanged && !nameChanged && !remitChanged && !transferUsdChanged && !transferLocalChanged) {
@@ -383,9 +392,37 @@ export async function bulkUpdateRates(
 
   existing = await listExchangeRates(scopedBranchId);
 
+  // LOCK the current on-screen order: legacy rows without a displayOrder (or
+  // with duplicates) sort by ties, which can visually shuffle after an upload.
+  // Admins/managers persist today's effective order ONCE so uploads can never
+  // reorder the card — only the values change. (Branch users can't write
+  // displayOrder by Firestore rules; their uploads never touch order anyway.)
+  if (options?.actorRole !== "branchUser") {
+    const seen = new Set<number>();
+    let needsNormalize = false;
+    for (const row of existing) {
+      const d = row.displayOrder;
+      if (d == null || seen.has(d)) {
+        needsNormalize = true;
+        break;
+      }
+      seen.add(d);
+    }
+    if (needsNormalize) {
+      await Promise.all(
+        existing.map((row, index) =>
+          updateDocument(COLLECTIONS.exchangeRates, row.id, { displayOrder: index + 1 }),
+        ),
+      );
+      existing.forEach((row, index) => {
+        row.displayOrder = index + 1;
+      });
+    }
+  }
+
   let created = 0;
   let skippedNeedApproval = 0;
-  let nextDisplayOrder = existing.length + 1;
+  let nextDisplayOrder = existing.reduce((max, r) => Math.max(max, r.displayOrder ?? 0), 0) + 1;
 
   await Promise.all(
     uniqueUpdates.map(async (update) => {
