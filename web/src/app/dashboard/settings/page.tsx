@@ -519,7 +519,7 @@ function BranchSettingsForm({
         id="sec-font"
         icon="🔤"
         title="Display font"
-        description="ONE font for all text on the TV — rate card, scrolling message, announcement and logo text."
+        description="ONE font for ALL text on the TV — rate card (values, date, note), scrolling message, yellow headline box, announcement, promotion text and logo text. Each area can still override it with its own font selector."
       >
         <Select
           value={settings.displayFont ?? MESSAGE_FONTS[0].key}
