@@ -711,6 +711,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         headline={tickerHeadline}
         heightScale={tickerScale}
         logoScale={logoScale}
+        logoHeightScale={branchSettings.tickerLogoHeightScale ?? 1}
         logoAnimation={tickerLogoAnimation}
         scrollingLogos={scrollingLogos}
         headlineMaxWidthPercent={effectivePromoWidth}

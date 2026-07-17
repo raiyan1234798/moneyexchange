@@ -199,7 +199,7 @@ export function TickerDisplaySettings({
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Badge size (%)
+                Badge width (%)
               </Label>
               <Input
                 type="number"
@@ -212,6 +212,27 @@ export function TickerDisplaySettings({
                 }
                 className="rounded-xl"
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Badge height (%)
+              </Label>
+              <Input
+                type="number"
+                min={60}
+                max={200}
+                step={5}
+                value={Math.round((s.tickerLogoHeightScale ?? 1) * 100)}
+                onChange={(e) =>
+                  set({
+                    tickerLogoHeightScale: Math.min(2, Math.max(0.6, Number(e.target.value) / 100 || 1)),
+                  })
+                }
+                className="rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground">
+                Width and height are separate — set both to make the whole badge bigger.
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">

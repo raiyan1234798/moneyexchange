@@ -69,6 +69,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateValueScale: 1,
   tickerScale: 1,
   logoScale: 1,
+  tickerLogoHeightScale: 1,
   tickerLogoAnimation: "spin" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
   tickerHeadline: null as string | null,
   showTickerHeadline: true,

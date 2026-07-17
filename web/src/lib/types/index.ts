@@ -96,8 +96,10 @@ export interface BranchSettings {
   rateCardScale?: number;
   /** Multiplier for ticker bar height + text (0.7–1.6). Default 1. */
   tickerScale?: number;
-  /** Multiplier for the pop-out ticker logo badge size (0.6–2). Default 1. */
+  /** Multiplier for the pop-out ticker logo badge WIDTH (0.6–2). Default 1. */
   logoScale?: number;
+  /** Multiplier for the pop-out ticker logo badge HEIGHT (0.6–2). Default 1. */
+  tickerLogoHeightScale?: number;
   /** Animation style for the pop-out ticker logo. Default "spin". */
   tickerLogoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Custom text for the gold "breaking" headline tab above the ticker. */

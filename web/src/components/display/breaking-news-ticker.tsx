@@ -37,8 +37,10 @@ interface BreakingNewsTickerProps {
   headline?: string;
   /** Multiplier for the whole ticker bar height + text size (default 1). */
   heightScale?: number;
-  /** Multiplier for the pop-out logo badge size (default 1). */
+  /** Multiplier for the pop-out logo badge WIDTH (default 1). */
   logoScale?: number;
+  /** Multiplier for the pop-out logo badge HEIGHT (default 1). */
+  logoHeightScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
   logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Logo images that scroll right-to-left with the messages. */
@@ -73,6 +75,7 @@ function BreakingNewsTickerInner({
   headline = "BIG BREAKING",
   heightScale = 1,
   logoScale = 1,
+  logoHeightScale = 1,
   logoAnimation = "spin",
   scrollingLogos = [],
   headlineMaxWidthPercent,
@@ -269,7 +272,7 @@ function BreakingNewsTickerInner({
         }`}
         style={{
           width: badgeWidth,
-          height: `calc(${barHeight} * 1.5)`,
+          height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,
           backgroundColor: isTextLogo
             ? UNIMONI_COLORS.tickerBlack
             : logoBgColor?.trim() || "#FFFFFF",
