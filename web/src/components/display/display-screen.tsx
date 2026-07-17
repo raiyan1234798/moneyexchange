@@ -714,6 +714,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         scrollingLogos={scrollingLogos}
         headlineMaxWidthPercent={effectivePromoWidth}
         headlineFontCss={tickerHeadlineFontCss}
+        headlineAnimation={branchSettings.tickerHeadlineAnimation ?? null}
       />
 
       {/* Animated announcement strip: "band" takes over the bottom message area,

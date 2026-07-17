@@ -46,6 +46,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { syncTickerToBranches } from "@/lib/services/branch-sync";
+import { TickerDisplaySettings } from "@/components/dashboard/ticker-display-settings";
 import type { TickerMessage } from "@/lib/types";
 
 export default function TickersPage() {
@@ -201,7 +202,7 @@ export default function TickersPage() {
     return (
       <>
         <DashboardHeader
-          title="Display Messages"
+          title="Display Ticker Messages & Settings"
           description="Scrolling text shown on branch displays."
           accent="sky"
         />
@@ -220,8 +221,8 @@ export default function TickersPage() {
   return (
     <>
       <DashboardHeader
-        title="Display Messages"
-        description="Scrolling text shown right-to-left on branch displays. One message per line."
+        title="Display Ticker Messages & Settings"
+        description="Scrolling messages AND every ticker setting — corner logo, scrolling logos, yellow headline box, bar size — all in one place."
         accent="sky"
       />
       <PageShell accent="sky">
@@ -529,6 +530,14 @@ export default function TickersPage() {
             />
           </ContentPanel>
         )}
+
+        {/* ALL ticker display settings live here with the messages (per client). */}
+        {branch && user && profile ? (
+          <TickerDisplaySettings
+            branch={branch}
+            actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
+          />
+        ) : null}
 
         <AlertDialog open={!!deleteTarget} onOpenChange={(next) => !next && setDeleteTarget(null)}>
           <AlertDialogContent>

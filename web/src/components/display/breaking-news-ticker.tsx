@@ -38,6 +38,8 @@ interface BreakingNewsTickerProps {
   headlineMaxWidthPercent?: number;
   /** Font for the gold headline box (follows the whole-screen master font). */
   headlineFontCss?: string;
+  /** Movement effect for the headline text (bounce/flip/...). Default none. */
+  headlineAnimation?: string | null;
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
@@ -60,6 +62,7 @@ function BreakingNewsTickerInner({
   scrollingLogos = [],
   headlineMaxWidthPercent,
   headlineFontCss,
+  headlineAnimation = null,
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
   const resolvedText = logoText?.trim() || null;
@@ -119,6 +122,25 @@ function BreakingNewsTickerInner({
     ? `calc(${fontSize}px * ${heightScale})`
     : `calc(clamp(1.1rem, 2.2vw, 2rem) * ${heightScale})`;
 
+  const headlineAnimClass =
+    headlineAnimation === "spin"
+      ? "ticker-logo-spin"
+      : headlineAnimation === "flip"
+        ? "ticker-logo-flipx"
+        : headlineAnimation === "bounce"
+          ? "ticker-logo-bounce"
+          : headlineAnimation === "float"
+            ? "ticker-logo-float"
+            : headlineAnimation === "swing"
+              ? "ticker-logo-swing"
+              : headlineAnimation === "pulse"
+                ? "ticker-logo-pulse"
+                : headlineAnimation === "wave"
+                  ? "logo-anim-wave"
+                  : headlineAnimation === "heartbeat"
+                    ? "logo-anim-heartbeat"
+                    : "";
+
   const pulse = logoAnimation === "pulse";
   // Animation class applied to the logo image itself (pulse animates the whole
   // badge instead — see below).
@@ -156,7 +178,7 @@ function BreakingNewsTickerInner({
             fontFamily: headlineFontCss,
           }}
         >
-          {headline}
+          <span className={`inline-block ${headlineAnimClass}`}>{headline}</span>
         </div>
       ) : null}
 

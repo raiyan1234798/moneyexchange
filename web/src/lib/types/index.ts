@@ -104,6 +104,8 @@ export interface BranchSettings {
   tickerHeadline?: string | null;
   /** Show the gold headline tab at all (turn off to remove it). Default true. */
   showTickerHeadline?: boolean;
+  /** Movement effect for the yellow headline box text. null/"none" = static. */
+  tickerHeadlineAnimation?: string | null;
   /** Custom brand logo for the rate-card header (rebrand) — overrides the unimoni logo. */
   headerLogoUrl?: string | null;
   /** Optional SECOND rate-card header logo (co-brand / partner). */
