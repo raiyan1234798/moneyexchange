@@ -69,6 +69,10 @@ export interface BranchSettings {
   rateCardPosition: RateCardPosition;
   /** 0 = always show rate card; otherwise hide after N seconds when rotating */
   rateCardDisplaySeconds: number;
+  /** When > 0 (with rateCardDisplaySeconds > 0): the card CYCLES — visible for
+      rateCardDisplaySeconds, then hidden for this many seconds while the video
+      fills the whole screen, then back again. */
+  rateCardHideSeconds?: number;
   /** @deprecated superseded by showTransferCard. */
   showRemittanceScreen?: boolean;
   /** @deprecated inline column removed — transfer is now its own card. */

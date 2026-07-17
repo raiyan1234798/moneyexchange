@@ -194,6 +194,37 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const branchSettings = branch?.settings ?? DEFAULT_BRANCH_SETTINGS;
   const rateCardPosition = branchSettings.rateCardPosition ?? "right";
   const rateCardDisplaySeconds = branchSettings.rateCardDisplaySeconds ?? 0;
+  const rateCardHideSeconds = branchSettings.rateCardHideSeconds ?? 0;
+  // Rate-card show/hide CYCLE: visible for rateCardDisplaySeconds, hidden for
+  // rateCardHideSeconds (video fills the whole screen), repeat. hide=0 keeps
+  // the legacy behaviour (hide once after the display time, or always show).
+  const [rateCardVisible, setRateCardVisible] = useState(true);
+  useEffect(() => {
+    if (rateCardDisplaySeconds <= 0) {
+      setRateCardVisible(true);
+      return;
+    }
+    let timer: number;
+    let visible = true;
+    setRateCardVisible(true);
+    const tick = () => {
+      if (visible) {
+        timer = window.setTimeout(() => {
+          visible = false;
+          setRateCardVisible(false);
+          if (rateCardHideSeconds > 0) tick();
+        }, rateCardDisplaySeconds * 1000);
+      } else {
+        timer = window.setTimeout(() => {
+          visible = true;
+          setRateCardVisible(true);
+          tick();
+        }, rateCardHideSeconds * 1000);
+      }
+    };
+    tick();
+    return () => window.clearTimeout(timer);
+  }, [rateCardDisplaySeconds, rateCardHideSeconds]);
 
   // Independently resizable areas (each editable in Settings → Display sizing).
   const videoWidthPercent = Math.max(40, Math.min(75, branchSettings.videoWidthPercent ?? 72));
@@ -210,7 +241,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     return Math.max(45, Math.min(75, (idealPx / mainDims.w) * 100));
   }, [videoFit, mediaAspect, mainDims]);
 
-  const effectivePromoWidth = adaptivePromoPercent ?? videoWidthPercent;
+  const effectivePromoWidth = rateCardVisible ? (adaptivePromoPercent ?? videoWidthPercent) : 100;
   const rateWidthPercent = 100 - effectivePromoWidth;
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const rateCurrencyScale = branchSettings.rateCurrencyScale ?? 1;
@@ -618,7 +649,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     <TimedRatesPanel
       key={ratesCycleKey}
       rates={rates}
-      displaySeconds={rateCardDisplaySeconds}
+      displaySeconds={rateCardHideSeconds > 0 ? 0 : rateCardDisplaySeconds}
       showBuyRate={branchSettings.showBuyRate}
       showSellRate={branchSettings.showSellRate}
       showTransferCard={showTransferCard}
@@ -698,7 +729,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         }`}
       >
         {promoPanel}
-        {ratesPanel}
+        {rateCardVisible ? ratesPanel : null}
       </div>
 
       <BreakingNewsTicker

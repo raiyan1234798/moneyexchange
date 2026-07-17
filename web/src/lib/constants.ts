@@ -53,6 +53,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   showSellRate: true,
   rateCardPosition: "right" as const,
   rateCardDisplaySeconds: 0,
+  rateCardHideSeconds: 0,
   showRemittanceScreen: false,
   showTransferColumn: false,
   showTransferCard: true,

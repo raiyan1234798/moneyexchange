@@ -573,7 +573,7 @@ function BranchSettingsForm({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>Rate Card Display Duration (seconds, 0 = always show)</Label>
+        <Label>Rate card visible for (seconds, 0 = always show)</Label>
         <Input
           type="number"
           min={0}
@@ -583,6 +583,23 @@ function BranchSettingsForm({
           }
           className="rounded-xl"
         />
+      </div>
+      <div className="space-y-2">
+        <Label>Then hidden for (seconds, 0 = off)</Label>
+        <Input
+          type="number"
+          min={0}
+          max={3600}
+          value={settings.rateCardHideSeconds ?? 0}
+          onChange={(event) =>
+            setSettings({ ...settings, rateCardHideSeconds: Math.max(0, Number(event.target.value) || 0) })
+          }
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          The rate card disappears for this long and the VIDEO fills the whole screen, then the
+          card returns — repeating. Needs &quot;visible for&quot; above to be set too.
+        </p>
       </div>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
