@@ -288,11 +288,11 @@ export function TickerDisplaySettings({
               try {
                 const urls: string[] = [];
                 for (const file of files) {
-                  const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                  const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                   urls.push(dataUrl);
                 }
                 set({ scrollingLogos: [...(s.scrollingLogos ?? []), ...urls] });
-                toast.success(`${urls.length} logo(s) added — Save to apply`);
+                toast.success(`${urls.length} logo(s) added (backgrounds removed) — Save to apply`);
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : "Could not read image");
               }
@@ -344,6 +344,25 @@ export function TickerDisplaySettings({
             <p className="text-xs text-muted-foreground">
               Only the scrolling logos grow — the black bar height stays the same.
             </p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Logo background chip
+            </Label>
+            <Select
+              value={s.tickerScrollLogoBg ?? "white"}
+              onValueChange={(value) =>
+                set({ tickerScrollLogoBg: value === "transparent" ? "transparent" : "white" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="white">White chip behind each logo (default)</SelectItem>
+                <SelectItem value="transparent">No chip — logo directly on the black bar</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">

@@ -260,7 +260,7 @@ function BranchSettingsForm({
               const file = event.target.files?.[0];
               if (!file) return;
               try {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                 setSettings({ ...settings, headerLogoUrl: dataUrl });
                 toast.success("Header logo ready — click Save Branch Settings to apply");
               } catch (error) {
@@ -307,7 +307,7 @@ function BranchSettingsForm({
               const file = event.target.files?.[0];
               if (!file) return;
               try {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                 setSettings({ ...settings, headerLogoUrl2: dataUrl });
                 toast.success("Second logo ready — click Save Branch Settings to apply");
               } catch (error) {

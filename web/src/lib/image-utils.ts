@@ -126,6 +126,92 @@ function floodClearBackground(imageData: ImageData, tolerance: number): boolean 
   return true;
 }
 
+
+/** Flood-clear from the given seed pixels through pixels matching `match`. */
+function floodFrom(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  seeds: number[],
+  match: (i: number) => boolean,
+): number {
+  const visited = new Uint8Array(width * height);
+  const queue = [...seeds];
+  let cleared = 0;
+  while (queue.length) {
+    const p = queue.pop()!;
+    if (visited[p]) continue;
+    visited[p] = 1;
+    const i = p * 4;
+    if (data[i + 3] === 0 || !match(i)) continue;
+    data[i + 3] = 0;
+    cleared++;
+    const x = p % width;
+    const y = (p / width) | 0;
+    if (x > 0) queue.push(p - 1);
+    if (x < width - 1) queue.push(p + 1);
+    if (y > 0) queue.push(p - width);
+    if (y < height - 1) queue.push(p + width);
+  }
+  return cleared;
+}
+
+/** Peel ONE nested solid background layer: when the pixels bordering the
+    already-transparent area are dominated by a single colour (a solid box the
+    logo sits on), clear that connected layer too. Reverts itself if it would
+    wipe out nearly the whole image. */
+function clearNestedLayer(imageData: ImageData, tolerance: number): boolean {
+  const { data, width, height } = imageData;
+  const seeds: number[] = [];
+  const colorCount = new Map<number, number>();
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const p = y * width + x;
+      const i = p * 4;
+      if (data[i + 3] === 0) continue;
+      const adjTransparent =
+        (x > 0 && data[(p - 1) * 4 + 3] === 0) ||
+        (x < width - 1 && data[(p + 1) * 4 + 3] === 0) ||
+        (y > 0 && data[(p - width) * 4 + 3] === 0) ||
+        (y < height - 1 && data[(p + width) * 4 + 3] === 0);
+      if (!adjTransparent) continue;
+      seeds.push(p);
+      const key = ((data[i] >> 4) << 8) | ((data[i + 1] >> 4) << 4) | (data[i + 2] >> 4);
+      colorCount.set(key, (colorCount.get(key) ?? 0) + 1);
+    }
+  }
+  if (seeds.length < 40) return false;
+  let bestKey = -1;
+  let best = 0;
+  let total = 0;
+  for (const [k, c] of colorCount) {
+    total += c;
+    if (c > best) {
+      best = c;
+      bestKey = k;
+    }
+  }
+  // The border of the cleared area must be mostly ONE colour — otherwise this
+  // is real artwork, not a background box.
+  if (bestKey < 0 || best < total * 0.55) return false;
+  const bg = [(((bestKey >> 8) & 0xf) << 4) + 8, (((bestKey >> 4) & 0xf) << 4) + 8, ((bestKey & 0xf) << 4) + 8];
+  const match = (i: number) =>
+    Math.abs(data[i] - bg[0]) <= tolerance &&
+    Math.abs(data[i + 1] - bg[1]) <= tolerance &&
+    Math.abs(data[i + 2] - bg[2]) <= tolerance;
+  let opaque = 0;
+  for (let p = 0; p < width * height; p++) if (data[p * 4 + 3] !== 0) opaque++;
+  const snapshot = new Uint8ClampedArray(data);
+  const cleared = floodFrom(data, width, height, seeds.filter((p) => match(p * 4)), match);
+  if (cleared === 0) return false;
+  // Would leave (almost) nothing → this "background" was the logo itself.
+  if (cleared > opaque * 0.9 || opaque - cleared < width * height * 0.02) {
+    data.set(snapshot);
+    return false;
+  }
+  return true;
+}
+
 /**
  * Compress a LOGO to a PNG data URL with its white/solid background removed
  * (transparent), so it sits cleanly on the navy TV header. Falls back to the
@@ -151,6 +237,11 @@ export async function compressLogoTransparent(
     const imageData = ctx.getImageData(0, 0, width, height);
     const removed = floodClearBackground(imageData, 34);
     if (!removed) return compressImageToDataUrl(file, options);
+    // Peel up to two NESTED solid layers (e.g. white canvas → brand-colour box)
+    // so only the actual logo artwork remains.
+    for (let layer = 0; layer < 2; layer++) {
+      if (!clearNestedLayer(imageData, 40)) break;
+    }
     ctx.putImageData(imageData, 0, 0);
 
     // PNG keeps the transparency (webp/jpeg would flatten it again).

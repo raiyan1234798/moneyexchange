@@ -25,6 +25,8 @@ interface BreakingNewsTickerProps {
   scrollLogoAnimation?: string | null;
   /** Size multiplier for the scrolling logos (bar height unchanged). Default 1. */
   scrollLogoScale?: number;
+  /** Chip behind each scrolling logo: white card (default) or none. */
+  scrollLogoBg?: "white" | "transparent";
   /** Text logo shown in the badge instead of an image. */
   logoText?: string | null;
   /** CSS font-family for the text logo. */
@@ -68,6 +70,7 @@ function BreakingNewsTickerInner({
   logoBgColor = null,
   scrollLogoAnimation = null,
   scrollLogoScale = 1,
+  scrollLogoBg = "white",
   logoText,
   logoFontCss,
   messageFontCss,
@@ -339,7 +342,7 @@ function BreakingNewsTickerInner({
                     key={`${src}-${i}`}
                     src={src}
                     alt=""
-                    className={`mr-[1.6vw] inline-block w-auto rounded-[3px] bg-white/95 px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoAnimClass}`}
+                    className={`mr-[1.6vw] inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoBg === "transparent" ? "" : "bg-white/95"} ${scrollLogoAnimClass}`}
                     // Size is user-adjustable; em-based so it rides the message font,
                     // and the BAR height never changes with it.
                     style={{ height: `${(1.4 * scrollLogoScale).toFixed(2)}em` }}

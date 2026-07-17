@@ -119,6 +119,8 @@ export interface BranchSettings {
   /** Size multiplier for the logos scrolling WITH the message (1 = normal).
       The black bar height is NOT affected. */
   tickerScrollLogoScale?: number;
+  /** Chip behind each scrolling logo: white card (default) or none. */
+  tickerScrollLogoBg?: "white" | "transparent";
   /** Gap between announcement shows in SECONDS (overrides the legacy minutes). */
   announcementRepeatSeconds?: number | null;
   /** SEVERAL corner-badge logos that take turns (overrides tickerLogoUrl when set). */
