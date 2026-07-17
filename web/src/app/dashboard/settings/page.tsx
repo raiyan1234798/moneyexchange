@@ -1287,7 +1287,7 @@ function BranchSettingsForm({
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-max min-w-(--anchor-width) max-w-[28rem]">
+              <SelectContent style={{ width: "max-content", minWidth: "var(--anchor-width)", maxWidth: "28rem" }}>
                 <SelectItem value="lower-third">Lower third — broadcast caption over the video (recommended, looks native)</SelectItem>
                 <SelectItem value="video-top">Video — top strip (like an L-band)</SelectItem>
                 <SelectItem value="band">Message area — bottom strip (below the video)</SelectItem>
