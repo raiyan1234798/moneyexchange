@@ -446,7 +446,9 @@ export function TickerDisplaySettings({
           </div>
         </div>
 
-        <div className="flex justify-end">
+        {/* Save on the LEFT — the success toast pops bottom-right, so a
+            right-side button was being covered while updating. */}
+        <div className="flex justify-start">
           <Button className="rounded-xl" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save ticker settings"}
           </Button>
