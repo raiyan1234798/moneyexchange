@@ -242,7 +242,7 @@ export default function PromotionsPage() {
                       <SelectTrigger className="rounded-xl">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent style={{ width: "max-content", minWidth: "var(--anchor-width)", maxWidth: "28rem" }}>
                         <SelectItem value="lower-third">Lower third — broadcast caption (recommended)</SelectItem>
                         <SelectItem value="video-top">Video — top strip (L-band)</SelectItem>
                         <SelectItem value="band">Message area — bottom strip</SelectItem>
