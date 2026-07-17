@@ -47,6 +47,17 @@ export function TickerDisplaySettings({
   const s = settings;
   const set = (patch: Partial<BranchSettings>) => setSettings((prev) => ({ ...prev, ...patch }));
 
+  // Corner-badge logo GALLERY: several logos take turns. The legacy single
+  // tickerLogoUrl folds into the list on any edit so old branches keep working.
+  const badgeLogos: string[] = [
+    ...(s.tickerLogoUrl ? [s.tickerLogoUrl] : []),
+    ...(s.tickerLogoUrls ?? []),
+  ];
+  const addBadgeLogos = (urls: string[]) =>
+    set({ tickerLogoUrl: null, tickerLogoUrls: [...badgeLogos, ...urls] });
+  const removeBadgeLogo = (idx: number) =>
+    set({ tickerLogoUrl: null, tickerLogoUrls: badgeLogos.filter((_, i) => i !== idx) });
+
   async function save() {
     setSaving(true);
     try {
@@ -93,46 +104,70 @@ export function TickerDisplaySettings({
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Badge image (used when no text is set)
+                Badge image(s) — add SEVERAL and they take turns
               </Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
-                  aria-label="Upload ticker corner logo image"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    try {
+              <Input
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+                aria-label="Upload ticker corner logo images"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  if (files.length === 0) return;
+                  try {
+                    const urls: string[] = [];
+                    for (const file of files) {
                       const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
-                      set({ tickerLogoUrl: dataUrl });
-                      toast.success("Corner logo ready (background removed) — Save to apply");
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Could not read image");
+                      urls.push(dataUrl);
                     }
-                  }}
-                  className="rounded-xl"
-                />
-                {s.tickerLogoUrl ? (
-                  <div className="flex shrink-0 items-center gap-2">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={s.tickerLogoUrl}
-                      alt="Corner logo preview"
-                      className="h-9 w-14 shrink-0 rounded-md bg-slate-800 object-contain p-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="rounded-lg"
-                      onClick={() => set({ tickerLogoUrl: null })}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
+                    addBadgeLogos(urls);
+                    toast.success(
+                      `${urls.length} logo(s) ready (backgrounds removed) — Save to apply`,
+                    );
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Could not read image");
+                  }
+                }}
+                className="rounded-xl"
+              />
+              {badgeLogos.length > 0 ? (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {badgeLogos.map((src, i) => (
+                    <div key={`${i}-${src.slice(-12)}`} className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt={`Corner logo ${i + 1}`}
+                        className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
+                      />
+                      <button
+                        type="button"
+                        aria-label="Remove corner logo"
+                        onClick={() => removeBadgeLogo(i)}
+                        className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              {badgeLogos.length > 1 ? (
+                <div className="flex items-center gap-2 pt-1">
+                  <Label className="text-xs text-muted-foreground">Change logo every</Label>
+                  <Input
+                    type="number"
+                    min={2}
+                    max={120}
+                    value={s.tickerLogoRotateSeconds ?? 6}
+                    onChange={(e) =>
+                      set({ tickerLogoRotateSeconds: Math.max(2, Number(e.target.value) || 6) })
+                    }
+                    className="h-8 w-20 rounded-lg"
+                  />
+                  <span className="text-xs text-muted-foreground">seconds</span>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -177,6 +212,39 @@ export function TickerDisplaySettings({
                 }
                 className="rounded-xl"
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Badge background colour
+              </Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  aria-label="Pick badge background colour"
+                  value={/^#[0-9a-fA-F]{6}$/.test(s.tickerLogoBgColor ?? "") ? (s.tickerLogoBgColor as string) : "#FFFFFF"}
+                  onChange={(e) => set({ tickerLogoBgColor: e.target.value })}
+                  className="h-9 w-12 cursor-pointer rounded-lg border border-border bg-transparent"
+                />
+                <Input
+                  value={s.tickerLogoBgColor ?? ""}
+                  onChange={(e) => set({ tickerLogoBgColor: e.target.value || null })}
+                  placeholder="default white — or e.g. #0D2680 / transparent"
+                  className="rounded-xl"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="rounded-lg"
+                  onClick={() => set({ tickerLogoBgColor: "transparent" })}
+                >
+                  Transparent
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                The white card behind the badge logo. Pick a colour, type any CSS colour, use
+                Transparent, or clear the box to go back to the default white.
+              </p>
             </div>
           </div>
         </div>
@@ -346,6 +414,34 @@ export function TickerDisplaySettings({
                 onChange={(e) => set({ tickerFontColor: e.target.value })}
                 className="rounded-xl"
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Message movement effect
+              </Label>
+              <Select
+                value={s.tickerMessageAnimation ?? "none"}
+                onValueChange={(value) =>
+                  set({ tickerMessageAnimation: value === "none" ? null : value })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Plain scroll (default)</SelectItem>
+                  <SelectItem value="pulse">Gentle pulse</SelectItem>
+                  <SelectItem value="wave">Wave</SelectItem>
+                  <SelectItem value="bounce">Bounce</SelectItem>
+                  <SelectItem value="float">Float</SelectItem>
+                  <SelectItem value="swing">Swing</SelectItem>
+                  <SelectItem value="heartbeat">Heartbeat</SelectItem>
+                  <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Extra movement applied to the running message while it scrolls.
+              </p>
             </div>
           </div>
         </div>

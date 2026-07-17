@@ -106,6 +106,15 @@ export interface BranchSettings {
   showTickerHeadline?: boolean;
   /** Movement effect for the yellow headline box text. null/"none" = static. */
   tickerHeadlineAnimation?: string | null;
+  /** Extra movement effect on the SCROLLING message text. null/"none" = plain scroll. */
+  tickerMessageAnimation?: string | null;
+  /** SEVERAL corner-badge logos that take turns (overrides tickerLogoUrl when set). */
+  tickerLogoUrls?: string[];
+  /** Seconds each corner-badge logo stays before the next (default 6). */
+  tickerLogoRotateSeconds?: number;
+  /** Background colour of the corner badge behind IMAGE logos. null = white.
+      Accepts any CSS colour, including "transparent". */
+  tickerLogoBgColor?: string | null;
   /** Custom brand logo for the rate-card header (rebrand) — overrides the unimoni logo. */
   headerLogoUrl?: string | null;
   /** Optional SECOND rate-card header logo (co-brand / partner). */

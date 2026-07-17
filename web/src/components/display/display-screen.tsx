@@ -715,6 +715,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         headlineMaxWidthPercent={effectivePromoWidth}
         headlineFontCss={tickerHeadlineFontCss}
         headlineAnimation={branchSettings.tickerHeadlineAnimation ?? null}
+        logoUrls={branchSettings.tickerLogoUrls ?? []}
+        logoRotateSeconds={branchSettings.tickerLogoRotateSeconds ?? 6}
+        messageAnimation={branchSettings.tickerMessageAnimation ?? null}
+        logoBgColor={branchSettings.tickerLogoBgColor ?? null}
       />
 
       {/* Animated announcement strip: "band" takes over the bottom message area,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
@@ -13,6 +13,14 @@ interface BreakingNewsTickerProps {
   text?: string;
   messages?: string[];
   logoUrl?: string | null;
+  /** SEVERAL badge logos that take turns (used instead of logoUrl when non-empty). */
+  logoUrls?: string[];
+  /** Seconds each badge logo stays before the next. Default 6. */
+  logoRotateSeconds?: number;
+  /** Extra movement effect on the scrolling message content. Default none. */
+  messageAnimation?: string | null;
+  /** Badge background behind IMAGE logos (any CSS colour incl. "transparent"). Default white. */
+  logoBgColor?: string | null;
   /** Text logo shown in the badge instead of an image. */
   logoText?: string | null;
   /** CSS font-family for the text logo. */
@@ -48,6 +56,10 @@ function BreakingNewsTickerInner({
   text,
   messages: messagesProp,
   logoUrl,
+  logoUrls = [],
+  logoRotateSeconds = 6,
+  messageAnimation = null,
+  logoBgColor = null,
   logoText,
   logoFontCss,
   messageFontCss,
@@ -82,13 +94,33 @@ function BreakingNewsTickerInner({
   // instead of an image) — fall back to the real brand logo instead of a broken
   // img.
   const [logoFailed, setLogoFailed] = useState(false);
+  const [logoIdx, setLogoIdx] = useState(0);
 
-  // Not a text logo → show the uploaded image if it loads, otherwise the real
-  // unimoni brand wordmark. There is always a logo in the badge now.
+  // The badge can hold SEVERAL logos that take turns; a single logoUrl still
+  // works. Not a text logo → show the current image if it loads, otherwise the
+  // real unimoni wordmark. There is always a logo in the badge.
+  const badgeImages = (logoUrls ?? []).map((u) => u?.trim()).filter(Boolean) as string[];
+  const effectiveBadgeImages = badgeImages.length
+    ? badgeImages
+    : logoUrl?.trim()
+      ? [logoUrl.trim()]
+      : [];
+  const galleryLen = effectiveBadgeImages.length;
+
+  useEffect(() => {
+    if (isTextLogo || galleryLen <= 1) return;
+    const t = window.setInterval(
+      () => setLogoIdx((i) => i + 1),
+      Math.max(2, logoRotateSeconds) * 1000,
+    );
+    return () => window.clearInterval(t);
+  }, [isTextLogo, galleryLen, logoRotateSeconds]);
+
+  const currentBadge = galleryLen ? effectiveBadgeImages[logoIdx % galleryLen] : null;
   const imageLogoSrc = isTextLogo
     ? null
-    : logoUrl?.trim() && !logoFailed
-      ? logoUrl.trim()
+    : currentBadge && !(galleryLen === 1 && logoFailed)
+      ? currentBadge
       : DEFAULT_LOGO_SRC;
 
   const activeText = messages[messageIndex] ?? "";
@@ -121,6 +153,23 @@ function BreakingNewsTickerInner({
   const scrollFontSize = fontSize
     ? `calc(${fontSize}px * ${heightScale})`
     : `calc(clamp(1.1rem, 2.2vw, 2rem) * ${heightScale})`;
+
+  const messageAnimClass =
+    messageAnimation === "bounce"
+      ? "ticker-logo-bounce"
+      : messageAnimation === "pulse"
+        ? "ticker-logo-pulse"
+        : messageAnimation === "swing"
+          ? "ticker-logo-swing"
+          : messageAnimation === "float"
+            ? "ticker-logo-float"
+            : messageAnimation === "wave"
+              ? "logo-anim-wave"
+              : messageAnimation === "heartbeat"
+                ? "logo-anim-heartbeat"
+                : messageAnimation === "shine"
+                  ? "logo-anim-shine"
+                  : "";
 
   const headlineAnimClass =
     headlineAnimation === "spin"
@@ -199,7 +248,9 @@ function BreakingNewsTickerInner({
         style={{
           width: badgeWidth,
           height: `calc(${barHeight} * 1.5)`,
-          backgroundColor: isTextLogo ? UNIMONI_COLORS.tickerBlack : "#FFFFFF",
+          backgroundColor: isTextLogo
+            ? UNIMONI_COLORS.tickerBlack
+            : logoBgColor?.trim() || "#FFFFFF",
           borderColor: UNIMONI_COLORS.gold,
         }}
       >
@@ -222,7 +273,7 @@ function BreakingNewsTickerInner({
             className={`h-[80%] w-[90%] object-contain drop-shadow-sm ${logoAnimClass}`}
             unoptimized
             priority
-            onError={() => setLogoFailed(true)}
+            onError={() => (galleryLen > 1 ? setLogoIdx((i) => i + 1) : setLogoFailed(true))}
           />
         )}
       </div>
@@ -251,6 +302,7 @@ function BreakingNewsTickerInner({
                 }}
                 onAnimationEnd={handleAnimationEnd}
               >
+                <span className={`inline-block ${messageAnimClass}`}>
                 {/* Optional logo images scroll right-to-left together with the
                     message text; sized relative to the ticker font. */}
                 {scrollingLogos.map((src, i) => (
@@ -263,6 +315,7 @@ function BreakingNewsTickerInner({
                   />
                 ))}
                 {activeText}
+                </span>
               </span>
             </div>
           ) : null}

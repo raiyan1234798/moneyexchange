@@ -456,62 +456,6 @@ function BranchSettingsForm({
           />
         </div>
       ) : null}
-      {/* Extra logos that scroll right-to-left in the ticker with the message text. */}
-      <div className="space-y-2">
-        <Label>Scrolling ticker logos</Label>
-        <p className="text-xs text-muted-foreground">
-          Upload logos to scroll alongside the ticker text (right to left). Add as many as you like.
-        </p>
-        <Input
-          type="file"
-          multiple
-          accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
-          aria-label="Upload scrolling ticker logos"
-          onChange={async (event) => {
-            const files = Array.from(event.target.files ?? []);
-            if (files.length === 0) return;
-            try {
-              const urls: string[] = [];
-              for (const file of files) {
-                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
-                urls.push(dataUrl);
-              }
-              setSettings({ ...settings, scrollingLogos: [...(settings.scrollingLogos ?? []), ...urls] });
-              toast.success(`${urls.length} logo(s) added — click Save Branch Settings to apply`);
-            } catch (error) {
-              toast.error(error instanceof Error ? error.message : "Could not read image");
-            }
-          }}
-          className="rounded-xl"
-        />
-        {(settings.scrollingLogos ?? []).length > 0 ? (
-          <div className="flex flex-wrap gap-2 pt-1">
-            {(settings.scrollingLogos ?? []).map((src, i) => (
-              <div key={i} className="relative">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={src}
-                  alt={`Scrolling logo ${i + 1}`}
-                  className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
-                />
-                <button
-                  type="button"
-                  aria-label="Remove logo"
-                  onClick={() =>
-                    setSettings({
-                      ...settings,
-                      scrollingLogos: (settings.scrollingLogos ?? []).filter((_, idx) => idx !== i),
-                    })
-                  }
-                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </div>
       </SettingsGroup>
 
       <SettingsGroup
