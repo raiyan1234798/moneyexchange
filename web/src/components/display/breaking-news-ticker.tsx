@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
+import { displayAnimationClass } from "@/lib/constants";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 /** The real unimoni brand wordmark — shown by default in the pop-out badge. */
@@ -46,7 +47,7 @@ interface BreakingNewsTickerProps {
   /** Multiplier for the pop-out logo badge HEIGHT (default 1). */
   logoHeightScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
-  logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
+  logoAnimation?: string;
   /** Logo images that scroll right-to-left with the messages. */
   scrollingLogos?: string[];
   /** The promo/video area width as a % of the screen. Caps the gold headline
@@ -166,76 +167,16 @@ function BreakingNewsTickerInner({
     ? `calc(${fontSize}px * ${heightScale})`
     : `calc(clamp(1.1rem, 2.2vw, 2rem) * ${heightScale})`;
 
-  const scrollLogoAnimClass =
-    scrollLogoAnimation === "spin"
-      ? "ticker-logo-spin"
-      : scrollLogoAnimation === "flip"
-        ? "ticker-logo-flipx"
-        : scrollLogoAnimation === "bounce"
-          ? "ticker-logo-bounce"
-          : scrollLogoAnimation === "float"
-            ? "ticker-logo-float"
-            : scrollLogoAnimation === "swing"
-              ? "ticker-logo-swing"
-              : scrollLogoAnimation === "pulse"
-                ? "ticker-logo-pulse"
-                : scrollLogoAnimation === "wave"
-                  ? "logo-anim-wave"
-                  : scrollLogoAnimation === "heartbeat"
-                    ? "logo-anim-heartbeat"
-                    : "";
+  const scrollLogoAnimClass = displayAnimationClass(scrollLogoAnimation);
 
-  const messageAnimClass =
-    messageAnimation === "bounce"
-      ? "ticker-logo-bounce"
-      : messageAnimation === "pulse"
-        ? "ticker-logo-pulse"
-        : messageAnimation === "swing"
-          ? "ticker-logo-swing"
-          : messageAnimation === "float"
-            ? "ticker-logo-float"
-            : messageAnimation === "wave"
-              ? "logo-anim-wave"
-              : messageAnimation === "heartbeat"
-                ? "logo-anim-heartbeat"
-                : messageAnimation === "shine"
-                  ? "logo-anim-shine"
-                  : "";
+  const messageAnimClass = displayAnimationClass(messageAnimation);
 
-  const headlineAnimClass =
-    headlineAnimation === "spin"
-      ? "ticker-logo-spin"
-      : headlineAnimation === "flip"
-        ? "ticker-logo-flipx"
-        : headlineAnimation === "bounce"
-          ? "ticker-logo-bounce"
-          : headlineAnimation === "float"
-            ? "ticker-logo-float"
-            : headlineAnimation === "swing"
-              ? "ticker-logo-swing"
-              : headlineAnimation === "pulse"
-                ? "ticker-logo-pulse"
-                : headlineAnimation === "wave"
-                  ? "logo-anim-wave"
-                  : headlineAnimation === "heartbeat"
-                    ? "logo-anim-heartbeat"
-                    : "";
+  const headlineAnimClass = displayAnimationClass(headlineAnimation);
 
   const pulse = logoAnimation === "pulse";
   // Animation class applied to the logo image itself (pulse animates the whole
   // badge instead — see below).
-  const logoAnimClass =
-    logoAnimation === "spin"
-      ? "ticker-logo-spin"
-      : logoAnimation === "flip"
-        ? "ticker-logo-flipx"
-        : logoAnimation === "bounce"
-          ? "ticker-logo-bounce"
-          : logoAnimation === "float"
-            ? "ticker-logo-float"
-            : logoAnimation === "swing"
-              ? "ticker-logo-swing"
-              : "";
+  const logoAnimClass = logoAnimation === "pulse" ? "" : displayAnimationClass(logoAnimation);
 
   return (
     <footer className="relative shrink-0">

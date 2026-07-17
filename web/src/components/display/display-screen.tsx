@@ -199,32 +199,31 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // rateCardHideSeconds (video fills the whole screen), repeat. hide=0 keeps
   // the legacy behaviour (hide once after the display time, or always show).
   const [rateCardVisible, setRateCardVisible] = useState(true);
+  // Reset to visible whenever the cycle settings change (render-time adjust).
+  const [cycleCfg, setCycleCfg] = useState({ show: rateCardDisplaySeconds, hide: rateCardHideSeconds });
+  if (cycleCfg.show !== rateCardDisplaySeconds || cycleCfg.hide !== rateCardHideSeconds) {
+    setCycleCfg({ show: rateCardDisplaySeconds, hide: rateCardHideSeconds });
+    setRateCardVisible(true);
+  }
   useEffect(() => {
-    if (rateCardDisplaySeconds <= 0) {
-      setRateCardVisible(true);
-      return;
-    }
+    if (cycleCfg.show <= 0) return;
     let timer: number;
     let visible = true;
-    setRateCardVisible(true);
     const tick = () => {
-      if (visible) {
-        timer = window.setTimeout(() => {
-          visible = false;
-          setRateCardVisible(false);
-          if (rateCardHideSeconds > 0) tick();
-        }, rateCardDisplaySeconds * 1000);
-      } else {
-        timer = window.setTimeout(() => {
-          visible = true;
-          setRateCardVisible(true);
+      timer = window.setTimeout(
+        () => {
+          visible = !visible;
+          setRateCardVisible(visible);
+          // hide=0 → legacy one-shot hide (no return trip)
+          if (!visible && cycleCfg.hide <= 0) return;
           tick();
-        }, rateCardHideSeconds * 1000);
-      }
+        },
+        (visible ? cycleCfg.show : cycleCfg.hide) * 1000,
+      );
     };
     tick();
     return () => window.clearTimeout(timer);
-  }, [rateCardDisplaySeconds, rateCardHideSeconds]);
+  }, [cycleCfg]);
 
   // Independently resizable areas (each editable in Settings → Display sizing).
   const videoWidthPercent = Math.max(40, Math.min(75, branchSettings.videoWidthPercent ?? 72));

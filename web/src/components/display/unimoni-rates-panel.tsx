@@ -7,6 +7,7 @@ import {
   getRateFlag,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
+import { displayAnimationClass } from "@/lib/constants";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
@@ -389,30 +390,7 @@ export function UnimoniRatesPanel({
   const showHeaderBar = !hidePromoHeader;
 
   // Animation class for whichever logo shows in the header (default or custom).
-  const animClassFor = (name: string): string =>
-    name === "spin"
-      ? "ticker-logo-spin"
-      : name === "flip"
-        ? "ticker-logo-flipx"
-        : name === "bounce"
-          ? "ticker-logo-bounce"
-          : name === "float"
-            ? "ticker-logo-float"
-            : name === "swing"
-              ? "ticker-logo-swing"
-              : name === "pulse"
-                ? "ticker-logo-pulse"
-                : name === "wave"
-                  ? "logo-anim-wave"
-                  : name === "heartbeat"
-                    ? "logo-anim-heartbeat"
-                    : name === "tilt"
-                      ? "logo-anim-tilt"
-                      : name === "shine"
-                        ? "logo-anim-shine"
-                        : name === "drift"
-                          ? "logo-anim-drift"
-                          : "";
+  const animClassFor = (name: string): string => displayAnimationClass(name);
   // The promo slide can carry its OWN animation; unset follows the rate-card one.
   const headerAnimClass = isPromoSheet
     ? animClassFor(promoSlideLogoAnimation ?? headerLogoAnimation)

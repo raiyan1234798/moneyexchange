@@ -365,6 +365,57 @@
     animation: ticker-logo-swing 3.2s ease-in-out infinite;
     transform-origin: top center;
   }
+  .logo-anim-shake {
+    animation: logo-anim-shake 2.6s ease-in-out infinite;
+  }
+  @keyframes logo-anim-shake {
+    0%, 60%, 100% { transform: translateX(0); }
+    64%, 72%, 80% { transform: translateX(-4px); }
+    68%, 76%, 84% { transform: translateX(4px); }
+  }
+  .logo-anim-wobble {
+    animation: logo-anim-wobble 3.4s ease-in-out infinite;
+    transform-origin: center bottom;
+  }
+  @keyframes logo-anim-wobble {
+    0%, 100% { transform: rotate(0deg); }
+    20% { transform: rotate(-7deg); }
+    40% { transform: rotate(5deg); }
+    60% { transform: rotate(-3deg); }
+    80% { transform: rotate(2deg); }
+  }
+  .logo-anim-jello {
+    animation: logo-anim-jello 3.2s ease-in-out infinite;
+  }
+  @keyframes logo-anim-jello {
+    0%, 55%, 100% { transform: skewX(0) skewY(0); }
+    60% { transform: skewX(-10deg) skewY(-6deg); }
+    66% { transform: skewX(7deg) skewY(4deg); }
+    72% { transform: skewX(-4deg) skewY(-2deg); }
+    78% { transform: skewX(2deg) skewY(1deg); }
+  }
+  .logo-anim-breathe {
+    animation: logo-anim-breathe 4s ease-in-out infinite;
+  }
+  @keyframes logo-anim-breathe {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+  }
+  .logo-anim-flash {
+    animation: logo-anim-flash 2.8s ease-in-out infinite;
+  }
+  @keyframes logo-anim-flash {
+    0%, 70%, 100% { opacity: 1; }
+    78%, 92% { opacity: 0.25; }
+    85% { opacity: 1; }
+  }
+  .logo-anim-rotate {
+    animation: logo-anim-rotate 8s linear infinite;
+  }
+  @keyframes logo-anim-rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
 
   /* Unimoni signage: rate rows fill panel height and scale type with row size */
   .display-rates-body {

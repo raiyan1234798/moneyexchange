@@ -14,8 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
-import { LOGO_IMAGE_OPTIONS, compressLogoTransparent, compressImageToDataUrl } from "@/lib/image-utils";
+import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS } from "@/lib/constants";
+import { LOGO_IMAGE_OPTIONS, compressLogoTransparent } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { Branch, BranchSettings } from "@/lib/types";
 
@@ -175,25 +175,17 @@ export function TickerDisplaySettings({
               </Label>
               <Select
                 value={s.tickerLogoAnimation ?? "spin"}
-                onValueChange={(value) =>
-                  set({
-                    tickerLogoAnimation:
-                      (value as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing") ??
-                      "spin",
-                  })
-                }
+                onValueChange={(value) => set({ tickerLogoAnimation: value ?? "spin" })}
               >
                 <SelectTrigger className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                  <SelectItem value="flip">Flip (X)</SelectItem>
-                  <SelectItem value="bounce">Bounce</SelectItem>
-                  <SelectItem value="float">Float</SelectItem>
-                  <SelectItem value="swing">Swing</SelectItem>
-                  <SelectItem value="pulse">Gentle pulse</SelectItem>
-                  <SelectItem value="none">No animation</SelectItem>
+                  {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
                 </SelectContent>
               </Select>
             </div>
@@ -378,15 +370,11 @@ export function TickerDisplaySettings({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No animation (default)</SelectItem>
-                <SelectItem value="pulse">Gentle pulse</SelectItem>
-                <SelectItem value="bounce">Bounce</SelectItem>
-                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                <SelectItem value="flip">Flip (X)</SelectItem>
-                <SelectItem value="swing">Swing</SelectItem>
-                <SelectItem value="float">Float</SelectItem>
-                <SelectItem value="wave">Wave</SelectItem>
-                <SelectItem value="heartbeat">Heartbeat</SelectItem>
+                {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -437,15 +425,11 @@ export function TickerDisplaySettings({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No animation</SelectItem>
-                  <SelectItem value="bounce">Bounce</SelectItem>
-                  <SelectItem value="flip">Flip (X)</SelectItem>
-                  <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                  <SelectItem value="pulse">Gentle pulse</SelectItem>
-                  <SelectItem value="swing">Swing</SelectItem>
-                  <SelectItem value="float">Float</SelectItem>
-                  <SelectItem value="wave">Wave</SelectItem>
-                  <SelectItem value="heartbeat">Heartbeat</SelectItem>
+                  {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
                 </SelectContent>
               </Select>
             </div>
@@ -521,14 +505,11 @@ export function TickerDisplaySettings({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Plain scroll (default)</SelectItem>
-                  <SelectItem value="pulse">Gentle pulse</SelectItem>
-                  <SelectItem value="wave">Wave</SelectItem>
-                  <SelectItem value="bounce">Bounce</SelectItem>
-                  <SelectItem value="float">Float</SelectItem>
-                  <SelectItem value="swing">Swing</SelectItem>
-                  <SelectItem value="heartbeat">Heartbeat</SelectItem>
-                  <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                  {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">

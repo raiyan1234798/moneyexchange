@@ -22,7 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -420,19 +420,12 @@ function BranchSettingsForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="none">No animation (default)</SelectItem>
-            <SelectItem value="wave">Wave — gentle rocking</SelectItem>
-            <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-            <SelectItem value="flip">Flip (X)</SelectItem>
-            <SelectItem value="tilt">3D tilt</SelectItem>
-            <SelectItem value="bounce">Bounce</SelectItem>
-            <SelectItem value="float">Float</SelectItem>
-            <SelectItem value="drift">Drift — slow figure-8</SelectItem>
-            <SelectItem value="swing">Swing</SelectItem>
-            <SelectItem value="pulse">Gentle pulse</SelectItem>
-            <SelectItem value="heartbeat">Heartbeat</SelectItem>
-            <SelectItem value="shine">Shine — glow pulse</SelectItem>
-          </SelectContent>
+                {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">
           Movement effect for the logo at the top of the rate card (unimoni or your uploaded logo).
@@ -1073,18 +1066,11 @@ function BranchSettingsForm({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__inherit">Same as rate-card logo animation (default)</SelectItem>
-                <SelectItem value="none">No animation</SelectItem>
-                <SelectItem value="wave">Wave — gentle rocking</SelectItem>
-                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                <SelectItem value="flip">Flip (X)</SelectItem>
-                <SelectItem value="tilt">3D tilt</SelectItem>
-                <SelectItem value="bounce">Bounce</SelectItem>
-                <SelectItem value="float">Float</SelectItem>
-                <SelectItem value="drift">Drift — slow figure-8</SelectItem>
-                <SelectItem value="swing">Swing</SelectItem>
-                <SelectItem value="pulse">Gentle pulse</SelectItem>
-                <SelectItem value="heartbeat">Heartbeat</SelectItem>
-                <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -1378,16 +1364,11 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">No movement (default)</SelectItem>
-                <SelectItem value="pulse">Gentle pulse</SelectItem>
-                <SelectItem value="wave">Wave</SelectItem>
-                <SelectItem value="bounce">Bounce</SelectItem>
-                <SelectItem value="swing">Swing</SelectItem>
-                <SelectItem value="float">Float</SelectItem>
-                <SelectItem value="flip">Flip (X)</SelectItem>
-                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                <SelectItem value="heartbeat">Heartbeat</SelectItem>
-                <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -1633,8 +1614,7 @@ function BranchSettingsForm({
               onValueChange={(value) =>
                 setSettings({
                   ...settings,
-                  tickerLogoAnimation:
-                    (value as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing") ?? "spin",
+                  tickerLogoAnimation: value ?? "spin",
                 })
               }
             >
@@ -1642,13 +1622,11 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                <SelectItem value="flip">Flip (X)</SelectItem>
-                <SelectItem value="bounce">Bounce</SelectItem>
-                <SelectItem value="float">Float</SelectItem>
-                <SelectItem value="swing">Swing</SelectItem>
-                <SelectItem value="pulse">Gentle pulse</SelectItem>
-                <SelectItem value="none">No animation</SelectItem>
+                {DISPLAY_ANIMATIONS.map((a) => (
+                  <SelectItem key={a.key} value={a.key}>
+                    {a.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

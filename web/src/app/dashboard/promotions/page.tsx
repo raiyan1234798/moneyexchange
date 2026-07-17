@@ -20,7 +20,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
-import { DEFAULT_BRANCH_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -286,16 +286,11 @@ export default function PromotionsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">No movement (default)</SelectItem>
-                      <SelectItem value="pulse">Gentle pulse</SelectItem>
-                      <SelectItem value="wave">Wave</SelectItem>
-                      <SelectItem value="bounce">Bounce</SelectItem>
-                      <SelectItem value="swing">Swing</SelectItem>
-                      <SelectItem value="float">Float</SelectItem>
-                      <SelectItem value="flip">Flip (X)</SelectItem>
-                      <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                      <SelectItem value="heartbeat">Heartbeat</SelectItem>
-                      <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                      {DISPLAY_ANIMATIONS.map((a) => (
+                        <SelectItem key={a.key} value={a.key}>
+                          {a.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>                  </div>
                   <div className="space-y-2">
@@ -581,19 +576,12 @@ export default function PromotionsPage() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                <SelectItem value="__inherit">Same as rate-card logo animation (default)</SelectItem>
-                <SelectItem value="none">No animation</SelectItem>
-                <SelectItem value="wave">Wave — gentle rocking</SelectItem>
-                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                <SelectItem value="flip">Flip (X)</SelectItem>
-                <SelectItem value="tilt">3D tilt</SelectItem>
-                <SelectItem value="bounce">Bounce</SelectItem>
-                <SelectItem value="float">Float</SelectItem>
-                <SelectItem value="drift">Drift — slow figure-8</SelectItem>
-                <SelectItem value="swing">Swing</SelectItem>
-                <SelectItem value="pulse">Gentle pulse</SelectItem>
-                <SelectItem value="heartbeat">Heartbeat</SelectItem>
-                <SelectItem value="shine">Shine — glow pulse</SelectItem>
+                      <SelectItem value="__inherit">Same as rate-card logo animation (default)</SelectItem>
+                      {DISPLAY_ANIMATIONS.map((a) => (
+                        <SelectItem key={a.key} value={a.key}>
+                          {a.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

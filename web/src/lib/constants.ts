@@ -36,6 +36,8 @@ export const COLLECTIONS = {
   imageAdverts: "image_adverts",
   transferRates: "transfer_rates",
   pendingApprovals: "pending_approvals",
+  agreements: "agreements",
+  agreementSignatures: "agreement_signatures",
 } as const;
 
 export const DEFAULT_BRANCH_SETTINGS = {
@@ -71,7 +73,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerScale: 1,
   logoScale: 1,
   tickerLogoHeightScale: 1,
-  tickerLogoAnimation: "spin" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
+  tickerLogoAnimation: "spin" as string,
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
   tickerHeadlineAnimation: null as string | null,
@@ -172,6 +174,53 @@ export const RECOMMENDED_VIDEO_FORMATS = [
   "WebM VP9",
   "MOV (QuickTime)",
 ];
+
+/** Every movement effect available across the display — logos, badge, texts.
+    ONE list powers every animation selector so new effects appear everywhere. */
+export const DISPLAY_ANIMATIONS: Array<{ key: string; label: string }> = [
+  { key: "none", label: "No animation" },
+  { key: "wave", label: "Wave — gentle rocking" },
+  { key: "spin", label: "Rotating flip (Y)" },
+  { key: "flip", label: "Flip (X)" },
+  { key: "rotate", label: "Rotate — slow full turns" },
+  { key: "tilt", label: "3D tilt" },
+  { key: "bounce", label: "Bounce" },
+  { key: "float", label: "Float" },
+  { key: "drift", label: "Drift — slow figure-8" },
+  { key: "swing", label: "Swing" },
+  { key: "pulse", label: "Gentle pulse" },
+  { key: "breathe", label: "Breathe — slow zoom" },
+  { key: "heartbeat", label: "Heartbeat" },
+  { key: "shine", label: "Shine — glow pulse" },
+  { key: "shake", label: "Shake" },
+  { key: "wobble", label: "Wobble" },
+  { key: "jello", label: "Jello — wobbly squish" },
+  { key: "flash", label: "Flash — blink" },
+];
+
+/** CSS class for a DISPLAY_ANIMATIONS key ("" = none/unknown). */
+export function displayAnimationClass(name: string | null | undefined): string {
+  switch (name) {
+    case "spin": return "ticker-logo-spin";
+    case "flip": return "ticker-logo-flipx";
+    case "bounce": return "ticker-logo-bounce";
+    case "float": return "ticker-logo-float";
+    case "swing": return "ticker-logo-swing";
+    case "pulse": return "ticker-logo-pulse";
+    case "wave": return "logo-anim-wave";
+    case "heartbeat": return "logo-anim-heartbeat";
+    case "tilt": return "logo-anim-tilt";
+    case "shine": return "logo-anim-shine";
+    case "drift": return "logo-anim-drift";
+    case "shake": return "logo-anim-shake";
+    case "wobble": return "logo-anim-wobble";
+    case "jello": return "logo-anim-jello";
+    case "breathe": return "logo-anim-breathe";
+    case "flash": return "logo-anim-flash";
+    case "rotate": return "logo-anim-rotate";
+    default: return "";
+  }
+}
 
 /** Font styles for a TEXT logo on the display ticker badge. */
 export const LOGO_FONTS: Array<{ key: string; label: string; css: string }> = [
@@ -282,6 +331,12 @@ export const NAV_ITEMS: Array<{
     label: "Activity",
     icon: "ScrollText",
     roles: ["superAdmin", "admin"],
+  },
+  {
+    href: "/dashboard/agreements",
+    label: "Agreements",
+    icon: "FileText",
+    roles: ["superAdmin", "admin", "branchManager", "branchUser"],
   },
 ];
 

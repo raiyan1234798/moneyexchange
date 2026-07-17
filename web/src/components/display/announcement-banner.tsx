@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
+import { displayAnimationClass } from "@/lib/constants";
 
 // Broadcast-style easing: a smooth "expo-out" deceleration so overlays glide in
 // like TV motion graphics, not snap in like an artificial pop-up. Paired with a
@@ -129,18 +130,7 @@ export function announcementTextStyle(
  */
 /** Continuous movement class for announcement TEXT while it is visible. */
 function contTextAnimClass(name: string | null | undefined): string {
-  switch (name) {
-    case "pulse": return "ticker-logo-pulse";
-    case "bounce": return "ticker-logo-bounce";
-    case "swing": return "ticker-logo-swing";
-    case "float": return "ticker-logo-float";
-    case "flip": return "ticker-logo-flipx";
-    case "spin": return "ticker-logo-spin";
-    case "wave": return "logo-anim-wave";
-    case "heartbeat": return "logo-anim-heartbeat";
-    case "shine": return "logo-anim-shine";
-    default: return "";
-  }
+  return displayAnimationClass(name);
 }
 
 export function TickerAnnouncementBand({

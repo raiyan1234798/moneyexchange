@@ -105,7 +105,7 @@ export interface BranchSettings {
   /** Multiplier for the pop-out ticker logo badge HEIGHT (0.6–2). Default 1. */
   tickerLogoHeightScale?: number;
   /** Animation style for the pop-out ticker logo. Default "spin". */
-  tickerLogoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
+  tickerLogoAnimation?: string;
   /** Custom text for the gold "breaking" headline tab above the ticker. */
   tickerHeadline?: string | null;
   /** Show the gold headline tab at all (turn off to remove it). Default true. */
@@ -178,19 +178,7 @@ export interface BranchSettings {
   /** Size multiplier for the rate-card HEADER logo on normal slides (1 = normal). */
   headerLogoScale?: number;
   /** Animated effect for the rate-card header logo. Default "none". */
-  headerLogoAnimation?:
-    | "none"
-    | "spin"
-    | "flip"
-    | "bounce"
-    | "float"
-    | "swing"
-    | "pulse"
-    | "wave"
-    | "heartbeat"
-    | "tilt"
-    | "shine"
-    | "drift";
+  headerLogoAnimation?: string;
   /** Size multiplier for the announcement text (1 = normal). */
   announcementTextScale?: number;
   /** Continuous movement of the announcement TEXT while visible. null = none. */
@@ -514,4 +502,30 @@ export interface DashboardStats {
   totalCurrencies: number;
   pendingRateApprovals: number;
   recentAuditEvents: number;
+}
+
+export interface Agreement {
+  id: string;
+  title: string;
+  description?: string;
+  fileUrl: string;
+  fileName: string;
+  uploadedBy: string;
+  uploadedByName?: string;
+  createdAt: Timestamp | Date;
+  updatedAt: Timestamp | Date;
+  requiresSignature: boolean;
+  targetRoles: UserRole[];
+  status: "active" | "archived";
+}
+
+export interface AgreementSignature {
+  id: string;
+  agreementId: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  branchId?: string | null;
+  branchName?: string | null;
+  signedAt: Timestamp | Date;
 }
