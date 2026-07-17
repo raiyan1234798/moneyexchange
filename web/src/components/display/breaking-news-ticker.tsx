@@ -21,6 +21,8 @@ interface BreakingNewsTickerProps {
   messageAnimation?: string | null;
   /** Badge background behind IMAGE logos (any CSS colour incl. "transparent"). Default white. */
   logoBgColor?: string | null;
+  /** Movement effect for the logos scrolling WITH the message. Default none. */
+  scrollLogoAnimation?: string | null;
   /** Text logo shown in the badge instead of an image. */
   logoText?: string | null;
   /** CSS font-family for the text logo. */
@@ -60,6 +62,7 @@ function BreakingNewsTickerInner({
   logoRotateSeconds = 6,
   messageAnimation = null,
   logoBgColor = null,
+  scrollLogoAnimation = null,
   logoText,
   logoFontCss,
   messageFontCss,
@@ -153,6 +156,25 @@ function BreakingNewsTickerInner({
   const scrollFontSize = fontSize
     ? `calc(${fontSize}px * ${heightScale})`
     : `calc(clamp(1.1rem, 2.2vw, 2rem) * ${heightScale})`;
+
+  const scrollLogoAnimClass =
+    scrollLogoAnimation === "spin"
+      ? "ticker-logo-spin"
+      : scrollLogoAnimation === "flip"
+        ? "ticker-logo-flipx"
+        : scrollLogoAnimation === "bounce"
+          ? "ticker-logo-bounce"
+          : scrollLogoAnimation === "float"
+            ? "ticker-logo-float"
+            : scrollLogoAnimation === "swing"
+              ? "ticker-logo-swing"
+              : scrollLogoAnimation === "pulse"
+                ? "ticker-logo-pulse"
+                : scrollLogoAnimation === "wave"
+                  ? "logo-anim-wave"
+                  : scrollLogoAnimation === "heartbeat"
+                    ? "logo-anim-heartbeat"
+                    : "";
 
   const messageAnimClass =
     messageAnimation === "bounce"
@@ -311,7 +333,7 @@ function BreakingNewsTickerInner({
                     key={`${src}-${i}`}
                     src={src}
                     alt=""
-                    className="mr-[1.6vw] inline-block h-[1.4em] w-auto rounded-[3px] bg-white/95 px-[0.3em] py-[0.15em] align-middle object-contain"
+                    className={`mr-[1.6vw] inline-block h-[1.4em] w-auto rounded-[3px] bg-white/95 px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoAnimClass}`}
                   />
                 ))}
                 {activeText}

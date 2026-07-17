@@ -108,6 +108,8 @@ export interface BranchSettings {
   tickerHeadlineAnimation?: string | null;
   /** Extra movement effect on the SCROLLING message text. null/"none" = plain scroll. */
   tickerMessageAnimation?: string | null;
+  /** Movement effect on the logos that scroll WITH the message. null/"none" = static. */
+  tickerScrollLogoAnimation?: string | null;
   /** SEVERAL corner-badge logos that take turns (overrides tickerLogoUrl when set). */
   tickerLogoUrls?: string[];
   /** Seconds each corner-badge logo stays before the next (default 6). */

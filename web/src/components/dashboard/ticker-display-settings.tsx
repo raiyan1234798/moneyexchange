@@ -302,6 +302,35 @@ export function TickerDisplaySettings({
               ))}
             </div>
           ) : null}
+          <div className="space-y-2 pt-1">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Logo movement (while scrolling)
+            </Label>
+            <Select
+              value={s.tickerScrollLogoAnimation ?? "none"}
+              onValueChange={(value) =>
+                set({ tickerScrollLogoAnimation: value === "none" ? null : value })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No animation (default)</SelectItem>
+                <SelectItem value="pulse">Gentle pulse</SelectItem>
+                <SelectItem value="bounce">Bounce</SelectItem>
+                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
+                <SelectItem value="flip">Flip (X)</SelectItem>
+                <SelectItem value="swing">Swing</SelectItem>
+                <SelectItem value="float">Float</SelectItem>
+                <SelectItem value="wave">Wave</SelectItem>
+                <SelectItem value="heartbeat">Heartbeat</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Movement applied to each logo as it scrolls along with the message.
+            </p>
+          </div>
         </div>
 
         {/* ---- Yellow headline box ---- */}

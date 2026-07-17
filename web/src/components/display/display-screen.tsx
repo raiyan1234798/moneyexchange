@@ -719,6 +719,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         logoRotateSeconds={branchSettings.tickerLogoRotateSeconds ?? 6}
         messageAnimation={branchSettings.tickerMessageAnimation ?? null}
         logoBgColor={branchSettings.tickerLogoBgColor ?? null}
+        scrollLogoAnimation={branchSettings.tickerScrollLogoAnimation ?? null}
       />
 
       {/* Animated announcement strip: "band" takes over the bottom message area,
