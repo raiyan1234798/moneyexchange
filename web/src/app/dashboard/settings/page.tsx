@@ -1099,6 +1099,32 @@ function BranchSettingsForm({
             </p>
           </div>
           <div className="space-y-2">
+            <Label>Promotion text movement</Label>
+            <Select
+              value={settings.ratePromoTextAnimation ?? "none"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  ratePromoTextAnimation: value === "none" ? null : value,
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DISPLAY_ANIMATIONS.map((a) => (
+                <SelectItem key={a.key} value={a.key}>
+                  {a.label}
+                </SelectItem>
+              ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Keeps the promotion messages (above/below the image) moving while the slide shows.
+            </p>
+          </div>
+          <div className="space-y-2">
             <Label>Promotion message font</Label>
             <Select
               value={settings.ratePromoFont ?? "__master"}

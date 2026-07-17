@@ -44,6 +44,7 @@ interface TimedRatesPanelProps {
   promoSlideLogoScale: number;
   headerLogoScale: number;
   promoTextScale: number;
+  promoTextAnimation: string | null;
   promoFontCss?: string;
   headerLogoAnimation: string;
   promoSlideLogoAnimation: string | null;
@@ -84,6 +85,7 @@ function TimedRatesPanel({
   promoSlideLogoScale,
   headerLogoScale,
   promoTextScale,
+  promoTextAnimation,
   promoFontCss,
   headerLogoAnimation,
   promoSlideLogoAnimation,
@@ -136,6 +138,7 @@ function TimedRatesPanel({
       promoSlideLogoScale={promoSlideLogoScale}
       headerLogoScale={headerLogoScale}
       promoTextScale={promoTextScale}
+      promoTextAnimation={promoTextAnimation}
       promoFontCss={promoFontCss}
       headerLogoAnimation={headerLogoAnimation}
       promoSlideLogoAnimation={promoSlideLogoAnimation}
@@ -665,6 +668,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoSlideLogoScale={promoSlideLogoScale}
       headerLogoScale={headerLogoScale}
       promoTextScale={ratePromoTextScale}
+      promoTextAnimation={branchSettings.ratePromoTextAnimation ?? null}
       promoFontCss={ratePromoFontCss}
       headerLogoAnimation={headerLogoAnimation}
       promoSlideLogoAnimation={promoSlideLogoAnimation}

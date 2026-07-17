@@ -620,6 +620,26 @@ export default function PromotionsPage() {
                     className="rounded-xl sm:max-w-[200px]"
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Promotion text movement</Label>
+                  <Select
+                    value={s.ratePromoTextAnimation ?? "none"}
+                    onValueChange={(value) =>
+                      set({ ratePromoTextAnimation: value === "none" ? null : value })
+                    }
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DISPLAY_ANIMATIONS.map((a) => (
+                      <SelectItem key={a.key} value={a.key}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </ContentPanel>
 

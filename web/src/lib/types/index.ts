@@ -173,6 +173,8 @@ export interface BranchSettings {
   promoSlideLogoAnimation?: string | null;
   /** Size multiplier for the promotion slide's text messages (1 = normal). */
   ratePromoTextScale?: number;
+  /** Continuous movement of the promotion slide's text messages. null = none. */
+  ratePromoTextAnimation?: string | null;
   /** Font for the promotion slide's text messages — null = the display font. */
   ratePromoFont?: string | null;
   /** Size multiplier for the rate-card HEADER logo on normal slides (1 = normal). */

@@ -56,6 +56,8 @@ interface UnimoniRatesPanelProps {
   headerLogoScale?: number;
   /** Size multiplier for the promotion text messages (1 = normal). */
   promoTextScale?: number;
+  /** Continuous movement of the promotion text messages (none by default). */
+  promoTextAnimation?: string | null;
   /** Font for the promotion text messages (falls back to the card font). */
   promoFontCss?: string;
   /** Animated effect for the header logo (default none). */
@@ -151,6 +153,7 @@ export function UnimoniRatesPanel({
   promoSlideLogoScale = 1,
   headerLogoScale = 1,
   promoTextScale = 1,
+  promoTextAnimation = null,
   promoFontCss,
   headerLogoAnimation = "none",
   promoSlideLogoAnimation = null,
@@ -495,7 +498,7 @@ export function UnimoniRatesPanel({
           >
             {promoTop ? (
               <p
-                className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
+                className={`shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
@@ -553,7 +556,7 @@ export function UnimoniRatesPanel({
             ) : null}
             {promoMessage ? (
               <p
-                className="shrink-0 px-2 text-center font-extrabold uppercase leading-tight"
+                className={`shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
