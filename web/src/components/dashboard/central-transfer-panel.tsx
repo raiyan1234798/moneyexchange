@@ -198,20 +198,12 @@ export function CentralTransferPanel({
   return (
     <ContentPanel
       title="Money Transfer Rate — Update & Upload"
-      description="One remittance rate for ALL branches — upload a file or edit below."
+      description={`T.T Rate : Against USD/${localLabel} (telegraphic transfer) — one remittance rate for ALL branches. Upload one Excel/CSV (CURRENCY | $ (USD) | ${localLabel}) and every branch updates at once, or edit below.`}
     >
       {/* ONE Excel/CSV upload updates the transfer rates on ALL branches at once —
-          a BIG drop zone matching the forex upload. */}
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-        <div className="max-w-xl">
-          <p className="text-sm font-semibold">Upload one file for ALL branches</p>
-          <p className="text-xs text-muted-foreground">
-            Excel/CSV with columns CURRENCY | $ (USD) | {localLabel} — updates the transfer card on
-            every branch at once. Rates are <strong>T.T Rate : Against USD/{localLabel}</strong> (telegraphic
-            transfer against USD and local currency).
-          </p>
-        </div>
-        <div className="flex w-full shrink-0 flex-col gap-3 lg:max-w-sm">
+          a BIG drop zone; the wording lives in the panel description above. */}
+      <div className="mb-4">
+        <div className="flex w-full flex-col gap-3">
           <input
             ref={fileRef}
             type="file"
