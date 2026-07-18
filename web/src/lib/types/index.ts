@@ -119,8 +119,9 @@ export interface BranchSettings {
   /** Size multiplier for the logos scrolling WITH the message (1 = normal).
       The black bar height is NOT affected. */
   tickerScrollLogoScale?: number;
-  /** Chip behind each scrolling logo: white card (default) or none. */
-  tickerScrollLogoBg?: "white" | "transparent";
+  /** Chip behind each scrolling logo: white card (default), none, or AUTO —
+      dark chip behind light artwork, white behind dark artwork. */
+  tickerScrollLogoBg?: "white" | "transparent" | "auto";
   /** Show the scrolling logos at all — off keeps them saved but hidden. */
   tickerScrollLogosEnabled?: boolean;
   /** Where the scrolling logos ride: before the text, after it, or both ends.

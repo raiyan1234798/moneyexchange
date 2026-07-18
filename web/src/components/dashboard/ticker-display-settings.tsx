@@ -449,14 +449,15 @@ export function TickerDisplaySettings({
             <Select
               value={s.tickerScrollLogoBg ?? "white"}
               onValueChange={(value) =>
-                set({ tickerScrollLogoBg: value === "transparent" ? "transparent" : "white" })
+                set({ tickerScrollLogoBg: (value as "white" | "transparent" | "auto") ?? "white" })
               }
             >
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="white">White chip behind each logo (default)</SelectItem>
+                <SelectItem value="auto">Auto — dark chip for light logos, white for dark (recommended)</SelectItem>
+                <SelectItem value="white">White chip behind each logo</SelectItem>
                 <SelectItem value="transparent">No chip — logo directly on the black bar</SelectItem>
               </SelectContent>
             </Select>

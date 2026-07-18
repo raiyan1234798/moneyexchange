@@ -26,8 +26,8 @@ interface BreakingNewsTickerProps {
   scrollLogoAnimation?: string | null;
   /** Size multiplier for the scrolling logos (bar height unchanged). Default 1. */
   scrollLogoScale?: number;
-  /** Chip behind each scrolling logo: white card (default) or none. */
-  scrollLogoBg?: "white" | "transparent";
+  /** Chip behind each scrolling logo: white, none, or auto (contrast-aware). */
+  scrollLogoBg?: "white" | "transparent" | "auto";
   /** Show the scrolling logos at all. Default true. */
   scrollLogosEnabled?: boolean;
   /** Badge logo fit: contain (default), cover, or fill (stretch to the box). */
@@ -66,6 +66,82 @@ interface BreakingNewsTickerProps {
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
+
+/** Average luminance of a logo's visible pixels — decides the chip colour in
+    "auto" mode (light artwork → dark chip, dark artwork → white chip). */
+function useLogoTone(src: string): "light" | "dark" | null {
+  const [tone, setTone] = useState<"light" | "dark" | null>(null);
+  useEffect(() => {
+    let alive = true;
+    // window.Image — the next/image import shadows the global constructor.
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      try {
+        const size = 24;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, size, size);
+        const d = ctx.getImageData(0, 0, size, size).data;
+        let sum = 0;
+        let n = 0;
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i + 3] < 40) continue;
+          sum += 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          n++;
+        }
+        if (alive) setTone(n === 0 ? "dark" : sum / n > 150 ? "light" : "dark");
+      } catch {
+        if (alive) setTone("dark");
+      }
+    };
+    img.onerror = () => {
+      if (alive) setTone("dark");
+    };
+    img.src = src;
+    return () => {
+      alive = false;
+    };
+  }, [src]);
+  return tone;
+}
+
+/** One scrolling logo with a contrast-aware chip. */
+function ScrollingLogoImg({
+  src,
+  bgMode,
+  animClass,
+  heightEm,
+  side,
+}: {
+  src: string;
+  bgMode: "white" | "transparent" | "auto";
+  animClass: string;
+  heightEm: string;
+  side: "start" | "end";
+}) {
+  const tone = useLogoTone(src);
+  const chip =
+    bgMode === "transparent"
+      ? ""
+      : bgMode === "auto"
+        ? tone === "light"
+          ? "bg-slate-900/90 ring-1 ring-white/20"
+          : "bg-white/95"
+        : "bg-white/95";
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className={`${side === "start" ? "mr-[1.6vw]" : "ml-[1.6vw]"} inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${chip} ${animClass}`}
+      style={{ height: heightEm }}
+    />
+  );
+}
 
 function BreakingNewsTickerInner({
   text,
@@ -295,26 +371,26 @@ function BreakingNewsTickerInner({
                     the bar height never changes. */}
                 {scrollLogosEnabled
                   ? scrollingLogos.map((src, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <ScrollingLogoImg
                         key={`start-${src.slice(-12)}-${i}`}
                         src={src}
-                        alt=""
-                        className={`mr-[1.6vw] inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoBg === "transparent" ? "" : "bg-white/95"} ${scrollLogoAnimClass}`}
-                        style={{ height: `${(1.4 * scrollLogoScale).toFixed(2)}em` }}
+                        bgMode={scrollLogoBg}
+                        animClass={scrollLogoAnimClass}
+                        heightEm={`${(1.4 * scrollLogoScale).toFixed(2)}em`}
+                        side="start"
                       />
                     ))
                   : null}
                 {activeText}
                 {scrollLogosEnabled
                   ? scrollingLogosEnd.map((src, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
+                      <ScrollingLogoImg
                         key={`end-${src.slice(-12)}-${i}`}
                         src={src}
-                        alt=""
-                        className={`ml-[1.6vw] inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoBg === "transparent" ? "" : "bg-white/95"} ${scrollLogoAnimClass}`}
-                        style={{ height: `${(1.4 * scrollLogoScale).toFixed(2)}em` }}
+                        bgMode={scrollLogoBg}
+                        animClass={scrollLogoAnimClass}
+                        heightEm={`${(1.4 * scrollLogoScale).toFixed(2)}em`}
+                        side="end"
                       />
                     ))
                   : null}
