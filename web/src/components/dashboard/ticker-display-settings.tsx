@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS } from "@/lib/constants";
-import { LOGO_IMAGE_OPTIONS, compressLogoTransparent } from "@/lib/image-utils";
+import { LOGO_IMAGE_OPTIONS, compressLogoTransparent, stripLogoBackground } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { Branch, BranchSettings } from "@/lib/types";
 
@@ -147,7 +147,7 @@ export function TickerDisplaySettings({
               {badgeLogos.length > 0 ? (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {badgeLogos.map((src, i) => (
-                    <div key={`${i}-${src.slice(-12)}`} className="relative">
+                    <div key={`${i}-${src.slice(-12)}`} className="relative flex flex-col items-center gap-1">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={src}
@@ -161,6 +161,26 @@ export function TickerDisplaySettings({
                         className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
                       >
                         ×
+                      </button>
+                      <button
+                        type="button"
+                        title="Remove the background from this logo"
+                        onClick={() =>
+                          void stripLogoBackground(src)
+                            .then((cleaned) =>
+                              set({
+                                tickerLogoUrl: null,
+                                tickerLogoUrls: badgeLogos.map((u, idx) => (idx === i ? cleaned : u)),
+                              }),
+                            )
+                            .then(() => toast.success("Background removed — Save to apply"))
+                            .catch((e) =>
+                              toast.error(e instanceof Error ? e.message : "Could not process"),
+                            )
+                        }
+                        className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:bg-muted"
+                      >
+                        Remove BG
                       </button>
                     </div>
                   ))}
@@ -356,6 +376,24 @@ export function TickerDisplaySettings({
                     className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
                   >
                     ×
+                  </button>
+                  {/* One-click fix for OLD logos uploaded before auto-removal. */}
+                  <button
+                    type="button"
+                    title="Remove the background from this logo"
+                    onClick={() =>
+                      void stripLogoBackground(item.url)
+                        .then((cleaned) =>
+                          setScrollItems(
+                            scrollItems.map((it, idx) => (idx === i ? { ...it, url: cleaned } : it)),
+                          ),
+                        )
+                        .then(() => toast.success("Background removed — Save to apply"))
+                        .catch((e) => toast.error(e instanceof Error ? e.message : "Could not process"))
+                    }
+                    className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground hover:bg-muted"
+                  >
+                    Remove BG
                   </button>
                   {/* Per-logo placement: FRONT of the message or at its END. */}
                   <div className="flex overflow-hidden rounded-md border border-border/60 text-[10px] font-semibold">

@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteTicker, subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
-import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl } from "@/lib/image-utils";
+import { LOGO_IMAGE_OPTIONS, compressLogoTransparent } from "@/lib/image-utils";
 import { LOGO_FONTS, MESSAGE_FONTS, logoFontCss, messageFontCss } from "@/lib/constants";
 import {
   Select,
@@ -386,7 +386,7 @@ export default function TickersPage() {
                                 if (text.length > 120_000) throw new Error("SVG is too large — simplify it or use PNG.");
                                 setLogoUrl(`data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(text)))}`);
                               } else {
-                                const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
+                                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                                 setLogoUrl(dataUrl);
                               }
                               toast.success("Logo ready — it shows on the badge when you save");

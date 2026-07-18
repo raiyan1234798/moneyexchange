@@ -257,3 +257,36 @@ export async function compressLogoTransparent(
     "This image is too large even after compression — please use a smaller image or paste an Image URL.",
   );
 }
+
+/**
+ * Strip the background from an ALREADY-STORED logo (data URL or plain URL) —
+ * same white/solid + nested-box removal as uploads, so old logos can be fixed
+ * with one click instead of re-uploading. Returns a PNG data URL.
+ */
+export async function stripLogoBackground(src: string): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.crossOrigin = "anonymous";
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("Could not read the stored logo image."));
+    el.src = src;
+  });
+  const maxDim = LOGO_IMAGE_OPTIONS.maxDimension;
+  const scale = Math.min(1, maxDim / Math.max(img.naturalWidth, img.naturalHeight));
+  const width = Math.max(1, Math.round(img.naturalWidth * scale));
+  const height = Math.max(1, Math.round(img.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Image processing is not supported in this browser.");
+  ctx.drawImage(img, 0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const removed = floodClearBackground(imageData, 34);
+  if (!removed) throw new Error("No solid background detected on this logo.");
+  for (let layer = 0; layer < 2; layer++) {
+    if (!clearNestedLayer(imageData, 40)) break;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+}
