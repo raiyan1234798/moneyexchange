@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ScrollText, Trash2 } from "lucide-react";
+import { Download, ScrollText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { safeFormatDate } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -102,6 +102,28 @@ export default function AuditLogsPage() {
                         header: "",
                         className: "text-right",
                         cell: (l: AuditLog) => (
+                          <div className="flex items-center justify-end gap-1.5">
+                          {/* Full entry as JSON — includes the settings snapshot
+                              saved with branch updates (useful for recovery). */}
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            className="rounded-lg"
+                            aria-label="Download this entry as JSON"
+                            onClick={() => {
+                              const blob = new Blob([JSON.stringify(l, null, 2)], {
+                                type: "application/json",
+                              });
+                              const url = URL.createObjectURL(blob);
+                              const a = document.createElement("a");
+                              a.href = url;
+                              a.download = `activity-${l.id}.json`;
+                              a.click();
+                              URL.revokeObjectURL(url);
+                            }}
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
                           <AlertDialog>
                             <AlertDialogTrigger
                               render={
@@ -131,6 +153,7 @@ export default function AuditLogsPage() {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                          </div>
                         ),
                       },
                     ]
