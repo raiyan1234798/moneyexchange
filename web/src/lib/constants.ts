@@ -86,6 +86,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   scrollingLogoItems: [] as Array<{ url: string; pos: "start" | "end" }>,
   tickerLogoFit: "contain" as "contain" | "cover" | "fill",
   rateCardTransition: "fade" as string,
+  rateTextAnimation: null as string | null,
+  logoAutoRemoveBg: true,
   videoImageTransition: "fade" as string,
   tickerLogoUrls: [] as string[],
   tickerLogoRotateSeconds: 6,

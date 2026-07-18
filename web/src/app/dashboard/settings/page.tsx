@@ -675,6 +675,30 @@ function BranchSettingsForm({
           changes.
         </p>
       </div>
+      <div className="space-y-2">
+        <Label>Rate numbers movement (WE BUY / WE SELL)</Label>
+        <Select
+          value={settings.rateTextAnimation ?? "none"}
+          onValueChange={(value) =>
+            setSettings({ ...settings, rateTextAnimation: value === "none" ? null : value })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISPLAY_ANIMATIONS.map((a) => (
+              <SelectItem key={a.key} value={a.key}>
+                {a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Moves every rate NUMBER inside the table, all the time. Gentle pulse or Breathe read
+          best — strong effects can make numbers hard to read.
+        </p>
+      </div>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>

@@ -98,6 +98,10 @@ interface UnimoniRatesPanelProps {
   videoSoundOn?: boolean;
   /** Transition when the rotating sheet changes. Default fade. */
   sheetTransition?: string;
+  /** Continuous movement applied to every WE BUY / WE SELL value. */
+  valueTextAnimation?: string | null;
+  /** Fires each time a FULL rotation (all sheets, incl. promo) completes. */
+  onRotationComplete?: () => void;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -176,6 +180,8 @@ export function UnimoniRatesPanel({
   rateCardOrder,
   videoSoundOn = false,
   sheetTransition = "fade",
+  valueTextAnimation = null,
+  onRotationComplete,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -289,11 +295,18 @@ export function UnimoniRatesPanel({
   useEffect(() => {
     if (sheetCount <= 1) return;
     const timer = window.setTimeout(
-      () => setSheetIndex((i) => (i + 1) % sheetCount),
+      () => {
+        setSheetIndex((i) => {
+          const next = (i + 1) % sheetCount;
+          // A full pass over EVERY sheet (incl. the promotion) just finished.
+          if (next === 0) onRotationComplete?.();
+          return next;
+        });
+      },
       activeKind === "promo" ? promoMs : rateMs,
     );
     return () => window.clearTimeout(timer);
-  }, [sheetCount, sheetIndex, activeKind, promoMs, rateMs]);
+  }, [sheetCount, sheetIndex, activeKind, promoMs, rateMs, onRotationComplete]);
 
   const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
   // No padding: every page's rows share the full card height, so each rotating
@@ -623,7 +636,7 @@ export function UnimoniRatesPanel({
                 return (
                   <span
                     key={col.key}
-                    className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
+                    className={`display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums ${displayAnimationClass(valueTextAnimation)}`}
                     style={{ color: NAVY_TEXT, ...columnSeparator }}
                   >
                     {display}

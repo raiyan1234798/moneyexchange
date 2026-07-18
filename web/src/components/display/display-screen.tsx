@@ -65,6 +65,8 @@ interface TimedRatesPanelProps {
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
   videoSoundOn: boolean;
   sheetTransition: string;
+  valueTextAnimation: string | null;
+  onRotationComplete?: () => void;
 }
 
 function TimedRatesPanel({
@@ -107,6 +109,8 @@ function TimedRatesPanel({
   rateCardOrder,
   videoSoundOn,
   sheetTransition,
+  valueTextAnimation,
+  onRotationComplete,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -161,6 +165,8 @@ function TimedRatesPanel({
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
       sheetTransition={sheetTransition}
+      valueTextAnimation={valueTextAnimation}
+      onRotationComplete={onRotationComplete}
     />
   );
 }
@@ -205,31 +211,48 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // rateCardHideSeconds (video fills the whole screen), repeat. hide=0 keeps
   // the legacy behaviour (hide once after the display time, or always show).
   const [rateCardVisible, setRateCardVisible] = useState(true);
+  const wantHideRef = useRef(false);
   // Reset to visible whenever the cycle settings change (render-time adjust).
   const [cycleCfg, setCycleCfg] = useState({ show: rateCardDisplaySeconds, hide: rateCardHideSeconds });
   if (cycleCfg.show !== rateCardDisplaySeconds || cycleCfg.hide !== rateCardHideSeconds) {
     setCycleCfg({ show: rateCardDisplaySeconds, hide: rateCardHideSeconds });
     setRateCardVisible(true);
   }
+  // The card hides only AFTER a full rotation completes (all sheets, incl. the
+  // promotion slide) — the visible-timer just ARMS the hide.
+  const handleRotationComplete = useCallback(() => {
+    if (!wantHideRef.current) return;
+    wantHideRef.current = false;
+    setRateCardVisible(false);
+    window.setTimeout(() => setRateCardVisible(true), Math.max(2, cycleCfg.hide) * 1000);
+  }, [cycleCfg.hide]);
   useEffect(() => {
+    wantHideRef.current = false;
+    // show<=0 → always visible; the render-time adjust above already reset it.
     if (cycleCfg.show <= 0) return;
-    let timer: number;
-    let visible = true;
-    const tick = () => {
-      timer = window.setTimeout(
-        () => {
-          visible = !visible;
-          setRateCardVisible(visible);
-          // hide=0 → legacy one-shot hide (no return trip)
-          if (!visible && cycleCfg.hide <= 0) return;
-          tick();
-        },
-        (visible ? cycleCfg.show : cycleCfg.hide) * 1000,
-      );
-    };
-    tick();
-    return () => window.clearTimeout(timer);
+    if (cycleCfg.hide <= 0) {
+      // Legacy one-shot: show for N seconds, then hide until settings change.
+      const t = window.setTimeout(() => setRateCardVisible(false), cycleCfg.show * 1000);
+      return () => window.clearTimeout(t);
+    }
   }, [cycleCfg]);
+  // Cycle mode: every time the card is (re)shown, arm the next hide; a card
+  // with a single sheet never rotates, so a fallback hides it after 90s.
+  useEffect(() => {
+    if (!rateCardVisible || cycleCfg.show <= 0 || cycleCfg.hide <= 0) return;
+    const arm = window.setTimeout(() => {
+      wantHideRef.current = true;
+    }, cycleCfg.show * 1000);
+    const fallback = window.setTimeout(
+      () => handleRotationComplete(),
+      cycleCfg.show * 1000 + 90_000,
+    );
+    return () => {
+      window.clearTimeout(arm);
+      window.clearTimeout(fallback);
+      wantHideRef.current = false;
+    };
+  }, [rateCardVisible, cycleCfg, handleRotationComplete]);
 
   // Independently resizable areas (each editable in Settings → Display sizing).
   const videoWidthPercent = Math.max(40, Math.min(75, branchSettings.videoWidthPercent ?? 72));
@@ -708,6 +731,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       rateCardOrder={rateCardOrder}
       videoSoundOn={ratePromoSoundOn}
       sheetTransition={branchSettings.rateCardTransition ?? "fade"}
+      valueTextAnimation={branchSettings.rateTextAnimation ?? null}
+      onRotationComplete={handleRotationComplete}
     />
   );
 

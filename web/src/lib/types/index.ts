@@ -134,6 +134,10 @@ export interface BranchSettings {
   tickerLogoFit?: "contain" | "cover" | "fill";
   /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
   rateCardTransition?: string;
+  /** Continuous movement of the WE BUY / WE SELL numbers. null = still. */
+  rateTextAnimation?: string | null;
+  /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
+  logoAutoRemoveBg?: boolean;
   /** Transition when the video-area image/video changes. */
   videoImageTransition?: string;
   /** Gap between announcement shows in SECONDS (overrides the legacy minutes). */

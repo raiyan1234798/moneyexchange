@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS } from "@/lib/constants";
-import { LOGO_IMAGE_OPTIONS, compressLogoTransparent, stripLogoBackground } from "@/lib/image-utils";
+import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent, stripLogoBackground } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { Branch, BranchSettings } from "@/lib/types";
 
@@ -111,6 +111,21 @@ export function TickerDisplaySettings({
       description="Everything about the bottom bar in one place — corner logo, scrolling logos, the yellow headline box, and the bar itself. Changes apply after Save."
     >
       <div className="space-y-4">
+        {/* Some brand logos NEED their background — this switch turns the
+            automatic removal off entirely (uploads are kept exactly as-is). */}
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-muted/20 p-3">
+          <div>
+            <Label className="text-sm">Remove logo backgrounds automatically</Label>
+            <p className="text-xs text-muted-foreground">
+              On: white/solid backgrounds are stripped when you upload a logo (kept when the logo
+              needs them). Off: every logo is uploaded exactly as-is.
+            </p>
+          </div>
+          <Switch
+            checked={s.logoAutoRemoveBg !== false}
+            onCheckedChange={(checked) => set({ logoAutoRemoveBg: checked })}
+          />
+        </div>
         {/* ---- Corner logo (bottom-left badge) ---- */}
         <div className="space-y-3 rounded-xl border border-border/40 bg-muted/20 p-4">
           <div>
@@ -149,7 +164,10 @@ export function TickerDisplaySettings({
                     const urls: string[] = [];
                     let kept = 0;
                     for (const file of files) {
-                      const res = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, badgeSurface());
+                      const res =
+                        s.logoAutoRemoveBg !== false
+                          ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, badgeSurface())
+                          : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
                       urls.push(res.dataUrl);
                       if (res.backgroundKept) kept++;
                     }
@@ -364,7 +382,10 @@ export function TickerDisplaySettings({
                 const urls: string[] = [];
                 let kept = 0;
                 for (const file of files) {
-                  const res = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, scrollSurface());
+                  const res =
+                    s.logoAutoRemoveBg !== false
+                      ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, scrollSurface())
+                      : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
                   urls.push(res.dataUrl);
                   if (res.backgroundKept) kept++;
                 }
