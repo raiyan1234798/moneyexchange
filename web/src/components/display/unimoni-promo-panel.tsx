@@ -99,6 +99,9 @@ export function UnimoniPromoPanel({
             muted={!soundOn}
             loop={loopVideo}
             playsInline
+            // Buffer the next clip ahead of time so switching videos doesn't
+            // stall on a not-yet-loaded (paused) frame that paints a play button.
+            preload="auto"
             // No native controls / picture-in-picture — this is signage, not a
             // player. Belt-and-suspenders with the global CSS that hides the
             // WebView's play-button overlay on smart TVs.
@@ -121,7 +124,8 @@ export function UnimoniPromoPanel({
               // Some TV WebViews leave a freshly-loaded video paused (showing the
               // big play button) until told to play — force it. Try with sound if
               // requested; if the browser blocks unmuted autoplay, fall back to
-              // muted so the video always plays (a tap/fullscreen unmutes later).
+              // muted so the video always PLAYS (never stranded paused behind a
+              // play button). A tap / fullscreen unmutes later.
               const v = e.currentTarget;
               v.muted = !soundOn;
               void v.play().catch(() => {

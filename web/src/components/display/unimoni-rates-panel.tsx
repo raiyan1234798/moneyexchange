@@ -585,11 +585,11 @@ export function UnimoniRatesPanel({
                   <img
                     src={activeSheet.promoMedia.url}
                     alt="Promotion"
-                    // object-CONTAIN, not fill: the whole poster is always shown
-                    // at its true proportions — never squished/stretched. Any
-                    // gap sits on the navy panel background (blends in). Upload a
-                    // 9:16 portrait (e.g. 1080×1920) to fill edge-to-edge.
-                    className="h-full w-full object-contain"
+                    // object-FILL: the poster fills the whole area — no navy
+                    // bands, no cropping (all content stays visible). A poster
+                    // that isn't 9:16 stretches a little to fit; upload a 9:16
+                    // portrait (e.g. 1080×1920) and it fills with no stretch.
+                    className="h-full w-full object-fill"
                   />
                 )}
               </div>

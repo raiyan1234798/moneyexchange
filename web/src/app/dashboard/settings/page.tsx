@@ -1070,8 +1070,9 @@ function BranchSettingsForm({
             <Label>Images &amp; videos — each rotates as its own screen</Label>
             <p className="text-xs text-muted-foreground">
               Best size: <span className="font-semibold">tall (portrait) 9:16 — e.g. 1080 × 1920 px</span>{" "}
-              (same shape as a phone screen). Any size works — the poster is always shown in full
-              without stretching — but a 9:16 image fills the space edge-to-edge with no side gaps.
+              (same shape as a phone screen). The poster always fills the whole space with no blue
+              gaps and nothing cut off. A picture that isn&apos;t 9:16 stretches a little to fit —
+              upload at 9:16 and it fills perfectly with no stretch.
             </p>
             <Input
               type="file"

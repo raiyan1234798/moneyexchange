@@ -10,6 +10,7 @@ import { BranchSelector } from "@/components/shared/branch-selector";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { getDisplayUrl, getStoredDisplayBranchCode, normalizeBranchCode, setStoredDisplayBranchCode } from "@/lib/display-url";
+import { useAutoRefreshOnNewBuild } from "@/lib/tv/use-auto-refresh";
 import type { Branch } from "@/lib/types";
 
 function DisplayContent() {
@@ -74,6 +75,11 @@ function DisplayContent() {
 
   const managerBranchId =
     isBranchManager && profile?.branchId ? profile.branchId : "";
+
+  // Signage TVs cache the app; without a self-update they keep running old code
+  // and never show newly-deployed features. Poll for a newer build and reload.
+  const isDisplayingSignage = Boolean(branchCode || branchIdParam || managerBranchId);
+  useAutoRefreshOnNewBuild(isDisplayingSignage);
 
   const resolvedBranchId = useMemo(() => {
     if (branchIdParam) return branchIdParam;
