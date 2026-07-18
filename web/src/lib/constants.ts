@@ -83,6 +83,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerScrollLogoBg: "white" as "white" | "transparent",
   tickerScrollLogosEnabled: true,
   tickerScrollLogoPosition: "start" as "start" | "end" | "both",
+  scrollingLogoItems: [] as Array<{ url: string; pos: "start" | "end" }>,
   tickerLogoFit: "contain" as "contain" | "cover" | "fill",
   rateCardTransition: "fade" as string,
   videoImageTransition: "fade" as string,

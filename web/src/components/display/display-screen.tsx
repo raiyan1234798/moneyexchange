@@ -288,6 +288,21 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const headerLogoRotationIntervalSeconds = branchSettings.headerLogoRotationIntervalSeconds ?? 10;
   const videoSoundOn = branchSettings.videoSoundOn === true;
   const scrollingLogos = (branchSettings.scrollingLogos ?? []).filter(Boolean);
+  // Per-logo placement: items carry their own front/end position; legacy
+  // scrollingLogos follow the old whole-list position setting.
+  const legacyScrollPos = branchSettings.tickerScrollLogoPosition ?? "start";
+  const scrollLogoItems = [
+    ...(branchSettings.scrollingLogoItems ?? []).filter((it) => it?.url?.trim()),
+    ...scrollingLogos.map((url) => ({
+      url,
+      pos: (legacyScrollPos === "end" ? "end" : "start") as "start" | "end",
+    })),
+    ...(legacyScrollPos === "both"
+      ? scrollingLogos.map((url) => ({ url, pos: "end" as const }))
+      : []),
+  ];
+  const scrollingLogosStart = scrollLogoItems.filter((it) => it.pos !== "end").map((it) => it.url);
+  const scrollingLogosEnd = scrollLogoItems.filter((it) => it.pos === "end").map((it) => it.url);
 
   // Browsers block UNMUTED autoplay until the page gets a user gesture. When the
   // branch wants sound, unmute every video on the first tap/click/key or when
@@ -755,7 +770,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         logoScale={logoScale}
         logoHeightScale={branchSettings.tickerLogoHeightScale ?? 1}
         logoAnimation={tickerLogoAnimation}
-        scrollingLogos={scrollingLogos}
+        scrollingLogos={scrollingLogosStart}
+        scrollingLogosEnd={scrollingLogosEnd}
         headlineMaxWidthPercent={effectivePromoWidth}
         headlineFontCss={tickerHeadlineFontCss}
         headlineAnimation={branchSettings.tickerHeadlineAnimation ?? null}
@@ -767,7 +783,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         scrollLogoScale={branchSettings.tickerScrollLogoScale ?? 1}
         scrollLogoBg={branchSettings.tickerScrollLogoBg ?? "white"}
         scrollLogosEnabled={branchSettings.tickerScrollLogosEnabled !== false}
-        scrollLogoPosition={branchSettings.tickerScrollLogoPosition ?? "start"}
         logoFit={branchSettings.tickerLogoFit ?? "contain"}
       />
 

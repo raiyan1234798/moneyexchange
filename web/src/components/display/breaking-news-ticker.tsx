@@ -30,8 +30,6 @@ interface BreakingNewsTickerProps {
   scrollLogoBg?: "white" | "transparent";
   /** Show the scrolling logos at all. Default true. */
   scrollLogosEnabled?: boolean;
-  /** Where the scrolling logos ride: before the text, after it, or both. */
-  scrollLogoPosition?: "start" | "end" | "both";
   /** Badge logo fit: contain (default), cover, or fill (stretch to the box). */
   logoFit?: "contain" | "cover" | "fill";
   /** Text logo shown in the badge instead of an image. */
@@ -54,8 +52,10 @@ interface BreakingNewsTickerProps {
   logoHeightScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
   logoAnimation?: string;
-  /** Logo images that scroll right-to-left with the messages. */
+  /** Logos riding at the FRONT of the scrolling message. */
   scrollingLogos?: string[];
+  /** Logos riding at the END of the scrolling message. */
+  scrollingLogosEnd?: string[];
   /** The promo/video area width as a % of the screen. Caps the gold headline
    *  tab so it can grow up to — but never onto — the rate card. */
   headlineMaxWidthPercent?: number;
@@ -79,7 +79,6 @@ function BreakingNewsTickerInner({
   scrollLogoScale = 1,
   scrollLogoBg = "white",
   scrollLogosEnabled = true,
-  scrollLogoPosition = "start",
   logoFit = "contain",
   logoText,
   logoFontCss,
@@ -94,6 +93,7 @@ function BreakingNewsTickerInner({
   logoHeightScale = 1,
   logoAnimation = "spin",
   scrollingLogos = [],
+  scrollingLogosEnd = [],
   headlineMaxWidthPercent,
   headlineFontCss,
   headlineAnimation = null,
@@ -293,7 +293,7 @@ function BreakingNewsTickerInner({
                 {/* Optional logo images ride with the message — at the FRONT,
                     the END, or both (admin choice); sized to the ticker font so
                     the bar height never changes. */}
-                {scrollLogosEnabled && scrollLogoPosition !== "end"
+                {scrollLogosEnabled
                   ? scrollingLogos.map((src, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -306,8 +306,8 @@ function BreakingNewsTickerInner({
                     ))
                   : null}
                 {activeText}
-                {scrollLogosEnabled && scrollLogoPosition !== "start"
-                  ? scrollingLogos.map((src, i) => (
+                {scrollLogosEnabled
+                  ? scrollingLogosEnd.map((src, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         key={`end-${src.slice(-12)}-${i}`}

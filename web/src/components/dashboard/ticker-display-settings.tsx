@@ -62,6 +62,16 @@ export function TickerDisplaySettings({
   const removeBadgeLogo = (idx: number) =>
     set({ tickerLogoUrl: null, tickerLogoUrls: badgeLogos.filter((_, i) => i !== idx) });
 
+  // Scrolling logos with PER-LOGO front/end placement. Legacy string list folds
+  // into items (using the old whole-list position) on any edit.
+  const legacyPos = (s.tickerScrollLogoPosition === "end" ? "end" : "start") as "start" | "end";
+  const scrollItems: Array<{ url: string; pos: "start" | "end" }> = [
+    ...((s.scrollingLogoItems ?? []).filter((it) => it?.url?.trim())),
+    ...((s.scrollingLogos ?? []).map((url) => ({ url, pos: legacyPos }))),
+  ];
+  const setScrollItems = (items: Array<{ url: string; pos: "start" | "end" }>) =>
+    set({ scrollingLogoItems: items, scrollingLogos: [] });
+
   async function save() {
     setSaving(true);
     try {
@@ -301,26 +311,7 @@ export function TickerDisplaySettings({
               onCheckedChange={(checked) => set({ tickerScrollLogosEnabled: checked })}
             />
           </div>
-          <div className="space-y-2 pt-1">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              Where the logos appear
-            </Label>
-            <Select
-              value={s.tickerScrollLogoPosition ?? "start"}
-              onValueChange={(value) =>
-                set({ tickerScrollLogoPosition: (value as "start" | "end" | "both") ?? "start" })
-              }
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="start">In FRONT of the message (default)</SelectItem>
-                <SelectItem value="end">At the END of the message</SelectItem>
-                <SelectItem value="both">Both — front AND end</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+
           <Input
             type="file"
             multiple
@@ -335,34 +326,58 @@ export function TickerDisplaySettings({
                   const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
                   urls.push(dataUrl);
                 }
-                set({ scrollingLogos: [...(s.scrollingLogos ?? []), ...urls] });
-                toast.success(`${urls.length} logo(s) added (backgrounds removed) — Save to apply`);
+                setScrollItems([
+                  ...scrollItems,
+                  ...urls.map((url) => ({ url, pos: "start" as const })),
+                ]);
+                toast.success(
+                  `${urls.length} logo(s) added (backgrounds removed) — set Front/End below, then Save`,
+                );
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : "Could not read image");
               }
             }}
             className="rounded-xl"
           />
-          {(s.scrollingLogos ?? []).length > 0 ? (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {(s.scrollingLogos ?? []).map((src, i) => (
-                <div key={i} className="relative">
+          {scrollItems.length > 0 ? (
+            <div className="flex flex-wrap gap-3 pt-1">
+              {scrollItems.map((item, i) => (
+                <div key={`${i}-${item.url.slice(-12)}`} className="relative flex flex-col items-center gap-1">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={src}
+                    src={item.url}
                     alt={`Scrolling logo ${i + 1}`}
                     className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
                   />
                   <button
                     type="button"
                     aria-label="Remove logo"
-                    onClick={() =>
-                      set({ scrollingLogos: (s.scrollingLogos ?? []).filter((_, idx) => idx !== i) })
-                    }
+                    onClick={() => setScrollItems(scrollItems.filter((_, idx) => idx !== i))}
                     className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
                   >
                     ×
                   </button>
+                  {/* Per-logo placement: FRONT of the message or at its END. */}
+                  <div className="flex overflow-hidden rounded-md border border-border/60 text-[10px] font-semibold">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setScrollItems(scrollItems.map((it, idx) => (idx === i ? { ...it, pos: "start" } : it)))
+                      }
+                      className={`px-1.5 py-0.5 ${item.pos !== "end" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                    >
+                      Front
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setScrollItems(scrollItems.map((it, idx) => (idx === i ? { ...it, pos: "end" } : it)))
+                      }
+                      className={`px-1.5 py-0.5 ${item.pos === "end" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                    >
+                      End
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

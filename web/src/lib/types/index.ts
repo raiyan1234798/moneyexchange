@@ -123,8 +123,12 @@ export interface BranchSettings {
   tickerScrollLogoBg?: "white" | "transparent";
   /** Show the scrolling logos at all — off keeps them saved but hidden. */
   tickerScrollLogosEnabled?: boolean;
-  /** Where the scrolling logos ride: before the text, after it, or both ends. */
+  /** Where the scrolling logos ride: before the text, after it, or both ends.
+      @deprecated superseded by scrollingLogoItems (per-logo position). */
   tickerScrollLogoPosition?: "start" | "end" | "both";
+  /** Scrolling logos with a PER-LOGO position — e.g. 2–3 at the front and 2–3
+      at the end of the message. Legacy scrollingLogos folds into this on edit. */
+  scrollingLogoItems?: Array<{ url: string; pos: "start" | "end" }>;
   /** How the badge logo fits its box: contain (default), cover (fill+crop), fill (stretch). */
   tickerLogoFit?: "contain" | "cover" | "fill";
   /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
