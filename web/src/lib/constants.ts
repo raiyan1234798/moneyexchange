@@ -11,6 +11,8 @@ export const CLIENT_ADMIN_EMAIL = "admin@unimoni-signage.com";
 export const RECOMMENDED_BRANCH_USERS = 8;
 /** Hard cap to prevent accidental bulk invites. */
 export const MAX_BRANCH_USERS = 50;
+/** Maximum number of branches that can be created (per client: 8). */
+export const MAX_BRANCHES = 8;
 
 export const COLLECTIONS = {
   users: "users",
@@ -36,8 +38,6 @@ export const COLLECTIONS = {
   imageAdverts: "image_adverts",
   transferRates: "transfer_rates",
   pendingApprovals: "pending_approvals",
-  agreements: "agreements",
-  agreementSignatures: "agreement_signatures",
 } as const;
 
 export const DEFAULT_BRANCH_SETTINGS = {
@@ -332,12 +332,6 @@ export const NAV_ITEMS: Array<{
     label: "Activity",
     icon: "ScrollText",
     roles: ["superAdmin", "admin"],
-  },
-  {
-    href: "/dashboard/agreements",
-    label: "Agreements",
-    icon: "FileText",
-    roles: ["superAdmin", "admin", "branchManager", "branchUser"],
   },
 ];
 

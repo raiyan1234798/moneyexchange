@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
+import { MAX_BRANCHES, DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
@@ -247,8 +247,21 @@ export default function BranchesPage() {
         <FirestoreSetupNotice message={notice} />
         {hasPermission("createBranch") ? (
           <PageActions>
+            {branches.length >= MAX_BRANCHES && !editBranch ? (
+              <p className="text-xs text-muted-foreground">
+                Branch limit reached ({MAX_BRANCHES} of {MAX_BRANCHES}) — delete an unused branch
+                to add a new one.
+              </p>
+            ) : null}
             <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
-              <DialogTrigger render={<Button className="rounded-xl"><Plus className="mr-2 h-4 w-4" />Add Branch</Button>} />
+              <DialogTrigger
+                render={
+                  <Button className="rounded-xl" disabled={branches.length >= MAX_BRANCHES}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Branch
+                  </Button>
+                }
+              />
               <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>{editBranch ? `Edit ${editBranch.name}` : "Create Branch"}</DialogTitle>

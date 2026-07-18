@@ -506,28 +506,4 @@ export interface DashboardStats {
   recentAuditEvents: number;
 }
 
-export interface Agreement {
-  id: string;
-  title: string;
-  description?: string;
-  fileUrl: string;
-  fileName: string;
-  uploadedBy: string;
-  uploadedByName?: string;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  requiresSignature: boolean;
-  targetRoles: UserRole[];
-  status: "active" | "archived";
-}
 
-export interface AgreementSignature {
-  id: string;
-  agreementId: string;
-  userId: string;
-  userEmail: string;
-  userName: string;
-  branchId?: string | null;
-  branchName?: string | null;
-  signedAt: Timestamp | Date;
-}
