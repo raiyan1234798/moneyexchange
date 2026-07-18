@@ -1068,6 +1068,11 @@ function BranchSettingsForm({
           </div>
           <div className="space-y-2">
             <Label>Images &amp; videos — each rotates as its own screen</Label>
+            <p className="text-xs text-muted-foreground">
+              Best size: <span className="font-semibold">tall (portrait) 9:16 — e.g. 1080 × 1920 px</span>{" "}
+              (same shape as a phone screen). Any size works — the poster is always shown in full
+              without stretching — but a 9:16 image fills the space edge-to-edge with no side gaps.
+            </p>
             <Input
               type="file"
               accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,.png,.jpg,.jpeg,.webp,.mp4,.webm"
