@@ -127,6 +127,10 @@ export interface BranchSettings {
   tickerScrollLogoPosition?: "start" | "end" | "both";
   /** How the badge logo fits its box: contain (default), cover (fill+crop), fill (stretch). */
   tickerLogoFit?: "contain" | "cover" | "fill";
+  /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
+  rateCardTransition?: string;
+  /** Transition when the video-area image/video changes. */
+  videoImageTransition?: string;
   /** Gap between announcement shows in SECONDS (overrides the legacy minutes). */
   announcementRepeatSeconds?: number | null;
   /** SEVERAL corner-badge logos that take turns (overrides tickerLogoUrl when set). */

@@ -22,7 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, messageFontCss } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -538,6 +538,29 @@ function BranchSettingsForm({
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label>Image / video change animation</Label>
+          <Select
+            value={settings.videoImageTransition ?? "fade"}
+            onValueChange={(value) =>
+              setSettings({ ...settings, videoImageTransition: value ?? "fade" })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SLIDE_TRANSITIONS.map((t) => (
+                  <SelectItem key={t.key} value={t.key}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            How the advert image/video enters when it changes in the video area.
+          </p>
+        </div>
       </div>
       </SettingsGroup>
 
@@ -592,6 +615,28 @@ function BranchSettingsForm({
         <p className="text-xs text-muted-foreground">
           The rate card disappears for this long and the VIDEO fills the whole screen, then the
           card returns — repeating. Needs &quot;visible for&quot; above to be set too.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Slide change animation</Label>
+        <Select
+          value={settings.rateCardTransition ?? "fade"}
+          onValueChange={(value) => setSettings({ ...settings, rateCardTransition: value ?? "fade" })}
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SLIDE_TRANSITIONS.map((t) => (
+                  <SelectItem key={t.key} value={t.key}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          How each rotating screen (forex pages, transfer card, promotion) enters when the card
+          changes.
         </p>
       </div>
       </div>

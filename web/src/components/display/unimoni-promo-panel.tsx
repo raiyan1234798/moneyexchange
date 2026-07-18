@@ -3,6 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
+import { slideTransitionClass } from "@/lib/constants";
 
 interface UnimoniPromoPanelProps {
   videoUrl?: string | null;
@@ -21,6 +22,8 @@ interface UnimoniPromoPanelProps {
   onVideoError?: () => void;
   onVideoEnded?: () => void;
   className?: string;
+  /** Transition when the image/video changes. Default fade. */
+  mediaTransition?: string;
   /** Overlays scoped to the promo area (e.g. the drop-down announcement). */
   children?: React.ReactNode;
 }
@@ -38,6 +41,7 @@ export function UnimoniPromoPanel({
   onVideoError,
   onVideoEnded,
   className = "",
+  mediaTransition = "fade",
   children,
 }: UnimoniPromoPanelProps) {
   // A broken advert image URL must fall back to the branded placeholder, not
@@ -90,7 +94,7 @@ export function UnimoniPromoPanel({
           <video
             key={videoUrl}
             src={videoUrl ?? undefined}
-            className={`absolute inset-0 z-[1] h-full w-full ${objectClass}`}
+            className={`absolute inset-0 z-[1] h-full w-full ${objectClass} ${slideTransitionClass(mediaTransition)}`}
             autoPlay
             muted={!soundOn}
             loop={loopVideo}
@@ -148,7 +152,7 @@ export function UnimoniPromoPanel({
             src={imageUrl!}
             alt="Branch advert"
             fill
-            className={`absolute inset-0 z-[1] ${objectClass}`}
+            className={`absolute inset-0 z-[1] ${objectClass} ${slideTransitionClass(mediaTransition)}`}
             unoptimized
             priority
             onLoad={(e) => {

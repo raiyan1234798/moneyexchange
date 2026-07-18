@@ -7,7 +7,7 @@ import {
   getRateFlag,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
-import { displayAnimationClass } from "@/lib/constants";
+import { displayAnimationClass, slideTransitionClass } from "@/lib/constants";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
@@ -96,6 +96,8 @@ interface UnimoniRatesPanelProps {
   rateCardOrder?: Array<"forex" | "transfer" | "promo">;
   /** Play promo videos WITH sound (default muted). */
   videoSoundOn?: boolean;
+  /** Transition when the rotating sheet changes. Default fade. */
+  sheetTransition?: string;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -173,6 +175,7 @@ export function UnimoniRatesPanel({
   promoDurationSeconds,
   rateCardOrder,
   videoSoundOn = false,
+  sheetTransition = "fade",
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   // Hooks must run unconditionally (before the board early-return).
@@ -490,7 +493,7 @@ export function UnimoniRatesPanel({
         {isPromoSheet ? (
           <div
             key={`promo-${sheetIndex}`}
-            className={`rates-sheet-fade flex min-h-0 flex-1 flex-col ${
+            className={`${slideTransitionClass(sheetTransition)} flex min-h-0 flex-1 flex-col ${
               activeSheet.promoMedia && !promoTop && !promoMessage
                 ? "overflow-hidden"
                 : `items-center justify-center ${promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""}`
@@ -583,7 +586,7 @@ export function UnimoniRatesPanel({
 
         <div
           key={`${activeSheet.kind}-${sheetIndex}`}
-          className="display-rates-body rates-sheet-fade min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]"
+          className={`display-rates-body ${slideTransitionClass(sheetTransition)} min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]`}
         >
           {rows.length === 0 ? (
             <div className="flex flex-col items-center gap-1 px-4 py-[4vh] text-center" style={{ color: NAVY_TEXT }}>

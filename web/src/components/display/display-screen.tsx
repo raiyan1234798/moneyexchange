@@ -64,6 +64,7 @@ interface TimedRatesPanelProps {
   promoDurationSeconds: number;
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
   videoSoundOn: boolean;
+  sheetTransition: string;
 }
 
 function TimedRatesPanel({
@@ -105,6 +106,7 @@ function TimedRatesPanel({
   promoDurationSeconds,
   rateCardOrder,
   videoSoundOn,
+  sheetTransition,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -158,6 +160,7 @@ function TimedRatesPanel({
       promoDurationSeconds={promoDurationSeconds}
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
+      sheetTransition={sheetTransition}
     />
   );
 }
@@ -620,6 +623,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         setErroredVideoId(activeVideoId);
       }}
       onVideoEnded={handleVideoEnded}
+      mediaTransition={branchSettings.videoImageTransition ?? "fade"}
     >
       {/* Admin-controlled announcement over the video area (pop-up / full screen).
           band / video-top render in the message strip, rate-card over the rate
@@ -688,6 +692,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoDurationSeconds={ratePromoDurationSeconds}
       rateCardOrder={rateCardOrder}
       videoSoundOn={ratePromoSoundOn}
+      sheetTransition={branchSettings.rateCardTransition ?? "fade"}
     />
   );
 

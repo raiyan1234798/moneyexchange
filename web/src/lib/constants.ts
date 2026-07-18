@@ -84,6 +84,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerScrollLogosEnabled: true,
   tickerScrollLogoPosition: "start" as "start" | "end" | "both",
   tickerLogoFit: "contain" as "contain" | "cover" | "fill",
+  rateCardTransition: "fade" as string,
+  videoImageTransition: "fade" as string,
   tickerLogoUrls: [] as string[],
   tickerLogoRotateSeconds: 6,
   tickerLogoBgColor: null as string | null,
@@ -178,6 +180,32 @@ export const RECOMMENDED_VIDEO_FORMATS = [
   "WebM VP9",
   "MOV (QuickTime)",
 ];
+
+/** Transition styles for slide changes (rate-card sheets, video-area media). */
+export const SLIDE_TRANSITIONS: Array<{ key: string; label: string }> = [
+  { key: "fade", label: "Fade (default)" },
+  { key: "slide-left", label: "Slide in from the right" },
+  { key: "slide-up", label: "Slide up" },
+  { key: "drop", label: "Drop in from the top" },
+  { key: "zoom", label: "Zoom in" },
+  { key: "flip", label: "3D flip" },
+  { key: "blur", label: "Blur in" },
+  { key: "none", label: "Instant (no animation)" },
+];
+
+/** CSS class for a SLIDE_TRANSITIONS key. */
+export function slideTransitionClass(name: string | null | undefined): string {
+  switch (name) {
+    case "slide-left": return "sheet-anim-slide-left";
+    case "slide-up": return "sheet-anim-slide-up";
+    case "drop": return "sheet-anim-drop";
+    case "zoom": return "sheet-anim-zoom";
+    case "flip": return "sheet-anim-flip";
+    case "blur": return "sheet-anim-blur";
+    case "none": return "";
+    default: return "sheet-anim-fade";
+  }
+}
 
 /** Every movement effect available across the display — logos, badge, texts.
     ONE list powers every animation selector so new effects appear everywhere. */
