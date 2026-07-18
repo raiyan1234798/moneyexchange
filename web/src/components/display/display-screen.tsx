@@ -40,6 +40,7 @@ interface TimedRatesPanelProps {
   widthPercent: number;
   headerLogoUrl: string | null;
   headerLogoUrl2: string | null;
+  headerLogoUrls: string[];
   promoSlideLogoUrl: string | null;
   promoSlideLogoScale: number;
   headerLogoScale: number;
@@ -84,6 +85,7 @@ function TimedRatesPanel({
   widthPercent,
   headerLogoUrl,
   headerLogoUrl2,
+  headerLogoUrls,
   promoSlideLogoUrl,
   promoSlideLogoScale,
   headerLogoScale,
@@ -140,6 +142,7 @@ function TimedRatesPanel({
       widthPercent={widthPercent}
       headerLogoUrl={headerLogoUrl}
       headerLogoUrl2={headerLogoUrl2}
+      headerLogoUrls={headerLogoUrls}
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
       headerLogoScale={headerLogoScale}
@@ -288,6 +291,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
+  const headerLogoUrls = Array.isArray(branchSettings.headerLogoUrls)
+    ? branchSettings.headerLogoUrls.filter(
+        (u): u is string => typeof u === "string" && u.trim().length > 0,
+      )
+    : [];
   const promoSlideLogoUrl = branchSettings.promoSlideLogoUrl?.trim() || null;
   const promoSlideLogoScale = branchSettings.promoSlideLogoScale ?? 1;
   const headerLogoScale = branchSettings.headerLogoScale ?? 1;
@@ -706,6 +714,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       widthPercent={rateWidthPercent}
       headerLogoUrl={headerLogoUrl}
       headerLogoUrl2={headerLogoUrl2}
+      headerLogoUrls={headerLogoUrls}
       promoSlideLogoUrl={promoSlideLogoUrl}
       promoSlideLogoScale={promoSlideLogoScale}
       headerLogoScale={headerLogoScale}

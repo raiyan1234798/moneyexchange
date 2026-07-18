@@ -274,7 +274,7 @@ export function CentralTransferPanel({
               </div>
               <div className="space-y-1">
                 <Label className="text-[10px] font-semibold uppercase tracking-wider text-sky-700 dark:text-sky-400">
-                  $ (USD)
+                  USD
                 </Label>
                 <Input
                   type="number"
@@ -369,7 +369,7 @@ export function CentralTransferPanel({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-[10px] font-semibold uppercase tracking-wider">$ (USD)</Label>
+            <Label className="text-[10px] font-semibold uppercase tracking-wider">USD</Label>
             <Input
               type="number"
               step="0.0001"
@@ -415,7 +415,7 @@ export function CentralTransferPanel({
             <div className="max-h-64 space-y-1.5 overflow-y-auto rounded-xl border border-border/50 p-2">
               <div className="grid grid-cols-[90px_1fr_1fr_auto] items-center gap-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <span>Currency</span>
-                <span>$ (USD)</span>
+                <span>USD</span>
                 <span>{localLabel}</span>
                 <span />
               </div>

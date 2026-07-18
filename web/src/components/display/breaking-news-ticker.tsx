@@ -299,9 +299,11 @@ function BreakingNewsTickerInner({
         // rectangle); the left sits flush at the screen edge. More padding + a
         // slightly smaller logo below keep the wordmark clear of the rounded
         // corners so it never looks cut.
-        className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 px-[1vw] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
-          pulse ? "ticker-logo-pulse" : ""
-        }`}
+        className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+          // Stretch/zoom fits fill the WHOLE rectangular box edge-to-edge — no
+          // side padding; the normal fit keeps breathing room round the logo.
+          isTextLogo || logoFit === "contain" ? "px-[1vw]" : "px-0"
+        } ${pulse ? "ticker-logo-pulse" : ""}`}
         style={{
           width: badgeWidth,
           height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,

@@ -74,6 +74,9 @@ interface UnimoniRatesPanelProps {
   headerLogoRotationEnabled?: boolean;
   /** Seconds each logo stays visible when rotation is enabled. */
   headerLogoRotationIntervalSeconds?: number;
+  /** EXTRA rate-card header logos (any number) — they join the rotation and every
+      one of them moves with the saved header-logo animation. */
+  headerLogoUrls?: string[] | null;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
   /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
@@ -168,6 +171,7 @@ export function UnimoniRatesPanel({
   replaceDefaultLogo = false,
   headerLogoRotationEnabled = false,
   headerLogoRotationIntervalSeconds = 10,
+  headerLogoUrls = null,
   rateCardNote,
   rateNotePlacement = "first",
   fontCss,
@@ -265,6 +269,11 @@ export function UnimoniRatesPanel({
 
   const customLogo1 = headerLogoUrl?.trim() || "";
   const customLogo2 = headerLogoUrl2?.trim() || "";
+  const extraHeaderLogos = (headerLogoUrls ?? []).map((u) => u?.trim() ?? "").filter(Boolean);
+  // Every uploaded header logo takes a turn when rotation is on — primary,
+  // alternate AND the extra gallery (any number). Whichever one is showing
+  // gets the saved header-logo animation, exactly like the default logo.
+  const logoRotationPool = [customLogo1, customLogo2, ...extraHeaderLogos].filter(Boolean);
   const isPromoSheetEarly = (sheets[sheetIndex % sheetCount] ?? { kind: "rates" }).kind === "promo";
   // Promo fills the panel: hide logo + clock. Default is "hide". Legacy saved
   // "keep" (previous default) is also treated as hide so existing TVs pick up
@@ -273,18 +282,19 @@ export function UnimoniRatesPanel({
   // re-enable "keep" via an explicit opt-in if needed later.
   const hidePromoHeader = isPromoSheetEarly && promoLogoMode !== "second";
 
+  const logoRotationPoolSize = logoRotationPool.length;
+  // The interval keeps ticking straight through promo slides (the header is
+  // merely hidden there): tearing it down and restarting from zero meant short
+  // rate sheets NEVER reached the logo interval, so logos never took turns.
   useEffect(() => {
-    if (!headerLogoRotationEnabled || hidePromoHeader || !customLogo1 || !customLogo2) return;
+    if (!headerLogoRotationEnabled || logoRotationPoolSize < 2) return;
     const ms = Math.max(2, headerLogoRotationIntervalSeconds ?? 10) * 1000;
-    const timer = window.setInterval(() => setLogoRotationIndex((i) => (i + 1) % 2), ms);
+    const timer = window.setInterval(
+      () => setLogoRotationIndex((i) => (i + 1) % logoRotationPoolSize),
+      ms,
+    );
     return () => window.clearInterval(timer);
-  }, [
-    headerLogoRotationEnabled,
-    headerLogoRotationIntervalSeconds,
-    customLogo1,
-    customLogo2,
-    hidePromoHeader,
-  ]);
+  }, [headerLogoRotationEnabled, headerLogoRotationIntervalSeconds, logoRotationPoolSize]);
 
   // Manually adjustable sequence timing (per the client: "3 seconds, 6 seconds,
   // 10 seconds — set manually"). The promo card can hold its own duration.
@@ -349,8 +359,8 @@ export function UnimoniRatesPanel({
   const columnSeparator = { borderLeft: "1px solid #D3E2F0" };
 
   // Column set depends on the active card: forex (We Buy / We Sell) or the
-  // separate transfer card ($ USD / local currency, e.g. UGX). "$" for USD is
-  // shown for the transfer sheet only, per the client's transfer board.
+  // separate transfer card (USD / local currency, e.g. UGX). Plain "USD" —
+  // no "$" symbol and no parentheses, per the client.
   const valueColumns: {
     key: string;
     header: string;
@@ -358,7 +368,7 @@ export function UnimoniRatesPanel({
     isTransfer?: boolean;
   }[] = [];
   if (isTransferSheet) {
-    valueColumns.push({ key: "usd", header: "$ (USD)", get: (r) => r.transferUsd ?? r.remitRate, isTransfer: true });
+    valueColumns.push({ key: "usd", header: "USD", get: (r) => r.transferUsd ?? r.remitRate, isTransfer: true });
     valueColumns.push({ key: "local", header: transferLocalLabel, get: (r) => r.transferLocal, isTransfer: true });
   } else {
     if (showBuyRate) valueColumns.push({ key: "buy", header: "We Buy", get: (r) => r.buyRate });
@@ -384,6 +394,7 @@ export function UnimoniRatesPanel({
         if (promoLogo) return [promoLogo];
         if (customLogo2) return [customLogo2];
         if (customLogo1) return [customLogo1];
+        if (extraHeaderLogos.length) return [extraHeaderLogos[0]];
         return [];
       }
       if (headerLogoDisplay === "both") return [customLogo1, customLogo2].filter(Boolean);
@@ -392,12 +403,15 @@ export function UnimoniRatesPanel({
       return [];
     }
 
-    if (headerLogoRotationEnabled && customLogo1 && customLogo2) {
-      return logoRotationIndex === 0 ? [customLogo1] : [customLogo2];
+    if (headerLogoRotationEnabled && logoRotationPool.length >= 2) {
+      return [logoRotationPool[logoRotationIndex % logoRotationPool.length]];
     }
     if (headerLogoDisplay === "both") return [customLogo1, customLogo2].filter(Boolean);
     if (customLogo1) return [customLogo1];
     if (customLogo2 && replaceDefaultLogo) return [customLogo2];
+    // A logo uploaded ONLY to the extra gallery still shows (no dead end when
+    // rotation is off or it is the sole logo).
+    if (extraHeaderLogos.length) return [extraHeaderLogos[0]];
     return [];
   }
 

@@ -153,6 +153,8 @@ export interface BranchSettings {
   headerLogoUrl?: string | null;
   /** Optional SECOND rate-card header logo (co-brand / partner). */
   headerLogoUrl2?: string | null;
+  /** EXTRA rate-card header logos (any number) — they join the header-logo rotation. */
+  headerLogoUrls?: string[];
   /** How the header logos show on normal slides: just the first, or both side by side. */
   headerLogoDisplay?: "single" | "both";
   /** What the header logo does on the PROMO slide: keep it, hide it (default), or show only the 2nd logo. */

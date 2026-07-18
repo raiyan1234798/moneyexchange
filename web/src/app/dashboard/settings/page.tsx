@@ -41,6 +41,12 @@ import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/typ
 
 const SETTINGS_ID = "global";
 
+/** Cap on the extra rate-card logo gallery — the logos are stored inside the
+    branch document, which Firestore rejects above 1 MB. 8 logos within a
+    ~400 KB budget keeps every settings save comfortably under the limit. */
+const MAX_EXTRA_HEADER_LOGOS = 8;
+const EXTRA_HEADER_LOGOS_CHAR_BUDGET = 400_000;
+
 /** Jump-nav for the branch display settings — one chip per section below. */
 const SETTINGS_NAV: Array<{ id: string; label: string }> = [
   { id: "sec-logos", label: "Logos & branding" },
@@ -373,6 +379,137 @@ function BranchSettingsForm({
           ) : null}
         </div>
       </div>
+      {/* ANY NUMBER of extra header logos — they join the rotation, each animated. */}
+      <div className="space-y-2">
+        <Label>More rate-card logos — they take turns</Label>
+        <p className="text-xs text-muted-foreground">
+          Add up to 8 extra logos. With &quot;Rotate between logos&quot; ON below, the rate-card
+          header cycles through every logo — primary, alternate and these — and each one moves
+          with your saved &quot;Rate-card logo animation&quot;. Use ◀ ▶ under a logo to change the
+          order they appear in.
+        </p>
+        <Input
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
+          aria-label="Upload extra rate-card logos"
+          onChange={async (event) => {
+            const input = event.target;
+            const files = Array.from(input.files ?? []);
+            if (files.length === 0) return;
+            if ((settings.headerLogoUrls ?? []).length + files.length > MAX_EXTRA_HEADER_LOGOS) {
+              toast.error(
+                `You can have up to ${MAX_EXTRA_HEADER_LOGOS} extra logos — remove one first, then add the new one.`,
+              );
+              input.value = "";
+              return;
+            }
+            try {
+              const urls: string[] = [];
+              let kept = 0;
+              for (const file of files) {
+                const res =
+                  settings.logoAutoRemoveBg !== false
+                    ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark")
+                    : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
+                urls.push(res.dataUrl);
+                if (res.backgroundKept) kept++;
+              }
+              // Size budget: the logos live inside the branch document and
+              // Firestore rejects documents over 1 MB — refuse the batch rather
+              // than let every later settings save fail.
+              const totalChars = [...(settings.headerLogoUrls ?? []), ...urls].reduce(
+                (n, u) => n + u.length,
+                0,
+              );
+              if (totalChars > EXTRA_HEADER_LOGOS_CHAR_BUDGET) {
+                toast.error(
+                  "These logos are too large together — remove one, or upload smaller images.",
+                );
+                input.value = "";
+                return;
+              }
+              // Functional update: the compressions above can take seconds — don't
+              // clobber edits made meanwhile with a stale snapshot.
+              setSettings((prev) => ({
+                ...prev,
+                headerLogoUrls: [...(prev.headerLogoUrls ?? []), ...urls],
+              }));
+              toast.success(
+                `${urls.length} logo(s) added${kept ? ` — ${kept} kept their background (needed for readability)` : ""} — click Save Branch Settings to apply`,
+                { duration: 8000 },
+              );
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Could not read image");
+            }
+            input.value = "";
+          }}
+          className="rounded-xl"
+        />
+        {(settings.headerLogoUrls ?? []).length > 0 ? (
+          <div className="flex flex-wrap gap-3 pt-1">
+            {(settings.headerLogoUrls ?? []).map((src: string, i: number) => (
+              <div key={`${i}-${src.slice(-12)}`} className="relative flex flex-col items-center gap-1">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={`Extra rate-card logo ${i + 1}`}
+                  className="h-9 w-16 rounded-md bg-[#0D2680] object-contain p-1"
+                />
+                <button
+                  type="button"
+                  aria-label="Remove extra rate-card logo"
+                  onClick={() =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      headerLogoUrls: (prev.headerLogoUrls ?? []).filter(
+                        (_: string, idx: number) => idx !== i,
+                      ),
+                    }))
+                  }
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
+                >
+                  ×
+                </button>
+                {/* Order = the order they take turns on the TV. */}
+                <div className="flex gap-1">
+                  <button
+                    type="button"
+                    aria-label={`Move logo ${i + 1} earlier`}
+                    disabled={i === 0}
+                    onClick={() =>
+                      setSettings((prev) => {
+                        const arr = [...(prev.headerLogoUrls ?? [])];
+                        [arr[i - 1], arr[i]] = [arr[i], arr[i - 1]];
+                        return { ...prev, headerLogoUrls: arr };
+                      })
+                    }
+                    className="rounded border border-border/50 px-1.5 text-[10px] leading-4 text-muted-foreground disabled:opacity-30"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Move logo ${i + 1} later`}
+                    disabled={i === (settings.headerLogoUrls ?? []).length - 1}
+                    onClick={() =>
+                      setSettings((prev) => {
+                        const arr = [...(prev.headerLogoUrls ?? [])];
+                        if (i >= arr.length - 1) return prev;
+                        [arr[i], arr[i + 1]] = [arr[i + 1], arr[i]];
+                        return { ...prev, headerLogoUrls: arr };
+                      })
+                    }
+                    className="rounded border border-border/50 px-1.5 text-[10px] leading-4 text-muted-foreground disabled:opacity-30"
+                  >
+                    ▶
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Show logos (normal slides)</Label>
@@ -407,10 +544,11 @@ function BranchSettingsForm({
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>
-          <Label>Rotate between primary and alternate logo</Label>
+          <Label>Rotate between logos (they take turns)</Label>
           <p className="text-xs text-muted-foreground">
-            On normal rate-card slides, alternate between the two uploaded header logos on a timer.
-            Requires both logos to be uploaded.
+            On normal rate-card slides, the header cycles through ALL uploaded logos — primary,
+            alternate and every extra logo — on a timer. Each logo moves with your saved
+            &quot;Rate-card logo animation&quot;. Needs at least 2 logos.
           </p>
         </div>
         <Switch
@@ -730,7 +868,7 @@ function BranchSettingsForm({
         <div>
           <Label>Separate TRANSFER card on Display</Label>
           <p className="text-xs text-muted-foreground">
-            Rotates in its own &quot;TRANSFER EXCHANGE RATES&quot; card with two columns — $ (USD) and
+            Rotates in its own &quot;TRANSFER EXCHANGE RATES&quot; card with two columns — USD and
             the local currency — for currencies that have transfer rates set.
           </p>
         </div>
@@ -749,7 +887,7 @@ function BranchSettingsForm({
         />
         <p className="text-xs text-muted-foreground">
           Header for the second transfer column (the branch&apos;s local currency). The first column is
-          always $ (USD).
+          always USD.
         </p>
       </div>
       <div className="space-y-2">

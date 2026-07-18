@@ -99,6 +99,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   replaceDefaultLogo: false,
   headerLogoRotationEnabled: false,
   headerLogoRotationIntervalSeconds: 10,
+  /** EXTRA rate-card header logos (any number) — they join the logo rotation. */
+  headerLogoUrls: [] as string[],
   videoSoundOn: false,
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,

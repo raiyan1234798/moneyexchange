@@ -821,7 +821,7 @@ export default function ExchangeRatesPage() {
                 <span>We Sell</span>
                 {isSuperAdmin || isAdmin ? (
                   <>
-                    <span>$ Transfer (USD)</span>
+                    <span>Transfer USD</span>
                     <span>Transfer ({transferLocalLabel})</span>
                   </>
                 ) : null}
@@ -1169,7 +1169,7 @@ export default function ExchangeRatesPage() {
                     {isSuperAdmin || isAdmin ? (
                       <>
                         <div className="space-y-2">
-                          <Label>Transfer $ (USD) — all branches, optional</Label>
+                          <Label>Transfer USD — all branches, optional</Label>
                           <Input
                             type="number"
                             min={0}
