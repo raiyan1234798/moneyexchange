@@ -837,6 +837,52 @@ function BranchSettingsForm({
           best — strong effects can make numbers hard to read.
         </p>
       </div>
+      <div className="space-y-2">
+        <Label>Currency letters movement (USD, EUR, GBP…)</Label>
+        <Select
+          value={settings.rateCurrencyAnimation ?? "none"}
+          onValueChange={(value) =>
+            setSettings({ ...settings, rateCurrencyAnimation: value === "none" ? null : value })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISPLAY_ANIMATIONS.map((a) => (
+              <SelectItem key={a.key} value={a.key}>
+                {a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Moves every currency CODE (the letters like USD, EUR) in the table. Try Flip or Rotate.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Flags movement</Label>
+        <Select
+          value={settings.rateFlagAnimation ?? "none"}
+          onValueChange={(value) =>
+            setSettings({ ...settings, rateFlagAnimation: value === "none" ? null : value })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISPLAY_ANIMATIONS.map((a) => (
+              <SelectItem key={a.key} value={a.key}>
+                {a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Moves every country FLAG in the table. Flip and Rotate look great on the flags.
+        </p>
+      </div>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>

@@ -103,6 +103,10 @@ interface UnimoniRatesPanelProps {
   sheetTransition?: string;
   /** Continuous movement applied to every WE BUY / WE SELL value. */
   valueTextAnimation?: string | null;
+  /** Continuous movement applied to every currency CODE (USD, EUR, …). */
+  currencyTextAnimation?: string | null;
+  /** Continuous movement applied to every country FLAG in the table. */
+  flagAnimation?: string | null;
   /** Fires each time a FULL rotation (all sheets, incl. promo) completes. */
   onRotationComplete?: () => void;
 }
@@ -185,6 +189,8 @@ export function UnimoniRatesPanel({
   videoSoundOn = false,
   sheetTransition = "fade",
   valueTextAnimation = null,
+  currencyTextAnimation = null,
+  flagAnimation = null,
   onRotationComplete,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
@@ -636,9 +642,11 @@ export function UnimoniRatesPanel({
                     custom currencies. */}
                 <FlagChip
                   flag={getRateFlag(rate) ?? "🌍"}
-                  className="!h-[1.85em] !w-[2.75em] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
+                  className={`!h-[1.85em] !w-[2.75em] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10 ${displayAnimationClass(flagAnimation)}`}
                 />
-                <span className="min-w-0 flex-1 truncate text-center">{rate.currencyCode}</span>
+                <span className={`min-w-0 flex-1 truncate text-center ${displayAnimationClass(currencyTextAnimation)}`}>
+                  {rate.currencyCode}
+                </span>
               </span>
               {valueColumns.map((col) => {
                 const value = col.get(rate);

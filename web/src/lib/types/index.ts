@@ -136,6 +136,10 @@ export interface BranchSettings {
   rateCardTransition?: string;
   /** Continuous movement of the WE BUY / WE SELL numbers. null = still. */
   rateTextAnimation?: string | null;
+  /** Continuous movement for the currency CODE letters (USD, EUR, …). */
+  rateCurrencyAnimation?: string | null;
+  /** Continuous movement for the country FLAGS in the rate table. */
+  rateFlagAnimation?: string | null;
   /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
   logoAutoRemoveBg?: boolean;
   /** Transition when the video-area image/video changes. */

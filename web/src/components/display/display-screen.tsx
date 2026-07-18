@@ -67,6 +67,8 @@ interface TimedRatesPanelProps {
   videoSoundOn: boolean;
   sheetTransition: string;
   valueTextAnimation: string | null;
+  currencyTextAnimation: string | null;
+  flagAnimation: string | null;
   onRotationComplete?: () => void;
 }
 
@@ -112,6 +114,8 @@ function TimedRatesPanel({
   videoSoundOn,
   sheetTransition,
   valueTextAnimation,
+  currencyTextAnimation,
+  flagAnimation,
   onRotationComplete,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
@@ -169,6 +173,8 @@ function TimedRatesPanel({
       videoSoundOn={videoSoundOn}
       sheetTransition={sheetTransition}
       valueTextAnimation={valueTextAnimation}
+      currencyTextAnimation={currencyTextAnimation}
+      flagAnimation={flagAnimation}
       onRotationComplete={onRotationComplete}
     />
   );
@@ -741,6 +747,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       videoSoundOn={ratePromoSoundOn}
       sheetTransition={branchSettings.rateCardTransition ?? "fade"}
       valueTextAnimation={branchSettings.rateTextAnimation ?? null}
+      currencyTextAnimation={branchSettings.rateCurrencyAnimation ?? null}
+      flagAnimation={branchSettings.rateFlagAnimation ?? null}
       onRotationComplete={handleRotationComplete}
     />
   );

@@ -87,6 +87,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerLogoFit: "contain" as "contain" | "cover" | "fill",
   rateCardTransition: "fade" as string,
   rateTextAnimation: null as string | null,
+  rateCurrencyAnimation: null as string | null,
+  rateFlagAnimation: null as string | null,
   logoAutoRemoveBg: true,
   videoImageTransition: "fade" as string,
   tickerLogoUrls: [] as string[],
