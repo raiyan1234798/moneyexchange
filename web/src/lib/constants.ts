@@ -73,6 +73,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   logoScale: 1,
   headerLogoScale: 1.35,
   tickerLogoAnimation: "spin" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
+  rateCardLogoAnimation: "spin" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
+  rateRowAnimation: "none" as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing",
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
   showTickerLogoBadge: true,

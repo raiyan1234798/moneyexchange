@@ -12,6 +12,8 @@ import { FlagChip } from "@/components/display/flag-chip";
 import { BrandLogoImage, GlassTextPill } from "@/components/display/brand-logo-image";
 import { RateCardPromoMedia, RateCardPromoPanelGlass } from "@/components/display/rate-card-promo-media";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
+import { logoMotionClass, rateCellMotionClass, type SignageMotionStyle } from "@/lib/signage-motion";
+import { cn } from "@/lib/utils";
 import type { ExchangeRate, TransferRate } from "@/lib/types";
 
 interface UnimoniRatesPanelProps {
@@ -87,6 +89,10 @@ interface UnimoniRatesPanelProps {
   videoSoundOn?: boolean;
   /** Scale multiplier for header logos (from Settings). Default 1.35. */
   headerLogoScale?: number;
+  /** Motion for every rate-card header logo (uploaded + default Unimoni). */
+  logoAnimation?: SignageMotionStyle;
+  /** Motion for flags, currency codes, and rate numbers in the table. */
+  rowAnimation?: SignageMotionStyle;
 }
 
 const BUY_COLOR = "#34d399"; // emerald (board — on dark)
@@ -159,9 +165,13 @@ export function UnimoniRatesPanel({
   rateCardOrder,
   videoSoundOn = false,
   headerLogoScale = 1.35,
+  logoAnimation = "spin",
+  rowAnimation = "none",
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
   const headerLogoHeight = `calc(clamp(2.75rem, 6.5vh, 5.5rem) * ${headerLogoScale})`;
+  const headerLogoAnimClass = logoMotionClass(logoAnimation);
+  const cellAnimClass = rateCellMotionClass(rowAnimation);
   // Hooks must run unconditionally (before the board early-return).
   const now = useNow();
   // Transfer is its OWN card (separate rotating screen), never mixed into the
@@ -413,6 +423,8 @@ export function UnimoniRatesPanel({
                   key={`${src}-${i}`}
                   src={src}
                   height={headerLogoHeight}
+                  animationClass={headerLogoAnimClass}
+                  className={i > 0 ? "rate-logo-stagger" : undefined}
                 />
               ))}
             </div>
@@ -422,7 +434,7 @@ export function UnimoniRatesPanel({
                 variant="onDark"
                 width={Math.round(360 * headerLogoScale)}
                 height={Math.round(92 * headerLogoScale)}
-                className="h-full w-auto max-w-full object-contain"
+                className={cn("h-full w-auto max-w-full object-contain", headerLogoAnimClass)}
                 priority
               />
             </div>
@@ -570,13 +582,23 @@ export function UnimoniRatesPanel({
                 {/* Flag shown bigger and bare (no box) — a thin ring keeps
                     white flags visible on the light row. Globe fallback for
                     custom currencies. */}
-                <FlagChip
-                  flag={getRateFlag(rate) ?? "🌍"}
-                  className="!h-[1.85em] !w-[2.75em] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
-                />
-                <span className="min-w-0 flex-1 truncate text-center">{rate.currencyCode}</span>
+                <span
+                  className={cn("inline-flex shrink-0", cellAnimClass)}
+                  style={cellAnimClass ? { animationDelay: `${(i % 6) * 0.18}s` } : undefined}
+                >
+                  <FlagChip
+                    flag={getRateFlag(rate) ?? "🌍"}
+                    className="!h-[1.85em] !w-[2.75em] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
+                  />
+                </span>
+                <span
+                  className={cn("min-w-0 flex-1 truncate text-center", cellAnimClass)}
+                  style={cellAnimClass ? { animationDelay: `${(i % 6) * 0.18 + 0.06}s` } : undefined}
+                >
+                  {rate.currencyCode}
+                </span>
               </span>
-              {valueColumns.map((col) => {
+              {valueColumns.map((col, colIndex) => {
                 const value = col.get(rate);
                 // Transfer cells are blank (—) for currencies with no transfer rate.
                 const display =
@@ -589,7 +611,16 @@ export function UnimoniRatesPanel({
                     className="display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums"
                     style={{ color: NAVY_TEXT, ...columnSeparator }}
                   >
-                    {display}
+                    <span
+                      className={cn("inline-block", cellAnimClass)}
+                      style={
+                        cellAnimClass
+                          ? { animationDelay: `${(i % 6) * 0.18 + 0.1 + colIndex * 0.05}s` }
+                          : undefined
+                      }
+                    >
+                      {display}
+                    </span>
                   </span>
                 );
               })}

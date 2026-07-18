@@ -8,6 +8,8 @@ interface BrandLogoImageProps {
   /** CSS height (e.g. clamp or calc). Width follows aspect ratio. */
   height?: string;
   className?: string;
+  /** Motion class (e.g. ticker-logo-spin) applied to the image. */
+  animationClass?: string;
   priority?: boolean;
 }
 
@@ -20,6 +22,7 @@ export function BrandLogoImage({
   alt = "Brand logo",
   height,
   className,
+  animationClass,
 }: BrandLogoImageProps) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -30,6 +33,7 @@ export function BrandLogoImage({
       className={cn(
         "w-auto max-w-full shrink-0 object-contain object-center",
         "drop-shadow-[0_2px_10px_rgba(0,0,0,0.55)]",
+        animationClass,
         className,
       )}
     />

@@ -102,6 +102,10 @@ export interface BranchSettings {
   headerLogoScale?: number;
   /** Animation style for the pop-out ticker logo. Default "spin". */
   tickerLogoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
+  /** Animation for every logo shown in the rate-card header (uploaded + default). Default "spin". */
+  rateCardLogoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
+  /** Animation for flags, currency codes, and rate numbers in the rate table. Default "none". */
+  rateRowAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
   /** Custom text for the gold "breaking" headline tab above the ticker. */
   tickerHeadline?: string | null;
   /** Show the gold headline tab at all (turn off to remove it). Default true. */

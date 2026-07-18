@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { BRAND } from "@/lib/brand";
+import { logoMotionClass, type SignageMotionStyle } from "@/lib/signage-motion";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 
 /** The real unimoni brand wordmark — shown by default in the pop-out badge. */
@@ -29,7 +30,7 @@ interface BreakingNewsTickerProps {
   /** Multiplier for the pop-out logo badge size (default 1). */
   logoScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
-  logoAnimation?: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
+  logoAnimation?: SignageMotionStyle;
   /** When false, hide the bottom-left pop-out logo badge entirely. Default true. */
   showLogoBadge?: boolean;
   /** Logo images that scroll right-to-left with the messages. */
@@ -124,18 +125,7 @@ function BreakingNewsTickerInner({
   const pulse = logoAnimation === "pulse";
   // Animation class applied to the logo image itself (pulse animates the whole
   // badge instead — see below).
-  const logoAnimClass =
-    logoAnimation === "spin"
-      ? "ticker-logo-spin"
-      : logoAnimation === "flip"
-        ? "ticker-logo-flipx"
-        : logoAnimation === "bounce"
-          ? "ticker-logo-bounce"
-          : logoAnimation === "float"
-            ? "ticker-logo-float"
-            : logoAnimation === "swing"
-              ? "ticker-logo-swing"
-              : "";
+  const logoAnimClass = pulse ? "" : logoMotionClass(logoAnimation);
 
   return (
     <footer className="relative shrink-0">

@@ -349,6 +349,40 @@
     transform-origin: top center;
   }
 
+  /* Second rate-card logo offset so dual logos don't flip in perfect sync. */
+  .rate-logo-stagger {
+    animation-delay: 0.55s;
+  }
+
+  /* Rate-table cells: flags, currency codes, and numbers — gentler than logo spin. */
+  .rate-cell-spin {
+    animation: rate-cell-flip 7s ease-in-out infinite;
+    transform-style: preserve-3d;
+    display: inline-block;
+  }
+  .rate-cell-flipx {
+    animation: rate-cell-flipx 7s ease-in-out infinite;
+    transform-style: preserve-3d;
+    display: inline-block;
+  }
+  .rate-cell-bounce {
+    animation: rate-cell-bounce 2.6s ease-in-out infinite;
+    display: inline-block;
+  }
+  .rate-cell-float {
+    animation: rate-cell-float 3.8s ease-in-out infinite;
+    display: inline-block;
+  }
+  .rate-cell-swing {
+    animation: rate-cell-swing 3.4s ease-in-out infinite;
+    transform-origin: center center;
+    display: inline-block;
+  }
+  .rate-cell-pulse {
+    animation: rate-cell-pulse 3.2s ease-in-out infinite;
+    display: inline-block;
+  }
+
   /* Unimoni signage: rate rows fill panel height and scale type with row size */
   .display-rates-body {
     display: flex;
@@ -645,6 +679,36 @@ video::-webkit-media-controls-fullscreen-button {
 @keyframes ticker-logo-swing {
   0%, 100% { transform: rotate(-7deg); }
   50% { transform: rotate(7deg); }
+}
+
+@keyframes rate-cell-flip {
+  0%, 82% { transform: perspective(500px) rotateY(0deg); }
+  100% { transform: perspective(500px) rotateY(360deg); }
+}
+
+@keyframes rate-cell-flipx {
+  0%, 82% { transform: perspective(500px) rotateX(0deg); }
+  100% { transform: perspective(500px) rotateX(360deg); }
+}
+
+@keyframes rate-cell-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10%); }
+}
+
+@keyframes rate-cell-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6%); }
+}
+
+@keyframes rate-cell-swing {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+@keyframes rate-cell-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.82; transform: scale(0.96); }
 }
 
 @keyframes blob {

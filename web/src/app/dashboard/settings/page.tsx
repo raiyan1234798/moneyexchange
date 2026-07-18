@@ -23,6 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
+import { SIGNAGE_MOTION_OPTIONS, type SignageMotionStyle } from "@/lib/signage-motion";
 import {
   ADVERT_IMAGE_OPTIONS,
   LOGO_IMAGE_OPTIONS,
@@ -560,6 +561,32 @@ function BranchSettingsForm({
             />
           </div>
         ) : null}
+        <div className="space-y-2">
+          <Label>Rate card logo animation</Label>
+          <p className="text-xs text-muted-foreground">
+            Applies to every logo in the rate-card header — primary, alternate / partner, and the default Unimoni logo.
+          </p>
+          <Select
+            value={settings.rateCardLogoAnimation ?? "spin"}
+            onValueChange={(value) =>
+              setSettings({
+                ...settings,
+                rateCardLogoAnimation: (value as SignageMotionStyle) ?? "spin",
+              })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SIGNAGE_MOTION_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
         <SettingsSwitchRow
           label="Play video sound"
           hint="Audio for the main video player AND rate-card promo videos. Tap the screen once to unmute (browser rule)."
@@ -1589,14 +1616,13 @@ function BranchSettingsForm({
             <p className="text-xs text-muted-foreground">Also editable in Ticker badge & scrolling logos.</p>
           </div>
           <div className="space-y-2">
-            <Label>Logo animation</Label>
+            <Label>Ticker badge logo animation</Label>
             <Select
               value={settings.tickerLogoAnimation ?? "spin"}
               onValueChange={(value) =>
                 setSettings({
                   ...settings,
-                  tickerLogoAnimation:
-                    (value as "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing") ?? "spin",
+                  tickerLogoAnimation: (value as SignageMotionStyle) ?? "spin",
                 })
               }
             >
@@ -1604,13 +1630,37 @@ function BranchSettingsForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="spin">Rotating flip (Y)</SelectItem>
-                <SelectItem value="flip">Flip (X)</SelectItem>
-                <SelectItem value="bounce">Bounce</SelectItem>
-                <SelectItem value="float">Float</SelectItem>
-                <SelectItem value="swing">Swing</SelectItem>
-                <SelectItem value="pulse">Gentle pulse</SelectItem>
-                <SelectItem value="none">No animation</SelectItem>
+                {SIGNAGE_MOTION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Rate table animation (flags, codes &amp; numbers)</Label>
+            <p className="text-xs text-muted-foreground">
+              Animates only the flag, currency letters, and rate numbers in each row — not the whole card.
+            </p>
+            <Select
+              value={settings.rateRowAnimation ?? "none"}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  rateRowAnimation: (value as SignageMotionStyle) ?? "none",
+                })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SIGNAGE_MOTION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

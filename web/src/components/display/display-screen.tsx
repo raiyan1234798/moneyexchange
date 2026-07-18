@@ -59,6 +59,8 @@ interface TimedRatesPanelProps {
   headerLogoScale: number;
   promoFontCss: string;
   promoScale: number;
+  logoAnimation: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
+  rowAnimation: "spin" | "pulse" | "none" | "flip" | "bounce" | "float" | "swing";
 }
 
 function TimedRatesPanel({
@@ -95,6 +97,8 @@ function TimedRatesPanel({
   headerLogoScale,
   promoFontCss,
   promoScale,
+  logoAnimation,
+  rowAnimation,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
 
@@ -143,6 +147,8 @@ function TimedRatesPanel({
       headerLogoScale={headerLogoScale}
       promoFontCss={promoFontCss}
       promoScale={promoScale}
+      logoAnimation={logoAnimation}
+      rowAnimation={rowAnimation}
     />
   );
 }
@@ -216,6 +222,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const showForexCard = branchSettings.showForexCard ?? true;
   const transferLocalLabel = branchSettings.transferLocalLabel?.trim() || "UGX";
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
+  const rateCardLogoAnimation = branchSettings.rateCardLogoAnimation ?? "spin";
+  const rateRowAnimation = branchSettings.rateRowAnimation ?? "none";
   const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
@@ -612,6 +620,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
       headerLogoScale={headerLogoScale}
+      logoAnimation={rateCardLogoAnimation}
+      rowAnimation={rateRowAnimation}
     />
   );
 
