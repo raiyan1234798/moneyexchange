@@ -121,6 +121,12 @@ export interface BranchSettings {
   tickerScrollLogoScale?: number;
   /** Chip behind each scrolling logo: white card (default) or none. */
   tickerScrollLogoBg?: "white" | "transparent";
+  /** Show the scrolling logos at all — off keeps them saved but hidden. */
+  tickerScrollLogosEnabled?: boolean;
+  /** Where the scrolling logos ride: before the text, after it, or both ends. */
+  tickerScrollLogoPosition?: "start" | "end" | "both";
+  /** How the badge logo fits its box: contain (default), cover (fill+crop), fill (stretch). */
+  tickerLogoFit?: "contain" | "cover" | "fill";
   /** Gap between announcement shows in SECONDS (overrides the legacy minutes). */
   announcementRepeatSeconds?: number | null;
   /** SEVERAL corner-badge logos that take turns (overrides tickerLogoUrl when set). */

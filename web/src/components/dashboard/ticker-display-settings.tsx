@@ -232,6 +232,26 @@ export function TickerDisplaySettings({
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Logo fit inside the badge
+              </Label>
+              <Select
+                value={s.tickerLogoFit ?? "contain"}
+                onValueChange={(value) =>
+                  set({ tickerLogoFit: (value as "contain" | "cover" | "fill") ?? "contain" })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contain">Normal — whole logo inside the box (default)</SelectItem>
+                  <SelectItem value="fill">Stretch — logo covers the box completely</SelectItem>
+                  <SelectItem value="cover">Zoom — covers the box, edges may crop</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                 Badge background colour
               </Label>
               <div className="flex items-center gap-2">
@@ -268,11 +288,39 @@ export function TickerDisplaySettings({
 
         {/* ---- Scrolling logos ---- */}
         <div className="space-y-2 rounded-xl border border-border/40 bg-muted/20 p-4">
-          <Label className="text-sm">Scrolling ticker logos</Label>
-          <p className="text-xs text-muted-foreground">
-            Logos that scroll alongside the ticker text (right to left). Add as many as you like;
-            click × to remove one.
-          </p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm">Scrolling ticker logos</Label>
+              <p className="text-xs text-muted-foreground">
+                Logos that ride along with the ticker text. Add as many as you like; click × to
+                remove one. Backgrounds are removed automatically on upload.
+              </p>
+            </div>
+            <Switch
+              checked={s.tickerScrollLogosEnabled !== false}
+              onCheckedChange={(checked) => set({ tickerScrollLogosEnabled: checked })}
+            />
+          </div>
+          <div className="space-y-2 pt-1">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Where the logos appear
+            </Label>
+            <Select
+              value={s.tickerScrollLogoPosition ?? "start"}
+              onValueChange={(value) =>
+                set({ tickerScrollLogoPosition: (value as "start" | "end" | "both") ?? "start" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="start">In FRONT of the message (default)</SelectItem>
+                <SelectItem value="end">At the END of the message</SelectItem>
+                <SelectItem value="both">Both — front AND end</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Input
             type="file"
             multiple

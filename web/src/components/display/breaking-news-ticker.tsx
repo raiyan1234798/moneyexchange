@@ -28,6 +28,12 @@ interface BreakingNewsTickerProps {
   scrollLogoScale?: number;
   /** Chip behind each scrolling logo: white card (default) or none. */
   scrollLogoBg?: "white" | "transparent";
+  /** Show the scrolling logos at all. Default true. */
+  scrollLogosEnabled?: boolean;
+  /** Where the scrolling logos ride: before the text, after it, or both. */
+  scrollLogoPosition?: "start" | "end" | "both";
+  /** Badge logo fit: contain (default), cover, or fill (stretch to the box). */
+  logoFit?: "contain" | "cover" | "fill";
   /** Text logo shown in the badge instead of an image. */
   logoText?: string | null;
   /** CSS font-family for the text logo. */
@@ -72,6 +78,9 @@ function BreakingNewsTickerInner({
   scrollLogoAnimation = null,
   scrollLogoScale = 1,
   scrollLogoBg = "white",
+  scrollLogosEnabled = true,
+  scrollLogoPosition = "start",
+  logoFit = "contain",
   logoText,
   logoFontCss,
   messageFontCss,
@@ -242,7 +251,13 @@ function BreakingNewsTickerInner({
             alt={`${BRAND.name} logo`}
             width={260}
             height={84}
-            className={`h-[80%] w-[90%] object-contain drop-shadow-sm ${logoAnimClass}`}
+            className={`drop-shadow-sm ${
+              logoFit === "fill"
+                ? "h-full w-full object-fill"
+                : logoFit === "cover"
+                  ? "h-full w-full object-cover"
+                  : "h-[80%] w-[90%] object-contain"
+            } ${logoAnimClass}`}
             unoptimized
             priority
             onError={() => (galleryLen > 1 ? setLogoIdx((i) => i + 1) : setLogoFailed(true))}
@@ -275,21 +290,34 @@ function BreakingNewsTickerInner({
                 onAnimationEnd={handleAnimationEnd}
               >
                 <span className={`inline-block ${messageAnimClass}`}>
-                {/* Optional logo images scroll right-to-left together with the
-                    message text; sized relative to the ticker font. */}
-                {scrollingLogos.map((src, i) => (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    key={`${src}-${i}`}
-                    src={src}
-                    alt=""
-                    className={`mr-[1.6vw] inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoBg === "transparent" ? "" : "bg-white/95"} ${scrollLogoAnimClass}`}
-                    // Size is user-adjustable; em-based so it rides the message font,
-                    // and the BAR height never changes with it.
-                    style={{ height: `${(1.4 * scrollLogoScale).toFixed(2)}em` }}
-                  />
-                ))}
+                {/* Optional logo images ride with the message — at the FRONT,
+                    the END, or both (admin choice); sized to the ticker font so
+                    the bar height never changes. */}
+                {scrollLogosEnabled && scrollLogoPosition !== "end"
+                  ? scrollingLogos.map((src, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`start-${src.slice(-12)}-${i}`}
+                        src={src}
+                        alt=""
+                        className={`mr-[1.6vw] inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoBg === "transparent" ? "" : "bg-white/95"} ${scrollLogoAnimClass}`}
+                        style={{ height: `${(1.4 * scrollLogoScale).toFixed(2)}em` }}
+                      />
+                    ))
+                  : null}
                 {activeText}
+                {scrollLogosEnabled && scrollLogoPosition !== "start"
+                  ? scrollingLogos.map((src, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`end-${src.slice(-12)}-${i}`}
+                        src={src}
+                        alt=""
+                        className={`ml-[1.6vw] inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${scrollLogoBg === "transparent" ? "" : "bg-white/95"} ${scrollLogoAnimClass}`}
+                        style={{ height: `${(1.4 * scrollLogoScale).toFixed(2)}em` }}
+                      />
+                    ))
+                  : null}
                 </span>
               </span>
             </div>
