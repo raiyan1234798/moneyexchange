@@ -212,15 +212,39 @@ function clearNestedLayer(imageData: ImageData, tolerance: number): boolean {
   return true;
 }
 
+/** Mean luminance (0-255) of the VISIBLE pixels — decides readability. */
+function meanLuminance(imageData: ImageData): number {
+  const { data } = imageData;
+  let sum = 0;
+  let n = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 40) continue;
+    sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    n++;
+  }
+  return n === 0 ? 0 : sum / n;
+}
+
+/** Would the stripped artwork be unreadable on the destination surface?
+    Light surface + near-white artwork, or dark surface + near-black artwork. */
+function unreadableOnSurface(imageData: ImageData, surface: "light" | "dark" | "any"): boolean {
+  if (surface === "any") return false;
+  const lum = meanLuminance(imageData);
+  return surface === "light" ? lum > 195 : lum < 70;
+}
+
 /**
  * Compress a LOGO to a PNG data URL with its white/solid background removed
- * (transparent), so it sits cleanly on the navy TV header. Falls back to the
- * normal compressor when the image has no uniform background (e.g. a photo).
+ * (transparent). Falls back to the normal compressor when the image has no
+ * uniform background (e.g. a photo) — and, when a `surface` is given, KEEPS
+ * the background if removing it would make the logo unreadable there (e.g.
+ * white lettering on a dark box, destined for a white badge).
  */
 export async function compressLogoTransparent(
   file: File,
   options: CompressOptions,
-): Promise<{ dataUrl: string; width: number; height: number; bytes: number }> {
+  surface: "light" | "dark" | "any" = "any",
+): Promise<{ dataUrl: string; width: number; height: number; bytes: number; backgroundKept?: boolean }> {
   const img = await loadImage(file);
   let scale = Math.min(1, options.maxDimension / Math.max(img.width, img.height));
 
@@ -241,6 +265,11 @@ export async function compressLogoTransparent(
     // so only the actual logo artwork remains.
     for (let layer = 0; layer < 2; layer++) {
       if (!clearNestedLayer(imageData, 40)) break;
+    }
+    // The logo NEEDS its background here (it would turn invisible) — keep it.
+    if (unreadableOnSurface(imageData, surface)) {
+      const kept = await compressImageToDataUrl(file, options);
+      return { ...kept, backgroundKept: true };
     }
     ctx.putImageData(imageData, 0, 0);
 
@@ -263,7 +292,10 @@ export async function compressLogoTransparent(
  * same white/solid + nested-box removal as uploads, so old logos can be fixed
  * with one click instead of re-uploading. Returns a PNG data URL.
  */
-export async function stripLogoBackground(src: string): Promise<string> {
+export async function stripLogoBackground(
+  src: string,
+  surface: "light" | "dark" | "any" = "any",
+): Promise<string> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.crossOrigin = "anonymous";
@@ -286,6 +318,11 @@ export async function stripLogoBackground(src: string): Promise<string> {
   if (!removed) throw new Error("No solid background detected on this logo.");
   for (let layer = 0; layer < 2; layer++) {
     if (!clearNestedLayer(imageData, 40)) break;
+  }
+  if (unreadableOnSurface(imageData, surface)) {
+    throw new Error(
+      "Removing this background would make the logo unreadable here — keeping it as-is.",
+    );
   }
   ctx.putImageData(imageData, 0, 0);
   return canvas.toDataURL("image/png");

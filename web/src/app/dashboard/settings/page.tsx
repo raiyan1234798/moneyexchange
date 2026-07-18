@@ -114,6 +114,29 @@ function BranchSettingsForm({
   const [settings, setSettings] = useState(initialSettings);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [promoLinkInput, setPromoLinkInput] = useState("");
+  // Find-an-option search: hides sections without a match and glows the
+  // matching fields, so nobody has to hunt (or ask) where a setting lives.
+  const [searchQuery, setSearchQuery] = useState("");
+  useEffect(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const sections = document.querySelectorAll<HTMLElement>('section[id^="sec-"]');
+    let hits = 0;
+    sections.forEach((sec) => {
+      const text = (sec.textContent ?? "").toLowerCase();
+      const match = q === "" || text.includes(q);
+      sec.style.display = match ? "" : "none";
+      if (match && q !== "") hits++;
+      // glow the specific field blocks that match
+      sec.querySelectorAll<HTMLElement>("[data-setting-row], .space-y-2, .flex.items-center.justify-between").forEach((row) => {
+        const rowMatch = q !== "" && (row.textContent ?? "").toLowerCase().includes(q);
+        row.style.outline = rowMatch ? "2px solid var(--color-primary, #38bdf8)" : "";
+        row.style.outlineOffset = rowMatch ? "3px" : "";
+        row.style.borderRadius = rowMatch ? "12px" : "";
+      });
+    });
+    const empty = document.getElementById("settings-search-empty");
+    if (empty) empty.style.display = q !== "" && hits === 0 ? "" : "none";
+  }, [searchQuery]);
 
   // Promo gallery: the legacy single image migrates into the media list on any edit.
   type PromoItem = { type: "image" | "video"; url: string };
@@ -197,6 +220,19 @@ function BranchSettingsForm({
             navSlot,
           )
         : null}
+      {/* Type what you're looking for — in plain words — and only the matching
+          sections stay, with the exact fields highlighted. */}
+      <div className="sticky top-2 z-30 rounded-2xl border border-primary/30 bg-background/95 p-2 shadow-sm backdrop-blur">
+        <Input
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          placeholder="🔍 Find a setting… e.g. logo size, sound, animation, font, hide rate card"
+          className="rounded-xl"
+        />
+        <p id="settings-search-empty" style={{ display: "none" }} className="px-1 pt-2 text-xs text-muted-foreground">
+          Nothing found for this word — try another word like “logo”, “size”, “sound”, “animation”, “font”, “video”, “promotion”.
+        </p>
+      </div>
       <nav
         className={`${navSlot ? "xl:hidden " : ""}sticky top-2 z-20 flex flex-wrap gap-1.5 rounded-2xl border border-border/40 bg-background/95 p-2 shadow-sm backdrop-blur`}
       >
@@ -260,7 +296,7 @@ function BranchSettingsForm({
               const file = event.target.files?.[0];
               if (!file) return;
               try {
-                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
+                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark");
                 setSettings({ ...settings, headerLogoUrl: dataUrl });
                 toast.success("Header logo ready — click Save Branch Settings to apply");
               } catch (error) {
@@ -307,7 +343,7 @@ function BranchSettingsForm({
               const file = event.target.files?.[0];
               if (!file) return;
               try {
-                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
+                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark");
                 setSettings({ ...settings, headerLogoUrl2: dataUrl });
                 toast.success("Second logo ready — click Save Branch Settings to apply");
               } catch (error) {
@@ -1045,7 +1081,7 @@ function BranchSettingsForm({
                   const file = event.target.files?.[0];
                   if (!file) return;
                   try {
-                    const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
+                    const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark");
                     setSettings({ ...settings, promoSlideLogoUrl: dataUrl });
                     toast.success("Promotion-slide logo ready — click Save Branch Settings to apply");
                   } catch (error) {

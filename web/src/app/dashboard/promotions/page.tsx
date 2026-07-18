@@ -510,7 +510,7 @@ export default function PromotionsPage() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         try {
-                          const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
+                          const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark");
                           set({ promoSlideLogoUrl: dataUrl });
                           toast.success("Promotion-slide logo ready — Save to apply");
                         } catch (err) {

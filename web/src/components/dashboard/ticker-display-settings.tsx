@@ -72,6 +72,23 @@ export function TickerDisplaySettings({
   const setScrollItems = (items: Array<{ url: string; pos: "start" | "end" }>) =>
     set({ scrollingLogoItems: items, scrollingLogos: [] });
 
+  // Where each logo will sit — so background removal can protect readability
+  // (e.g. white lettering is kept on its dark box when the badge is white).
+  const badgeSurface = (): "light" | "dark" => {
+    const bg = s.tickerLogoBgColor?.trim();
+    if (!bg) return "light"; // default white badge
+    if (bg === "transparent") return "dark"; // black bar behind
+    const m = /^#?([0-9a-f]{6})$/i.exec(bg.replace("#", "#").startsWith("#") ? bg.slice(1) : bg);
+    if (!m) return "light";
+    const n = parseInt(m[1], 16);
+    const lum = 0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255);
+    return lum > 140 ? "light" : "dark";
+  };
+  const scrollSurface = (): "light" | "dark" | "any" => {
+    const mode = s.tickerScrollLogoBg ?? "white";
+    return mode === "white" ? "light" : mode === "transparent" ? "dark" : "any";
+  };
+
   async function save() {
     setSaving(true);
     try {
@@ -130,13 +147,16 @@ export function TickerDisplaySettings({
                   if (files.length === 0) return;
                   try {
                     const urls: string[] = [];
+                    let kept = 0;
                     for (const file of files) {
-                      const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
-                      urls.push(dataUrl);
+                      const res = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, badgeSurface());
+                      urls.push(res.dataUrl);
+                      if (res.backgroundKept) kept++;
                     }
                     addBadgeLogos(urls);
                     toast.success(
-                      `${urls.length} logo(s) ready (backgrounds removed) — Save to apply`,
+                      `${urls.length} logo(s) ready${kept ? ` — ${kept} kept their background (needed for readability)` : " (backgrounds removed)"} — Save to apply`,
+                      { duration: 8000 },
                     );
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : "Could not read image");
@@ -166,7 +186,7 @@ export function TickerDisplaySettings({
                         type="button"
                         title="Remove the background from this logo"
                         onClick={() =>
-                          void stripLogoBackground(src)
+                          void stripLogoBackground(src, badgeSurface())
                             .then((cleaned) =>
                               set({
                                 tickerLogoUrl: null,
@@ -342,16 +362,19 @@ export function TickerDisplaySettings({
               if (files.length === 0) return;
               try {
                 const urls: string[] = [];
+                let kept = 0;
                 for (const file of files) {
-                  const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
-                  urls.push(dataUrl);
+                  const res = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, scrollSurface());
+                  urls.push(res.dataUrl);
+                  if (res.backgroundKept) kept++;
                 }
                 setScrollItems([
                   ...scrollItems,
                   ...urls.map((url) => ({ url, pos: "start" as const })),
                 ]);
                 toast.success(
-                  `${urls.length} logo(s) added (backgrounds removed) — set Front/End below, then Save`,
+                  `${urls.length} logo(s) added${kept ? ` — ${kept} kept their background (needed for readability)` : " (backgrounds removed)"} — set Front/End below, then Save`,
+                  { duration: 8000 },
                 );
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : "Could not read image");
@@ -382,7 +405,7 @@ export function TickerDisplaySettings({
                     type="button"
                     title="Remove the background from this logo"
                     onClick={() =>
-                      void stripLogoBackground(item.url)
+                      void stripLogoBackground(item.url, scrollSurface())
                         .then((cleaned) =>
                           setScrollItems(
                             scrollItems.map((it, idx) => (idx === i ? { ...it, url: cleaned } : it)),

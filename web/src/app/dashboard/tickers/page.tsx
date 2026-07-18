@@ -386,7 +386,7 @@ export default function TickersPage() {
                                 if (text.length > 120_000) throw new Error("SVG is too large — simplify it or use PNG.");
                                 setLogoUrl(`data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(text)))}`);
                               } else {
-                                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS);
+                                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "light");
                                 setLogoUrl(dataUrl);
                               }
                               toast.success("Logo ready — it shows on the badge when you save");
