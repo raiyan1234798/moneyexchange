@@ -24,7 +24,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+ 
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -249,19 +249,28 @@ export default function BranchesPage() {
           <PageActions>
             {branches.length >= MAX_BRANCHES && !editBranch ? (
               <p className="text-xs text-muted-foreground">
-                Branch limit reached ({MAX_BRANCHES} of {MAX_BRANCHES}) — delete an unused branch
-                to add a new one.
+                Branch limit reached ({MAX_BRANCHES} of {MAX_BRANCHES}) — delete a branch to make
+                room for a new one.
               </p>
             ) : null}
             <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : closeDialog())}>
-              <DialogTrigger
-                render={
-                  <Button className="rounded-xl" disabled={branches.length >= MAX_BRANCHES}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Branch
-                  </Button>
-                }
-              />
+              {/* Not a DialogTrigger: at the cap the click must EXPLAIN, not open. */}
+              <Button
+                className="rounded-xl"
+                onClick={() => {
+                  if (branches.length >= MAX_BRANCHES) {
+                    toast.error(
+                      `You can't create a new branch — all ${MAX_BRANCHES} branch slots are used. Delete one branch first, then you can create a new one.`,
+                      { duration: 9000 },
+                    );
+                    return;
+                  }
+                  setOpen(true);
+                }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Branch
+              </Button>
               <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>{editBranch ? `Edit ${editBranch.name}` : "Create Branch"}</DialogTitle>
