@@ -388,6 +388,24 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Upload-access lock (video/image upload password + granted admins). ONLY the
+    // client owner (admin@unimoni-signage.com) — or the developer super admin —
+    // may CHANGE it. Any signed-in admin may READ it, so the app can tell whether
+    // the lock is on and show the right screen; the app itself only reveals the
+    // password to the owner and granted admins. This is a NEW collection: it does
+    // not touch the videos / image_adverts rules, so existing uploads are
+    // completely unaffected.
+    match /app_config/{configId} {
+      function isUploadOwner() {
+        return isActiveUser()
+          && request.auth.token.email != null
+          && request.auth.token.email.lower() == 'admin@unimoni-signage.com';
+      }
+      allow read: if isActiveUser();
+      allow create, update: if isSuperAdmin() || isUploadOwner();
+      allow delete: if false;
+    }
+
     match /roles/{roleId} {
       allow read: if isActiveUser();
       allow write: if isSuperAdmin();

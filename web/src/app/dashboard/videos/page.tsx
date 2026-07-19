@@ -17,6 +17,7 @@ import {
 import { SortableDataTable } from "@/components/shared/sortable-data-table";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
+import { UploadAccessPanel, useUploadAccess } from "@/components/dashboard/upload-access";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -85,6 +86,7 @@ export default function VideosPage() {
   const { user, profile } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin, isAdmin } = useBranchScope();
   const { canManageVideos, canManageImages, canProposeVideos } = useContentPermissions();
+  const uploadAccess = useUploadAccess();
   const [videos, setVideos] = useState<VideoAsset[]>([]);
   const [pendingVideos, setPendingVideos] = useState<VideoAsset[]>([]);
   const [images, setImages] = useState<ImageAdvert[]>([]);
@@ -559,7 +561,11 @@ export default function VideosPage() {
           </AlertDescription>
         </Alert>
 
-        {canManageVideos && effectiveBranchId ? (
+        {canManageVideos || canManageImages ? (
+          <UploadAccessPanel state={uploadAccess} actor={actor} />
+        ) : null}
+
+        {canManageVideos && effectiveBranchId && uploadAccess.uploadsUnlocked ? (
           <ContentPanel title="Add Video" description="Pick the easiest option — pasting a link is usually fastest">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
@@ -838,7 +844,7 @@ export default function VideosPage() {
           </ContentPanel>
         ) : null}
 
-        {canManageImages && effectiveBranchId ? (
+        {canManageImages && effectiveBranchId && uploadAccess.uploadsUnlocked ? (
           <ContentPanel title="Image Adverts" description="Static images rotate on the display when no video is playing">
             {canApplyToAll ? (
               <ApplyToAllCheckbox

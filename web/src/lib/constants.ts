@@ -38,6 +38,7 @@ export const COLLECTIONS = {
   imageAdverts: "image_adverts",
   transferRates: "transfer_rates",
   pendingApprovals: "pending_approvals",
+  appConfig: "app_config",
 } as const;
 
 export const DEFAULT_BRANCH_SETTINGS = {

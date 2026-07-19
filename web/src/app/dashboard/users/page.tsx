@@ -61,7 +61,15 @@ import {
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import type { AppUser, UserInvite, UserRole } from "@/lib/types";
 
-const LOGIN_URL = "https://unimoni.pages.dev/login";
+// Derive from the domain the admin is actually on, so the invite link/message
+// always points at the current site (never a stale hard-coded project URL).
+const FALLBACK_LOGIN_URL = "https://unimoni-6va.pages.dev/login";
+function loginUrl(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}/login`;
+  }
+  return FALLBACK_LOGIN_URL;
+}
 
 const emptyForm = {
   email: "",
@@ -366,13 +374,13 @@ export default function UsersPage() {
   }
 
   function copyInviteMessage(email: string) {
-    const message = `You've been invited to Unimoni. Sign in at ${LOGIN_URL} with Google using ${email}.`;
+    const message = `You've been invited to Unimoni. Sign in at ${loginUrl()} with Google using ${email}.`;
     void navigator.clipboard.writeText(message);
     toast.success("Invite message copied");
   }
 
   function copyLoginLink() {
-    void navigator.clipboard.writeText(LOGIN_URL);
+    void navigator.clipboard.writeText(loginUrl());
     toast.success("Login link copied");
   }
 
@@ -644,7 +652,7 @@ export default function UsersPage() {
             </DialogHeader>
             <div className="space-y-3 text-center text-sm">
               <p className="text-emerald-700 dark:text-emerald-400">
-                <strong>{successDialog?.email}</strong> can login now at unimoni.pages.dev/login
+                <strong>{successDialog?.email}</strong> can login now at {loginUrl().replace(/^https?:\/\//, "")}
                 {successDialog?.password ? " with the password below." : " with Google."}
               </p>
               {successDialog?.password ? (
@@ -663,7 +671,7 @@ export default function UsersPage() {
                     className="rounded-lg"
                     onClick={() => {
                       void navigator.clipboard.writeText(
-                        `Unimoni sign-in: ${LOGIN_URL}\nEmail: ${successDialog.email}\nPassword: ${successDialog.password}`,
+                        `Unimoni sign-in: ${loginUrl()}\nEmail: ${successDialog.email}\nPassword: ${successDialog.password}`,
                       );
                       toast.success("Credentials copied — share them securely");
                     }}
@@ -677,7 +685,7 @@ export default function UsersPage() {
                 </div>
               ) : (
               <div className="rounded-xl border border-border/40 bg-muted/30 p-4 text-left text-xs leading-relaxed text-muted-foreground">
-                Send them: Go to <strong>{LOGIN_URL}</strong> and click{" "}
+                Send them: Go to <strong>{loginUrl()}</strong> and click{" "}
                 <strong>Continue with Google</strong> with <strong>{successDialog?.email}</strong>.
               </div>
               )}

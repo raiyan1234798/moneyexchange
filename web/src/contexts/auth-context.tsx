@@ -230,7 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn(`${LOG_PREFIX} pending Google sign-in but no redirect result — likely blocked`);
           sessionStorage.removeItem(GOOGLE_SIGN_IN_PENDING_KEY);
           const message =
-            "Sign-in could not complete in this browser. Allow popups for this site and try again, or open unimoni.pages.dev in Chrome.";
+            "Sign-in could not complete in this browser. Allow popups for this site and try again, or open unimoni-6va.pages.dev in Chrome.";
           setProfileError(message);
           setLoading(false);
           setLoadingPhase(null);
