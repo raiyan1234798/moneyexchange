@@ -5,6 +5,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -104,4 +105,4 @@ export async function writeAuditLog(entry: Omit<AuditLog, "id" | "timestamp">): 
   });
 }
 
-export { collection, doc, query, where, orderBy, onSnapshot, getDocs, getDoc };
+export { collection, doc, query, where, orderBy, limit, onSnapshot, getDocs, getDoc };

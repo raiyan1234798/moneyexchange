@@ -149,8 +149,9 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
         <p className="text-sm font-semibold">Upload access (owner controls)</p>
       </div>
       <p className="text-xs text-muted-foreground">
-        Only <strong>{CLIENT_ADMIN_EMAIL}</strong> controls this. Set a password to lock video &amp;
-        image uploads, then add the admins who are allowed to upload — they will see the password.
+        Only <strong>{CLIENT_ADMIN_EMAIL}</strong> controls this. Set a password to lock who can
+        upload <em>and reorder</em> videos &amp; images, then add the admins who are allowed — they
+        will see the password.
       </p>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <div className="space-y-1.5">
@@ -238,7 +239,10 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
   // ---- Lock screen (uploads still locked for this admin) ----
   if (lockActive && !uploadsUnlocked) {
     return (
-      <ContentPanel title="Uploads are locked" description="Enter the upload password to add videos or images.">
+      <ContentPanel
+        title="Uploads are locked"
+        description="Enter the upload password to add or reorder videos and images."
+      >
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Lock className="h-4 w-4" />

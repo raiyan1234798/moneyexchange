@@ -1,6 +1,7 @@
 import { collection, doc, onSnapshot, query } from "firebase/firestore";
 import {
   createDocument,
+  limit,
   listDocuments,
   removeDocument,
   subscribeCollection,
@@ -188,7 +189,7 @@ export async function deleteBranch(
 }
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const [branches, tvs, currencies, rates, auditLogs] = await Promise.all([
+  const [branches, tvs, currencies, rates, auditCount] = await Promise.all([
     listDocuments<Branch>(COLLECTIONS.branches),
     listDocuments<{ status: string }>(COLLECTIONS.tvDevices),
     listDocuments(COLLECTIONS.currencies),
@@ -197,7 +198,10 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     listDocuments<{ status: string }>(COLLECTIONS.pendingApprovals, [
       where("status", "==", "pending"),
     ]),
-    listDocuments(COLLECTIONS.auditLogs, [orderBy("timestamp", "desc")]),
+    // Only the most-recent audit rows — NEVER download every audit doc (they are
+    // large and there can be thousands; that would be slow and bandwidth-heavy,
+    // and a full count aggregate resource-exhausts on this collection).
+    listDocuments(COLLECTIONS.auditLogs, [orderBy("timestamp", "desc"), limit(20)]),
   ]);
 
   return {
@@ -206,6 +210,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     offlineTvs: tvs.filter((tv) => tv.status === "offline").length,
     totalCurrencies: currencies.length,
     pendingRateApprovals: rates.length,
-    recentAuditEvents: auditLogs.slice(0, 20).length,
+    recentAuditEvents: auditCount.length,
   };
 }

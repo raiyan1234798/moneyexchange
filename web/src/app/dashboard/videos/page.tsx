@@ -464,6 +464,10 @@ export default function VideosPage() {
 
   async function reorderVideosList(ordered: VideoAsset[]) {
     if (!actor) return;
+    if (!uploadAccess.uploadsUnlocked) {
+      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
+      return;
+    }
     try {
       await reorderVideos(ordered.map((x) => x.id), actor);
       toast.success("Play order updated");
@@ -474,6 +478,10 @@ export default function VideosPage() {
 
   async function reorderImagesList(ordered: ImageAdvert[]) {
     if (!actor) return;
+    if (!uploadAccess.uploadsUnlocked) {
+      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
+      return;
+    }
     try {
       await reorderImageAdverts(ordered.map((x) => x.id), actor);
       toast.success("Image order updated");
@@ -484,6 +492,10 @@ export default function VideosPage() {
 
   async function moveVideo(v: VideoAsset, dir: "up" | "down") {
     if (!actor) return;
+    if (!uploadAccess.uploadsUnlocked) {
+      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
+      return;
+    }
     const ordered = [...videos];
     const idx = ordered.findIndex((x) => x.id === v.id);
     const swap = dir === "up" ? idx - 1 : idx + 1;
@@ -499,6 +511,10 @@ export default function VideosPage() {
 
   async function moveImage(img: ImageAdvert, dir: "up" | "down") {
     if (!actor) return;
+    if (!uploadAccess.uploadsUnlocked) {
+      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
+      return;
+    }
     const ordered = [...images];
     const idx = ordered.findIndex((x) => x.id === img.id);
     const swap = dir === "up" ? idx - 1 : idx + 1;
@@ -943,7 +959,7 @@ export default function VideosPage() {
               keyExtractor={(v) => v.id}
               mobileTitle={(v) => v.title}
               onReorder={(ordered) => void reorderVideosList(ordered)}
-              reorderDisabled={!canManageVideos}
+              reorderDisabled={!canManageVideos || !uploadAccess.uploadsUnlocked}
               columns={[
                 { key: "title", header: "Title", cell: (v) => <span className="font-medium">{v.title}</span> },
                 {
@@ -999,7 +1015,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Play earlier"
-                          disabled={videos.findIndex((x) => x.id === v.id) === 0}
+                          disabled={videos.findIndex((x) => x.id === v.id) === 0 || !uploadAccess.uploadsUnlocked}
                           onClick={() => void moveVideo(v, "up")}
                         >
                           <ArrowUp className="h-3 w-3" />
@@ -1009,7 +1025,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Play later"
-                          disabled={videos.findIndex((x) => x.id === v.id) === videos.length - 1}
+                          disabled={videos.findIndex((x) => x.id === v.id) === videos.length - 1 || !uploadAccess.uploadsUnlocked}
                           onClick={() => void moveVideo(v, "down")}
                         >
                           <ArrowDown className="h-3 w-3" />
@@ -1065,7 +1081,7 @@ export default function VideosPage() {
               keyExtractor={(img) => img.id}
               mobileTitle={(img) => img.title}
               onReorder={(ordered) => void reorderImagesList(ordered)}
-              reorderDisabled={!canManageImages}
+              reorderDisabled={!canManageImages || !uploadAccess.uploadsUnlocked}
               columns={[
                 { key: "title", header: "Title", cell: (img) => img.title },
                 {
@@ -1112,7 +1128,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Show earlier"
-                          disabled={images.findIndex((x) => x.id === img.id) === 0}
+                          disabled={images.findIndex((x) => x.id === img.id) === 0 || !uploadAccess.uploadsUnlocked}
                           onClick={() => void moveImage(img, "up")}
                         >
                           <ArrowUp className="h-3 w-3" />
@@ -1122,7 +1138,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Show later"
-                          disabled={images.findIndex((x) => x.id === img.id) === images.length - 1}
+                          disabled={images.findIndex((x) => x.id === img.id) === images.length - 1 || !uploadAccess.uploadsUnlocked}
                           onClick={() => void moveImage(img, "down")}
                         >
                           <ArrowDown className="h-3 w-3" />

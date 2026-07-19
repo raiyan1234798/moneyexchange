@@ -29,7 +29,7 @@ import {
 } from "@/lib/services/pending-approval-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { subscribeVideos } from "@/lib/services/video-service";
-import { subscribeCollection, orderBy, where } from "@/lib/firebase/firestore";
+import { subscribeCollection, orderBy, where, limit } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import { getDisplayUrl } from "@/lib/display-url";
 import type { AuditLog, DashboardStats, PendingApproval } from "@/lib/types";
@@ -119,11 +119,14 @@ export default function DashboardOverviewPage() {
     // Branch users skip this — otherwise the query is rejected and they see a
     // "permission denied" toast on their own landing page every sign-in.
     const canReadLogs = isPlatformAdmin || isBranchManager;
-    const logConstraints = isPlatformAdmin
-      ? [orderBy("timestamp", "desc")]
-      : effectiveBranchId
-        ? [where("branchId", "==", effectiveBranchId), orderBy("timestamp", "desc")]
-        : [orderBy("timestamp", "desc")];
+    const branchLogFilter = !isPlatformAdmin && effectiveBranchId
+      ? [where("branchId", "==", effectiveBranchId)]
+      : [];
+    // CRITICAL: only listen to the few most-recent logs. Audit docs are large
+    // (they embed full settings snapshots) and there are many, so an unbounded
+    // listener downloads hundreds of MB and starves every other query — the whole
+    // dashboard then hangs forever on its loading skeletons.
+    const logConstraints = [...branchLogFilter, orderBy("timestamp", "desc"), limit(6)];
 
     const unsubLogs = canReadLogs
       ? subscribeCollection<AuditLog>(
