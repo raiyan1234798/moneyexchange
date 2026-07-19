@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Cloud, Link2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
@@ -65,7 +65,7 @@ import {
   syncExternalVideoToBranches,
   syncImageUrlToBranches,
 } from "@/lib/services/branch-sync";
-import { getDocument } from "@/lib/firebase/firestore";
+import { getDocument, sumField } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import {
   deleteImageAdvert,
@@ -105,6 +105,9 @@ export default function VideosPage() {
   const [imageDuration, setImageDuration] = useState(15);
   const [imageUploading, setImageUploading] = useState(false);
   const [applyToAll, setApplyToAll] = useState(false);
+  // TOTAL storage across ALL branches (R2's 10 GB free tier is shared), summed
+  // server-side so we never download every doc. Null until the first load.
+  const [totalStorageBytes, setTotalStorageBytes] = useState<number | null>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
@@ -126,6 +129,20 @@ export default function VideosPage() {
   }, [videos, images]);
 
   const gb = (bytes: number) => (bytes / (1024 * 1024 * 1024)).toFixed(2);
+
+  // Recompute the total (all branches) whenever this branch's content changes —
+  // uploads/deletes here are the usual trigger. Cheap server-side SUM.
+  const refreshTotalStorage = useCallback(async () => {
+    const [videoBytes, imageBytes] = await Promise.all([
+      sumField(COLLECTIONS.videos, "fileSizeBytes"),
+      sumField(COLLECTIONS.imageAdverts, "fileSizeBytes"),
+    ]);
+    setTotalStorageBytes(videoBytes + imageBytes);
+  }, []);
+
+  useEffect(() => {
+    void refreshTotalStorage();
+  }, [refreshTotalStorage, videos, images]);
 
   /** Returns false (and toasts) when an upload would exceed the 10 GB budget. */
   function withinStorageBudget(addBytes: number): boolean {
@@ -567,6 +584,63 @@ export default function VideosPage() {
         ) : null}
 
         <PreviewDisplayLink branchCode={branch?.code} />
+
+        {totalStorageBytes !== null
+          ? (() => {
+              const used = totalStorageBytes;
+              const pct = Math.min(100, Math.round((used / MAX_TOTAL_STORAGE_BYTES) * 100));
+              const freeGb = gb(Math.max(0, MAX_TOTAL_STORAGE_BYTES - used));
+              const almostFull = used >= STORAGE_WARN_BYTES;
+              const full = used >= MAX_TOTAL_STORAGE_BYTES;
+              return (
+                <div
+                  className={`rounded-2xl border p-4 ${
+                    full
+                      ? "border-red-500/40 bg-red-500/5"
+                      : almostFull
+                        ? "border-amber-500/40 bg-amber-500/5"
+                        : "border-border/40 bg-muted/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        Storage — {gb(used)} GB of 10 GB used
+                        <span className="font-normal text-muted-foreground"> (all branches together)</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {freeGb} GB free · Cloudflare R2 gives 10 GB free, then charges per GB.
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 text-sm font-bold ${
+                        full
+                          ? "text-red-600 dark:text-red-400"
+                          : almostFull
+                            ? "text-amber-600 dark:text-amber-400"
+                            : "text-muted-foreground"
+                      }`}
+                    >
+                      {pct}%
+                    </span>
+                  </div>
+                  <Progress value={pct} className="mt-3" />
+                  {full ? (
+                    <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400">
+                      Storage is full. New uploads will be billed by Cloudflare (or may fail) — remove
+                      old videos or images to free space.
+                    </p>
+                  ) : almostFull ? (
+                    <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      Heads up — your storage is almost full, only {freeGb} GB left of the 10 GB free
+                      space. Beyond 10 GB, Cloudflare R2 starts charging. Remove old videos/images to
+                      stay within the free tier.
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })()
+          : null}
 
         <Alert className="rounded-xl border-emerald-500/25 bg-emerald-500/5">
           <AlertDescription className="text-sm leading-relaxed">

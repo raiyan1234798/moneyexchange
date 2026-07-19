@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getAggregateFromServer,
   getDoc,
   getDocs,
   limit,
@@ -11,6 +12,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  sum,
   updateDoc,
   where,
   type DocumentData,
@@ -106,3 +108,25 @@ export async function writeAuditLog(entry: Omit<AuditLog, "id" | "timestamp">): 
 }
 
 export { collection, doc, query, where, orderBy, limit, onSnapshot, getDocs, getDoc };
+
+/**
+ * Server-side SUM of a numeric field across matching documents — computed by
+ * Firestore without downloading any docs. Used to total storage usage across all
+ * branches cheaply (the alternative, fetching every video/image doc, would be
+ * slow and heavy). Returns 0 on any error so a meter never blocks the page.
+ */
+export async function sumField(
+  collectionName: string,
+  field: string,
+  constraints: QueryConstraint[] = [],
+): Promise<number> {
+  try {
+    const snapshot = await getAggregateFromServer(
+      query(collection(db, collectionName), ...constraints),
+      { total: sum(field) },
+    );
+    return snapshot.data().total ?? 0;
+  } catch {
+    return 0;
+  }
+}

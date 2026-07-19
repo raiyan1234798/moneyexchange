@@ -1,8 +1,10 @@
 import { auth } from "@/lib/firebase/client";
 
-// 5 minutes — branch connections can be slow; the old 60s timeout made ~8MB
-// videos abort mid-upload and fall back to database (chunked) storage.
-export const R2_UPLOAD_TIMEOUT_MS = 300_000;
+// 20 minutes — a large video (e.g. 300 MB+) on a normal branch connection can
+// take well over 5 minutes; the previous 5-minute cap made those big uploads
+// abort near the end. This is only an upper bound — a fast upload still finishes
+// as soon as the bytes are sent.
+export const R2_UPLOAD_TIMEOUT_MS = 1_200_000;
 
 export function isR2UploadConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_R2_UPLOAD_URL?.trim();
