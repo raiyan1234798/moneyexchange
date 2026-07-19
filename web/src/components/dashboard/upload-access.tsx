@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Lock, LockOpen, ShieldCheck, X } from "lucide-react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/auth-context";
 import { isClientAdminEmail, normalizeEmail } from "@/lib/auth/user-profile";
 import { CLIENT_ADMIN_EMAIL } from "@/lib/constants";
@@ -21,6 +28,7 @@ import {
 } from "@/lib/services/upload-access-service";
 
 type Actor = { userId: string; userName: string } | null;
+type PendingAction = () => void | Promise<void>;
 
 export interface UploadAccessState {
   loaded: boolean;
@@ -29,10 +37,13 @@ export interface UploadAccessState {
   isOwner: boolean;
   isDev: boolean;
   isGranted: boolean;
-  canSeePassword: boolean;
   password: string;
   grantedEmails: string[];
-  unlock: () => void;
+  /** Run `action` now if unlocked; otherwise pop the password prompt and run it once unlocked. */
+  guard: (action: PendingAction) => void;
+  promptOpen: boolean;
+  confirmUnlock: () => void;
+  closePrompt: () => void;
 }
 
 /** Reads the upload lock and works out what the current admin may do. */
@@ -41,6 +52,8 @@ export function useUploadAccess(): UploadAccessState {
   const [config, setConfig] = useState<UploadAccessConfig | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const pendingRef = useRef<PendingAction | null>(null);
 
   useEffect(() => {
     const unsub = subscribeUploadAccess((c) => {
@@ -56,12 +69,38 @@ export function useUploadAccess(): UploadAccessState {
   const grantedEmails = config?.grantedEmails ?? [];
   const password = (config?.password ?? "").trim();
   const lockActive = password.length > 0;
-  const isGranted = isOwner || isDev || grantedEmails.includes(email);
-  const canSeePassword = isGranted;
-  // The owner (who sets the password) and the developer super admin always keep
-  // access. Granted admins must enter the password once per session; everyone
-  // else is blocked while a password is set.
-  const uploadsUnlocked = !lockActive || isDev || isOwner || unlocked;
+  const isGrantedAdmin = grantedEmails.includes(email);
+  const isGranted = isOwner || isDev || isGrantedAdmin;
+  // Owner, the developer super admin, and admins the owner has granted never
+  // need the password. Everyone else can still act — they are simply asked for
+  // the password AT THE MOMENT they upload or reorder (no "you have no access"
+  // wall), and once entered it stays unlocked for the rest of the session.
+  const uploadsUnlocked = !lockActive || isGranted || unlocked;
+
+  const guard = useCallback(
+    (action: PendingAction) => {
+      if (uploadsUnlocked) {
+        void action();
+        return;
+      }
+      pendingRef.current = action;
+      setPromptOpen(true);
+    },
+    [uploadsUnlocked],
+  );
+
+  const confirmUnlock = useCallback(() => {
+    setUnlocked(true);
+    setPromptOpen(false);
+    const action = pendingRef.current;
+    pendingRef.current = null;
+    if (action) void action();
+  }, []);
+
+  const closePrompt = useCallback(() => {
+    pendingRef.current = null;
+    setPromptOpen(false);
+  }, []);
 
   return useMemo(
     () => ({
@@ -71,37 +110,95 @@ export function useUploadAccess(): UploadAccessState {
       isOwner,
       isDev,
       isGranted,
-      canSeePassword,
       password,
       grantedEmails,
-      unlock: () => setUnlocked(true),
+      guard,
+      promptOpen,
+      confirmUnlock,
+      closePrompt,
     }),
-    [loaded, lockActive, uploadsUnlocked, isOwner, isDev, isGranted, canSeePassword, password, grantedEmails],
+    [loaded, lockActive, uploadsUnlocked, isOwner, isDev, isGranted, password, grantedEmails, guard, promptOpen, confirmUnlock, closePrompt],
   );
 }
 
 /**
- * The lock screen + owner controls shown above the upload sections on the Videos
- * page. When uploads are unlocked it shows only a small owner panel (if any).
+ * The password prompt — shown ONLY when a locked admin actually tries to upload
+ * or reorder. Neutral wording, no "you don't have access" wall. Render once on
+ * the page; it stays hidden until `guard` opens it.
+ */
+export function UploadPasswordDialog({ state }: { state: UploadAccessState }) {
+  const [entered, setEntered] = useState("");
+
+  function submit() {
+    if (entered.trim() === state.password) {
+      setEntered("");
+      state.confirmUnlock();
+      toast.success("Uploads unlocked");
+    } else {
+      toast.error("Wrong password — please try again");
+    }
+  }
+
+  return (
+    <Dialog
+      open={state.promptOpen}
+      onOpenChange={(open) => {
+        if (!open) {
+          setEntered("");
+          state.closePrompt();
+        }
+      }}
+    >
+      <DialogContent className="rounded-2xl sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Enter upload password</DialogTitle>
+          <DialogDescription>
+            Adding or reordering videos and images needs the upload password. Ask{" "}
+            <strong>{CLIENT_ADMIN_EMAIL}</strong> if you don&apos;t have it.
+          </DialogDescription>
+        </DialogHeader>
+        <Input
+          type="password"
+          autoFocus
+          value={entered}
+          onChange={(e) => setEntered(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder="Upload password"
+          className="rounded-xl"
+        />
+        <DialogFooter>
+          <Button
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => {
+              setEntered("");
+              state.closePrompt();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button className="rounded-xl" onClick={submit}>
+            Unlock
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Owner-only controls to set the upload password and choose which admins can
+ * upload/reorder without being asked. Renders nothing for non-owners — they are
+ * never shown a "locked" wall; they are simply prompted for the password when
+ * they act (see UploadPasswordDialog).
  */
 export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; actor: Actor }) {
-  const { lockActive, uploadsUnlocked, isOwner, isDev, canSeePassword, password, grantedEmails, unlock } = state;
+  const { lockActive, isOwner, isDev, password, grantedEmails } = state;
   const canManage = isOwner || isDev;
 
-  const [entered, setEntered] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [grantEmail, setGrantEmail] = useState("");
   const [busy, setBusy] = useState(false);
-
-  function tryUnlock() {
-    if (entered.trim() === password) {
-      unlock();
-      setEntered("");
-      toast.success("Uploads unlocked");
-    } else {
-      toast.error("Wrong password");
-    }
-  }
 
   async function savePassword() {
     if (!actor) return;
@@ -122,7 +219,7 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
     setBusy(true);
     try {
       await grantUploadAccess(grantEmail, actor);
-      toast.success(`${normalizeEmail(grantEmail)} can now upload`);
+      toast.success(`${normalizeEmail(grantEmail)} can now upload without the password`);
       setGrantEmail("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not grant access");
@@ -141,17 +238,18 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
     }
   }
 
-  // ---- Owner/developer management block (always available to them) ----
-  const managePanel = canManage ? (
-    <div className="space-y-4 rounded-xl border border-border/40 bg-muted/20 p-4">
+  if (!canManage) return null;
+
+  return (
+    <div className="space-y-4 rounded-2xl border border-border/40 bg-muted/20 p-4">
       <div className="flex items-center gap-2">
         <ShieldCheck className="h-4 w-4 text-emerald-500" />
         <p className="text-sm font-semibold">Upload access (owner controls)</p>
       </div>
       <p className="text-xs text-muted-foreground">
-        Only <strong>{CLIENT_ADMIN_EMAIL}</strong> controls this. Set a password to lock who can
-        upload <em>and reorder</em> videos &amp; images, then add the admins who are allowed — they
-        will see the password.
+        Only <strong>{CLIENT_ADMIN_EMAIL}</strong> controls this. Set a password and everyone else is
+        asked for it when they upload <em>or reorder</em> videos &amp; images. Add trusted admins
+        below so they can do it without being asked.
       </p>
       <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
         <div className="space-y-1.5">
@@ -200,7 +298,7 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
         </>
       ) : null}
       <div className="space-y-2 border-t border-border/40 pt-3">
-        <Label className="text-xs">Admins allowed to upload</Label>
+        <Label className="text-xs">Admins who can upload without the password</Label>
         <div className="flex flex-wrap gap-2">
           {grantedEmails.length === 0 ? (
             <span className="text-xs text-muted-foreground">No one added yet.</span>
@@ -234,62 +332,5 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
         </div>
       </div>
     </div>
-  ) : null;
-
-  // ---- Lock screen (uploads still locked for this admin) ----
-  if (lockActive && !uploadsUnlocked) {
-    return (
-      <ContentPanel
-        title="Uploads are locked"
-        description="Enter the upload password to add or reorder videos and images."
-      >
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Lock className="h-4 w-4" />
-            {canSeePassword
-              ? "You have upload access — enter the password below."
-              : `You don't have upload access yet. Ask ${CLIENT_ADMIN_EMAIL} to grant you access.`}
-          </div>
-          {canSeePassword ? (
-            <p className="text-xs">
-              Password:{" "}
-              <strong className="font-mono rounded bg-muted px-1.5 py-0.5">{password}</strong>
-            </p>
-          ) : null}
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-            <Input
-              type="password"
-              value={entered}
-              onChange={(e) => setEntered(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && tryUnlock()}
-              placeholder="Upload password"
-              className="rounded-xl"
-            />
-            <Button onClick={tryUnlock} className="rounded-xl">
-              Unlock uploads
-            </Button>
-          </div>
-          {managePanel}
-        </div>
-      </ContentPanel>
-    );
-  }
-
-  // ---- Unlocked (or no lock): just show the owner controls, if any ----
-  if (!managePanel) return null;
-  return (
-    <ContentPanel
-      title="Uploads"
-      description={lockActive ? "Uploads are unlocked for this session." : undefined}
-    >
-      <div className="space-y-4">
-        {lockActive ? (
-          <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
-            <LockOpen className="h-4 w-4" /> Uploads unlocked.
-          </div>
-        ) : null}
-        {managePanel}
-      </div>
-    </ContentPanel>
   );
 }

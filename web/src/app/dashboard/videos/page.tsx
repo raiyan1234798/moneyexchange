@@ -17,7 +17,7 @@ import {
 import { SortableDataTable } from "@/components/shared/sortable-data-table";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
-import { UploadAccessPanel, useUploadAccess } from "@/components/dashboard/upload-access";
+import { UploadAccessPanel, UploadPasswordDialog, useUploadAccess } from "@/components/dashboard/upload-access";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -462,70 +462,69 @@ export default function VideosPage() {
     }
   }
 
+  // Reorder/upload actions are wrapped in uploadAccess.guard: it runs them
+  // straight away when unlocked, otherwise it pops the password prompt and runs
+  // them once the correct password is entered (no "you have no access" wall).
   async function reorderVideosList(ordered: VideoAsset[]) {
-    if (!actor) return;
-    if (!uploadAccess.uploadsUnlocked) {
-      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
-      return;
-    }
-    try {
-      await reorderVideos(ordered.map((x) => x.id), actor);
-      toast.success("Play order updated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not reorder videos");
-    }
+    const a = actor;
+    if (!a) return;
+    uploadAccess.guard(async () => {
+      try {
+        await reorderVideos(ordered.map((x) => x.id), a);
+        toast.success("Play order updated");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not reorder videos");
+      }
+    });
   }
 
   async function reorderImagesList(ordered: ImageAdvert[]) {
-    if (!actor) return;
-    if (!uploadAccess.uploadsUnlocked) {
-      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
-      return;
-    }
-    try {
-      await reorderImageAdverts(ordered.map((x) => x.id), actor);
-      toast.success("Image order updated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not reorder images");
-    }
+    const a = actor;
+    if (!a) return;
+    uploadAccess.guard(async () => {
+      try {
+        await reorderImageAdverts(ordered.map((x) => x.id), a);
+        toast.success("Image order updated");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not reorder images");
+      }
+    });
   }
 
   async function moveVideo(v: VideoAsset, dir: "up" | "down") {
-    if (!actor) return;
-    if (!uploadAccess.uploadsUnlocked) {
-      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
-      return;
-    }
+    const a = actor;
+    if (!a) return;
     const ordered = [...videos];
     const idx = ordered.findIndex((x) => x.id === v.id);
     const swap = dir === "up" ? idx - 1 : idx + 1;
     if (idx < 0 || swap < 0 || swap >= ordered.length) return;
     [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
-    try {
-      await reorderVideos(ordered.map((x) => x.id), actor);
-      toast.success("Play order updated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not reorder videos");
-    }
+    uploadAccess.guard(async () => {
+      try {
+        await reorderVideos(ordered.map((x) => x.id), a);
+        toast.success("Play order updated");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not reorder videos");
+      }
+    });
   }
 
   async function moveImage(img: ImageAdvert, dir: "up" | "down") {
-    if (!actor) return;
-    if (!uploadAccess.uploadsUnlocked) {
-      toast.error("Uploads are locked — ask admin@unimoni-signage.com for access to change the order.");
-      return;
-    }
+    const a = actor;
+    if (!a) return;
     const ordered = [...images];
     const idx = ordered.findIndex((x) => x.id === img.id);
     const swap = dir === "up" ? idx - 1 : idx + 1;
     if (idx < 0 || swap < 0 || swap >= ordered.length) return;
     [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
-    try {
-      await reorderImageAdverts(ordered.map((x) => x.id), actor);
-      toast.success("Image order updated");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not reorder images");
-    }
+    uploadAccess.guard(async () => {
+      try {
+        await reorderImageAdverts(ordered.map((x) => x.id), a);
+        toast.success("Image order updated");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not reorder images");
+      }
+    });
   }
 
   // Per client (2026-07-11): advert videos/images are ADMIN-ONLY.
@@ -578,10 +577,13 @@ export default function VideosPage() {
         </Alert>
 
         {canManageVideos || canManageImages ? (
-          <UploadAccessPanel state={uploadAccess} actor={actor} />
+          <>
+            <UploadAccessPanel state={uploadAccess} actor={actor} />
+            <UploadPasswordDialog state={uploadAccess} />
+          </>
         ) : null}
 
-        {canManageVideos && effectiveBranchId && uploadAccess.uploadsUnlocked ? (
+        {canManageVideos && effectiveBranchId ? (
           <ContentPanel title="Add Video" description="Pick the easiest option — pasting a link is usually fastest">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
@@ -625,7 +627,7 @@ export default function VideosPage() {
                   />
                 </div>
                 <Button
-                  onClick={() => void handleExternalAdd()}
+                  onClick={() => uploadAccess.guard(() => handleExternalAdd())}
                   disabled={!externalUrl.trim()}
                   className="rounded-xl"
                 >
@@ -697,7 +699,7 @@ export default function VideosPage() {
                 ) : null}
                 <Button
                   disabled={uploading || !file}
-                  onClick={() => void handleUpload()}
+                  onClick={() => uploadAccess.guard(() => handleUpload())}
                   className="rounded-xl"
                 >
                   <Upload className="mr-2 h-4 w-4" />
@@ -733,7 +735,7 @@ export default function VideosPage() {
                   </p>
                 </div>
                 <Button
-                  onClick={() => void handleDriveAdd()}
+                  onClick={() => uploadAccess.guard(() => handleDriveAdd())}
                   disabled={!driveUrl.trim()}
                   className="rounded-xl"
                 >
@@ -860,7 +862,7 @@ export default function VideosPage() {
           </ContentPanel>
         ) : null}
 
-        {canManageImages && effectiveBranchId && uploadAccess.uploadsUnlocked ? (
+        {canManageImages && effectiveBranchId ? (
           <ContentPanel title="Image Adverts" description="Static images rotate on the display when no video is playing">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
@@ -900,7 +902,7 @@ export default function VideosPage() {
                   />
                 </div>
                 <Button
-                  onClick={() => void handleImageUrlAdd()}
+                  onClick={() => uploadAccess.guard(() => handleImageUrlAdd())}
                   disabled={imageUploading || !imageUrl.trim()}
                   className="rounded-xl"
                 >
@@ -929,7 +931,7 @@ export default function VideosPage() {
                   ) : null}
                 </div>
                 <Button
-                  onClick={() => void handleImageUpload()}
+                  onClick={() => uploadAccess.guard(() => handleImageUpload())}
                   disabled={imageUploading || !imageFile}
                   className="rounded-xl"
                 >
@@ -959,7 +961,7 @@ export default function VideosPage() {
               keyExtractor={(v) => v.id}
               mobileTitle={(v) => v.title}
               onReorder={(ordered) => void reorderVideosList(ordered)}
-              reorderDisabled={!canManageVideos || !uploadAccess.uploadsUnlocked}
+              reorderDisabled={!canManageVideos}
               columns={[
                 { key: "title", header: "Title", cell: (v) => <span className="font-medium">{v.title}</span> },
                 {
@@ -1015,7 +1017,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Play earlier"
-                          disabled={videos.findIndex((x) => x.id === v.id) === 0 || !uploadAccess.uploadsUnlocked}
+                          disabled={videos.findIndex((x) => x.id === v.id) === 0}
                           onClick={() => void moveVideo(v, "up")}
                         >
                           <ArrowUp className="h-3 w-3" />
@@ -1025,7 +1027,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Play later"
-                          disabled={videos.findIndex((x) => x.id === v.id) === videos.length - 1 || !uploadAccess.uploadsUnlocked}
+                          disabled={videos.findIndex((x) => x.id === v.id) === videos.length - 1}
                           onClick={() => void moveVideo(v, "down")}
                         >
                           <ArrowDown className="h-3 w-3" />
@@ -1081,7 +1083,7 @@ export default function VideosPage() {
               keyExtractor={(img) => img.id}
               mobileTitle={(img) => img.title}
               onReorder={(ordered) => void reorderImagesList(ordered)}
-              reorderDisabled={!canManageImages || !uploadAccess.uploadsUnlocked}
+              reorderDisabled={!canManageImages}
               columns={[
                 { key: "title", header: "Title", cell: (img) => img.title },
                 {
@@ -1128,7 +1130,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Show earlier"
-                          disabled={images.findIndex((x) => x.id === img.id) === 0 || !uploadAccess.uploadsUnlocked}
+                          disabled={images.findIndex((x) => x.id === img.id) === 0}
                           onClick={() => void moveImage(img, "up")}
                         >
                           <ArrowUp className="h-3 w-3" />
@@ -1138,7 +1140,7 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg px-2"
                           title="Show later"
-                          disabled={images.findIndex((x) => x.id === img.id) === images.length - 1 || !uploadAccess.uploadsUnlocked}
+                          disabled={images.findIndex((x) => x.id === img.id) === images.length - 1}
                           onClick={() => void moveImage(img, "down")}
                         >
                           <ArrowDown className="h-3 w-3" />
