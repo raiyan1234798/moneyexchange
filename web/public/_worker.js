@@ -113,10 +113,40 @@ async function handleUpload(request, env) {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
   const contentType = request.headers.get("Content-Type") || "";
+
+  // FAST PATH — raw file body streamed straight to R2. multipart/form-data makes
+  // the Worker buffer the ENTIRE file into its 128MB memory before storing it,
+  // which is slow and breaks on big videos. Streaming request.body pipes the
+  // bytes to R2 as they arrive — no buffering, no size ceiling, much faster.
+  // The client sends the file as the request body with branchId + filename in
+  // the query string. (Same-origin /api/upload, so no CORS to worry about.)
   if (!contentType.includes("multipart/form-data")) {
-    return json({ error: "Expected multipart/form-data upload" }, 400);
+    const branchId = String(url.searchParams.get("branchId") || "").trim();
+    const filename = url.searchParams.get("filename") || "upload";
+    if (!branchId || !/^[\w-]+$/.test(branchId)) return json({ error: "Missing or invalid branchId" }, 400);
+    if (!request.body) return json({ error: "Empty upload body" }, 400);
+    const declaredSize = Number(request.headers.get("Content-Length") || "0");
+    if (declaredSize > MAX_BYTES) {
+      return json({ error: `File exceeds ${MAX_BYTES / (1024 * 1024)}MB limit` }, 413);
+    }
+    const mimeType = contentType || "application/octet-stream";
+    const isImageStream = mimeType.startsWith("image/");
+    const isVideoStream = mimeType.startsWith("video/");
+    if (!isImageStream && !isVideoStream) {
+      return json({ error: "Only image or video files are allowed" }, 400);
+    }
+    const streamKey = `${isImageStream ? "images" : "videos"}/${branchId}/${Date.now()}-${sanitizeFilename(filename)}`;
+    const stored = await bucket.put(streamKey, request.body, { httpMetadata: { contentType: mimeType } });
+    return json({
+      storagePath: streamKey,
+      downloadUrl: `${publicUrl}/${streamKey}`,
+      mimeType,
+      fileSizeBytes: (stored && stored.size) || declaredSize || 0,
+    });
   }
 
+  // LEGACY PATH — multipart form-data (buffers the whole file). Kept so an older
+  // cached client keeps working; new clients use the streaming path above.
   const form = await request.formData();
   const file = form.get("file");
   const branchId = String(form.get("branchId") || "").trim();

@@ -47,13 +47,19 @@ export function uploadVideoToR2(
     void (async () => {
       try {
         const token = await getIdToken();
-        const form = new FormData();
-        form.append("file", file);
-        form.append("branchId", branchId);
+
+        // Send the RAW file as the request body (not multipart form-data): the
+        // server streams it straight to R2 instead of buffering the whole file
+        // in memory first, so large videos upload much faster and don't stall.
+        // branchId + filename ride in the query string. Same-origin, so no CORS.
+        const uploadUrl =
+          `${getR2UploadUrl()}?branchId=${encodeURIComponent(branchId)}` +
+          `&filename=${encodeURIComponent(file.name || "upload")}`;
 
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", getR2UploadUrl());
+        xhr.open("POST", uploadUrl);
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
         xhr.timeout = R2_UPLOAD_TIMEOUT_MS;
 
         xhr.upload.onprogress = (event) => {
@@ -104,7 +110,7 @@ export function uploadVideoToR2(
           reject(new Error("Upload cancelled."));
         };
 
-        xhr.send(form);
+        xhr.send(file);
       } catch (error) {
         if (settled) return;
         settled = true;

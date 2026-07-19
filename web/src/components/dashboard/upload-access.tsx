@@ -16,9 +16,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { isClientAdminEmail, normalizeEmail } from "@/lib/auth/user-profile";
-import { CLIENT_ADMIN_EMAIL } from "@/lib/constants";
+import { CLIENT_ADMIN_EMAIL, COLLECTIONS } from "@/lib/constants";
+import { subscribeCollection, where } from "@/lib/firebase/firestore";
+import type { AppUser } from "@/lib/types";
 import {
   grantUploadAccess,
   revokeUploadAccess,
@@ -199,6 +208,39 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
   const [newPassword, setNewPassword] = useState("");
   const [grantEmail, setGrantEmail] = useState("");
   const [busy, setBusy] = useState(false);
+  const [admins, setAdmins] = useState<AppUser[]>([]);
+
+  // The existing admin users the owner can pick from (so access is granted by
+  // choosing a real, already-approved admin — not by typing an email that might
+  // be a typo or someone who can't sign in).
+  useEffect(() => {
+    if (!canManage) return;
+    const unsub = subscribeCollection<AppUser & { id?: string }>(
+      COLLECTIONS.users,
+      [where("role", "==", "admin")],
+      (items) => setAdmins(items.map((u) => ({ ...u, uid: u.uid ?? u.id ?? "" }))),
+      () => setAdmins([]),
+    );
+    return unsub;
+  }, [canManage]);
+
+  const grantableAdmins = admins.filter((a) => {
+    const e = normalizeEmail(a.email ?? "");
+    return e && !isClientAdminEmail(e) && !grantedEmails.includes(e);
+  });
+
+  async function grantByEmail(email: string) {
+    if (!actor) return;
+    setBusy(true);
+    try {
+      await grantUploadAccess(email, actor);
+      toast.success(`${normalizeEmail(email)} can now upload without the password`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not grant access");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function savePassword() {
     if (!actor) return;
@@ -318,18 +360,52 @@ export function UploadAccessPanel({ state, actor }: { state: UploadAccessState; 
             ))
           )}
         </div>
-        <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-          <Input
-            type="email"
-            value={grantEmail}
-            onChange={(e) => setGrantEmail(e.target.value)}
-            placeholder="admin-email@example.com"
-            className="rounded-xl"
-          />
-          <Button variant="outline" onClick={() => void addGrant()} disabled={busy} className="rounded-xl">
-            Add admin
-          </Button>
+        {/* Pick from the existing admin users — no need to remember/retype emails. */}
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Choose an admin to give access</Label>
+          <Select
+            value=""
+            onValueChange={(email) => {
+              if (email) void grantByEmail(email);
+            }}
+            disabled={busy || grantableAdmins.length === 0}
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue
+                placeholder={
+                  admins.length === 0
+                    ? "No admin users yet — add one on the Users page"
+                    : grantableAdmins.length === 0
+                      ? "All admins already have access"
+                      : "Select an admin…"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent>
+              {grantableAdmins.map((a) => (
+                <SelectItem key={a.uid || a.email} value={normalizeEmail(a.email)}>
+                  {a.displayName?.trim() ? `${a.displayName} — ${a.email}` : a.email}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+        {/* Fallback: type an email for someone not yet listed as an admin. */}
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer select-none">Or add by email</summary>
+          <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
+            <Input
+              type="email"
+              value={grantEmail}
+              onChange={(e) => setGrantEmail(e.target.value)}
+              placeholder="admin-email@example.com"
+              className="rounded-xl"
+            />
+            <Button variant="outline" onClick={() => void addGrant()} disabled={busy} className="rounded-xl">
+              Add admin
+            </Button>
+          </div>
+        </details>
       </div>
     </div>
   );
