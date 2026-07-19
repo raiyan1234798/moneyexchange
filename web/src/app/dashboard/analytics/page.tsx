@@ -8,7 +8,7 @@ import { ContentPanel, PageShell } from "@/components/shared/page-elements";
 import { subscribeBranches, getDashboardStats } from "@/lib/services/branch-service";
 import { subscribeTvDevices } from "@/lib/services/tv-service";
 import { subscribeCurrencies } from "@/lib/services/currency-service";
-import { subscribeCollection, orderBy } from "@/lib/firebase/firestore";
+import { subscribeCollection, orderBy, limit } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import type { AuditLog } from "@/lib/types";
 
@@ -43,7 +43,8 @@ export default function AnalyticsPage() {
     });
     const unsubLogs = subscribeCollection<AuditLog>(
       COLLECTIONS.auditLogs,
-      [orderBy("timestamp", "desc")],
+      // Only the most-recent rows — never download every audit doc (large + many).
+      [orderBy("timestamp", "desc"), limit(10)],
       (logs) => setRecentActions(logs.slice(0, 10)),
     );
 
