@@ -81,6 +81,67 @@ async function isMediaManager(user, token, env) {
   }
 }
 
+// R2 multipart upload — lets the client push a big file in <100MB parts so it
+// never hits Cloudflare's single-request body limit. Auth is already checked by
+// handleUpload before this runs.
+async function handleMultipart(op, request, url, bucket, publicUrl) {
+  if (op === "start") {
+    const branchId = String(url.searchParams.get("branchId") || "").trim();
+    const filename = url.searchParams.get("filename") || "upload";
+    const contentType = url.searchParams.get("contentType") || "application/octet-stream";
+    if (!branchId || !/^[\w-]+$/.test(branchId)) return json({ error: "Missing or invalid branchId" }, 400);
+    const isImage = contentType.startsWith("image/");
+    const isVideo = contentType.startsWith("video/");
+    if (!isImage && !isVideo) return json({ error: "Only image or video files are allowed" }, 400);
+    const key = `${isImage ? "images" : "videos"}/${branchId}/${Date.now()}-${sanitizeFilename(filename)}`;
+    const mpu = await bucket.createMultipartUpload(key, { httpMetadata: { contentType } });
+    return json({ key: mpu.key, uploadId: mpu.uploadId });
+  }
+
+  const key = url.searchParams.get("key") || "";
+  const uploadId = url.searchParams.get("uploadId") || "";
+  if (!(key.startsWith("videos/") || key.startsWith("images/"))) return json({ error: "Invalid storage key" }, 400);
+  if (!uploadId) return json({ error: "Missing uploadId" }, 400);
+  const mpu = bucket.resumeMultipartUpload(key, uploadId);
+
+  if (op === "part") {
+    const partNumber = Number(url.searchParams.get("partNumber") || "0");
+    if (!Number.isInteger(partNumber) || partNumber < 1 || partNumber > 10000) {
+      return json({ error: "Invalid partNumber" }, 400);
+    }
+    if (!request.body) return json({ error: "Empty part body" }, 400);
+    const part = await mpu.uploadPart(partNumber, request.body);
+    return json({ partNumber: part.partNumber, etag: part.etag });
+  }
+
+  if (op === "complete") {
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "Invalid JSON body" }, 400);
+    }
+    const parts = Array.isArray(body && body.parts) ? body.parts : null;
+    if (!parts || parts.length === 0) return json({ error: "Missing parts" }, 400);
+    const obj = await mpu.complete(
+      parts.map((p) => ({ partNumber: Number(p.partNumber), etag: String(p.etag) })),
+    );
+    return json({
+      storagePath: key,
+      downloadUrl: `${publicUrl}/${key}`,
+      mimeType: (obj && obj.httpMetadata && obj.httpMetadata.contentType) || "application/octet-stream",
+      fileSizeBytes: (obj && obj.size) || 0,
+    });
+  }
+
+  if (op === "abort") {
+    await mpu.abort();
+    return json({ aborted: true });
+  }
+
+  return json({ error: "Unknown upload op" }, 400);
+}
+
 async function handleUpload(request, env) {
   const bucket = env.R2_BUCKET;
   if (!bucket) {
@@ -111,6 +172,13 @@ async function handleUpload(request, env) {
   }
 
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+
+  // Cloudflare caps a single request body at ~100MB, so a big video can't be
+  // uploaded in one request. `?op=` drives an R2 MULTIPART upload: the client
+  // sends the file in <100MB parts (start → part×N → complete) and R2 stitches
+  // them back together. This is how files of any size upload without stalling.
+  const mpuOp = url.searchParams.get("op");
+  if (mpuOp) return await handleMultipart(mpuOp, request, url, bucket, publicUrl);
 
   const contentType = request.headers.get("Content-Type") || "";
 
