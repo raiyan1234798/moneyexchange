@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 // Next.js content-hashes its JS/CSS assets, so a new build changes the filenames
 // of every chunk that changed (the page chunk, the CSS, …). The webpack runtime
@@ -11,6 +11,47 @@ const ASSET_RE = /\/_next\/static\/[^"'\s\\)]+?\.(?:js|css)/g;
 
 function assetsFromHtml(html: string): Set<string> {
   return new Set(html.match(ASSET_RE) ?? []);
+}
+
+/**
+ * Polls for a newer deployed build and returns true once one is live. The page
+ * decides what to do: the signage display auto-reloads; the dashboard shows a
+ * "refresh" banner (never auto-reloading, so it can't interrupt an upload or
+ * lose unsaved edits).
+ */
+export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000): boolean {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined") return;
+    const loaded = assetsFromHtml(document.documentElement.outerHTML);
+    if (loaded.size === 0) return;
+    let stopped = false;
+    const check = async () => {
+      if (stopped) return;
+      try {
+        const res = await fetch(`${window.location.pathname}?_v=${Date.now()}`, {
+          cache: "no-store",
+          headers: { "cache-control": "no-cache" },
+        });
+        if (!res.ok || stopped) return;
+        const fresh = assetsFromHtml(await res.text());
+        for (const asset of fresh) {
+          if (!loaded.has(asset)) {
+            if (!stopped) setAvailable(true);
+            return;
+          }
+        }
+      } catch {
+        // transient — try again next tick
+      }
+    };
+    const id = window.setInterval(check, intervalMs);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [enabled, intervalMs]);
+  return available;
 }
 
 /**
