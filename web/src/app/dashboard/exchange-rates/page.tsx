@@ -140,6 +140,8 @@ export default function ExchangeRatesPage() {
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canCreateCatalog = hasPermission("manageCurrencies");
+  // For the catalog's "On branches" column: every branch's rates (admins only).
+  const [allRates, setAllRates] = useState<ExchangeRate[]>([]);
   const transferLocalLabel = branch?.settings?.transferLocalLabel?.trim() || "UGX";
 
   useEffect(() => {
@@ -151,6 +153,16 @@ export default function ExchangeRatesPage() {
       onError,
     );
   }, [clearNotice, onError]);
+
+  useEffect(() => {
+    if (!canCreateCatalog) return;
+    return subscribeCollection<ExchangeRate>(
+      COLLECTIONS.exchangeRates,
+      [],
+      (items) => setAllRates(items),
+      () => setAllRates([]),
+    );
+  }, [canCreateCatalog]);
 
   useEffect(() => {
     const ref = doc(db, COLLECTIONS.settings, SETTINGS_ID);
@@ -875,13 +887,15 @@ export default function ExchangeRatesPage() {
                             <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                               NEW
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[10px] font-medium text-muted-foreground">saved ✓</span>
+                          )}
                         </span>
-                        {isNew && !autoFlag ? (
+                        {isNew ? (
                           <Input
                             value={row.flag ?? ""}
                             aria-label={`Flag for ${row.currencyCode}`}
-                            placeholder="Paste flag 🏳️"
+                            placeholder={autoFlag ? `Auto: ${autoFlag}` : "Paste flag 🏳️"}
                             onChange={(e) =>
                               setImportPreview((prev) =>
                                 prev
@@ -1322,6 +1336,30 @@ export default function ExchangeRatesPage() {
                       return (
                         <span className="block truncate text-muted-foreground">
                           {country || "—"}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "branches",
+                    header: "On branches",
+                    width: "w-[170px]",
+                    hideOnMobile: true,
+                    cell: (c) => {
+                      const code = getCatalogCurrency(c).code;
+                      const names = [
+                        ...new Set(
+                          allRates
+                            .filter((r) => r.currencyCode.toUpperCase() === code && !r.isHidden)
+                            .map((r) => branches.find((b) => b.id === r.branchId)?.code ?? null)
+                            .filter(Boolean) as string[],
+                        ),
+                      ];
+                      return names.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <span className="block truncate text-xs text-muted-foreground" title={names.join(", ")}>
+                          {names.join(", ")}
                         </span>
                       );
                     },

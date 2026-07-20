@@ -327,8 +327,8 @@ export function DataTable<T>({
         ))}
       </div>
 
-      <div className="data-table-scroll hidden md:block">
-        <table className="w-full table-fixed caption-bottom text-sm">
+      <div className="data-table-scroll hidden overflow-x-auto md:block">
+        <table className="w-full min-w-[760px] table-fixed caption-bottom text-sm">
           <thead>
             <tr className="border-b border-border/40">
               {columns.map((col) => (

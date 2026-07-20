@@ -283,6 +283,9 @@ export function CentralTransferPanel({
         {rows.map((row) => {
           const draft = drafts[row.id] ?? { transferUsd: "", transferLocal: "" };
           const meta = getCurrencyMeta(row.currencyCode);
+          // Auto-pick by country code when the built-in catalog doesn't know the
+          // currency (e.g. TWD -> TW -> Taiwan flag).
+          const derivedFlag = meta?.flag ?? flagFromCurrencyCode(row.currencyCode);
           const changed =
             draft.transferUsd !== (row.transferUsd != null ? String(row.transferUsd) : "") ||
             draft.transferLocal !== (row.transferLocal != null ? String(row.transferLocal) : "");
@@ -294,7 +297,7 @@ export function CentralTransferPanel({
               }`}
             >
               <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 text-xl leading-none">{meta?.flag ?? "🌍"}</span>
+                <span className="shrink-0 text-xl leading-none">{derivedFlag ?? "🌍"}</span>
                 <div className="min-w-0">
                   <p className="font-semibold">{row.currencyCode}</p>
                   {meta?.name ? (
@@ -490,13 +493,15 @@ export function CentralTransferPanel({
                             <span className="rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
                               NEW
                             </span>
-                          ) : null}
+                          ) : (
+                            <span className="text-[9px] font-medium text-muted-foreground">saved ✓</span>
+                          )}
                         </span>
-                        {isNew && !autoFlag ? (
+                        {isNew ? (
                           <Input
                             value={r.flag ?? ""}
                             aria-label={`Flag for ${r.currencyCode}`}
-                            placeholder="Flag 🏳️"
+                            placeholder={autoFlag ? `Auto: ${autoFlag}` : "Flag 🏳️"}
                             onChange={(e) =>
                               setPending((prev) =>
                                 prev

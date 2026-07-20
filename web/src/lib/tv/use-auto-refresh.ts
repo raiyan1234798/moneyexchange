@@ -13,13 +13,17 @@ import { BUILD_ID } from "@/lib/build-id";
  * fewer script tags than the server HTML, so that approach reported "new build"
  * on every check.)
  */
-export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000): boolean {
-  const [available, setAvailable] = useState(false);
+export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000): string | null {
+  const [availableId, setAvailableId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
     if (!BUILD_ID) return; // no id compiled in — never nag
     let stopped = false;
+    // Require the SAME different id on two consecutive checks: right after a
+    // deploy, Cloudflare's edges can briefly serve a mix of old and new HTML,
+    // and a single stale response must not trigger anything.
+    let lastSeen: string | null = null;
 
     const check = async () => {
       if (stopped) return;
@@ -34,8 +38,12 @@ export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000)
         const served = html.match(
           /<meta[^>]+name=["']app-build["'][^>]+content=["']([^"']+)["']/i,
         )?.[1];
-        // Only flag when the server clearly reports a DIFFERENT build.
-        if (served && served !== BUILD_ID && !stopped) setAvailable(true);
+        if (!served || served === BUILD_ID) {
+          lastSeen = null;
+          return;
+        }
+        if (served === lastSeen && !stopped) setAvailableId(served);
+        lastSeen = served;
       } catch {
         // Offline or transient network error — try again next tick.
       }
@@ -48,7 +56,7 @@ export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000)
     };
   }, [enabled, intervalMs]);
 
-  return available;
+  return availableId;
 }
 
 /**
