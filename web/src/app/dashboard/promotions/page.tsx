@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { checkPromoMediaFit, PROMO_IDEAL_TEXT } from "@/lib/promo-fit";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
@@ -407,6 +408,10 @@ export default function PromotionsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion image</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Best size: <span className="font-semibold">{PROMO_IDEAL_TEXT}</span> — that
+                    shape fills the whole promo area perfectly.
+                  </p>
                   <div className="flex items-center gap-3">
                     <Input
                       type="file"
@@ -416,6 +421,10 @@ export default function PromotionsPage() {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         try {
+                          // Warn (never block) when the shape won't fill the tall
+                          // promo area without stretching.
+                          const fit = await checkPromoMediaFit(file);
+                          if (fit) toast.warning(fit, { duration: 12000 });
                           const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
                           set({ ratePromoImageUrl: dataUrl });
                           toast.success("Promotion image ready — Save to apply");

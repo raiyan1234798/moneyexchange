@@ -24,6 +24,7 @@ import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
 import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
+import { checkPromoMediaFit } from "@/lib/promo-fit";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
 import {
@@ -1110,6 +1111,10 @@ function BranchSettingsForm({
                 let added = 0;
                 for (const file of files) {
                   try {
+                    // Friendly shape check: warn when this won't fill the tall
+                    // promo area without stretching (upload continues either way).
+                    const fit = await checkPromoMediaFit(file);
+                    if (fit) toast.warning(`${file.name}: ${fit}`, { duration: 12000 });
                     if (file.type.startsWith("video/") || /\.(mp4|webm|mov)$/i.test(file.name)) {
                       // Videos go to R2 (a data URL would be far too big for the doc).
                       if (!isR2UploadConfigured()) {
