@@ -2,107 +2,63 @@
 
 import { useEffect, useState } from "react";
 
-// Next.js content-hashes its JS/CSS assets, so a new build changes the filenames
-// of every chunk that changed (the page chunk, the CSS, …). The webpack runtime
-// chunk, by contrast, stays byte-identical across builds — so we must compare the
-// FULL asset set, not one marker. Signage browsers cache the app hard, so without
-// this a deployed change can sit invisible on the TV for days.
-const ASSET_RE = /\/_next\/static\/[^"'\s\\)]+?\.(?:js|css)/g;
-
-function assetsFromHtml(html: string): Set<string> {
-  return new Set(html.match(ASSET_RE) ?? []);
-}
+import { BUILD_ID } from "@/lib/build-id";
 
 /**
- * Polls for a newer deployed build and returns true once one is live. The page
- * decides what to do: the signage display auto-reloads; the dashboard shows a
- * "refresh" banner (never auto-reloading, so it can't interrupt an upload or
- * lose unsaved edits).
+ * Polls for a newer deployed build and returns true once one is live.
+ *
+ * Compares ONE exact value: the BUILD_ID compiled into this bundle vs the
+ * `app-build` meta tag in the freshly-fetched HTML. (Comparing asset lists does
+ * NOT work — after client-side navigation the live DOM legitimately holds far
+ * fewer script tags than the server HTML, so that approach reported "new build"
+ * on every check.)
  */
 export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000): boolean {
   const [available, setAvailable] = useState(false);
+
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
-    const loaded = assetsFromHtml(document.documentElement.outerHTML);
-    if (loaded.size === 0) return;
+    if (!BUILD_ID) return; // no id compiled in — never nag
     let stopped = false;
+
     const check = async () => {
       if (stopped) return;
       try {
+        // Page HTML is served must-revalidate, so this reflects what is deployed now.
         const res = await fetch(`${window.location.pathname}?_v=${Date.now()}`, {
           cache: "no-store",
           headers: { "cache-control": "no-cache" },
         });
         if (!res.ok || stopped) return;
-        const fresh = assetsFromHtml(await res.text());
-        for (const asset of fresh) {
-          if (!loaded.has(asset)) {
-            if (!stopped) setAvailable(true);
-            return;
-          }
-        }
+        const html = await res.text();
+        const served = html.match(
+          /<meta[^>]+name=["']app-build["'][^>]+content=["']([^"']+)["']/i,
+        )?.[1];
+        // Only flag when the server clearly reports a DIFFERENT build.
+        if (served && served !== BUILD_ID && !stopped) setAvailable(true);
       } catch {
-        // transient — try again next tick
+        // Offline or transient network error — try again next tick.
       }
     };
+
     const id = window.setInterval(check, intervalMs);
     return () => {
       stopped = true;
       window.clearInterval(id);
     };
   }, [enabled, intervalMs]);
+
   return available;
 }
 
 /**
- * On the signage display only: every few minutes, fetch the current page fresh
- * and reload if the server is now serving a NEWER build (an asset filename the
- * running page never loaded), so the TV picks up deployed features by itself.
+ * Unattended signage only: reload the TV itself once a newer build is deployed,
+ * so displays pick up fixes without anyone touching them. The dashboard instead
+ * shows a Refresh banner (see UpdateBanner) so it can never interrupt an upload.
  */
 export function useAutoRefreshOnNewBuild(enabled: boolean, intervalMs = 4 * 60 * 1000): void {
+  const available = useNewBuildAvailable(enabled, intervalMs);
   useEffect(() => {
-    if (!enabled || typeof window === "undefined") return;
-    // What THIS page actually loaded — read from the live DOM, NOT a fresh fetch.
-    // A fresh fetch could already be a newer build than the code that is running,
-    // which would make us treat "stale cached page" as "up to date" forever.
-    const loaded = assetsFromHtml(document.documentElement.outerHTML);
-    if (loaded.size === 0) return;
-
-    let stopped = false;
-    let reloading = false;
-    const check = async () => {
-      if (reloading || stopped) return;
-      try {
-        // Cache-bust hard so no edge/proxy hands back a stale copy.
-        const res = await fetch(`${window.location.pathname}?_v=${Date.now()}`, {
-          cache: "no-store",
-          headers: { "cache-control": "no-cache" },
-        });
-        if (!res.ok || stopped) return;
-        const fresh = assetsFromHtml(await res.text());
-        // A newer build introduces content-hashed filenames the running page
-        // never loaded. (Chunks lazily added to the DOM after load only grow
-        // `loaded`, so checking "fresh has something new" never false-fires.)
-        let hasNew = false;
-        for (const asset of fresh) {
-          if (!loaded.has(asset)) {
-            hasNew = true;
-            break;
-          }
-        }
-        if (hasNew && !stopped) {
-          reloading = true;
-          window.location.reload();
-        }
-      } catch {
-        // Offline or transient network error — ignore and try again next tick.
-      }
-    };
-
-    const id = window.setInterval(check, intervalMs);
-    return () => {
-      stopped = true;
-      window.clearInterval(id);
-    };
-  }, [enabled, intervalMs]);
+    if (available) window.location.reload();
+  }, [available]);
 }

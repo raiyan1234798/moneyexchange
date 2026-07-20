@@ -27,6 +27,7 @@ import {
 import { AppProviders } from "@/components/providers/app-providers";
 import { Toaster } from "@/components/ui/sonner";
 import { BRAND } from "@/lib/brand";
+import { BUILD_ID } from "@/lib/build-id";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -138,6 +139,11 @@ export default function RootLayout({
         "h-full",
       ].join(" ")}
     >
+      <head>
+        {/* Stamped per build so the app can detect a genuinely newer deploy by
+            comparing this to the BUILD_ID compiled into the running bundle. */}
+        <meta name="app-build" content={BUILD_ID} />
+      </head>
       <body className="min-h-full bg-background text-foreground antialiased">
         <AppProviders>{children}</AppProviders>
         <Toaster richColors closeButton />
