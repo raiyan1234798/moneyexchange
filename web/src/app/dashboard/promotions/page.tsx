@@ -448,6 +448,25 @@ export default function PromotionsPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
+                  <Label>Image / video fit on the promo card</Label>
+                  <Select
+                    value={s.ratePromoMediaFit ?? "fill"}
+                    onValueChange={(v) => set({ ratePromoMediaFit: (v as "fill" | "cover" | "contain") ?? "fill" })}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="fill">Stretch to fill — no gaps, nothing cut (default)</SelectItem>
+                      <SelectItem value="cover">Zoom to fill — no gaps, edges may be cut</SelectItem>
+                      <SelectItem value="contain">Show the whole picture — may leave blue bands</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    A {PROMO_IDEAL_TEXT} upload fills perfectly with any of these.
+                  </p>
+                </div>
+                <div className="space-y-2">
                   <Label>Promotion message (optional)</Label>
                   <Input
                     value={s.ratePromoText ?? ""}

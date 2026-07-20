@@ -97,6 +97,8 @@ interface UnimoniRatesPanelProps {
   promoDurationSeconds?: number;
   /** Seconds the TRANSFER card stays visible (defaults to sheetIntervalSeconds). */
   transferDurationSeconds?: number | null;
+  /** How promo media fits its card: fill (stretch), cover (crop), contain (whole). */
+  promoMediaFit?: "fill" | "cover" | "contain";
   /** Order the rotating slides appear in. Missing/absent slides are skipped. */
   rateCardOrder?: Array<"forex" | "transfer" | "promo">;
   /** Play promo videos WITH sound (default muted). */
@@ -192,6 +194,7 @@ export function UnimoniRatesPanel({
   promoText,
   promoDurationSeconds,
   transferDurationSeconds = null,
+  promoMediaFit = "fill",
   rateCardOrder,
   videoSoundOn = false,
   sheetTransition = "fade",
@@ -593,18 +596,16 @@ export function UnimoniRatesPanel({
                     // Stretch to exactly FILL the card: the whole frame stays
                     // visible (nothing cropped) and there are no navy bands.
                     // Same trade-off the client chose for the main video area.
-                    className="h-full w-full object-fill"
+                    className={`h-full w-full ${promoMediaFit === "cover" ? "object-cover" : promoMediaFit === "contain" ? "object-contain" : "object-fill"}`}
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={activeSheet.promoMedia.url}
                     alt="Promotion"
-                    // object-FILL: the poster fills the whole area — no navy
-                    // bands, no cropping (all content stays visible). A poster
-                    // that isn't 9:16 stretches a little to fit; upload a 9:16
-                    // portrait (e.g. 1080×1920) and it fills with no stretch.
-                    className="h-full w-full object-fill"
+                    // Admin-chosen fit: fill=stretch (no gaps, nothing cut),
+                    // cover=zoom (edges crop), contain=whole picture (bands).
+                    className={`h-full w-full ${promoMediaFit === "cover" ? "object-cover" : promoMediaFit === "contain" ? "object-contain" : "object-fill"}`}
                   />
                 )}
               </div>

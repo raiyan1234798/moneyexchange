@@ -1089,6 +1089,28 @@ function BranchSettingsForm({
         title="Promotion slide"
         description="Its own screen in the rate-card rotation: message above and/or below, with images and videos. With no text the image fills the whole card; leave everything empty to hide it."
       >
+        <div className="space-y-2">
+          <Label>Image / video fit on the promo card</Label>
+          <Select
+            value={settings.ratePromoMediaFit ?? "fill"}
+            onValueChange={(value) =>
+              setSettings({ ...settings, ratePromoMediaFit: (value as "fill" | "cover" | "contain") ?? "fill" })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fill">Stretch to fill — no gaps, nothing cut (default)</SelectItem>
+              <SelectItem value="cover">Zoom to fill — no gaps, edges may be cut</SelectItem>
+              <SelectItem value="contain">Show the whole picture — may leave blue bands</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            How every promotion image and video sits in the card. Upload at 1080 × 1920 (9:16)
+            and all three look identical.
+          </p>
+        </div>
         <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
           <div>
             <Label>Show the promotion slide on the TV</Label>

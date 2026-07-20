@@ -132,6 +132,9 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,
+  /** How promo media fits its card: fill=stretch (no gaps, nothing cut),
+      cover=zoom to fill (edges crop), contain=show whole (may leave bands). */
+  ratePromoMediaFit: "fill" as "fill" | "cover" | "contain",
   /** Seconds the TRANSFER card stays — null = same as the forex slides. */
   rateTransferDurationSeconds: null as number | null,
   // ONE font for the whole display — overrides all the individual fonts below.

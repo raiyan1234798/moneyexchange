@@ -65,6 +65,7 @@ interface TimedRatesPanelProps {
   promoText: string | null;
   promoDurationSeconds: number;
   transferDurationSeconds: number | null;
+  promoMediaFit: "fill" | "cover" | "contain";
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
   videoSoundOn: boolean;
   sheetTransition: string;
@@ -115,6 +116,7 @@ function TimedRatesPanel({
   promoText,
   promoDurationSeconds,
   transferDurationSeconds,
+  promoMediaFit,
   rateCardOrder,
   videoSoundOn,
   sheetTransition,
@@ -177,6 +179,7 @@ function TimedRatesPanel({
       promoText={promoText}
       promoDurationSeconds={promoDurationSeconds}
       transferDurationSeconds={transferDurationSeconds}
+      promoMediaFit={promoMediaFit}
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
       sheetTransition={sheetTransition}
@@ -758,6 +761,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoText={ratePromoText}
       promoDurationSeconds={ratePromoDurationSeconds}
       transferDurationSeconds={branchSettings.rateTransferDurationSeconds ?? null}
+      promoMediaFit={branchSettings.ratePromoMediaFit ?? "fill"}
       rateCardOrder={rateCardOrder}
       videoSoundOn={ratePromoSoundOn}
       sheetTransition={branchSettings.rateCardTransition ?? "fade"}
