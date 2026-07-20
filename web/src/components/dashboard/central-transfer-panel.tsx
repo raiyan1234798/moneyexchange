@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Eye, EyeOff, Plus, Save, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   setTransferRateHidden,
   subscribeTransferRates,
   upsertTransferRate,
+  reorderTransferRates,
 } from "@/lib/services/transfer-rate-service";
 import { parseRateFile } from "@/lib/rate-import";
 import { getCurrencyMeta } from "@/lib/currency-utils";
@@ -48,6 +49,18 @@ export function CentralTransferPanel({
   localLabel: string;
 }) {
   const [rows, setRows] = useState<TransferRate[]>([]);
+
+  /** Move a currency up/down on the TRANSFER card only (forex order untouched). */
+  function moveTransferRow(row: TransferRate, dir: -1 | 1) {
+    const codes = rows.map((r) => r.currencyCode);
+    const i = codes.indexOf(row.currencyCode);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= codes.length) return;
+    [codes[i], codes[j]] = [codes[j], codes[i]];
+    void reorderTransferRates(codes, actor)
+      .then(() => toast.success(`${row.currencyCode} moved ${dir < 0 ? "up" : "down"} on the transfer card`))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reorder"));
+  }
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [newCode, setNewCode] = useState("");
   const [newUsd, setNewUsd] = useState("");
@@ -312,6 +325,28 @@ export function CentralTransferPanel({
                 >
                   <Save className="mr-1.5 h-4 w-4" />
                   Publish
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy || rows[0]?.id === row.id}
+                  className="rounded-lg px-2"
+                  title="Move up on the transfer card"
+                  aria-label={`Move ${row.currencyCode} up`}
+                  onClick={() => moveTransferRow(row, -1)}
+                >
+                  <ArrowUp className="h-3 w-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={busy || rows[rows.length - 1]?.id === row.id}
+                  className="rounded-lg px-2"
+                  title="Move down on the transfer card"
+                  aria-label={`Move ${row.currencyCode} down`}
+                  onClick={() => moveTransferRow(row, 1)}
+                >
+                  <ArrowDown className="h-3 w-3" />
                 </Button>
                 <Button
                   variant="outline"

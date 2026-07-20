@@ -996,7 +996,7 @@ function BranchSettingsForm({
       {/* ---- Rate-screen sequence timing (per the client: 3s / 6s / 10s, manual) ---- */}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Rate screen duration (seconds)</Label>
+          <Label>Each currency slide shows for (seconds)</Label>
           <Input
             type="number"
             min={2}
@@ -1008,11 +1008,12 @@ function BranchSettingsForm({
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            How long each rotating rate screen stays (forex pages, transfer card) — e.g. 3, 6, 10.
+            Set the seconds manually — how long each rate slide stays before moving to the next
+            (forex pages and the transfer card). E.g. 3, 6, 10.
           </p>
         </div>
         <div className="space-y-2">
-          <Label>Promotion card duration (seconds)</Label>
+          <Label>Promotion slide shows for (seconds)</Label>
           <Input
             type="number"
             min={2}
@@ -1024,7 +1025,8 @@ function BranchSettingsForm({
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            How long the promotion card (below) stays on screen in the rotation.
+            Its own manual seconds — the promotion slide can stay longer or shorter than the
+            rate slides.
           </p>
         </div>
       </div>

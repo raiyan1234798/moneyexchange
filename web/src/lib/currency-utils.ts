@@ -16,6 +16,28 @@ export function getCurrencyMeta(code: string): CurrencyMeta | undefined {
   return CURRENCY_METADATA[code.trim().toUpperCase()];
 }
 
+/**
+ * Derive a flag emoji from a currency code the built-in catalog doesn't know:
+ * ISO 4217 codes start with the ISO country code (KES → KE → 🇰🇪), so unknown
+ * codes still get the right flag automatically on import. Returns null when the
+ * first two letters aren't a real country, so callers can fall back.
+ */
+export function flagFromCurrencyCode(code: string): string | null {
+  const cc = code.trim().toUpperCase().slice(0, 2);
+  if (!/^[A-Z]{2}$/.test(cc)) return null;
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(cc);
+    // Unknown regions echo the code back — that's not a country.
+    if (!name || name === cc) return null;
+  } catch {
+    return null;
+  }
+  const A = 0x1f1e6;
+  return (
+    String.fromCodePoint(A + cc.charCodeAt(0) - 65) + String.fromCodePoint(A + cc.charCodeAt(1) - 65)
+  );
+}
+
 export function isValidCurrencyCode(code: string): boolean {
   return /^[A-Z]{3}$/.test(code.trim().toUpperCase());
 }
@@ -95,7 +117,7 @@ export function resolveCurrencyFields(currency: {
   const flag =
     currency.flag?.trim() && currency.flag.trim() !== "💱"
       ? currency.flag.trim()
-      : meta?.flag ?? "💱";
+      : meta?.flag ?? flagFromCurrencyCode(code) ?? "💱";
 
   return { code, name, country, flag };
 }
@@ -119,6 +141,9 @@ export function buildCurrencyPayload(input: {
     currencyCode: code,
     currencyName,
     country: input.country?.trim() || meta?.country || "",
-    flag: input.flag?.trim() && input.flag.trim() !== "💱" ? input.flag.trim() : meta?.flag ?? "💱",
+    flag:
+      input.flag?.trim() && input.flag.trim() !== "💱"
+        ? input.flag.trim()
+        : meta?.flag ?? flagFromCurrencyCode(code) ?? "💱",
   };
 }

@@ -109,6 +109,35 @@ export async function bulkUpsertTransferRates(
   return count;
 }
 
+/**
+ * Reorder the TRANSFER card only: writes displayOrder = position for every code,
+ * in the given sequence. Forex order is untouched — the client sorts remittance
+ * currencies by importance independently of the exchange-rate card.
+ */
+export async function reorderTransferRates(
+  orderedCodes: string[],
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  await Promise.all(
+    orderedCodes.map((code, index) =>
+      updateDocument(COLLECTIONS.transferRates, code, {
+        displayOrder: index + 1,
+        updatedBy: actor.userId,
+        updatedByName: actor.userName,
+      }),
+    ),
+  );
+  await writeAuditLog({
+    action: "transfer_rates_reordered",
+    entityType: "transfer_rate",
+    entityId: "order",
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: null,
+    metadata: { order: orderedCodes },
+  });
+}
+
 /** Hide/show a single transfer currency on the card without deleting it. */
 export async function setTransferRateHidden(
   code: string,
