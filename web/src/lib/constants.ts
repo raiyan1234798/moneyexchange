@@ -402,6 +402,9 @@ export const ADMIN_PERMISSIONS = [
   "editBranch",
   "deleteBranch",
   "manageUsers",
+  // Admins curate the currency catalog too — edit flag/name/country (client
+  // request 2026-07-20); Firestore rules allow it.
+  "manageCurrencies",
   "manageVideos",
   "managePlaylists",
   "manageTickers",
