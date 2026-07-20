@@ -61,7 +61,7 @@ const iconMap = {
 const MOBILE_NAV = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/dashboard/exchange-rates", label: "Rates", icon: TrendingUp },
-  { href: "/dashboard/videos", label: "Videos", icon: Video },
+  { href: "/dashboard/videos", label: "Media Manager", icon: Video },
   { href: "/dashboard/profile", label: "Profile", icon: User },
 ] as const;
 

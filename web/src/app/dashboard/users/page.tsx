@@ -59,6 +59,14 @@ import {
   updateUserProfile,
 } from "@/lib/services/manager-service";
 import { normalizeEmail } from "@/lib/auth/user-profile";
+import {
+  canManageCredentials,
+  deleteCredential,
+  resetUserPassword,
+  saveCredential,
+  subscribeUserCredentials,
+  type StoredCredential,
+} from "@/lib/services/credential-service";
 import type { AppUser, UserInvite, UserRole } from "@/lib/types";
 
 // Derive from the domain the admin is actually on, so the invite link/message
@@ -109,7 +117,16 @@ export default function UsersPage() {
   } | null>(null);
   const [accountMode, setAccountMode] = useState<"google" | "password">("google");
   const [passwordValue, setPasswordValue] = useState("");
+  // Stored sign-in passwords — visible ONLY to the two owner admins (+ dev).
+  const isCredentialOwner = canManageCredentials(profile?.email, isSuperAdmin);
+  const [credentials, setCredentials] = useState<StoredCredential[]>([]);
+  const [credBusy, setCredBusy] = useState<string | null>(null);
   const { notice, onError, clearNotice } = useFirestoreNotice("users");
+
+  useEffect(() => {
+    if (!isCredentialOwner) return;
+    return subscribeUserCredentials(setCredentials, () => setCredentials([]));
+  }, [isCredentialOwner]);
 
   useEffect(() => {
     const userConstraints = isBranchManager && managerBranchId
@@ -211,6 +228,12 @@ export default function UsersPage() {
           },
           { userId: user.uid, userName: profile.displayName || profile.email },
         );
+        // Remember the password so the OWNER admins can look it up / regenerate
+        // it later (best-effort — only they can write this collection).
+        await saveCredential(normalizedEmail, passwordValue, form.displayName, {
+          userId: user.uid,
+          userName: profile.displayName || profile.email,
+        }).catch(() => undefined);
         setOpen(false);
         setForm(emptyForm);
         setSuccessDialog({ email: normalizedEmail, role: form.role, branchName, password: passwordValue });
@@ -726,6 +749,83 @@ export default function UsersPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {isCredentialOwner && credentials.length > 0 ? (
+          <ContentPanel
+            title="Sign-in passwords (owner only)"
+            description="Only you can see these. Copy a password to hand it over, or generate a new one."
+          >
+            <DataTable
+              data={credentials}
+              keyExtractor={(c) => c.id}
+              mobileTitle={(c) => c.email}
+              columns={[
+                { key: "email", header: "Email", cell: (c) => c.email },
+                {
+                  key: "password",
+                  header: "Password",
+                  cell: (c) => (
+                    <span className="inline-flex items-center gap-1.5">
+                      <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">{c.password}</code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 rounded px-2 text-xs"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(`${c.email}  ${c.password}`);
+                          toast.success("Email + password copied");
+                        }}
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </span>
+                  ),
+                },
+                {
+                  key: "actions",
+                  header: "",
+                  className: "text-right",
+                  cell: (c) => (
+                    <span className="inline-flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg"
+                        disabled={credBusy === c.id}
+                        onClick={() => {
+                          if (!user || !profile) return;
+                          setCredBusy(c.id);
+                          void resetUserPassword(c, {
+                            userId: user.uid,
+                            userName: profile.displayName || profile.email,
+                          })
+                            .then((next) => {
+                              void navigator.clipboard.writeText(`${c.email}  ${next}`);
+                              toast.success(`New password for ${c.email}: ${next} (copied)`, { duration: 12000 });
+                            })
+                            .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reset"))
+                            .finally(() => setCredBusy(null));
+                        }}
+                      >
+                        {credBusy === c.id ? "Working…" : "Generate new password"}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-lg text-muted-foreground"
+                        onClick={() => {
+                          void deleteCredential(c.email).then(() => toast.success("Removed from this list"));
+                        }}
+                      >
+                        Forget
+                      </Button>
+                    </span>
+                  ),
+                },
+              ]}
+            />
+          </ContentPanel>
+        ) : null}
 
         {invites.length > 0 ? (
           <ContentPanel title="Pending Invites" description={`${invites.length} awaiting first sign-in`}>

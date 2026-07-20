@@ -8,6 +8,7 @@ import { subscribeTransferRates } from "@/lib/services/transfer-rate-service";
 import { subscribeImageAdverts } from "@/lib/services/image-advert-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVideoBlobUrl } from "@/lib/services/video-service";
+import { subscribeCurrencyOverrides } from "@/lib/services/currency-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
 import { DEFAULT_BRANCH_SETTINGS, logoFontCss, messageFontCss } from "@/lib/constants";
 import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
@@ -70,6 +71,7 @@ interface TimedRatesPanelProps {
   currencyTextAnimation: string | null;
   flagAnimation: string | null;
   headingAnimation: string | null;
+  currencyOverrides: Record<string, { flag?: string; name?: string }> | null;
   onRotationComplete?: () => void;
 }
 
@@ -118,6 +120,7 @@ function TimedRatesPanel({
   currencyTextAnimation,
   flagAnimation,
   headingAnimation,
+  currencyOverrides,
   onRotationComplete,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
@@ -178,6 +181,7 @@ function TimedRatesPanel({
       currencyTextAnimation={currencyTextAnimation}
       flagAnimation={flagAnimation}
       headingAnimation={headingAnimation}
+      currencyOverrides={currencyOverrides}
       onRotationComplete={onRotationComplete}
     />
   );
@@ -189,6 +193,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const [transferRates, setTransferRates] = useState<TransferRate[]>([]);
   const [tickers, setTickers] = useState<TickerMessage[]>([]);
   const [videos, setVideos] = useState<VideoAsset[]>([]);
+  // Admin look-changes for currencies (flag emoji by code) — public read.
+  const [currencyOverrides, setCurrencyOverrides] = useState<Record<string, { flag?: string; name?: string }> | null>(null);
   const [images, setImages] = useState<ImageAdvert[]>([]);
   const [videoIndex, setVideoIndex] = useState(0);
   const [imageIndex, setImageIndex] = useState(0);
@@ -483,6 +489,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     const unsubTickers = subscribeTickers(scopedBranchId, setTickers);
     const unsubVideos = subscribeVideos(scopedBranchId, setVideos);
     const unsubImages = subscribeImageAdverts(scopedBranchId, setImages);
+    const unsubOverrides = subscribeCurrencyOverrides(setCurrencyOverrides, () => undefined);
 
     return () => {
       unsubBranch();
@@ -491,6 +498,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       unsubTickers();
       unsubVideos();
       unsubImages();
+      unsubOverrides();
     };
   }, [branchId]);
 
@@ -753,6 +761,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       currencyTextAnimation={branchSettings.rateCurrencyAnimation ?? null}
       flagAnimation={branchSettings.rateFlagAnimation ?? null}
       headingAnimation={branchSettings.rateHeadingAnimation ?? null}
+      currencyOverrides={currencyOverrides}
       onRotationComplete={handleRotationComplete}
     />
   );

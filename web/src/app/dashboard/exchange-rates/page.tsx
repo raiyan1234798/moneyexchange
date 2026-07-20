@@ -55,6 +55,7 @@ import {
   createCurrency,
   subscribeCurrencies,
   toggleCurrencyStatus,
+  saveCurrencyOverride,
 } from "@/lib/services/currency-service";
 import {
   addBranchRate,
@@ -117,6 +118,10 @@ export default function ExchangeRatesPage() {
   const [drafts, setDrafts] = useState<Record<string, RateDraft>>({});
   const [addOpen, setAddOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  // Edit-currency-look dialog (flag emoji / name / country) — admins only.
+  const [editCurrencyTarget, setEditCurrencyTarget] = useState<Currency | null>(null);
+  const [editCurrencyForm, setEditCurrencyForm] = useState({ flag: "", name: "", country: "" });
+  const [savingCurrencyEdit, setSavingCurrencyEdit] = useState(false);
   const [loadingInit, setLoadingInit] = useState(false);
   const [currencyForm, setCurrencyForm] = useState(emptyCurrencyForm);
   const [creating, setCreating] = useState(false);
@@ -1281,24 +1286,38 @@ export default function ExchangeRatesPage() {
                     headerClassName: "text-right",
                     className: "text-right",
                     cell: (c) => (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg"
-                        onClick={() =>
-                          void toggleCurrencyStatus(
-                            c.id,
-                            c.status === "active" ? "inactive" : "active",
-                            { userId: user!.uid, userName: profile!.displayName || profile!.email },
-                          )
-                            .then(() => toast.success(`${c.currencyCode} status updated`))
-                            .catch((e) =>
-                              toast.error(e instanceof Error ? e.message : "Failed to update status"),
+                      <span className="inline-flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => {
+                            const row = getCatalogCurrency(c);
+                            setEditCurrencyTarget(c);
+                            setEditCurrencyForm({ flag: row.flag, name: row.name, country: row.country });
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() =>
+                            void toggleCurrencyStatus(
+                              c.id,
+                              c.status === "active" ? "inactive" : "active",
+                              { userId: user!.uid, userName: profile!.displayName || profile!.email },
                             )
-                        }
-                      >
-                        Toggle
-                      </Button>
+                              .then(() => toast.success(`${c.currencyCode} status updated`))
+                              .catch((e) =>
+                                toast.error(e instanceof Error ? e.message : "Failed to update status"),
+                              )
+                          }
+                        >
+                          Toggle
+                        </Button>
+                      </span>
                     ),
                   },
                 ]}
@@ -1306,6 +1325,70 @@ export default function ExchangeRatesPage() {
             )}
           </ContentPanel>
         ) : null}
+
+        {/* Edit how a currency LOOKS everywhere: flag emoji, name, country. */}
+        <Dialog open={editCurrencyTarget !== null} onOpenChange={(o) => !o && setEditCurrencyTarget(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                Edit currency — {editCurrencyTarget ? getCatalogCurrency(editCurrencyTarget).code : ""}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Flag emoji</Label>
+                <Input
+                  value={editCurrencyForm.flag}
+                  onChange={(e) => setEditCurrencyForm((p) => ({ ...p, flag: e.target.value }))}
+                  placeholder="🇺🇸"
+                  className="rounded-xl"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Shown on the TV rate card and everywhere else. Paste any flag emoji.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  value={editCurrencyForm.name}
+                  onChange={(e) => setEditCurrencyForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="US Dollar"
+                  className="rounded-xl"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Input
+                  value={editCurrencyForm.country}
+                  onChange={(e) => setEditCurrencyForm((p) => ({ ...p, country: e.target.value }))}
+                  placeholder="United States"
+                  className="rounded-xl"
+                />
+              </div>
+              <Button
+                className="w-full rounded-xl"
+                disabled={savingCurrencyEdit}
+                onClick={() => {
+                  if (!editCurrencyTarget || !user || !profile) return;
+                  const code = getCatalogCurrency(editCurrencyTarget).code;
+                  setSavingCurrencyEdit(true);
+                  void saveCurrencyOverride(code, editCurrencyForm, {
+                    userId: user.uid,
+                    userName: profile.displayName || profile.email,
+                  })
+                    .then(() => {
+                      toast.success(`${code} updated — the TV shows the new look right away`);
+                      setEditCurrencyTarget(null);
+                    })
+                    .catch((e) => toast.error(e instanceof Error ? e.message : "Could not save"))
+                    .finally(() => setSavingCurrencyEdit(false));
+                }}
+              >
+                {savingCurrencyEdit ? "Saving…" : "Save changes"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {canManageRates && !isBranchUser && rates.length === 0 && effectiveBranchId ? (
           <Button onClick={() => void initRates()} disabled={loadingInit || currencies.length === 0} className="rounded-xl">

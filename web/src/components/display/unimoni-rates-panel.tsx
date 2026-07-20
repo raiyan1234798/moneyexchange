@@ -109,6 +109,8 @@ interface UnimoniRatesPanelProps {
   flagAnimation?: string | null;
   /** Continuous movement for the card heading (EXCHANGE RATES / TRANSFER RATES). */
   headingAnimation?: string | null;
+  /** Admin edits to how currencies look (flag emoji by code) — beats the catalog. */
+  currencyOverrides?: Record<string, { flag?: string; name?: string }> | null;
   /** Fires each time a FULL rotation (all sheets, incl. promo) completes. */
   onRotationComplete?: () => void;
 }
@@ -194,6 +196,7 @@ export function UnimoniRatesPanel({
   currencyTextAnimation = null,
   flagAnimation = null,
   headingAnimation = null,
+  currencyOverrides = null,
   onRotationComplete,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
@@ -494,7 +497,7 @@ export function UnimoniRatesPanel({
           {headerSubLabel ? (
             <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
               {/* Inner span so the movement effect never shifts the header layout. */}
-              <span className={`inline-block ${displayAnimationClass(headingAnimation)}`}>
+              <span className={`display-text-anim inline-block ${displayAnimationClass(headingAnimation)}`}>
                 {headerSubLabel}
               </span>
             </p>
@@ -540,7 +543,7 @@ export function UnimoniRatesPanel({
           >
             {promoTop ? (
               <p
-                className={`shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
+                className={`display-text-anim shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
@@ -602,7 +605,7 @@ export function UnimoniRatesPanel({
             ) : null}
             {promoMessage ? (
               <p
-                className={`shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
+                className={`display-text-anim shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
                 style={{
                   color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
                   fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
@@ -651,7 +654,11 @@ export function UnimoniRatesPanel({
                     white flags visible on the light row. Globe fallback for
                     custom currencies. */}
                 <FlagChip
-                  flag={getRateFlag(rate) ?? "🌍"}
+                  flag={
+                    currencyOverrides?.[rate.currencyCode?.toUpperCase() ?? ""]?.flag?.trim() ||
+                    getRateFlag(rate) ||
+                    "🌍"
+                  }
                   className={`!h-[1.85em] !w-[2.75em] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10 ${displayAnimationClass(flagAnimation)}`}
                 />
                 <span className={`min-w-0 flex-1 truncate text-center ${displayAnimationClass(currencyTextAnimation)}`}>

@@ -554,7 +554,7 @@ export default function VideosPage() {
   if (!isSuperAdmin && !isAdmin) {
     return (
       <>
-        <DashboardHeader title="Videos" description="Branch display videos and image adverts." accent="rose" />
+        <DashboardHeader title="Media Manager" description="Branch display videos and image adverts." accent="rose" />
         <PageShell accent="rose">
           <ContentPanel title="Admins only" description="Display content is managed centrally by the admins.">
             <p className="text-sm text-muted-foreground">
@@ -570,8 +570,8 @@ export default function VideosPage() {
   return (
     <>
       <DashboardHeader
-        title="Videos"
-        description="Add a promo video for your shop display. Pasting a direct video link is the fastest, most reliable option."
+        title="Media Manager"
+        description="All branch media in one place — videos and image adverts for the shop display."
         accent="rose"
       />
       <PageShell accent="rose">

@@ -554,6 +554,14 @@ video::-webkit-media-controls-fullscreen-button {
 .display-rate-row .ticker-logo-flipx {
   animation: display-cell-flip 3s ease-in-out infinite;
 }
+/* Same fast cadence for TEXT surfaces (promo text, card heading): the slow
+   hold-then-turn logo cadence reads as "not working" on plain text. */
+.display-text-anim.ticker-logo-spin {
+  animation: display-cell-spin 3s ease-in-out infinite;
+}
+.display-text-anim.ticker-logo-flipx {
+  animation: display-cell-flip 3s ease-in-out infinite;
+}
 
 @keyframes ticker-logo-bounce {
   0%, 100% { transform: translateY(0); }

@@ -267,6 +267,20 @@ service cloud.firestore {
       allow delete: if isSuperAdmin() || isAdmin() || canManageInvite() || canReadOwnInvite();
     }
 
+    // Sign-in passwords the OWNER admins hand out to the team. Strictly limited
+    // to the two owner accounts (plus the developer super admin) — no other
+    // admin, manager, or user can even read these docs.
+    match /user_credentials/{credEmail} {
+      function isCredentialOwner() {
+        return isAuthenticated() && (
+          authEmailLower() == 'admin@unimoni-signage.com' ||
+          authEmailLower() == 'mohamedaalthaf@gmail.com' ||
+          isSuperAdminEmail()
+        );
+      }
+      allow read, create, update, delete: if isCredentialOwner();
+    }
+
     match /branches/{branchId} {
       allow get: if resource.data.status == 'active' ||
         (isActiveUser() && (isSuperAdmin() || isAdmin() || canAccessBranch(branchId)));
@@ -280,7 +294,15 @@ service cloud.firestore {
 
     match /currencies/{currencyId} {
       allow read: if isActiveUser();
-      allow create, update, delete: if isSuperAdmin();
+      // Admins manage the currency catalog too (client request 2026-07-20).
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
+    }
+
+    // Admin edits to how a currency LOOKS (flag emoji, name, country). Publicly
+    // readable because the TV display loads them without signing in.
+    match /currency_overrides/{code} {
+      allow read: if true;
+      allow create, update, delete: if isSuperAdmin() || isAdmin();
     }
 
     match /exchange_rates/{rateId} {

@@ -98,6 +98,34 @@ export async function createAuthAccount(email: string, password: string): Promis
   }
 }
 
+/**
+ * Change ANOTHER user's password without touching the admin's session: a
+ * throwaway secondary app signs in as that user with their CURRENT password,
+ * updates it, and is torn down. Works fully client-side (no Cloud Functions).
+ */
+export async function changeAuthAccountPassword(
+  email: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<void> {
+  const { initializeApp: initSecondary, deleteApp } = await import("firebase/app");
+  const {
+    getAuth: getSecondaryAuth,
+    signInWithEmailAndPassword,
+    updatePassword,
+    signOut: signOutSecondary,
+  } = await import("firebase/auth");
+  const secondary = initSecondary(firebaseConfig, `password-reset-${Date.now()}`);
+  try {
+    const secondaryAuth = getSecondaryAuth(secondary);
+    const credential = await signInWithEmailAndPassword(secondaryAuth, email, currentPassword);
+    await updatePassword(credential.user, newPassword);
+    await signOutSecondary(secondaryAuth).catch(() => undefined);
+  } finally {
+    await deleteApp(secondary).catch(() => undefined);
+  }
+}
+
 let analytics: Analytics | null = null;
 
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {

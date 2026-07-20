@@ -28,7 +28,7 @@ const ADMIN_FEATURES: FeatureCard[] = [
   { title: "Branches", description: "Manage locations and branding", href: "/dashboard/branches", icon: Building2 },
   { title: "Users", description: "Invite admins, managers, and branch users", href: "/dashboard/users", icon: Users },
   { title: "Exchange Rates", description: "View rates across all branches", href: "/dashboard/exchange-rates", icon: TrendingUp },
-  { title: "Videos", description: "Upload and schedule branch videos", href: "/dashboard/videos", icon: Video },
+  { title: "Media Manager", description: "Upload and schedule branch videos & images", href: "/dashboard/videos", icon: Video },
   { title: "Display Messages", description: "Scrolling tickers on branch displays", href: "/dashboard/tickers", icon: TextCursorInput },
   { title: "Settings", description: "Branch display and system preferences", href: "/dashboard/settings", icon: Settings },
   { title: "Audit Logs", description: "Review activity across the platform", href: "/dashboard/audit-logs", icon: ScrollText },
@@ -37,7 +37,7 @@ const ADMIN_FEATURES: FeatureCard[] = [
 
 const BRANCH_MANAGER_FEATURES: FeatureCard[] = [
   { title: "Exchange Rates", description: "Import, edit, and publish branch rates", href: "/dashboard/exchange-rates", icon: TrendingUp },
-  { title: "Videos", description: "Manage your branch video playlist", href: "/dashboard/videos", icon: Video },
+  { title: "Media Manager", description: "Manage your branch video & image playlist", href: "/dashboard/videos", icon: Video },
   { title: "Display Messages", description: "Ticker messages on your signage", href: "/dashboard/tickers", icon: TextCursorInput },
   { title: "Team", description: "Invite branch users for rate editing", href: "/dashboard/users", icon: Users },
   { title: "Notifications", description: "Stay updated on approvals and changes", href: "/dashboard/notifications", icon: Bell },
