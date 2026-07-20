@@ -83,8 +83,10 @@ import { CentralTransferPanel } from "@/components/dashboard/central-transfer-pa
 import { getRateDisplayLabel } from "@/lib/unimoni-signage";
 import {
   buildCurrencyPayload,
+  flagFromCurrencyCode,
   getCurrencyMeta,
   isValidCurrencyCode,
+  normalizeCurrencyCode,
   resolveCurrencyFields,
   titleCaseName,
 } from "@/lib/currency-utils";
@@ -675,6 +677,21 @@ export default function ExchangeRatesPage() {
           { duration: 9000 },
         );
       }
+      // NEW currencies whose code the built-in catalog doesn't know: persist the
+      // auto-picked (or manually chosen) flag so every TV shows it immediately.
+      const knownCatalog = new Set(currencies.map((c) => c.currencyCode.toUpperCase()));
+      for (const r of rows) {
+        const code = normalizeCurrencyCode(r.currencyCode) || r.currencyCode.toUpperCase();
+        if (knownCatalog.has(code) || getCurrencyMeta(code)) continue;
+        const finalFlag = r.flag?.trim() || flagFromCurrencyCode(code);
+        if (finalFlag && finalFlag !== "💱") {
+          await saveCurrencyOverride(code, { flag: finalFlag }, {
+            userId: user.uid,
+            userName: profile.displayName || profile.email,
+          }).catch(() => undefined);
+        }
+      }
+
       setRates(await listExchangeRates(effectiveBranchId));
       setImportPreview(null);
     } catch (e) {
@@ -841,7 +858,43 @@ export default function ExchangeRatesPage() {
                       : "sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
                   }`}
                 >
-                  <span className="font-mono font-semibold">{row.currencyCode}</span>
+                  {(() => {
+                    const code =
+                      normalizeCurrencyCode(row.currencyCode) || row.currencyCode.toUpperCase();
+                    const isNew = !currencies.some(
+                      (c) => c.currencyCode.toUpperCase() === code,
+                    );
+                    const autoFlag = getCurrencyMeta(code)?.flag ?? flagFromCurrencyCode(code);
+                    const shownFlag = row.flag?.trim() || autoFlag || "💱";
+                    return (
+                      <span className="flex flex-col gap-1">
+                        <span className="inline-flex items-center gap-1.5 font-mono font-semibold">
+                          <span className="text-base leading-none">{shownFlag}</span>
+                          {row.currencyCode}
+                          {isNew ? (
+                            <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                              NEW
+                            </span>
+                          ) : null}
+                        </span>
+                        {isNew && !autoFlag ? (
+                          <Input
+                            value={row.flag ?? ""}
+                            aria-label={`Flag for ${row.currencyCode}`}
+                            placeholder="Paste flag 🏳️"
+                            onChange={(e) =>
+                              setImportPreview((prev) =>
+                                prev
+                                  ? prev.map((r, i) => (i === index ? { ...r, flag: e.target.value } : r))
+                                  : prev,
+                              )
+                            }
+                            className="h-7 w-[110px] rounded-md text-center"
+                          />
+                        ) : null}
+                      </span>
+                    );
+                  })()}
                   <Input
                     value={row.displayName}
                     aria-label="Name shown on TV"

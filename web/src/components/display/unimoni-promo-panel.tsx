@@ -48,6 +48,8 @@ export function UnimoniPromoPanel({
   // leave two-thirds of the TV black. Tracking the URL that failed (instead of
   // a boolean) means a new/fixed URL retries automatically — no reset effect.
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
+  // Which clip is ACTUALLY rendering frames — drives the swap cover below.
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const imageFailed = Boolean(imageUrl) && failedImageUrl === imageUrl;
 
   const showVideo = Boolean(videoUrl);
@@ -120,6 +122,7 @@ export function UnimoniPromoPanel({
               }
             }}
             onLoadedData={onVideoLoaded}
+            onPlaying={() => setPlayingUrl(videoUrl ?? null)}
             onCanPlay={(e) => {
               // Some TV WebViews leave a freshly-loaded video paused (showing the
               // big play button) until told to play — force it. Try with sound if
@@ -167,6 +170,32 @@ export function UnimoniPromoPanel({
             onError={() => setFailedImageUrl(imageUrl ?? null)}
           />
         </>
+      ) : null}
+
+      {/* SWAP COVER — while the next clip loads (between videos / at the end of
+          the playlist loop), some TV browsers paint their own giant play button
+          over the paused video. CSS can't remove that native overlay, so we
+          simply COVER the video with a branded navy panel until the new clip is
+          actually playing, then fade it away. Viewers see a clean logo moment,
+          never the TV's play button. */}
+      {showVideo ? (
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-0 z-[4] flex items-center justify-center bg-[#0B1F3A] transition-opacity duration-500 ${
+            videoLoaded && playingUrl === videoUrl ? "opacity-0" : "opacity-100"
+          }`}
+        >
+          <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
+            <Image
+              src="/unimoni-logo-full.png"
+              alt=""
+              width={300}
+              height={97}
+              className="h-[clamp(2rem,6vh,4rem)] w-auto object-contain"
+              unoptimized
+            />
+          </div>
+        </div>
       ) : null}
 
       {showPlaceholder ? (

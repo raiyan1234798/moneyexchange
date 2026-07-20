@@ -16,7 +16,8 @@ import {
   reorderTransferRates,
 } from "@/lib/services/transfer-rate-service";
 import { parseRateFile } from "@/lib/rate-import";
-import { getCurrencyMeta } from "@/lib/currency-utils";
+import { flagFromCurrencyCode, getCurrencyMeta, normalizeCurrencyCode } from "@/lib/currency-utils";
+import { saveCurrencyOverride } from "@/lib/services/currency-service";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +33,13 @@ import type { TransferRate } from "@/lib/types";
 type Draft = { transferUsd: string; transferLocal: string };
 
 type PendingUpload = {
-  rows: Array<{ currencyCode: string; transferUsd: number | null; transferLocal: number | null }>;
+  rows: Array<{
+    currencyCode: string;
+    transferUsd: number | null;
+    transferLocal: number | null;
+    /** Manual flag for a NEW currency the catalog can't auto-flag (set in the review pop-up). */
+    flag?: string;
+  }>;
   parsedTotal: number;
 };
 
@@ -107,6 +114,16 @@ export function CentralTransferPanel({
     setUploading(true);
     try {
       const count = await bulkUpsertTransferRates(transferRows, actor);
+      // NEW codes the built-in catalog doesn't know: store the auto-picked (or
+      // manually chosen) flag so every TV's transfer card shows it right away.
+      for (const r of transferRows) {
+        const code = normalizeCurrencyCode(r.currencyCode) || r.currencyCode.toUpperCase();
+        if (getCurrencyMeta(code)) continue;
+        const finalFlag = r.flag?.trim() || flagFromCurrencyCode(code);
+        if (finalFlag && finalFlag !== "💱") {
+          await saveCurrencyOverride(code, { flag: finalFlag }, actor).catch(() => undefined);
+        }
+      }
       // Name the currencies so a partial read (e.g. rows the file left blank)
       // is visible immediately instead of looking like "not reflecting".
       const codes = transferRows.map((r) => r.currencyCode).join(", ");
@@ -459,7 +476,45 @@ export function CentralTransferPanel({
                   key={`${r.currencyCode}-${i}`}
                   className="grid grid-cols-[90px_1fr_1fr_auto] items-center gap-2 rounded-lg bg-muted/20 p-1.5"
                 >
-                  <span className="px-1 font-mono font-semibold">{r.currencyCode}</span>
+                  {(() => {
+                    const code = normalizeCurrencyCode(r.currencyCode) || r.currencyCode.toUpperCase();
+                    const isNew = !rows.some((t) => t.currencyCode.toUpperCase() === code);
+                    const autoFlag = getCurrencyMeta(code)?.flag ?? flagFromCurrencyCode(code);
+                    const shownFlag = r.flag?.trim() || autoFlag || "💱";
+                    return (
+                      <span className="flex flex-col gap-1 px-1">
+                        <span className="inline-flex items-center gap-1 font-mono font-semibold">
+                          <span className="text-base leading-none">{shownFlag}</span>
+                          {r.currencyCode}
+                          {isNew ? (
+                            <span className="rounded bg-emerald-500/15 px-1 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
+                              NEW
+                            </span>
+                          ) : null}
+                        </span>
+                        {isNew && !autoFlag ? (
+                          <Input
+                            value={r.flag ?? ""}
+                            aria-label={`Flag for ${r.currencyCode}`}
+                            placeholder="Flag 🏳️"
+                            onChange={(e) =>
+                              setPending((prev) =>
+                                prev
+                                  ? {
+                                      ...prev,
+                                      rows: prev.rows.map((row, idx) =>
+                                        idx === i ? { ...row, flag: e.target.value } : row,
+                                      ),
+                                    }
+                                  : prev,
+                              )
+                            }
+                            className="h-7 w-[80px] rounded-md text-center"
+                          />
+                        ) : null}
+                      </span>
+                    );
+                  })()}
                   <Input
                     type="number"
                     step="0.0001"

@@ -42,37 +42,34 @@ export function subscribeCurrencyOverrides(
  */
 export async function saveCurrencyOverride(
   code: string,
-  data: { flag: string; name: string; country: string },
+  data: { flag?: string; name?: string; country?: string },
   actor: { userId: string; userName: string },
 ): Promise<void> {
   const upper = code.trim().toUpperCase();
   if (!upper) throw new Error("Currency code is required");
-  await setDoc(
-    doc(db, OVERRIDES_COLLECTION, upper),
-    {
-      code: upper,
-      flag: data.flag.trim(),
-      name: data.name.trim(),
-      country: data.country.trim(),
-      updatedBy: actor.userName,
-      updatedAt: serverTimestamp(),
-    },
-    { merge: true },
-  );
+  const payload: Record<string, unknown> = {
+    code: upper,
+    updatedBy: actor.userName,
+    updatedAt: serverTimestamp(),
+  };
+  if (data.flag?.trim()) payload.flag = data.flag.trim();
+  if (data.name?.trim()) payload.name = data.name.trim();
+  if (data.country?.trim()) payload.country = data.country.trim();
+  await setDoc(doc(db, OVERRIDES_COLLECTION, upper), payload, { merge: true });
   // Best-effort catalog sync so dashboards list the same look.
   try {
     const catalog = await listDocuments<Currency>(COLLECTIONS.currencies, [
       where("currencyCode", "==", upper),
     ]);
-    await Promise.all(
-      catalog.map((c) =>
-        updateDocument(COLLECTIONS.currencies, c.id, {
-          flag: data.flag.trim(),
-          currencyName: data.name.trim(),
-          country: data.country.trim(),
-        }),
-      ),
-    );
+    const catalogPatch: Record<string, unknown> = {};
+    if (data.flag?.trim()) catalogPatch.flag = data.flag.trim();
+    if (data.name?.trim()) catalogPatch.currencyName = data.name.trim();
+    if (data.country?.trim()) catalogPatch.country = data.country.trim();
+    if (Object.keys(catalogPatch).length > 0) {
+      await Promise.all(
+        catalog.map((c) => updateDocument(COLLECTIONS.currencies, c.id, catalogPatch)),
+      );
+    }
   } catch {
     // Catalog sync is cosmetic — the override alone drives the display.
   }
