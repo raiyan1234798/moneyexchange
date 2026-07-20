@@ -448,10 +448,6 @@ export const CURRENCY_METADATA: Record<
   USD: { name: "US Dollar", country: "United States", flag: "🇺🇸" },
   GBP: { name: "British Pound", country: "United Kingdom", flag: "🇬🇧" },
   EUR: { name: "Euro", country: "European Union", flag: "🇪🇺" },
-  // Multi-country CFA francs — represented by the central bank's home country
-  // (BEAC in Cameroon, BCEAO in Senegal). Admins can change via Currency Edit.
-  XAF: { name: "Central African CFA Franc", country: "Central Africa (CEMAC)", flag: "🇨🇲" },
-  XOF: { name: "West African CFA Franc", country: "West Africa (UEMOA)", flag: "🇸🇳" },
   KES: { name: "Kenyan Shilling", country: "Kenya", flag: "🇰🇪" },
   ZAR: { name: "South African Rand", country: "South Africa", flag: "🇿🇦" },
   CAD: { name: "Canadian Dollar", country: "Canada", flag: "🇨🇦" },
@@ -497,8 +493,10 @@ export const CURRENCY_METADATA: Record<
   MAD: { name: "Moroccan Dirham", country: "Morocco", flag: "🇲🇦" },
   TND: { name: "Tunisian Dinar", country: "Tunisia", flag: "🇹🇳" },
   GHS: { name: "Ghanaian Cedi", country: "Ghana", flag: "🇬🇭" },
-  XOF: { name: "West African CFA Franc", country: "West Africa", flag: "🌍" },
-  XAF: { name: "Central African CFA Franc", country: "Central Africa", flag: "🌍" },
+  // Multi-country CFA francs — flag of each central bank's home country
+  // (BCEAO in Senegal, BEAC in Cameroon). Changeable via Currency Edit.
+  XOF: { name: "West African CFA Franc", country: "West Africa (UEMOA)", flag: "🇸🇳" },
+  XAF: { name: "Central African CFA Franc", country: "Central Africa (CEMAC)", flag: "🇨🇲" },
   RWF: { name: "Rwandan Franc", country: "Rwanda", flag: "🇷🇼" },
   BIF: { name: "Burundian Franc", country: "Burundi", flag: "🇧🇮" },
   ETB: { name: "Ethiopian Birr", country: "Ethiopia", flag: "🇪🇹" },
