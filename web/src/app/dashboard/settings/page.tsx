@@ -994,10 +994,11 @@ function BranchSettingsForm({
         </p>
       </div>
 
-      {/* ---- Rate-screen sequence timing (per the client: 3s / 6s / 10s, manual) ---- */}
-      <div className="grid gap-4 sm:grid-cols-2">
+      {/* ---- Rate-screen sequence timing: THREE separate manual timers (per the
+              client) — forex slides, the transfer card, and the promotion slide. ---- */}
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
-          <Label>Each currency slide shows for (seconds)</Label>
+          <Label>Forex slides show for (seconds)</Label>
           <Input
             type="number"
             min={2}
@@ -1009,8 +1010,29 @@ function BranchSettingsForm({
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            Set the seconds manually — how long each rate slide stays before moving to the next
-            (forex pages and the transfer card). E.g. 3, 6, 10.
+            Manual seconds for each foreign-exchange (WE BUY / WE SELL) page. E.g. 3, 6, 10.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Label>Transfer card shows for (seconds)</Label>
+          <Input
+            type="number"
+            min={2}
+            max={120}
+            placeholder="Same as forex"
+            value={settings.rateTransferDurationSeconds ?? ""}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                rateTransferDurationSeconds:
+                  event.target.value === "" ? null : Number(event.target.value),
+              })
+            }
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            The TRANSFER RATES card&apos;s own manual seconds. Leave empty to match the forex
+            slides.
           </p>
         </div>
         <div className="space-y-2">
@@ -1026,8 +1048,7 @@ function BranchSettingsForm({
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            Its own manual seconds — the promotion slide can stay longer or shorter than the
-            rate slides.
+            The promotion slide&apos;s own manual seconds — longer or shorter than the others.
           </p>
         </div>
       </div>

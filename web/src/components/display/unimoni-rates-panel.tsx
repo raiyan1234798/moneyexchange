@@ -95,6 +95,8 @@ interface UnimoniRatesPanelProps {
   promoText?: string | null;
   /** Seconds the promotional card stays visible (defaults to sheetIntervalSeconds). */
   promoDurationSeconds?: number;
+  /** Seconds the TRANSFER card stays visible (defaults to sheetIntervalSeconds). */
+  transferDurationSeconds?: number | null;
   /** Order the rotating slides appear in. Missing/absent slides are skipped. */
   rateCardOrder?: Array<"forex" | "transfer" | "promo">;
   /** Play promo videos WITH sound (default muted). */
@@ -189,6 +191,7 @@ export function UnimoniRatesPanel({
   promoTextTop,
   promoText,
   promoDurationSeconds,
+  transferDurationSeconds = null,
   rateCardOrder,
   videoSoundOn = false,
   sheetTransition = "fade",
@@ -312,6 +315,9 @@ export function UnimoniRatesPanel({
   // 10 seconds — set manually"). The promo card can hold its own duration.
   const rateMs = Math.max(2, sheetIntervalSeconds ?? 5) * 1000;
   const promoMs = Math.max(2, promoDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
+  // The transfer card can hold its own seconds too (three independent timers:
+  // forex / transfer / promotion). Unset = same as the forex slides.
+  const transferMs = Math.max(2, transferDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
   const activeKind = (sheets[sheetIndex % sheetCount] ?? { kind: "rates" }).kind;
 
   useEffect(() => {
@@ -325,10 +331,10 @@ export function UnimoniRatesPanel({
           return next;
         });
       },
-      activeKind === "promo" ? promoMs : rateMs,
+      activeKind === "promo" ? promoMs : activeKind === "transfer" ? transferMs : rateMs,
     );
     return () => window.clearTimeout(timer);
-  }, [sheetCount, sheetIndex, activeKind, promoMs, rateMs, onRotationComplete]);
+  }, [sheetCount, sheetIndex, activeKind, promoMs, transferMs, rateMs, onRotationComplete]);
 
   const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
   // No padding: every page's rows share the full card height, so each rotating

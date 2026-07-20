@@ -64,6 +64,7 @@ interface TimedRatesPanelProps {
   promoTextTop: string | null;
   promoText: string | null;
   promoDurationSeconds: number;
+  transferDurationSeconds: number | null;
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
   videoSoundOn: boolean;
   sheetTransition: string;
@@ -113,6 +114,7 @@ function TimedRatesPanel({
   promoTextTop,
   promoText,
   promoDurationSeconds,
+  transferDurationSeconds,
   rateCardOrder,
   videoSoundOn,
   sheetTransition,
@@ -174,6 +176,7 @@ function TimedRatesPanel({
       promoTextTop={promoTextTop}
       promoText={promoText}
       promoDurationSeconds={promoDurationSeconds}
+      transferDurationSeconds={transferDurationSeconds}
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
       sheetTransition={sheetTransition}
@@ -754,6 +757,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       promoTextTop={ratePromoTextTop}
       promoText={ratePromoText}
       promoDurationSeconds={ratePromoDurationSeconds}
+      transferDurationSeconds={branchSettings.rateTransferDurationSeconds ?? null}
       rateCardOrder={rateCardOrder}
       videoSoundOn={ratePromoSoundOn}
       sheetTransition={branchSettings.rateCardTransition ?? "fade"}

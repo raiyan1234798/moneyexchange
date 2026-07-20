@@ -132,6 +132,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
   ratePromoDurationSeconds: 6,
+  /** Seconds the TRANSFER card stays — null = same as the forex slides. */
+  rateTransferDurationSeconds: null as number | null,
   // ONE font for the whole display — overrides all the individual fonts below.
   displayFont: null as string | null,
   rateCardFont: null as string | null,

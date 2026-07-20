@@ -142,6 +142,8 @@ export interface BranchSettings {
   rateFlagAnimation?: string | null;
   /** Continuous movement for the card heading (EXCHANGE RATES / TRANSFER RATES). */
   rateHeadingAnimation?: string | null;
+  /** Seconds the TRANSFER card stays visible — null/unset = same as forex slides. */
+  rateTransferDurationSeconds?: number | null;
   /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
   logoAutoRemoveBg?: boolean;
   /** Transition when the video-area image/video changes. */
