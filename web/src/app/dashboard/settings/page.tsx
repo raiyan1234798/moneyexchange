@@ -883,6 +883,30 @@ function BranchSettingsForm({
           Moves every country FLAG in the table. Flip and Rotate look great on the flags.
         </p>
       </div>
+      <div className="space-y-2">
+        <Label>Card heading movement (EXCHANGE RATES / TRANSFER RATES)</Label>
+        <Select
+          value={settings.rateHeadingAnimation ?? "none"}
+          onValueChange={(value) =>
+            setSettings({ ...settings, rateHeadingAnimation: value === "none" ? null : value })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DISPLAY_ANIMATIONS.map((a) => (
+              <SelectItem key={a.key} value={a.key}>
+                {a.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Moves the card title — the &quot;EXCHANGE RATES&quot; and &quot;TRANSFER RATES&quot;
+          heading at the top of the rate card.
+        </p>
+      </div>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>

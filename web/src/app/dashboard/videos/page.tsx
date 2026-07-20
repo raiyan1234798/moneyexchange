@@ -57,7 +57,6 @@ import {
   subscribePendingVideos,
   subscribeVideos,
   uploadVideo,
-  deactivateBranchVideos,
 } from "@/lib/services/video-service";
 import {
   duplicateStorageVideoToBranch,
@@ -71,6 +70,7 @@ import {
   deleteImageAdvert,
   reorderImageAdverts,
   subscribeImageAdverts,
+  updateImageAdvertDuration,
   uploadImageAdvert,
 } from "@/lib/services/image-advert-service";
 import {
@@ -305,9 +305,9 @@ export default function VideosPage() {
     let done = 0;
     let chunked = false;
     try {
-      // Replace the current set once, then add every selected video as active
-      // so they rotate on the display (one every 60s).
-      await deactivateBranchVideos(effectiveBranchId);
+      // ADD every selected video to the branch playlist — never touch what is
+      // already there. (This used to "replace the set" first, which silently
+      // wiped every existing video and even purged chunked-video data.)
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
         const { usedChunkFallback } = await uploadVideo(
@@ -363,6 +363,9 @@ export default function VideosPage() {
         { title: resolvedTitle, branchId: effectiveBranchId, createdBy: user.uid },
         { userId: user.uid, userName: profile.displayName || profile.email },
         setProgress,
+        // ALWAYS keep what is already there — this page is a playlist. Without
+        // this the upload silently deactivated every existing branch video.
+        { keepExisting: true },
       );
 
       if (usedChunkFallback) {
@@ -457,8 +460,8 @@ export default function VideosPage() {
             createdBy: user.uid,
           },
           { userId: user.uid, userName: profile.displayName || profile.email },
-          // First image replaces the set; the rest accumulate so they rotate.
-          { keepExisting: i > 0 },
+          // Adding images must never wipe the existing ones — they all rotate.
+          { keepExisting: true },
         );
         done += 1;
       }
@@ -1162,9 +1165,59 @@ export default function VideosPage() {
                 { key: "title", header: "Title", cell: (img) => img.title },
                 {
                   key: "duration",
-                  header: "Duration",
-                  cell: (img) => `${img.displayDurationSeconds}s`,
-                  hideOnMobile: true,
+                  header: "Seconds on screen",
+                  // Editable per image: type a number and click away (or press
+                  // Enter) to save — that one image then stays this many seconds.
+                  cell: (img) => (
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        type="number"
+                        min={3}
+                        max={600}
+                        // Re-mount when the saved value changes so the box always
+                        // shows what is actually stored.
+                        key={`${img.id}-${img.displayDurationSeconds}`}
+                        defaultValue={img.displayDurationSeconds}
+                        aria-label={`Seconds on screen for ${img.title}`}
+                        className="h-8 w-20 rounded-lg"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                        }}
+                        onBlur={(e) => {
+                          const input = e.target as HTMLInputElement;
+                          const v = Math.round(Number(input.value));
+                          const revert = () => {
+                            input.value = String(img.displayDurationSeconds);
+                          };
+                          if (!Number.isFinite(v) || v < 3 || v > 600) {
+                            toast.error("Seconds must be between 3 and 600");
+                            revert();
+                            return;
+                          }
+                          if (v === img.displayDurationSeconds) return;
+                          uploadAccess.guard(
+                            async () => {
+                              try {
+                                await updateImageAdvertDuration(img.id, v, {
+                                  userId: user?.uid ?? "",
+                                  userName: profile?.displayName || profile?.email || "",
+                                  branchId: img.branchId,
+                                  title: img.title,
+                                });
+                                toast.success(`"${img.title}" now shows for ${v} seconds`);
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : "Could not save the seconds");
+                                revert();
+                              }
+                            },
+                            // Password prompt cancelled — nothing saved, show the real value.
+                            revert,
+                          );
+                        }}
+                      />
+                      <span className="text-xs text-muted-foreground">sec</span>
+                    </div>
+                  ),
                 },
                 {
                   key: "preview",

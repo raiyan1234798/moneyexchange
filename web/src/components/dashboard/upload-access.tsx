@@ -48,8 +48,10 @@ export interface UploadAccessState {
   isGranted: boolean;
   password: string;
   grantedEmails: string[];
-  /** Run `action` now if unlocked; otherwise pop the password prompt and run it once unlocked. */
-  guard: (action: PendingAction) => void;
+  /** Run `action` now if unlocked; otherwise pop the password prompt and run it
+      once unlocked. `onCancel` fires if the prompt is dismissed without
+      unlocking, so callers can revert optimistic UI. */
+  guard: (action: PendingAction, onCancel?: () => void) => void;
   promptOpen: boolean;
   confirmUnlock: () => void;
   closePrompt: () => void;
@@ -63,6 +65,7 @@ export function useUploadAccess(): UploadAccessState {
   const [unlocked, setUnlocked] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
   const pendingRef = useRef<PendingAction | null>(null);
+  const pendingCancelRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const unsub = subscribeUploadAccess((c) => {
@@ -87,12 +90,13 @@ export function useUploadAccess(): UploadAccessState {
   const uploadsUnlocked = !lockActive || isGranted || unlocked;
 
   const guard = useCallback(
-    (action: PendingAction) => {
+    (action: PendingAction, onCancel?: () => void) => {
       if (uploadsUnlocked) {
         void action();
         return;
       }
       pendingRef.current = action;
+      pendingCancelRef.current = onCancel ?? null;
       setPromptOpen(true);
     },
     [uploadsUnlocked],
@@ -103,12 +107,17 @@ export function useUploadAccess(): UploadAccessState {
     setPromptOpen(false);
     const action = pendingRef.current;
     pendingRef.current = null;
+    pendingCancelRef.current = null;
     if (action) void action();
   }, []);
 
   const closePrompt = useCallback(() => {
+    // Dismissed without unlocking — tell the caller so it can revert its UI.
+    const cancel = pendingCancelRef.current;
     pendingRef.current = null;
+    pendingCancelRef.current = null;
     setPromptOpen(false);
+    cancel?.();
   }, []);
 
   return useMemo(

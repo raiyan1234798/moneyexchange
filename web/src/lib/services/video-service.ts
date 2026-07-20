@@ -272,8 +272,8 @@ export async function addExternalVideo(
 ): Promise<{ id: string; source: "direct" | "google_drive" }> {
   const normalized = normalizeExternalVideoUrl(data.downloadUrl);
 
-  await deactivatePreviousBranchVideos(data.branchId);
-
+  // Adding a link must never hide the branch's existing videos — they all
+  // rotate as a playlist. (Removing one is an explicit Remove action.)
   const id = await createDocument(COLLECTIONS.videos, {
     title: data.title,
     description: data.description ?? "",
@@ -364,7 +364,7 @@ export async function approveVideo(
   actor: { userId: string; userName: string },
 ): Promise<void> {
   const scopedBranchId = assertBranchId(video.branchId, "approveVideo");
-  await deactivatePreviousBranchVideos(scopedBranchId);
+  // The approved video JOINS the branch playlist — it must not hide the others.
   await updateDocument(COLLECTIONS.videos, video.id, { status: "active" });
   await writeAuditLog({
     action: "video_approved",

@@ -69,6 +69,7 @@ interface TimedRatesPanelProps {
   valueTextAnimation: string | null;
   currencyTextAnimation: string | null;
   flagAnimation: string | null;
+  headingAnimation: string | null;
   onRotationComplete?: () => void;
 }
 
@@ -116,6 +117,7 @@ function TimedRatesPanel({
   valueTextAnimation,
   currencyTextAnimation,
   flagAnimation,
+  headingAnimation,
   onRotationComplete,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
@@ -175,6 +177,7 @@ function TimedRatesPanel({
       valueTextAnimation={valueTextAnimation}
       currencyTextAnimation={currencyTextAnimation}
       flagAnimation={flagAnimation}
+      headingAnimation={headingAnimation}
       onRotationComplete={onRotationComplete}
     />
   );
@@ -749,6 +752,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       valueTextAnimation={branchSettings.rateTextAnimation ?? null}
       currencyTextAnimation={branchSettings.rateCurrencyAnimation ?? null}
       flagAnimation={branchSettings.rateFlagAnimation ?? null}
+      headingAnimation={branchSettings.rateHeadingAnimation ?? null}
       onRotationComplete={handleRotationComplete}
     />
   );

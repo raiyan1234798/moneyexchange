@@ -3,7 +3,7 @@ import { resolveBranchTargets, canApplyToAllBranches } from "@/lib/branch-isolat
 import { addExternalVideo } from "@/lib/services/video-service";
 import { createTicker } from "@/lib/services/ticker-service";
 import { addImageAdvertUrl } from "@/lib/services/image-advert-service";
-import { createDocument, updateDocument, where, listDocuments, writeAuditLog } from "@/lib/firebase/firestore";
+import { createDocument, writeAuditLog } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import type { VideoAsset } from "@/lib/types";
 
@@ -19,16 +19,6 @@ export function getActiveBranchTargets(
 
 export { canApplyToAllBranches };
 
-async function deactivatePreviousBranchVideos(branchId: string): Promise<void> {
-  const activeVideos = await listDocuments<VideoAsset>(COLLECTIONS.videos, [
-    where("branchId", "==", branchId),
-    where("status", "==", "active"),
-  ]);
-  await Promise.all(
-    activeVideos.map((video) => updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" })),
-  );
-}
-
 export async function duplicateStorageVideoToBranch(
   source: Pick<
     VideoAsset,
@@ -38,7 +28,8 @@ export async function duplicateStorageVideoToBranch(
   createdBy: string,
   actor: Actor,
 ): Promise<string> {
-  await deactivatePreviousBranchVideos(branchId);
+  // Copying a video to another branch ADDS it to that branch's playlist — it
+  // must never hide what the branch already plays.
   const id = await createDocument(COLLECTIONS.videos, {
     title: source.title,
     description: source.description ?? "",

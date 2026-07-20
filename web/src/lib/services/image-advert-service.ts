@@ -102,7 +102,7 @@ export async function addImageAdvertUrl(
   },
   actor: { userId: string; userName: string },
 ): Promise<string> {
-  await deactivateBranchImages(params.branchId);
+  // Adding an image never hides the existing ones — they all rotate together.
   const id = await createDocument(COLLECTIONS.imageAdverts, {
     title: params.title,
     branchId: params.branchId,
@@ -127,6 +127,24 @@ export async function addImageAdvertUrl(
 /** Deactivate every active image advert on a branch (before a multi-file batch). */
 export async function deactivateBranchImageAdverts(branchId: string): Promise<void> {
   await deactivateBranchImages(branchId);
+}
+
+/** How long ONE image stays on the TV before the next rotates in. */
+export async function updateImageAdvertDuration(
+  id: string,
+  seconds: number,
+  actor: { userId: string; userName: string; branchId?: string; title?: string },
+): Promise<void> {
+  await updateDocument(COLLECTIONS.imageAdverts, id, { displayDurationSeconds: seconds });
+  await writeAuditLog({
+    action: "image_advert_duration",
+    entityType: "image_advert",
+    entityId: id,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: actor.branchId,
+    metadata: { title: actor.title, displayDurationSeconds: seconds },
+  });
 }
 
 export async function uploadImageAdvert(

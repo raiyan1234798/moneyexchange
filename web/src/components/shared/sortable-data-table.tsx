@@ -78,7 +78,15 @@ export function SortableDataTable<T>({
           <div
             key={keyExtractor(row)}
             draggable={!reorderDisabled}
-            onDragStart={() => !reorderDisabled && setDragIndex(index)}
+            onDragStart={(e) => {
+              // Dragging inside a form control (e.g. the seconds input) must
+              // edit the field, not pick up the whole row.
+              if ((e.target as HTMLElement).closest("input, textarea, select, button")) {
+                e.preventDefault();
+                return;
+              }
+              if (!reorderDisabled) setDragIndex(index);
+            }}
             onDragOver={(e) => {
               if (reorderDisabled) return;
               e.preventDefault();
@@ -143,7 +151,14 @@ export function SortableDataTable<T>({
               <tr
                 key={keyExtractor(row)}
                 draggable={!reorderDisabled}
-                onDragStart={() => !reorderDisabled && setDragIndex(index)}
+                onDragStart={(e) => {
+                  // Text-selection drags inside inputs must not lift the row.
+                  if ((e.target as HTMLElement).closest("input, textarea, select, button")) {
+                    e.preventDefault();
+                    return;
+                  }
+                  if (!reorderDisabled) setDragIndex(index);
+                }}
                 onDragOver={(e) => {
                   if (reorderDisabled) return;
                   e.preventDefault();

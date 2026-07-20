@@ -107,6 +107,8 @@ interface UnimoniRatesPanelProps {
   currencyTextAnimation?: string | null;
   /** Continuous movement applied to every country FLAG in the table. */
   flagAnimation?: string | null;
+  /** Continuous movement for the card heading (EXCHANGE RATES / TRANSFER RATES). */
+  headingAnimation?: string | null;
   /** Fires each time a FULL rotation (all sheets, incl. promo) completes. */
   onRotationComplete?: () => void;
 }
@@ -191,6 +193,7 @@ export function UnimoniRatesPanel({
   valueTextAnimation = null,
   currencyTextAnimation = null,
   flagAnimation = null,
+  headingAnimation = null,
   onRotationComplete,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
@@ -490,7 +493,10 @@ export function UnimoniRatesPanel({
           ) : null}
           {headerSubLabel ? (
             <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
-              {headerSubLabel}
+              {/* Inner span so the movement effect never shifts the header layout. */}
+              <span className={`inline-block ${displayAnimationClass(headingAnimation)}`}>
+                {headerSubLabel}
+              </span>
             </p>
           ) : null}
         </div>
