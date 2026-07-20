@@ -103,6 +103,9 @@ export default function VideosPage() {
   const [imageUrl, setImageUrl] = useState("");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imageDuration, setImageDuration] = useState(15);
+  // Bulk "seconds on screen" — applies one value to EVERY image at once.
+  const [bulkSeconds, setBulkSeconds] = useState("15");
+  const [bulkApplying, setBulkApplying] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [applyToAll, setApplyToAll] = useState(false);
   // TOTAL storage across ALL branches (R2's 10 GB free tier is shared), summed
@@ -1155,6 +1158,59 @@ export default function VideosPage() {
 
         {images.length > 0 ? (
           <ContentPanel title="Active Image Adverts" description="Drag rows to set order, or use ▲ ▼ as a fallback">
+            {/* Change every image in one go — with many images, setting each row
+                one by one takes ages. Per-image boxes below still work too. */}
+            {images.length > 1 ? (
+              <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border/40 bg-muted/20 p-3">
+                <Label className="text-sm">Seconds for ALL {images.length} images:</Label>
+                <Input
+                  type="number"
+                  min={3}
+                  max={600}
+                  value={bulkSeconds}
+                  onChange={(e) => setBulkSeconds(e.target.value)}
+                  aria-label="Seconds for all images"
+                  className="h-9 w-24 rounded-lg"
+                />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={bulkApplying}
+                  onClick={() => {
+                    const v = Math.round(Number(bulkSeconds));
+                    if (!Number.isFinite(v) || v < 3 || v > 600) {
+                      toast.error("Seconds must be between 3 and 600");
+                      return;
+                    }
+                    uploadAccess.guard(async () => {
+                      setBulkApplying(true);
+                      try {
+                        for (const img of images) {
+                          if (img.displayDurationSeconds === v) continue;
+                          await updateImageAdvertDuration(img.id, v, {
+                            userId: user?.uid ?? "",
+                            userName: profile?.displayName || profile?.email || "",
+                            branchId: img.branchId,
+                            title: img.title,
+                          });
+                        }
+                        toast.success(`All ${images.length} images now show for ${v} seconds each`);
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : "Could not update every image");
+                      } finally {
+                        setBulkApplying(false);
+                      }
+                    });
+                  }}
+                >
+                  {bulkApplying ? "Applying…" : "Apply to all"}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Or fine-tune single images in the list below.
+                </span>
+              </div>
+            ) : null}
             <SortableDataTable
               data={images}
               keyExtractor={(img) => img.id}
