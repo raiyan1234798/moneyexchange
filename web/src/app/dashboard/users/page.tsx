@@ -61,6 +61,7 @@ import {
 import { completeLoginEmail, normalizeEmail, TEAM_LOGIN_DOMAIN } from "@/lib/auth/user-profile";
 import {
   canManageCredentials,
+  changeUserEmail,
   deleteCredential,
   deleteUserAccount,
   resetUserPassword,
@@ -125,6 +126,9 @@ export default function UsersPage() {
   const isCredentialOwner = canManageCredentials(profile?.email, isSuperAdmin);
   const [credentials, setCredentials] = useState<StoredCredential[]>([]);
   const [credBusy, setCredBusy] = useState<string | null>(null);
+  // "Set password" / "Change email or user ID" dialog for a vault entry.
+  const [credEdit, setCredEdit] = useState<{ mode: "password" | "email"; cred: StoredCredential } | null>(null);
+  const [credEditValue, setCredEditValue] = useState("");
   const { notice, onError, clearNotice } = useFirestoreNotice("users");
 
   useEffect(() => {
@@ -916,6 +920,30 @@ export default function UsersPage() {
                         {credBusy === c.id ? "Working…" : "Generate new password"}
                       </Button>
                       <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg"
+                        disabled={credBusy === c.id}
+                        onClick={() => {
+                          setCredEditValue("");
+                          setCredEdit({ mode: "password", cred: c });
+                        }}
+                      >
+                        Set password
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg"
+                        disabled={credBusy === c.id}
+                        onClick={() => {
+                          setCredEditValue("");
+                          setCredEdit({ mode: "email", cred: c });
+                        }}
+                      >
+                        Change email / ID
+                      </Button>
+                      <Button
                         variant="ghost"
                         size="sm"
                         className="rounded-lg text-muted-foreground"
@@ -1087,6 +1115,83 @@ export default function UsersPage() {
             />
           </ContentPanel>
         ) : null}
+
+        {/* Owner tools: set a chosen password, or move the login to a new
+            email / user ID (same password, same role & branch). */}
+        <Dialog open={credEdit !== null} onOpenChange={(o) => !o && setCredEdit(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {credEdit?.mode === "password"
+                  ? `Set a new password for ${credEdit?.cred.email}`
+                  : `Change sign-in for ${credEdit?.cred.email}`}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label>
+                {credEdit?.mode === "password" ? "New password (min 8 characters)" : "New email or user ID"}
+              </Label>
+              <Input
+                value={credEditValue}
+                onChange={(e) => setCredEditValue(e.target.value)}
+                placeholder={credEdit?.mode === "password" ? "Type the password to give them" : "e.g. manager.newname"}
+                className="rounded-xl font-mono"
+              />
+              {credEdit?.mode === "email" ? (
+                <p className="text-xs text-muted-foreground">
+                  Their password stays the same. A plain user ID gets @{TEAM_LOGIN_DOMAIN} added
+                  automatically. The old sign-in stops working immediately.
+                </p>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                className="rounded-xl"
+                disabled={
+                  !credEdit ||
+                  credBusy !== null ||
+                  (credEdit.mode === "password" ? credEditValue.trim().length < 8 : !credEditValue.trim())
+                }
+                onClick={() => {
+                  if (!credEdit || !user || !profile) return;
+                  const a = { userId: user.uid, userName: profile.displayName || profile.email };
+                  setCredBusy(credEdit.cred.id);
+                  const done = () => {
+                    setCredBusy(null);
+                    setCredEdit(null);
+                    setCredEditValue("");
+                  };
+                  if (credEdit.mode === "password") {
+                    void resetUserPassword(credEdit.cred, a, credEditValue)
+                      .then((next) => {
+                        void navigator.clipboard.writeText(`${credEdit.cred.email}  ${next}`);
+                        toast.success(`Password changed — ${credEdit.cred.email} now signs in with ${next} (copied)`, { duration: 12000 });
+                        done();
+                      })
+                      .catch((e) => {
+                        toast.error(e instanceof Error ? e.message : "Could not change the password");
+                        setCredBusy(null);
+                      });
+                  } else {
+                    const target = users.find((u) => normalizeEmail(u.email) === normalizeEmail(credEdit.cred.email));
+                    void changeUserEmail(credEdit.cred, credEditValue, target ? { uid: target.uid } : null, a)
+                      .then((newEmail) => {
+                        void navigator.clipboard.writeText(`${newEmail}  ${credEdit.cred.password}`);
+                        toast.success(`Sign-in moved to ${newEmail} (email + password copied)`, { duration: 12000 });
+                        done();
+                      })
+                      .catch((e) => {
+                        toast.error(e instanceof Error ? e.message : "Could not change the email");
+                        setCredBusy(null);
+                      });
+                  }
+                }}
+              >
+                {credBusy !== null ? "Working…" : credEdit?.mode === "password" ? "Set password" : "Change sign-in"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={!!editUser} onOpenChange={(next) => !next && setEditUser(null)}>
           <DialogContent className="rounded-2xl sm:max-w-md">

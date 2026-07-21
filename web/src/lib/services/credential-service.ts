@@ -74,8 +74,11 @@ export async function saveCredential(
 export async function resetUserPassword(
   credential: StoredCredential,
   actor: { userId: string; userName: string },
+  /** Owner-chosen password — omitted = generate a readable one. */
+  chosenPassword?: string,
 ): Promise<string> {
-  const newPassword = generateReadablePassword();
+  const newPassword = chosenPassword?.trim() || generateReadablePassword();
+  if (newPassword.length < 8) throw new Error("Password must be at least 8 characters.");
   try {
     await changeAuthAccountPassword(credential.email, credential.password, newPassword);
   } catch (error) {
@@ -100,6 +103,68 @@ export async function resetUserPassword(
     metadata: { email: credential.email },
   });
   return newPassword;
+}
+
+/**
+ * Change a password login's EMAIL / user ID (owner admins): the login is
+ * recreated under the new address with the SAME password and the same profile
+ * (role, branch, modules), and the old login is destroyed. The person simply
+ * signs in with the new ID from then on.
+ */
+export async function changeUserEmail(
+  credential: StoredCredential,
+  newEmailInput: string,
+  target: { uid: string } | null,
+  actor: { userId: string; userName: string },
+): Promise<string> {
+  const { completeLoginEmail } = await import("@/lib/auth/user-profile");
+  const { createAuthAccount, deleteAuthAccount } = await import("@/lib/firebase/client");
+  const { getDoc, setDoc: setDocFs, serverTimestamp: srvTs } = await import("firebase/firestore");
+  const newEmail = completeLoginEmail(newEmailInput);
+  if (!newEmail || !newEmail.includes("@")) throw new Error("Enter a valid email or user ID.");
+  if (newEmail === normalizeEmail(credential.email)) throw new Error("That is already their sign-in.");
+
+  // 1. New auth account, same password.
+  let newUid: string;
+  try {
+    newUid = await createAuthAccount(newEmail, credential.password);
+  } catch (error) {
+    const code = (error as { code?: string }).code ?? "";
+    if (code === "auth/email-already-in-use") throw new Error("That email / user ID is already taken.");
+    throw error instanceof Error ? error : new Error("Could not create the new login.");
+  }
+
+  // 2. Copy the profile to the new uid (role, branch, modules, name intact).
+  const oldSnap = target ? await getDoc(doc(db, "users", target.uid)) : null;
+  const old = oldSnap?.exists() ? (oldSnap.data() as Record<string, unknown>) : {};
+  await setDocFs(doc(db, "users", newUid), {
+    email: newEmail,
+    displayName: old.displayName ?? credential.displayName ?? newEmail.split("@")[0],
+    role: old.role ?? "branchUser",
+    branchId: old.branchId ?? null,
+    photoURL: old.photoURL ?? null,
+    isActive: old.isActive ?? true,
+    ...(Array.isArray(old.moduleAccess) && old.moduleAccess.length > 0
+      ? { moduleAccess: old.moduleAccess }
+      : {}),
+    createdAt: srvTs(),
+    updatedAt: srvTs(),
+  });
+
+  // 3. Destroy the OLD login + profile + vault entry; store the new one.
+  await deleteAuthAccount(normalizeEmail(credential.email), credential.password).catch(() => undefined);
+  if (target) await deleteDoc(doc(db, "users", target.uid)).catch(() => undefined);
+  await saveCredential(newEmail, credential.password, credential.displayName ?? "", actor);
+  await deleteCredential(credential.email).catch(() => undefined);
+  await writeAuditLog({
+    action: "user_email_changed",
+    entityType: "user",
+    entityId: newUid,
+    userId: actor.userId,
+    userName: actor.userName,
+    metadata: { from: normalizeEmail(credential.email), to: newEmail },
+  }).catch(() => undefined);
+  return newEmail;
 }
 
 /** Forget a stored credential (e.g. after the account was removed). */
