@@ -90,11 +90,26 @@ function normalizePath(pathname: string): string {
   return pathname;
 }
 
+// Pages controlled by the user-form MODULE grid — custom picks override roles.
+const NAV_MODULE: Record<string, string> = {
+  "/dashboard/exchange-rates": "forexRates",
+  "/dashboard/videos": "media",
+  "/dashboard/tickers": "displayMessages",
+  "/dashboard/promotions": "promotions",
+  "/dashboard/settings": "settings",
+  "/dashboard/users": "users",
+  "/dashboard/branches": "branches",
+};
+
 function NavLinks({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const pathname = usePathname();
-  const { profile } = useAuth();
+  const { profile, hasModule } = useAuth();
   const role = profile?.role ?? "branchManager";
-  const items = NAV_ITEMS.filter((item) => item.roles.includes(role as (typeof item.roles)[number]));
+  const items = NAV_ITEMS.filter((item) => {
+    const moduleKey = NAV_MODULE[item.href];
+    if (moduleKey) return hasModule(moduleKey);
+    return item.roles.includes(role as (typeof item.roles)[number]);
+  });
   const currentPath = normalizePath(pathname);
 
   return (

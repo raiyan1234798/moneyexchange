@@ -85,7 +85,7 @@ service cloud.firestore {
       let data = request.resource.data;
       return hasOnlyAllowedKeys([
         'email', 'displayName', 'role', 'branchId', 'photoURL',
-        'isActive', 'createdAt', 'updatedAt', 'lastLoginAt'
+        'isActive', 'createdAt', 'updatedAt', 'lastLoginAt', 'moduleAccess'
       ])
       && data.email is string
       && data.displayName is string
@@ -97,7 +97,7 @@ service cloud.firestore {
       let data = request.resource.data;
       return hasOnlyAllowedKeys([
         'email', 'displayName', 'role', 'branchId', 'photoURL',
-        'isActive', 'createdAt', 'updatedAt', 'lastLoginAt'
+        'isActive', 'createdAt', 'updatedAt', 'lastLoginAt', 'moduleAccess'
       ])
       && data.email is string
       && data.displayName is string
@@ -333,7 +333,14 @@ service cloud.firestore {
     // Public read (the TV display is unauthenticated); admin-only writes.
     match /transfer_rates/{code} {
       allow read: if true;
-      allow create, update, delete: if isSuperAdmin() || isAdmin();
+      // Admins always; branch managers by default (client 2026-07-21); anyone
+      // else only when granted the "transferRates" module in Users.
+      allow create, update, delete: if isSuperAdmin() || isAdmin() ||
+        (isBranchManager() &&
+          (!('moduleAccess' in userDoc()) ||
+            userDoc().moduleAccess.hasAny(['transferRates']))) ||
+        (isActiveUser() && 'moduleAccess' in userDoc() &&
+          userDoc().moduleAccess.hasAny(['transferRates']));
     }
 
     match /rate_history/{historyId} {
@@ -346,13 +353,18 @@ service cloud.firestore {
     // messages are ADMIN-ONLY. Branch managers/users can view, never write.
     match /videos/{videoId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create, update: if isSuperAdmin() || isAdmin();
-      allow delete: if isSuperAdmin() || isAdmin();
+      // Admins, plus anyone granted the "media" module in Users.
+      allow create, update, delete: if isSuperAdmin() || isAdmin() ||
+        (isActiveUser() && 'moduleAccess' in userDoc() &&
+          userDoc().moduleAccess.hasAny(['media']));
     }
 
     match /image_adverts/{imageId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create, update, delete: if isSuperAdmin() || isAdmin();
+      // Admins, plus anyone granted the "media" module in Users.
+      allow create, update, delete: if isSuperAdmin() || isAdmin() ||
+        (isActiveUser() && 'moduleAccess' in userDoc() &&
+          userDoc().moduleAccess.hasAny(['media']));
     }
 
     match /video_chunks/{videoId} {

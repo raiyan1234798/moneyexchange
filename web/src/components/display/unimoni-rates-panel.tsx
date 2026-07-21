@@ -497,6 +497,8 @@ export function UnimoniRatesPanel({
     <aside
       className={`display-rates-panel flex h-full min-h-0 w-full flex-1 flex-col transition-[width] duration-500 ease-out lg:w-[35%] lg:flex-none lg:shrink-0 xl:w-[32%] ${className}`}
       style={asideStyle}
+      // The active slide type — the display re-times spin/flip per slide with it.
+      data-anim-kind={activeKind}
     >
       {/* Header: logo + date/time. Hidden entirely on promo slides when logos are hidden
           so the promotion can fill the full panel. */}

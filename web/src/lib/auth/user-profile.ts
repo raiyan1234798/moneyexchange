@@ -409,6 +409,11 @@ async function createProfileFromInvite(
     branchId,
     photoURL: firebaseUser.photoURL ?? null,
     isActive: true,
+    // Custom module picks chosen on the invite carry over to the account.
+    ...(Array.isArray((invite as { moduleAccess?: string[] }).moduleAccess) &&
+    (invite as { moduleAccess?: string[] }).moduleAccess!.length > 0
+      ? { moduleAccess: (invite as { moduleAccess?: string[] }).moduleAccess }
+      : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };

@@ -77,11 +77,38 @@ const fieldLabels: Record<keyof typeof emptyForm, string> = {
   managerName: "Manager display name",
 };
 
+const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const DAY_LABELS: Record<(typeof DAY_KEYS)[number], string> = {
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
+};
+
+/** One friendly summary line out of the 7 per-day values (shown in lists). */
+function composeHoursSummary(byDay: Record<string, string>): string {
+  const get = (d: string) => byDay[d]?.trim() ?? "";
+  const weekdays = ["mon", "tue", "wed", "thu", "fri", "sat"].map(get);
+  const sun = get("sun");
+  const allWeekSame = weekdays.every((v) => v === weekdays[0]);
+  if (allWeekSame && weekdays[0]) {
+    if (!sun || sun === weekdays[0]) return `Mon - Sun ${weekdays[0]}`;
+    return `Mon - Sat ${weekdays[0]} · Sun ${sun}`;
+  }
+  const parts = DAY_KEYS.map((d) => (get(d) ? `${DAY_LABELS[d].slice(0, 3)} ${get(d)}` : null)).filter(Boolean);
+  return parts.join(" · ");
+}
+
 export default function BranchesPage() {
   const { profile, user, hasPermission } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
+  // Per-day opening hours ("each day has different timing, Sunday differs").
+  const [dayHours, setDayHours] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [editBranch, setEditBranch] = useState<Branch | null>(null);
   const [displayBranchId, setDisplayBranchId] = useState("");
@@ -122,6 +149,13 @@ export default function BranchesPage() {
       managerEmail: "",
       managerName: "",
     });
+    // Prefill each day from saved per-day values; fall back to the legacy line.
+    const legacy = branch.workingHours ?? "";
+    setDayHours(
+      Object.fromEntries(
+        DAY_KEYS.map((d) => [d, branch.workingHoursByDay?.[d] ?? legacy]),
+      ),
+    );
     setEditBranch(branch);
     setOpen(true);
   }
@@ -130,6 +164,7 @@ export default function BranchesPage() {
     setOpen(false);
     setEditBranch(null);
     setForm(emptyForm);
+    setDayHours({});
   }
 
   async function handleEnable(branch: Branch) {
@@ -150,6 +185,14 @@ export default function BranchesPage() {
     if (!user || !profile) return;
     setSaving(true);
 
+    // Per-day hours: store the map + a composed one-line summary for lists.
+    const workingHoursByDay: Record<string, string> = {};
+    for (const d of DAY_KEYS) {
+      const v = dayHours[d]?.trim();
+      if (v) workingHoursByDay[d] = v;
+    }
+    const hoursSummary = composeHoursSummary(dayHours) || form.workingHours;
+
     if (editBranch) {
       try {
         const { slogan, brandingColor, managerEmail, managerName, ...branchFields } = form;
@@ -159,6 +202,8 @@ export default function BranchesPage() {
           editBranch.id,
           {
             ...branchFields,
+            workingHours: hoursSummary,
+            workingHoursByDay,
             brandingColor,
             settings: { ...editBranch.settings, slogan },
           },
@@ -179,6 +224,8 @@ export default function BranchesPage() {
       const branchId = await createBranch(
         {
           ...branchFields,
+          workingHours: hoursSummary,
+          workingHoursByDay,
           brandingColor,
           status: "active",
           settings: { ...DEFAULT_BRANCH_SETTINGS, slogan },
@@ -314,18 +361,28 @@ export default function BranchesPage() {
                       </div>
                     ))}
                 </FormSection>
-                <FormSection title="Working Hours" description="Operating hours shown on the display">
+                <FormSection
+                  title="Working Hours"
+                  description="Each day can have its own timing — e.g. Sunday different from the week"
+                >
                   {/* Slogan and Brand Color were removed from this form per the
                       client — existing saved values are kept untouched on save. */}
-                  <div className="space-y-2">
-                    <Label>{fieldLabels.workingHours}</Label>
-                    <Input
-                      value={form.workingHours}
-                      onChange={(event) => setForm((prev) => ({ ...prev, workingHours: event.target.value }))}
-                      placeholder="09:00 - 21:00"
-                      className="rounded-xl"
-                    />
-                  </div>
+                  {DAY_KEYS.map((day) => (
+                    <div key={day} className="flex items-center gap-2">
+                      <Label className="w-24 shrink-0">{DAY_LABELS[day]}</Label>
+                      <Input
+                        value={dayHours[day] ?? ""}
+                        onChange={(event) =>
+                          setDayHours((prev) => ({ ...prev, [day]: event.target.value }))
+                        }
+                        placeholder={day === "sun" ? "e.g. Closed or 10:00 - 16:00" : "e.g. 08:30 - 17:30"}
+                        className="rounded-xl"
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    Tip: type &quot;Closed&quot; for days the branch doesn&apos;t open.
+                  </p>
                 </FormSection>
                 {editBranch ? null : (
                 <FormSection title="Branch Manager" description="Optional — invite a manager by Gmail for first-time Google sign-in">
@@ -487,12 +544,6 @@ export default function BranchesPage() {
                   ),
                 },
                 { key: "city", header: "City", cell: (b) => b.city, hideOnMobile: true },
-                {
-                  key: "slogan",
-                  header: "Slogan",
-                  cell: (b) => <span className="max-w-[180px] truncate">{b.settings?.slogan}</span>,
-                  hideOnMobile: true,
-                },
                 { key: "hours", header: "Hours", cell: (b) => b.workingHours, hideOnMobile: true },
                 {
                   key: "status",

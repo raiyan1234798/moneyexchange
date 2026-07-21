@@ -33,7 +33,8 @@ import {
 } from "@/lib/auth/user-profile";
 import { toast } from "sonner";
 import { writeAuditLog } from "@/lib/firebase/firestore";
-import { COLLECTIONS } from "@/lib/constants";
+import { COLLECTIONS, MODULE_DEFAULTS_BY_ROLE,
+} from "@/lib/constants";
 import type { AppUser, UserRole } from "@/lib/types";
 import {
   BRANCH_MANAGER_PERMISSIONS,
@@ -59,6 +60,8 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   hasPermission: (permission: string) => boolean;
+  /** Module access: custom per-user picks override the role defaults. */
+  hasModule: (moduleKey: string) => boolean;
   isSuperAdmin: boolean;
   isAdmin: boolean;
   isBranchManager: boolean;
@@ -334,6 +337,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [permissions],
   );
 
+  // Custom module picks on the user doc REPLACE the role defaults (the module
+  // grid in Users). Super admins always see everything.
+  const hasModule = useCallback(
+    (moduleKey: string) => {
+      if (!profile) return false;
+      if (profile.role === "superAdmin") return true;
+      const custom = profile.moduleAccess;
+      if (Array.isArray(custom) && custom.length > 0) return custom.includes(moduleKey);
+      return (MODULE_DEFAULTS_BY_ROLE[profile.role] ?? []).includes(moduleKey as never);
+    },
+    [profile],
+  );
+
   const refreshProfile = useCallback(async () => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return;
@@ -446,6 +462,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     refreshProfile,
     hasPermission,
+    hasModule,
     isSuperAdmin: profile?.role === "superAdmin",
     isAdmin: profile?.role === "admin",
     isBranchManager: profile?.role === "branchManager",

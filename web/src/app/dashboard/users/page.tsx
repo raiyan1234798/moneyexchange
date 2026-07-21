@@ -46,7 +46,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { inviteFeaturePreview } from "@/components/dashboard/role-feature-board";
-import { COLLECTIONS, RECOMMENDED_BRANCH_USERS, ROLE_LABELS } from "@/lib/constants";
+import { ACCESS_MODULES, COLLECTIONS, MODULE_DEFAULTS_BY_ROLE, RECOMMENDED_BRANCH_USERS, ROLE_LABELS } from "@/lib/constants";
 import { subscribeCollection, where } from "@/lib/firebase/firestore";
 import {
   approveUserInvite,
@@ -118,6 +118,9 @@ export default function UsersPage() {
   } | null>(null);
   const [accountMode, setAccountMode] = useState<"google" | "password">("google");
   const [passwordValue, setPasswordValue] = useState("");
+  // MODULE grid: pre-picked from the role; clicking customises this user.
+  const [moduleSel, setModuleSel] = useState<string[]>([...(MODULE_DEFAULTS_BY_ROLE.branchManager ?? [])]);
+  const [moduleTouched, setModuleTouched] = useState(false);
   // Stored sign-in passwords — visible ONLY to the two owner admins (+ dev).
   const isCredentialOwner = canManageCredentials(profile?.email, isSuperAdmin);
   const [credentials, setCredentials] = useState<StoredCredential[]>([]);
@@ -194,6 +197,40 @@ export default function UsersPage() {
     return null;
   }
 
+  /** Clickable module board — which parts of the dashboard this user can use. */
+  function moduleGrid() {
+    return (
+      <div className="space-y-2">
+        <Label>Access — what this user can open &amp; edit</Label>
+        <div className="flex flex-wrap gap-1.5">
+          {ACCESS_MODULES.map((m) => {
+            const on = moduleSel.includes(m.key);
+            return (
+              <button
+                key={m.key}
+                type="button"
+                onClick={() => {
+                  setModuleTouched(true);
+                  setModuleSel((prev) => (on ? prev.filter((k) => k !== m.key) : [...prev, m.key]));
+                }}
+                className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                  on
+                    ? "border-primary/60 bg-primary/15 text-primary"
+                    : "border-border/50 text-muted-foreground hover:bg-muted/40"
+                }`}
+              >
+                {on ? "✓ " : ""}{m.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Pre-picked from the role — click to give or take away single modules for this user.
+        </p>
+      </div>
+    );
+  }
+
   async function handleCreate() {
     if (!user || !profile || !form.email || !form.displayName) return;
     if (needsBranch && !form.branchId && !isBranchManager) {
@@ -234,6 +271,7 @@ export default function UsersPage() {
             displayName: form.displayName,
             role: form.role,
             branchId,
+            moduleAccess: moduleTouched ? moduleSel : null,
           },
           { userId: user.uid, userName: profile.displayName || profile.email },
         );
@@ -245,6 +283,8 @@ export default function UsersPage() {
         }).catch(() => undefined);
         setOpen(false);
         setForm(emptyForm);
+        setModuleTouched(false);
+        setModuleSel([...(MODULE_DEFAULTS_BY_ROLE.branchManager ?? [])]);
         setSuccessDialog({ email: normalizedEmail, role: form.role, branchName, password: passwordValue });
         setPasswordValue("");
         toast.success("Login created — hand over the email and password");
@@ -255,9 +295,12 @@ export default function UsersPage() {
           role: form.role,
           branchId,
           createdBy: user.uid,
+          moduleAccess: moduleTouched ? moduleSel : null,
         });
         setOpen(false);
         setForm(emptyForm);
+        setModuleTouched(false);
+        setModuleSel([...(MODULE_DEFAULTS_BY_ROLE.branchManager ?? [])]);
         setSuccessDialog({ email: normalizedEmail, role: form.role, branchName });
         toast.success("Invite sent — user can sign in with Google immediately");
       }
@@ -346,6 +389,12 @@ export default function UsersPage() {
         | "branchUser",
       branchId: member.branchId ?? "",
     });
+    setModuleSel(
+      member.moduleAccess && member.moduleAccess.length > 0
+        ? [...member.moduleAccess]
+        : [...(MODULE_DEFAULTS_BY_ROLE[member.role] ?? [])],
+    );
+    setModuleTouched(false);
     setEditUser(member);
   }
 
@@ -359,6 +408,9 @@ export default function UsersPage() {
           displayName: editUserForm.displayName,
           role: editUserForm.role,
           branchId: editUserForm.role === "admin" ? null : editUserForm.branchId || null,
+          ...(moduleTouched || (editUser.moduleAccess?.length ?? 0) > 0
+            ? { moduleAccess: moduleSel }
+            : {}),
         },
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
@@ -433,6 +485,16 @@ export default function UsersPage() {
     void navigator.clipboard.writeText(loginUrl());
     toast.success("Login link copied");
   }
+
+  // ONE list: real accounts AND invited people together, each with a clear
+  // status (Active / Deactivated / Waiting for first sign-in).
+  type MemberRow =
+    | { rowKey: string; kind: "user"; user: AppUser }
+    | { rowKey: string; kind: "invite"; invite: UserInvite };
+  const memberRows: MemberRow[] = [
+    ...users.map((u) => ({ rowKey: `u-${u.uid}`, kind: "user" as const, user: u })),
+    ...invites.map((i) => ({ rowKey: `i-${i.id}`, kind: "invite" as const, invite: i })),
+  ];
 
   return (
     <>
@@ -562,13 +624,16 @@ export default function UsersPage() {
                     <Label>Role</Label>
                     <Select
                       value={form.role}
-                      onValueChange={(value) =>
+                      onValueChange={(value) => {
                         setForm((prev) => ({
                           ...prev,
                           role: value as typeof form.role,
                           branchId: value === "admin" ? "" : isBranchManager ? managerBranchId : prev.branchId,
-                        }))
-                      }
+                        }));
+                        if (!moduleTouched && value) {
+                          setModuleSel([...(MODULE_DEFAULTS_BY_ROLE[value] ?? [])]);
+                        }
+                      }}
                     >
                       <SelectTrigger className="rounded-xl">
                         <SelectValue />
@@ -599,6 +664,7 @@ export default function UsersPage() {
                   {branchTeamLabel ? (
                     <p className="text-xs text-muted-foreground">{branchTeamLabel}</p>
                   ) : null}
+                  {moduleGrid()}
                 </div>
                 <DialogFooter>
                   <Button
@@ -867,111 +933,111 @@ export default function UsersPage() {
           </ContentPanel>
         ) : null}
 
-        {invites.length > 0 ? (
-          <ContentPanel title="Pending Invites" description={`${invites.length} awaiting first sign-in`}>
+        {memberRows.length > 0 ? (
+          <ContentPanel
+            title="Users"
+            description={`${users.length} account${users.length === 1 ? "" : "s"}${
+              invites.length > 0 ? ` · ${invites.length} invited (waiting for first sign-in)` : ""
+            }`}
+          >
             <DataTable
-              data={invites}
-              keyExtractor={(i) => i.id}
-              mobileTitle={(i) => i.displayName}
+              data={memberRows}
+              keyExtractor={(row) => row.rowKey}
+              mobileTitle={(row) => (row.kind === "user" ? row.user.displayName : row.invite.displayName)}
               columns={[
-                { key: "name", header: "Name", cell: (i) => i.displayName },
-                { key: "email", header: "Email", cell: (i) => i.email },
-                { key: "role", header: "Role", cell: (i) => ROLE_LABELS[i.role] ?? i.role },
                 {
-                  key: "branch",
-                  header: "Branch",
-                  cell: (i) => (i.branchId ? branchMap[i.branchId] ?? i.branchId : "All branches"),
-                },
-                {
-                  key: "status",
-                  header: "Status",
-                  cell: (i) => (
-                    <StatusBadge
-                      status={i.status === "approved" ? "approved" : "pending"}
-                      variant={i.status === "approved" ? "success" : "warning"}
-                    />
+                  key: "name",
+                  header: "Name",
+                  cell: (row) => (
+                    <span className="font-medium">
+                      {row.kind === "user" ? row.user.displayName : row.invite.displayName}
+                    </span>
                   ),
                 },
-                ...(canManage
-                  ? [{
-                      key: "actions",
-                      header: "Actions",
-                      cell: (i: UserInvite) => {
-                        // Rules: branch managers may only modify branchUser
-                        // invites in their branch — hide dead buttons on
-                        // manager/admin invites.
-                        if (isBranchManager && i.role !== "branchUser") {
-                          return <span className="text-xs text-muted-foreground">Managed by admin</span>;
-                        }
-                        return (
-                        <div className="flex flex-wrap items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 rounded-lg px-2"
-                            disabled={actionId === i.id}
-                            onClick={() => openEditInvite(i)}
-                          >
-                            <Pencil className="mr-1 h-3.5 w-3.5" />
-                            Edit
-                          </Button>
-                          {i.status !== "approved" ? (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 rounded-lg px-2 text-emerald-700 hover:text-emerald-800"
-                              disabled={actionId === i.id}
-                              onClick={() => void handleApprove(i)}
-                            >
-                              <Check className="mr-1 h-3.5 w-3.5" />
-                              Approve
-                            </Button>
-                          ) : null}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 rounded-lg px-2 text-destructive hover:text-destructive"
-                            disabled={actionId === i.id}
-                            onClick={() => setDeleteTarget(i)}
-                          >
-                            <Trash2 className="mr-1 h-3.5 w-3.5" />
-                            Delete
-                          </Button>
-                        </div>
-                        );
-                      },
-                    }]
-                  : []),
-              ]}
-            />
-          </ContentPanel>
-        ) : null}
-
-        {users.length > 0 ? (
-          <ContentPanel title="Active Users" description={`${users.length} user${users.length === 1 ? "" : "s"}`}>
-            <DataTable
-              data={users}
-              keyExtractor={(m) => m.uid}
-              mobileTitle={(m) => m.displayName}
-              columns={[
-                { key: "name", header: "Name", cell: (m) => <span className="font-medium">{m.displayName}</span> },
-                { key: "email", header: "Email", cell: (m) => m.email, hideOnMobile: true },
-                { key: "role", header: "Role", cell: (m) => ROLE_LABELS[m.role] ?? m.role },
+                {
+                  key: "email",
+                  header: "Email",
+                  cell: (row) => (row.kind === "user" ? row.user.email : row.invite.email),
+                  hideOnMobile: true,
+                },
+                {
+                  key: "role",
+                  header: "Role",
+                  cell: (row) => {
+                    const role = row.kind === "user" ? row.user.role : row.invite.role;
+                    return ROLE_LABELS[role] ?? role;
+                  },
+                },
                 {
                   key: "branch",
                   header: "Branch",
-                  cell: (m) => (m.branchId ? branchMap[m.branchId] ?? m.branchId : "All branches"),
+                  cell: (row) => {
+                    const b = row.kind === "user" ? row.user.branchId : row.invite.branchId;
+                    return b ? branchMap[b] ?? b : "All branches";
+                  },
                 },
                 {
                   key: "status",
                   header: "Status",
-                  cell: (m) => <StatusBadge status={m.isActive ? "active" : "inactive"} />,
+                  cell: (row) =>
+                    row.kind === "user" ? (
+                      <StatusBadge status={row.user.isActive ? "active" : "inactive"} />
+                    ) : (
+                      <span className="inline-flex rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        Waiting for first sign-in
+                      </span>
+                    ),
                 },
                 {
                   key: "actions",
                   header: "Actions",
                   className: "text-right",
-                  cell: (m) => {
+                  cell: (row) => {
+                    if (row.kind === "invite") {
+                      const i = row.invite;
+                      if (!canManage) return null;
+                      if (isBranchManager && i.role !== "branchUser") {
+                        return <span className="text-xs text-muted-foreground">Managed by admin</span>;
+                      }
+                      return (
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg"
+                            disabled={actionId === i.id}
+                            onClick={() => openEditInvite(i)}
+                          >
+                            <Pencil className="mr-1 h-3 w-3" />
+                            Edit
+                          </Button>
+                          {i.status !== "approved" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="rounded-lg text-emerald-700 hover:text-emerald-800"
+                              disabled={actionId === i.id}
+                              onClick={() => void handleApprove(i)}
+                            >
+                              <Check className="mr-1 h-3 w-3" />
+                              Approve
+                            </Button>
+                          ) : null}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-lg text-destructive hover:text-destructive"
+                            disabled={actionId === i.id}
+                            onClick={() => setDeleteTarget(i)}
+                          >
+                            <Trash2 className="mr-1 h-3 w-3" />
+                            Delete
+                          </Button>
+                        </div>
+                      );
+                    }
+                    const m = row.user;
+                    {
                     // Rules: only manageUsers roles may edit; admins cannot touch
                     // superAdmin accounts; nobody edits their own row (lockout guard).
                     const canAct =
@@ -1014,6 +1080,7 @@ export default function UsersPage() {
                         ) : null}
                       </div>
                     );
+                    }
                   },
                 },
               ]}
@@ -1063,6 +1130,7 @@ export default function UsersPage() {
                 />
               ) : null}
             </div>
+            {moduleGrid()}
             <DialogFooter>
               <Button
                 onClick={() => void handleEditUser()}

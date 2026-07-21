@@ -93,7 +93,7 @@ import {
 import type { ImageAdvert, VideoAsset } from "@/lib/types";
 
 export default function VideosPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, hasModule } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId, isSuperAdmin, isAdmin } = useBranchScope();
   const { canManageVideos, canManageImages, canProposeVideos } = useContentPermissions();
   const uploadAccess = useUploadAccess();
@@ -834,8 +834,9 @@ export default function VideosPage() {
     await reorderImagesList(ordered);
   }
 
-  // Per client (2026-07-11): advert videos/images are ADMIN-ONLY.
-  if (!isSuperAdmin && !isAdmin) {
+  // Media module: admins by default; other users only when granted the
+  // "Media Manager" module in Users.
+  if (!isSuperAdmin && !isAdmin && !hasModule("media")) {
     return (
       <>
         <DashboardHeader title="Media Manager" description="Branch display videos and image adverts." accent="rose" />

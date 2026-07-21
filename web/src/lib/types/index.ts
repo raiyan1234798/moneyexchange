@@ -29,6 +29,8 @@ export interface AppUser {
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
   lastLoginAt?: Timestamp | Date | null;
+  /** Custom module picks (Users form) — when set, REPLACES the role defaults. */
+  moduleAccess?: string[];
 }
 
 export interface Branch {
@@ -44,6 +46,9 @@ export interface Branch {
   logoUrl?: string | null;
   brandingColor?: string;
   workingHours: string;
+  /** Per-day opening hours (e.g. { mon: "08:30 - 17:30", sun: "Closed" }) —
+      workingHours stays as the composed summary line. */
+  workingHoursByDay?: Partial<Record<"mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun", string>>;
   status: EntityStatus;
   /** Manual position in branch lists/dropdowns (1-based). Unset = after ordered ones, A–Z. */
   displayOrder?: number;
@@ -155,6 +160,10 @@ export interface BranchSettings {
   rateAnimationSpeedSeconds?: number;
   /** Seconds the flags/letters/numbers stand still BETWEEN turns (default 1). */
   rateAnimationPauseSeconds?: number;
+  /** TRANSFER-card spin/flip turn seconds — null/unset = same as forex. */
+  rateAnimationSpeedSecondsTransfer?: number | null;
+  /** TRANSFER-card stand-still seconds — null/unset = same as forex. */
+  rateAnimationPauseSecondsTransfer?: number | null;
   /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
   logoAutoRemoveBg?: boolean;
   /** Transition when the video-area image/video changes. */

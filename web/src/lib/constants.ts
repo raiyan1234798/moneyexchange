@@ -143,6 +143,10 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateAnimationSpeedSeconds: 3,
   /** Seconds the flags/letters/numbers STAND STILL between spin/flip turns. */
   rateAnimationPauseSeconds: 1,
+  /** TRANSFER-card spin/flip turn seconds — null = same as the forex slides. */
+  rateAnimationSpeedSecondsTransfer: null as number | null,
+  /** TRANSFER-card stand-still seconds — null = same as the forex slides. */
+  rateAnimationPauseSecondsTransfer: null as number | null,
   // ONE font for the whole display — overrides all the individual fonts below.
   displayFont: null as string | null,
   rateCardFont: null as string | null,
@@ -444,6 +448,34 @@ export const ROLE_LABELS: Record<string, string> = {
   admin: "Admin",
   branchManager: "Branch Manager",
   branchUser: "Branch User (rates only)",
+};
+
+/**
+ * The clickable MODULE grid on the user form: which parts of the dashboard a
+ * person can use. A user with NO custom selection gets their role's defaults;
+ * a custom selection REPLACES the defaults (Overview/Profile/Activity are
+ * always available).
+ */
+export const ACCESS_MODULES = [
+  { key: "forexRates", label: "Foreign exchange rates" },
+  { key: "transferRates", label: "Transfer rates" },
+  { key: "media", label: "Media Manager (videos & images)" },
+  { key: "displayMessages", label: "Display messages" },
+  { key: "promotions", label: "Promotions" },
+  { key: "settings", label: "Display settings" },
+  { key: "users", label: "Users" },
+  { key: "branches", label: "Branches" },
+] as const;
+
+export type AccessModuleKey = (typeof ACCESS_MODULES)[number]["key"];
+
+// Per client (2026-07-21): branch managers upload BOTH exchange and transfer
+// rates by default; branch users forex only. Custom module picks override.
+export const MODULE_DEFAULTS_BY_ROLE: Record<string, AccessModuleKey[]> = {
+  superAdmin: ACCESS_MODULES.map((m) => m.key),
+  admin: ACCESS_MODULES.map((m) => m.key),
+  branchManager: ["forexRates", "transferRates"],
+  branchUser: ["forexRates"],
 };
 
 /** ISO currency code → display metadata for catalog normalization and import. */

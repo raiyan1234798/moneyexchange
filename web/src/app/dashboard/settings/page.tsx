@@ -971,6 +971,52 @@ function BranchSettingsForm({
           readable while each slide is on screen. 0 = keep turning non-stop. 1 is the default.
         </p>
       </div>
+      <div className="space-y-2">
+        <Label>TRANSFER card: spin speed (seconds per turn)</Label>
+        <Input
+          type="number"
+          min={1}
+          max={30}
+          step={1}
+          placeholder="Same as forex"
+          key={`tr-speed-${settings.rateAnimationSpeedSecondsTransfer ?? "same"}`}
+          defaultValue={settings.rateAnimationSpeedSecondsTransfer ?? ""}
+          onBlur={(event) => {
+            const raw = event.target.value.trim();
+            const value = raw === "" ? null : Math.max(1, Math.min(30, Number(raw) || 3));
+            event.target.value = value === null ? "" : String(value);
+            setSettings({ ...settings, rateAnimationSpeedSecondsTransfer: value });
+          }}
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          The TRANSFER RATES slide can turn at its own speed. Leave empty to match the
+          forex slides.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>TRANSFER card: pause between spins (seconds)</Label>
+        <Input
+          type="number"
+          min={0}
+          max={30}
+          step={1}
+          placeholder="Same as forex"
+          key={`tr-pause-${settings.rateAnimationPauseSecondsTransfer ?? "same"}`}
+          defaultValue={settings.rateAnimationPauseSecondsTransfer ?? ""}
+          onBlur={(event) => {
+            const raw = event.target.value.trim();
+            const value = raw === "" ? null : Math.max(0, Math.min(30, Number(raw) || 0));
+            event.target.value = value === null ? "" : String(value);
+            setSettings({ ...settings, rateAnimationPauseSecondsTransfer: value });
+          }}
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          Stand-still time between turns on the TRANSFER RATES slide only. Leave empty to
+          match the forex slides.
+        </p>
+      </div>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>

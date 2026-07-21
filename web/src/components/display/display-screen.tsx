@@ -897,6 +897,17 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const rateAnimPauseSecs = Math.max(0, Math.min(30, branchSettings.rateAnimationPauseSeconds ?? 1));
   const rateAnimCycleSecs = rateAnimSecs + rateAnimPauseSecs;
   const rateAnimHoldPct = Math.round((rateAnimPauseSecs / rateAnimCycleSecs) * 1000) / 10;
+  // TRANSFER slide gets its OWN cadence when set (null = same as forex).
+  const trAnimSecs = Math.max(
+    1,
+    Math.min(30, branchSettings.rateAnimationSpeedSecondsTransfer ?? rateAnimSecs),
+  );
+  const trAnimPauseSecs = Math.max(
+    0,
+    Math.min(30, branchSettings.rateAnimationPauseSecondsTransfer ?? rateAnimPauseSecs),
+  );
+  const trAnimCycleSecs = trAnimSecs + trAnimPauseSecs;
+  const trAnimHoldPct = Math.round((trAnimPauseSecs / trAnimCycleSecs) * 1000) / 10;
 
   return (
     <div
@@ -1045,6 +1056,33 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           100% {
             transform: perspective(600px) rotateX(360deg);
           }
+        }
+        /* TRANSFER slide: its own cadence (${trAnimSecs}s turn + ${trAnimPauseSecs}s
+           pause). The rate panel stamps data-anim-kind with the active slide, and
+           these higher-specificity rules re-time the same animations there. */
+        @keyframes display-cell-spin-tr {
+          0%, ${trAnimHoldPct}% {
+            transform: perspective(600px) rotateY(0deg);
+          }
+          100% {
+            transform: perspective(600px) rotateY(360deg);
+          }
+        }
+        @keyframes display-cell-flip-tr {
+          0%, ${trAnimHoldPct}% {
+            transform: perspective(600px) rotateX(0deg);
+          }
+          100% {
+            transform: perspective(600px) rotateX(360deg);
+          }
+        }
+        [data-anim-kind="transfer"] .display-rate-row .ticker-logo-spin,
+        [data-anim-kind="transfer"] .display-text-anim.ticker-logo-spin {
+          animation: display-cell-spin-tr ${trAnimCycleSecs}s ease-in-out infinite;
+        }
+        [data-anim-kind="transfer"] .display-rate-row .ticker-logo-flipx,
+        [data-anim-kind="transfer"] .display-text-anim.ticker-logo-flipx {
+          animation: display-cell-flip-tr ${trAnimCycleSecs}s ease-in-out infinite;
         }
         .display-kiosk:hover button[aria-label="Exit fullscreen"] {
           opacity: 0.6;

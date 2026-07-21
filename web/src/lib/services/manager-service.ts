@@ -34,6 +34,8 @@ export async function createUserInvite(params: {
   role: "admin" | "branchManager" | "branchUser";
   branchId: string | null;
   createdBy: string;
+  /** Custom module picks — omitted/null means "use the role defaults". */
+  moduleAccess?: string[] | null;
 }): Promise<void> {
   const email = normalizeEmail(params.email);
   if (!email) {
@@ -62,6 +64,9 @@ export async function createUserInvite(params: {
         role: params.role,
         branchId: params.branchId,
         branchName,
+        ...(params.moduleAccess && params.moduleAccess.length > 0
+          ? { moduleAccess: params.moduleAccess }
+          : {}),
         status: "pending",
         createdBy: params.createdBy,
         createdAt: serverTimestamp(),
@@ -158,6 +163,8 @@ export async function createPasswordUser(
     displayName: string;
     role: "admin" | "branchManager" | "branchUser";
     branchId: string | null;
+    /** Custom module picks — omitted/null means "use the role defaults". */
+    moduleAccess?: string[] | null;
   },
   actor: { userId: string; userName: string },
 ): Promise<void> {
@@ -188,6 +195,9 @@ export async function createPasswordUser(
       branchId: params.role === "admin" ? null : params.branchId,
       photoURL: null,
       isActive: true,
+      ...(params.moduleAccess && params.moduleAccess.length > 0
+        ? { moduleAccess: params.moduleAccess }
+        : {}),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -213,7 +223,13 @@ export async function createPasswordUser(
  */
 export async function updateUserProfile(
   uid: string,
-  data: { displayName: string; role: "admin" | "branchManager" | "branchUser"; branchId: string | null },
+  data: {
+    displayName: string;
+    role: "admin" | "branchManager" | "branchUser";
+    branchId: string | null;
+    /** Custom module picks — undefined leaves the stored value untouched. */
+    moduleAccess?: string[];
+  },
   actor: { userId: string; userName: string },
 ): Promise<void> {
   if (data.role !== "admin" && !data.branchId) {
@@ -224,6 +240,7 @@ export async function updateUserProfile(
       displayName: data.displayName.trim(),
       role: data.role,
       branchId: data.role === "admin" ? null : data.branchId,
+      ...(data.moduleAccess !== undefined ? { moduleAccess: data.moduleAccess } : {}),
       updatedAt: serverTimestamp(),
     });
     await writeAuditLog({

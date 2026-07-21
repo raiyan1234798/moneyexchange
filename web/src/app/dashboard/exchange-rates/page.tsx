@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import {
   ArrowDown,
@@ -108,7 +108,7 @@ const emptyCurrencyForm = {
 };
 
 export default function ExchangeRatesPage() {
-  const { user, profile, hasPermission, isBranchUser, isSuperAdmin, isAdmin, isBranchManager } = useAuth();
+  const { user, profile, hasPermission, hasModule, isBranchUser, isSuperAdmin, isAdmin, isBranchManager } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId } = useBranchScope();
   const { canManageRates } = useContentPermissions();
   const [rates, setRates] = useState<ExchangeRate[]>([]);
@@ -477,6 +477,39 @@ export default function ExchangeRatesPage() {
         : resolved.name;
     return { primary, resolved, displayLabel };
   }
+
+  // The catalog must list EVERY currency that exists anywhere — including
+  // codes that only live on some branch's rate list and never got a catalog
+  // doc. Those show as "branch-only" rows (name/flag resolved automatically).
+  const catalogRows = useMemo(() => {
+    const known = new Set(
+      currencies.map((c) => (normalizeCurrencyCode(c.currencyCode) || c.currencyCode).toUpperCase()),
+    );
+    const extras = new Map<string, Currency>();
+    for (const r of allRates) {
+      const code = (r.currencyCode ?? "").toUpperCase();
+      if (!code || known.has(code) || extras.has(code)) continue;
+      extras.set(code, {
+        id: `branch-only-${code}`,
+        currencyCode: code,
+        currencyName: "",
+        country: "",
+        flag: r.flag ?? "",
+        sortOrder: 999,
+        status: "active",
+        isHidden: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    return [
+      ...currencies,
+      ...[...extras.values()].sort((a, b) => a.currencyCode.localeCompare(b.currencyCode)),
+    ];
+  }, [currencies, allRates]);
+  const isBranchOnlyRow = (c: Currency) => c.id.startsWith("branch-only-");
+  // "Manage branches" dialog: remove ONE currency from chosen branches.
+  const [manageBranchesFor, setManageBranchesFor] = useState<Currency | null>(null);
 
   async function handleRemove(rateId: string) {
     if (!user || !profile || !effectiveBranchId) return;
@@ -1060,7 +1093,7 @@ export default function ExchangeRatesPage() {
 
         {/* Money Transfer card sits DIRECTLY under the Forex card — its own
             separate upload (one file → ALL branches), per the client. */}
-        {(isSuperAdmin || isAdmin) && user && profile ? (
+        {hasModule("transferRates") && user && profile ? (
           <div id="transfer-rates" className="scroll-mt-20">
             <CentralTransferPanel
               actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
@@ -1298,11 +1331,11 @@ export default function ExchangeRatesPage() {
               />
             ) : (
               <DataTable
-                data={currencies}
+                data={catalogRows}
                 keyExtractor={(c) => c.id}
                 // Wide enough that every column (incl. the action buttons on the
                 // right) keeps its full size — the panel then scrolls sideways.
-                tableClassName="min-w-[1050px]"
+                tableClassName="min-w-[1150px]"
                 mobileTitle={(c) => {
                   const row = getCatalogCurrency(c);
                   return `${row.flag} ${row.code}`;
@@ -1376,7 +1409,7 @@ export default function ExchangeRatesPage() {
                   {
                     key: "actions",
                     header: "Actions",
-                    width: "w-[210px]",
+                    width: "w-[300px]",
                     headerClassName: "text-right",
                     className: "text-right",
                     cell: (c) => (
@@ -1397,6 +1430,15 @@ export default function ExchangeRatesPage() {
                           variant="outline"
                           size="sm"
                           className="rounded-lg"
+                          onClick={() => setManageBranchesFor(c)}
+                        >
+                          Branches
+                        </Button>
+                        {isBranchOnlyRow(c) ? null : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
                           onClick={() =>
                             void toggleCurrencyStatus(
                               c.id,
@@ -1411,6 +1453,7 @@ export default function ExchangeRatesPage() {
                         >
                           {c.status === "active" ? "Turn off" : "Turn on"}
                         </Button>
+                        )}
                       </span>
                     ),
                   },
@@ -1419,6 +1462,68 @@ export default function ExchangeRatesPage() {
             )}
           </ContentPanel>
         ) : null}
+
+        {/* Per-branch presence: see every branch carrying this currency and
+            remove it from chosen branches (deletes that branch's rate row). */}
+        <Dialog open={manageBranchesFor !== null} onOpenChange={(o) => !o && setManageBranchesFor(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {manageBranchesFor ? getCatalogCurrency(manageBranchesFor).code : ""} — on which branches?
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-80 space-y-2 overflow-y-auto py-2">
+              {(() => {
+                if (!manageBranchesFor) return null;
+                const code = getCatalogCurrency(manageBranchesFor).code;
+                const rows = allRates.filter((r) => (r.currencyCode ?? "").toUpperCase() === code);
+                if (rows.length === 0) {
+                  return (
+                    <p className="text-sm text-muted-foreground">
+                      No branch carries {code} right now. Use &quot;Add Currency to Branch&quot; on a
+                      branch to add it.
+                    </p>
+                  );
+                }
+                return rows.map((r) => {
+                  const b = branches.find((x) => x.id === r.branchId);
+                  return (
+                    <div
+                      key={r.id}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-border/30 p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{b?.name ?? r.branchId}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {b?.code ?? ""}{r.isHidden ? " · hidden on TV" : ""}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-lg text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (!user || !profile) return;
+                          void removeBranchRate(
+                            r.id,
+                            { userId: user.uid, userName: profile.displayName || profile.email },
+                            r.branchId,
+                          )
+                            .then(() => toast.success(`${code} removed from ${b?.name ?? "branch"}`))
+                            .catch((e) =>
+                              toast.error(e instanceof Error ? e.message : "Failed to remove"),
+                            );
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Edit how a currency LOOKS everywhere: flag emoji, name, country. */}
         <Dialog open={editCurrencyTarget !== null} onOpenChange={(o) => !o && setEditCurrencyTarget(null)}>
