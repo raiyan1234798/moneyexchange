@@ -675,7 +675,10 @@ export function UnimoniRatesPanel({
           key={`${activeSheet.kind}-${sheetIndex}`}
           className={`display-rates-body ${slideTransitionClass(sheetTransition)} min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]`}
         >
-          {rows.length === 0 ? (
+          {/* Empty-state for THIS slide's rows — checking the forex list here
+              wrongly printed "being updated" on top of a full TRANSFER slide
+              whenever a branch had no forex rates yet. */}
+          {activeSheet.rows.length === 0 ? (
             <div className="flex flex-col items-center gap-1 px-4 py-[4vh] text-center" style={{ color: NAVY_TEXT }}>
               <p className="text-[clamp(0.8rem,1.2vw,1.1rem)] font-bold">Rates are being updated</p>
               <p className="text-[clamp(0.65rem,0.95vw,0.9rem)] opacity-70">Please ask our staff for today&apos;s rates.</p>
