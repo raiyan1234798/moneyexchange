@@ -227,8 +227,8 @@ export function CentralTransferPanel({
 
   return (
     <ContentPanel
-      title="Money Transfer Rate — Update & Upload"
-      description={`T.T Rate : Against USD/${localLabel} (telegraphic transfer) — one remittance rate for ALL branches. Upload one Excel/CSV (CURRENCY | $ (USD) | ${localLabel}) and every branch updates at once, or edit below.`}
+      title="Money Transfer Rates"
+      description={`One set for ALL branches — upload an Excel or edit below. T.T rate against USD/${localLabel}.`}
     >
       {/* ONE Excel/CSV upload updates the transfer rates on ALL branches at once —
           a BIG drop zone; the wording lives in the panel description above. */}
@@ -260,22 +260,19 @@ export function CentralTransferPanel({
               const f = e.dataTransfer.files?.[0];
               if (f) void handleTransferUpload(f);
             }}
-            // COMPACT box (like the forex uploader) — not a full-width banner.
-            className={`ml-auto flex min-h-[88px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-3 text-center transition-colors sm:max-w-xs ${
+            // ONE slim line — no floating island, no dead space around it.
+            className={`flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-dashed px-4 py-2.5 text-center transition-colors ${
               dragOver
                 ? "border-sky-500 bg-sky-500/10"
                 : "border-sky-500/40 bg-background/60 hover:border-sky-500/60 hover:bg-sky-500/5"
             } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
           >
-            <Upload className="h-6 w-6 text-sky-600 dark:text-sky-400" />
+            <Upload className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
             <span className="text-sm font-medium">
-              {uploading ? "Uploading…" : "Drop the transfer Excel/CSV file here"}
+              {uploading ? "Uploading…" : "Upload transfer Excel/CSV"}
             </span>
             <span className="text-xs text-muted-foreground">
-              .xlsx, .xls, .csv — CURRENCY | $ (USD) | {localLabel}
-            </span>
-            <span className="text-[11px] text-muted-foreground/90">
-              T.T Rate : Against USD/{localLabel}
+              (drop it here or click) — CURRENCY | $ (USD) | {localLabel}
             </span>
           </button>
         </div>
