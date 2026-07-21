@@ -45,6 +45,8 @@ export interface Branch {
   brandingColor?: string;
   workingHours: string;
   status: EntityStatus;
+  /** Manual position in branch lists/dropdowns (1-based). Unset = after ordered ones, A–Z. */
+  displayOrder?: number;
   settings: BranchSettings;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
@@ -146,6 +148,9 @@ export interface BranchSettings {
   ratePromoMediaFit?: "fill" | "cover" | "contain";
   /** Seconds the TRANSFER card stays visible — null/unset = same as forex slides. */
   rateTransferDurationSeconds?: number | null;
+  /** TV edge-cut (overscan) fix: shrink the whole display by this % per edge
+      (0 = off). Many TVs crop 2–5% of an HDMI input; this keeps everything visible. */
+  displaySafeAreaPercent?: number;
   /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
   logoAutoRemoveBg?: boolean;
   /** Transition when the video-area image/video changes. */

@@ -714,6 +714,27 @@ function BranchSettingsForm({
           </Select>
         </div>
         <div className="space-y-2">
+          <Label>TV edge-cut fix (%)</Label>
+          <Input
+            type="number"
+            min={0}
+            max={10}
+            step={1}
+            value={settings.displaySafeAreaPercent ?? 0}
+            onChange={(event) =>
+              setSettings({
+                ...settings,
+                displaySafeAreaPercent: Math.max(0, Math.min(10, Number(event.target.value) || 0)),
+              })
+            }
+            className="rounded-xl"
+          />
+          <p className="text-xs text-muted-foreground">
+            Some TVs cut off the edges of the picture (logo, date or last column not fully
+            visible). Increase this until everything fits — 3 to 5 works for most TVs. 0 = off.
+          </p>
+        </div>
+        <div className="space-y-2">
           <Label>Image / video change animation</Label>
           <Select
             value={settings.videoImageTransition ?? "fade"}

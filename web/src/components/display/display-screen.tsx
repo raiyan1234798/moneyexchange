@@ -778,11 +778,21 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // With no video, the promo panel shows the branded placeholder — the
   // signage format never changes shape on the TV.
 
+  // TV edge-cut (overscan) fix: many TVs crop a few % of an HDMI input on every
+  // edge (logo/date/last column not fully visible). Uniformly shrinking the
+  // WHOLE display leaves a black margin the TV crops instead of the content.
+  const safeAreaPercent = Math.max(0, Math.min(10, branchSettings.displaySafeAreaPercent ?? 0));
+
   return (
     <div
       className={`relative flex h-screen w-screen flex-col overflow-hidden bg-black text-white select-none ${
         isFullscreen ? "display-kiosk" : ""
       }`}
+      style={
+        safeAreaPercent > 0
+          ? { transform: `scale(${(100 - 2 * safeAreaPercent) / 100})`, transformOrigin: "50% 50%" }
+          : undefined
+      }
     >
       {!isFullscreen ? (
         <button
@@ -895,6 +905,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       ) : null}
 
       <style jsx global>{`
+        /* Behind the (possibly safe-area-scaled) display, the page must be
+           BLACK — the margin the TV crops away should never flash white. */
+        html,
+        body {
+          background: #000;
+        }
         .display-kiosk:hover button[aria-label="Exit fullscreen"] {
           opacity: 0.6;
         }

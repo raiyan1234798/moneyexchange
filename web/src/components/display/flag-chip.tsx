@@ -13,7 +13,20 @@ function flagEmojiToCountryCode(flag: string): string | null {
     .map((ch) => ch.codePointAt(0) ?? 0)
     .filter((cp) => cp >= 0x1f1e6 && cp <= 0x1f1ff)
     .map((cp) => String.fromCharCode(cp - 0x1f1e6 + 65));
-  return letters.length === 2 ? letters.join("").toLowerCase() : null;
+  if (letters.length === 2) return letters.join("").toLowerCase();
+
+  // Subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿, Wales, England) are a black flag +
+  // "tag letter" sequence, not regional-indicator pairs. Decode the tags to
+  // flagcdn's "gb-sct" style code — many TVs can't draw these emoji at all,
+  // so the PNG is the only way the flag shows up.
+  const tags = [...flag]
+    .map((ch) => ch.codePointAt(0) ?? 0)
+    .filter((cp) => cp >= 0xe0061 && cp <= 0xe007a)
+    .map((cp) => String.fromCharCode(cp - 0xe0000));
+  if (flag.includes("\u{1F3F4}") && tags.length >= 4) {
+    return `${tags.slice(0, 2).join("")}-${tags.slice(2).join("")}`;
+  }
+  return null;
 }
 
 export function FlagChip({ flag, className = "" }: { flag: string; className?: string }) {

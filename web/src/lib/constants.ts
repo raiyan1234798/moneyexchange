@@ -137,6 +137,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoMediaFit: "fill" as "fill" | "cover" | "contain",
   /** Seconds the TRANSFER card stays — null = same as the forex slides. */
   rateTransferDurationSeconds: null as number | null,
+  /** TV edge-cut (overscan) fix: shrink the whole display this % per edge. */
+  displaySafeAreaPercent: 0,
   // ONE font for the whole display — overrides all the individual fonts below.
   displayFont: null as string | null,
   rateCardFont: null as string | null,
@@ -456,6 +458,8 @@ export const CURRENCY_METADATA: Record<
   CNY: { name: "Chinese Yuan", country: "China", flag: "🇨🇳" },
   INR: { name: "Indian Rupee", country: "India", flag: "🇮🇳" },
   SAR: { name: "Saudi Riyal", country: "Saudi Arabia", flag: "🇸🇦" },
+  // Not ISO 4217 (Scottish notes are GBP), but the client lists it separately.
+  SCP: { name: "Scottish Pound", country: "Scotland", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿" },
   QAR: { name: "Qatari Riyal", country: "Qatar", flag: "🇶🇦" },
   OMR: { name: "Omani Rial", country: "Oman", flag: "🇴🇲" },
   BHD: { name: "Bahraini Dinar", country: "Bahrain", flag: "🇧🇭" },

@@ -33,6 +33,19 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Team logins may be plain user IDs (e.g. "manager.kampalaroad") — Firebase
+ * Auth only accepts real email addresses, so IDs without an "@" are completed
+ * with the company domain. Full emails pass through unchanged.
+ */
+export const TEAM_LOGIN_DOMAIN = "unimoni-signage.com";
+
+export function completeLoginEmail(input: string): string {
+  const trimmed = normalizeEmail(input);
+  if (!trimmed || trimmed.includes("@")) return trimmed;
+  return `${trimmed}@${TEAM_LOGIN_DOMAIN}`;
+}
+
 export function isSuperAdminEmail(email: string): boolean {
   return normalizeEmail(email) === normalizeEmail(SUPER_ADMIN_EMAIL);
 }

@@ -107,8 +107,21 @@ export function subscribeBranch(branchId: string, onData: (branch: Branch | null
   );
 }
 
+// Manual order first (▲▼ on the Branches page), then A–Z for branches never
+// reordered. Sorting happens client-side: a Firestore orderBy("displayOrder")
+// would silently DROP every branch document that lacks the field.
+function sortBranches(items: Branch[]): Branch[] {
+  return [...items].sort((a, b) => {
+    const ao = typeof a.displayOrder === "number" ? a.displayOrder : Number.MAX_SAFE_INTEGER;
+    const bo = typeof b.displayOrder === "number" ? b.displayOrder : Number.MAX_SAFE_INTEGER;
+    if (ao !== bo) return ao - bo;
+    return (a.name ?? "").localeCompare(b.name ?? "");
+  });
+}
+
 export async function listBranches(): Promise<Branch[]> {
-  return listDocuments<Branch>(COLLECTIONS.branches, [orderBy("name", "asc")]);
+  const items = await listDocuments<Branch>(COLLECTIONS.branches, [orderBy("name", "asc")]);
+  return sortBranches(items);
 }
 
 export function subscribeBranches(
@@ -118,9 +131,27 @@ export function subscribeBranches(
   return subscribeCollection<Branch>(
     COLLECTIONS.branches,
     [orderBy("name", "asc")],
-    onData,
+    (items) => onData(sortBranches(items)),
     onError,
   );
+}
+
+/** Persist a new manual order for ALL branches (1-based positions). */
+export async function reorderBranches(
+  orderedIds: string[],
+  actor: { userId: string; userName: string },
+): Promise<void> {
+  await Promise.all(
+    orderedIds.map((id, index) => updateDocument(COLLECTIONS.branches, id, { displayOrder: index + 1 })),
+  );
+  await writeAuditLog({
+    action: "update",
+    entityType: "branch",
+    entityId: "branch-order",
+    userId: actor.userId,
+    userName: actor.userName,
+    metadata: { reordered: orderedIds },
+  });
 }
 
 export async function createBranch(

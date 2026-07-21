@@ -58,7 +58,7 @@ import {
   updateUserInvite,
   updateUserProfile,
 } from "@/lib/services/manager-service";
-import { normalizeEmail } from "@/lib/auth/user-profile";
+import { completeLoginEmail, normalizeEmail, TEAM_LOGIN_DOMAIN } from "@/lib/auth/user-profile";
 import {
   canManageCredentials,
   deleteCredential,
@@ -206,8 +206,16 @@ export default function UsersPage() {
         : form.branchId
       : null;
 
+    // Password logins may be plain user IDs (e.g. "manager.kampalaroad") — the
+    // company domain is appended automatically. Google invites MUST be a real
+    // Gmail address, or that person could never sign in.
+    const normalizedEmail =
+      accountMode === "password" ? completeLoginEmail(form.email) : normalizeEmail(form.email);
+    if (accountMode === "google" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+      toast.error("Enter their full Gmail address (e.g. name@gmail.com) — Google sign-in needs the exact address.");
+      return;
+    }
     setSubmitting(true);
-    const normalizedEmail = normalizeEmail(form.email);
     const duplicateMessage = isDuplicateEmail(normalizedEmail);
     if (duplicateMessage) {
       toast.error(duplicateMessage);
@@ -473,15 +481,28 @@ export default function UsersPage() {
                 </p>
                 <div className="grid gap-4 py-2">
                   <div className="space-y-2">
-                    <Label htmlFor="user-email">{accountMode === "password" ? "Email address" : "Gmail address"}</Label>
+                    <Label htmlFor="user-email">{accountMode === "password" ? "Email or user ID" : "Gmail address"}</Label>
                     <Input
                       id="user-email"
-                      type="email"
-                      placeholder={accountMode === "password" ? "name@company.com" : "name@gmail.com"}
+                      type={accountMode === "password" ? "text" : "email"}
+                      placeholder={accountMode === "password" ? "e.g. manager.kampalaroad" : "name@gmail.com"}
                       value={form.email}
                       onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
                       className="rounded-xl"
                     />
+                    {accountMode === "password" && form.email.trim() && !form.email.includes("@") ? (
+                      <p className="text-xs text-muted-foreground">
+                        Will sign in as{" "}
+                        <span className="font-mono font-medium">{completeLoginEmail(form.email)}</span>
+                        {" "}— they can type just{" "}
+                        <span className="font-mono">{form.email.trim().toLowerCase()}</span> on the login page.
+                      </p>
+                    ) : null}
+                    {accountMode === "password" ? (
+                      <p className="text-xs text-muted-foreground">
+                        A plain user ID is fine — @{TEAM_LOGIN_DOMAIN} is added automatically.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="user-name">Display name</Label>

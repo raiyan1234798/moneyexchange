@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { completeLoginEmail } from "@/lib/auth/user-profile";
 import { BRAND } from "@/lib/brand";
 
 const LOGIN_LOADING_TIMEOUT_MS = 15_000;
@@ -94,7 +95,9 @@ export default function LoginPage() {
     event.preventDefault();
     setSubmitting(true);
     try {
-      await login(email, password);
+      // Team members may sign in with just their user ID — the company domain
+      // is appended automatically (Firebase itself only accepts full emails).
+      await login(completeLoginEmail(email), password);
       toast.success("Welcome back");
     } catch (error) {
       const raw = error instanceof Error ? error.message : "";
@@ -202,13 +205,13 @@ export default function LoginPage() {
 
             <form onSubmit={handleSubmit} className="mt-7 space-y-4 sm:space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email or user ID</Label>
                 <Input
                   id="email"
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="you@example.com or your user ID"
                   className="h-11 rounded-xl border-[var(--unimoni-blue)]/15 bg-background/80"
                   autoComplete="email"
                   required

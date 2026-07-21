@@ -43,7 +43,7 @@ import { MAX_BRANCHES, DEFAULT_BRANCH_SETTINGS } from "@/lib/constants";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
-import { createBranch, deleteBranch, disableBranch, subscribeBranches, updateBranch } from "@/lib/services/branch-service";
+import { createBranch, deleteBranch, disableBranch, reorderBranches, subscribeBranches, updateBranch } from "@/lib/services/branch-service";
 import { createUserInvite } from "@/lib/services/manager-service";
 import type { Branch } from "@/lib/types";
 
@@ -240,6 +240,25 @@ export default function BranchesPage() {
     toast.success("Display URL copied");
   }
 
+  // ▲▼ — swap with the neighbor and persist positions for the WHOLE list, so
+  // every branch dropdown in the dashboard follows this order.
+  async function moveBranch(branch: Branch, direction: -1 | 1) {
+    if (!user || !profile) return;
+    const index = branches.findIndex((b) => b.id === branch.id);
+    const target = index + direction;
+    if (index < 0 || target < 0 || target >= branches.length) return;
+    const ordered = branches.map((b) => b.id);
+    [ordered[index], ordered[target]] = [ordered[target], ordered[index]];
+    try {
+      await reorderBranches(ordered, {
+        userId: user.uid,
+        userName: profile.displayName || profile.email,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reorder branches");
+    }
+  }
+
   return (
     <>
       <DashboardHeader title="Branches" description="Create and manage branch locations, hours, and branding." accent="violet" />
@@ -295,7 +314,9 @@ export default function BranchesPage() {
                       </div>
                     ))}
                 </FormSection>
-                <FormSection title="Branding & Hours" description="Display signage and operating hours">
+                <FormSection title="Working Hours" description="Operating hours shown on the display">
+                  {/* Slogan and Brand Color were removed from this form per the
+                      client — existing saved values are kept untouched on save. */}
                   <div className="space-y-2">
                     <Label>{fieldLabels.workingHours}</Label>
                     <Input
@@ -304,34 +325,6 @@ export default function BranchesPage() {
                       placeholder="09:00 - 21:00"
                       className="rounded-xl"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{fieldLabels.slogan}</Label>
-                    <Input
-                      value={form.slogan}
-                      onChange={(event) => setForm((prev) => ({ ...prev, slogan: event.target.value }))}
-                      className="rounded-xl"
-                    />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label>{fieldLabels.brandingColor}</Label>
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="color"
-                        value={form.brandingColor}
-                        onChange={(event) => setForm((prev) => ({ ...prev, brandingColor: event.target.value }))}
-                        className="h-11 w-14 cursor-pointer rounded-xl border border-border bg-transparent"
-                      />
-                      <Input
-                        value={form.brandingColor}
-                        onChange={(event) => setForm((prev) => ({ ...prev, brandingColor: event.target.value }))}
-                        className="flex-1 rounded-xl font-mono text-sm"
-                      />
-                      <div
-                        className="h-11 w-11 shrink-0 rounded-xl ring-1 ring-border/50"
-                        style={{ backgroundColor: form.brandingColor }}
-                      />
-                    </div>
                   </div>
                 </FormSection>
                 {editBranch ? null : (
@@ -399,6 +392,41 @@ export default function BranchesPage() {
               keyExtractor={(b) => b.id}
               mobileTitle={(b) => b.name}
               columns={[
+                ...(hasPermission("editBranch")
+                  ? [
+                      {
+                        key: "order",
+                        header: "Order",
+                        cell: (b: Branch) => {
+                          const index = branches.findIndex((x) => x.id === b.id);
+                          return (
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 w-7 rounded-lg p-0"
+                                disabled={index <= 0}
+                                aria-label={`Move ${b.name} up`}
+                                onClick={() => void moveBranch(b, -1)}
+                              >
+                                ▲
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 w-7 rounded-lg p-0"
+                                disabled={index >= branches.length - 1}
+                                aria-label={`Move ${b.name} down`}
+                                onClick={() => void moveBranch(b, 1)}
+                              >
+                                ▼
+                              </Button>
+                            </div>
+                          );
+                        },
+                      },
+                    ]
+                  : []),
                 {
                   key: "name",
                   header: "Name",
