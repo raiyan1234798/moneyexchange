@@ -458,7 +458,8 @@ export const ROLE_LABELS: Record<string, string> = {
  */
 export const ACCESS_MODULES = [
   { key: "forexRates", label: "Foreign exchange rates" },
-  { key: "transferRates", label: "Transfer rates" },
+  { key: "forexRatesAllBranches", label: "Forex rates — ALL branches" },
+  { key: "transferRates", label: "Transfer rates (all branches)" },
   { key: "media", label: "Media Manager (videos & images)" },
   { key: "displayMessages", label: "Display messages" },
   { key: "promotions", label: "Promotions" },

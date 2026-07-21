@@ -313,19 +313,24 @@ service cloud.firestore {
 
     match /exchange_rates/{rateId} {
       allow read: if isActiveUser() || resource.data.status == 'published';
+      // "Forex rates — ALL branches" module: full rate editing on any branch.
+      function hasAllBranchForex() {
+        return isActiveUser() && 'moduleAccess' in userDoc() &&
+          userDoc().moduleAccess.hasAny(['forexRatesAllBranches']);
+      }
       // Admins manage rates across ALL branches; managers their own branch.
       // Branch users may ONLY edit + republish the forex VALUES of existing
       // rows in their branch — never rename, reorder, hide, transfer fields,
       // or create/delete rows (per client, 2026-07-11).
-      allow create: if isSuperAdmin() || isAdmin() ||
+      allow create: if isSuperAdmin() || isAdmin() || hasAllBranchForex() ||
         belongsToManagerBranch(request.resource.data.branchId);
-      allow update: if isSuperAdmin() || isAdmin() ||
+      allow update: if isSuperAdmin() || isAdmin() || hasAllBranchForex() ||
         belongsToManagerBranch(request.resource.data.branchId) ||
         (belongsToBranchUserBranch(resource.data.branchId) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(
             ['buyRate', 'sellRate', 'version', 'status', 'updatedBy', 'updatedByName',
              'publishedAt', 'updatedAt']));
-      allow delete: if isSuperAdmin() || isAdmin() ||
+      allow delete: if isSuperAdmin() || isAdmin() || hasAllBranchForex() ||
         (isBranchManager() && canAccessBranch(resource.data.branchId));
     }
 

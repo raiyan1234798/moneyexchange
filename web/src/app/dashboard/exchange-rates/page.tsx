@@ -647,7 +647,7 @@ export default function ExchangeRatesPage() {
 
       // Scope (admin-only choice in the confirm pop-up): the selected branch
       // only, or the SAME forex rates on ALL branches at once.
-      const applyAll = scope === "all" && (isSuperAdmin || isAdmin);
+      const applyAll = scope === "all" && (isSuperAdmin || isAdmin || hasModule("forexRatesAllBranches"));
       const targetBranches = applyAll
         ? branches
         : branches.filter((b) => b.id === effectiveBranchId);
@@ -778,7 +778,7 @@ export default function ExchangeRatesPage() {
       <PageShell accent="emerald">
         <FirestoreSetupNotice message={loadNotice} />
 
-        {isSuperAdmin || isAdmin ? (
+        {isSuperAdmin || isAdmin || hasModule("forexRatesAllBranches") ? (
           <BranchSelector
             branches={branches}
             value={effectiveBranchId}
@@ -1045,9 +1045,10 @@ export default function ExchangeRatesPage() {
               </div>
             ) : null}
 
-            {/* OPTIONAL all-branches checkbox — ADMINS ONLY. Unchecked (default)
+            {/* OPTIONAL all-branches checkbox — admins and users granted the
+                "Forex rates — ALL branches" module. Unchecked (default)
                 publishes to the selected branch only. */}
-            {isSuperAdmin || isAdmin ? (
+            {isSuperAdmin || isAdmin || hasModule("forexRatesAllBranches") ? (
               <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
                 <Checkbox
                   id="publish-all-branches"
