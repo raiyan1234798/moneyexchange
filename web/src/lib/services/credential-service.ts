@@ -124,13 +124,16 @@ export async function deleteUserAccount(
 ): Promise<{ authDeleted: boolean }> {
   const email = normalizeEmail(target.email);
   let authDeleted = false;
+  let authError: string | null = null;
   if (storedPassword) {
     try {
       await deleteAuthAccount(email, storedPassword);
       authDeleted = true;
-    } catch {
-      // Stored password no longer matches (user changed it) — the profile
-      // delete below still cuts off ALL access; report authDeleted=false.
+    } catch (e) {
+      // e.g. password changed by the user, or auth/too-many-requests — the
+      // profile delete below still cuts off ALL access; keep the reason for
+      // the audit trail so a false authDeleted is diagnosable.
+      authError = e instanceof Error ? (e as { code?: string }).code ?? e.message : String(e);
     }
   }
   await deleteDoc(doc(db, "users", target.uid));
@@ -142,7 +145,7 @@ export async function deleteUserAccount(
     entityId: target.uid,
     userId: actor.userId,
     userName: actor.userName,
-    metadata: { email, authDeleted },
+    metadata: { email, authDeleted, ...(authError ? { authError } : {}) },
   }).catch(() => undefined);
   return { authDeleted };
 }
