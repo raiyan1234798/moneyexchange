@@ -19,7 +19,7 @@ import {
   MessageAreaAnnouncement,
   useAnnouncementCycle,
 } from "@/components/display/announcement-banner";
-import { UnimoniRatesPanel } from "@/components/display/unimoni-rates-panel";
+import { rateCardHasContent, UnimoniRatesPanel } from "@/components/display/unimoni-rates-panel";
 import { BreakingNewsTicker } from "@/components/display/breaking-news-ticker";
 import type { Branch, ExchangeRate, ImageAdvert, TickerMessage, TransferRate, VideoAsset } from "@/lib/types";
 
@@ -304,15 +304,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     return Math.max(45, Math.min(75, (idealPx / mainDims.w) * 100));
   }, [videoFit, mediaAspect, mainDims]);
 
-  // A branch with NOTHING to put on the rate card (no published forex rates,
-  // no transfer rates) must not cycle a "Rates are being updated" card on the
-  // TV — the video/promo area takes the whole screen until rates exist.
-  const hasAnyRateContent =
-    rates.some((r) => !r.isHidden && r.status === "published") || transferRates.length > 0;
-  const rateCardShown = rateCardVisible && hasAnyRateContent;
-
-  const effectivePromoWidth = rateCardShown ? (adaptivePromoPercent ?? videoWidthPercent) : 100;
-  const rateWidthPercent = 100 - effectivePromoWidth;
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const rateCurrencyScale = branchSettings.rateCurrencyScale ?? 1;
   const rateValueScale = branchSettings.rateValueScale ?? 1;
@@ -480,6 +471,24 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     : null;
   const ratePromoDurationSeconds =
     branchSettings.ratePromoDurationSeconds ?? sheetIntervalSeconds;
+
+  // A branch with NOTHING to put on the rate card (no published forex rates,
+  // no transfer rows, no promo slide) must not cycle a "Rates are being
+  // updated" card on the TV — the video/promo area takes the whole screen
+  // until rates exist. Same logic the panel itself uses to build its slides.
+  const hasAnyRateContent = rateCardHasContent({
+    rates,
+    transferRates,
+    showForexCard,
+    showTransferCard,
+    promoMedia: ratePromoMedia,
+    promoImageUrl: ratePromoImageUrl,
+    promoText: ratePromoText,
+    promoTextTop: ratePromoTextTop,
+  });
+  const rateCardShown = rateCardVisible && hasAnyRateContent;
+  const effectivePromoWidth = rateCardShown ? (adaptivePromoPercent ?? videoWidthPercent) : 100;
+  const rateWidthPercent = 100 - effectivePromoWidth;
 
   useEffect(() => {
     const syncFullscreen = () => setIsFullscreen(Boolean(document.fullscreenElement));

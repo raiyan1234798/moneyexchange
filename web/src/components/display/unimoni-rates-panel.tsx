@@ -153,6 +153,38 @@ function hasTransfer(r: ExchangeRate): boolean {
   return (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0 || (r.remitRate ?? 0) > 0;
 }
 
+/**
+ * Would the rate card have ANYTHING to show (a forex sheet, a transfer sheet or
+ * a promo slide)? Mirrors the sheet-building below — the display uses it to
+ * HIDE the whole card (video takes the full screen) instead of cycling a
+ * "Rates are being updated" placeholder on branches with no rates yet.
+ */
+export function rateCardHasContent(args: {
+  rates: ExchangeRate[];
+  transferRates?: TransferRate[] | null;
+  showForexCard: boolean;
+  showTransferCard: boolean;
+  promoMedia?: Array<{ type: "image" | "video"; url: string }>;
+  promoImageUrl?: string | null;
+  promoText?: string | null;
+  promoTextTop?: string | null;
+}): boolean {
+  const rows = resolveSignageRates(args.rates);
+  if (args.showForexCard && rows.length > 0) return true;
+  const centralTransfer = (args.transferRates ?? []).filter(
+    (t) => !t.isHidden && ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0),
+  );
+  if (args.showTransferCard && (centralTransfer.length > 0 || rows.some(hasTransfer))) return true;
+  const promoItems = (args.promoMedia && args.promoMedia.length > 0
+    ? args.promoMedia
+    : args.promoImageUrl?.trim()
+      ? [{ url: args.promoImageUrl }]
+      : []
+  ).filter((m) => m.url?.trim());
+  if (promoItems.length > 0) return true;
+  return Boolean(args.promoText?.trim() || args.promoTextTop?.trim());
+}
+
 export function UnimoniRatesPanel({
   rates,
   showBuyRate = true,
