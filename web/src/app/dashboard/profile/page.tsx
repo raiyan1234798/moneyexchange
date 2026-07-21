@@ -90,6 +90,16 @@ export default function ProfilePage() {
           </div>
         </ContentPanel>
 
+        {/* Per client (2026-07-21): branch managers and branch users must NOT
+            rename themselves — the admin sets names from the Users page. */}
+        {profile?.role === "branchManager" || profile?.role === "branchUser" ? (
+          <ContentPanel title="Display Name">
+            <p className="text-sm font-medium">{profile?.displayName}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Your name is set by the admin. Ask them if it needs a change.
+            </p>
+          </ContentPanel>
+        ) : (
         <ContentPanel title="Display Name">
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormSection title="Public name" description="Shown in audit logs and manager lists">
@@ -106,6 +116,7 @@ export default function ProfilePage() {
             </Button>
           </form>
         </ContentPanel>
+        )}
       </PageShell>
     </>
   );

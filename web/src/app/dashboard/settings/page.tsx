@@ -103,6 +103,7 @@ function BranchSettingsForm({
   saveSlot,
   navSlot,
   onSave,
+  onCopyFontsToAll,
 }: {
   branchId: string;
   branchName: string;
@@ -115,6 +116,8 @@ function BranchSettingsForm({
   /** Element below the save bar that hosts the section jump-nav on xl screens. */
   navSlot?: HTMLElement | null;
   onSave: (data: { logoUrl: string; brandingColor: string; settings: BranchSettings }) => Promise<void>;
+  /** Copy THIS form's font choices to every branch (admin convenience). */
+  onCopyFontsToAll?: (settings: BranchSettings) => Promise<void>;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [color, setColor] = useState(initialColor);
@@ -655,6 +658,21 @@ function BranchSettingsForm({
             Welcome to Unimoni · We Buy US $ Small Bills
           </span>
         </div>
+        {onCopyFontsToAll ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl"
+              onClick={() => void onCopyFontsToAll(settings)}
+            >
+              Copy fonts to ALL branches
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Makes every branch&apos;s TV use the SAME fonts as this one — nothing else changes.
+            </p>
+          </div>
+        ) : null}
       </SettingsGroup>
 
       <SettingsGroup
@@ -2214,6 +2232,38 @@ export default function SettingsPage() {
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
+  // "Copy fonts to ALL branches": writes ONLY the font choices of the current
+  // form to every branch's settings — layout, media, timers stay untouched.
+  async function copyFontsToAllBranches(current: BranchSettings) {
+    if (!user || !profile) return;
+    const fontKeys = [
+      "displayFont",
+      "rateCardFont",
+      "tickerLogoFont",
+      "tickerMessageFont",
+      "ratePromoFont",
+      "announcementFont",
+    ] as const;
+    const fonts: Partial<BranchSettings> = {};
+    for (const k of fontKeys) {
+      (fonts as Record<string, unknown>)[k] = current[k] ?? null;
+    }
+    try {
+      await Promise.all(
+        branches.map((b) =>
+          updateBranch(
+            b.id,
+            { settings: { ...b.settings, ...fonts } },
+            { userId: user.uid, userName: profile.displayName || profile.email },
+          ),
+        ),
+      );
+      toast.success(`Fonts copied to all ${branches.length} branches — every TV now matches.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not copy the fonts");
+    }
+  }
+
   useEffect(() => {
     if (!isSuperAdmin) return;
     const ref = doc(db, COLLECTIONS.settings, SETTINGS_ID);
@@ -2469,6 +2519,7 @@ export default function SettingsPage() {
                 saveSlot={saveSlot}
                 navSlot={navSlot}
                 onSave={saveBranchSettings}
+                onCopyFontsToAll={copyFontsToAllBranches}
               />
               <div className="hidden xl:block">
                 <div className="sticky top-3 space-y-2">

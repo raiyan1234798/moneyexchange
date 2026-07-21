@@ -260,13 +260,14 @@ export function CentralTransferPanel({
               const f = e.dataTransfer.files?.[0];
               if (f) void handleTransferUpload(f);
             }}
-            className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+            // COMPACT box (like the forex uploader) — not a full-width banner.
+            className={`ml-auto flex min-h-[88px] w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-3 text-center transition-colors sm:max-w-xs ${
               dragOver
                 ? "border-sky-500 bg-sky-500/10"
                 : "border-sky-500/40 bg-background/60 hover:border-sky-500/60 hover:bg-sky-500/5"
             } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
           >
-            <Upload className="h-8 w-8 text-sky-600 dark:text-sky-400" />
+            <Upload className="h-6 w-6 text-sky-600 dark:text-sky-400" />
             <span className="text-sm font-medium">
               {uploading ? "Uploading…" : "Drop the transfer Excel/CSV file here"}
             </span>
