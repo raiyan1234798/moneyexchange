@@ -1216,7 +1216,7 @@ function BranchSettingsForm({
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            How every promotion image and video sits in the card. Upload at 1080 × 1920 (9:16)
+            How every promotion image and video sits in the card. Upload at 1080 × 1800 (3:5)
             and all three look identical.
           </p>
         </div>
@@ -1248,10 +1248,10 @@ function BranchSettingsForm({
           <div className="space-y-2">
             <Label>Images &amp; videos — each rotates as its own screen</Label>
             <p className="text-xs text-muted-foreground">
-              Best size: <span className="font-semibold">tall (portrait) 9:16 — e.g. 1080 × 1920 px</span>{" "}
+              Best size: <span className="font-semibold">tall (portrait) 3:5 — e.g. 1080 × 1800 px</span>{" "}
               (same shape as a phone screen). The poster always fills the whole space with no blue
-              gaps and nothing cut off. A picture that isn&apos;t 9:16 stretches a little to fit —
-              upload at 9:16 and it fills perfectly with no stretch.
+              gaps and nothing cut off. A picture that isn&apos;t 3:5 stretches a little to fit —
+              upload at 3:5 and it fills perfectly with no stretch.
             </p>
             <Input
               type="file"
