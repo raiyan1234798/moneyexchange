@@ -304,7 +304,14 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     return Math.max(45, Math.min(75, (idealPx / mainDims.w) * 100));
   }, [videoFit, mediaAspect, mainDims]);
 
-  const effectivePromoWidth = rateCardVisible ? (adaptivePromoPercent ?? videoWidthPercent) : 100;
+  // A branch with NOTHING to put on the rate card (no published forex rates,
+  // no transfer rates) must not cycle a "Rates are being updated" card on the
+  // TV — the video/promo area takes the whole screen until rates exist.
+  const hasAnyRateContent =
+    rates.some((r) => !r.isHidden && r.status === "published") || transferRates.length > 0;
+  const rateCardShown = rateCardVisible && hasAnyRateContent;
+
+  const effectivePromoWidth = rateCardShown ? (adaptivePromoPercent ?? videoWidthPercent) : 100;
   const rateWidthPercent = 100 - effectivePromoWidth;
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const rateCurrencyScale = branchSettings.rateCurrencyScale ?? 1;
@@ -925,7 +932,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         }`}
       >
         {promoPanel}
-        {rateCardVisible ? ratesPanel : null}
+        {rateCardShown ? ratesPanel : null}
       </div>
 
       <BreakingNewsTicker

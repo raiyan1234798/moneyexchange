@@ -697,18 +697,25 @@ export default function VideosPage() {
         listDocuments<VideoAsset>(COLLECTIONS.videos, []),
         listDocuments<ImageAdvert>(COLLECTIONS.imageAdverts, []),
       ]);
-      const keep = [
+      const inUse = [
         ...allVideos.filter((v) => v.status !== "inactive"),
         ...allImages.filter((img) => img.status !== "inactive"),
-      ]
-        .map((m) => m.storagePath)
-        .filter((p): p is string => typeof p === "string" && p.length > 0);
+      ];
+      // Protect BOTH reference styles: the stored key AND the key inside the
+      // public download URL (cross-branch copies sometimes carry only the URL).
+      const keep = new Set<string>();
+      for (const m of inUse) {
+        if (typeof m.storagePath === "string" && m.storagePath) keep.add(m.storagePath);
+        const u = m.downloadUrl ?? "";
+        const match = u.match(/\/((?:videos|images)\/[^?#]+)/);
+        if (match) keep.add(decodeURIComponent(match[1]));
+      }
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Not signed in");
       const res = await fetch("/api/storage-cleanup", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ keep }),
+        body: JSON.stringify({ keep: [...keep] }),
       });
       const data = (await res.json()) as { deleted?: number; freedBytes?: number; error?: string };
       if (!res.ok) throw new Error(data.error || "Cleanup failed");
@@ -1378,7 +1385,7 @@ export default function VideosPage() {
         {effectiveBranchId && videos.length + images.length > 0 ? (
           <ContentPanel
             title="TV play order — videos & images together"
-            description="This is the EXACT sequence the TV plays, top to bottom, then repeats. Drag rows to mix videos and images any way you like (video → image → video …). “Plays in a row” repeats an item several times before moving on."
+            description="This is the EXACT sequence the TV plays, top to bottom, then repeats. Drag rows to mix videos and images any way you like (video → image → video …). “Repetition” plays an item that many times in a row before moving on (1 = once)."
           >
             <SortableDataTable
               data={mediaOrder}
@@ -1426,7 +1433,7 @@ export default function VideosPage() {
                 },
                 {
                   key: "repeat",
-                  header: "Plays in a row",
+                  header: "Repetition",
                   cell: (m) => {
                     const id = mediaItemId(m);
                     const current = (m.kind === "video" ? m.video.playRepeat : m.image.playRepeat) ?? 1;

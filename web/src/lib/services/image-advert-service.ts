@@ -213,14 +213,32 @@ export async function uploadImageAdvert(
   return id;
 }
 
+/** Cross-branch copies can share one stored file — never destroy a file some
+    other (non-deleted) image doc still points at. */
+async function imageFileStillReferenced(image: ImageAdvert): Promise<boolean> {
+  if (!image.storagePath) return false;
+  try {
+    const sharers = await listDocuments<ImageAdvert>(COLLECTIONS.imageAdverts, [
+      where("storagePath", "==", image.storagePath),
+    ]);
+    return sharers.some((img) => img.id !== image.id && img.status !== "inactive");
+  } catch {
+    return true; // keep the file when unsure — cleanup reclaims true orphans
+  }
+}
+
 export async function deleteImageAdvert(
   image: ImageAdvert,
   actor: { userId: string; userName: string },
 ): Promise<void> {
   if (image.storagePath?.startsWith("images/")) {
-    await deleteR2Object(image.storagePath);
+    if (!(await imageFileStillReferenced(image))) {
+      await deleteR2Object(image.storagePath);
+    }
   } else if (image.storagePath) {
-    await deleteObject(ref(storage, image.storagePath)).catch(() => undefined);
+    if (!(await imageFileStillReferenced(image))) {
+      await deleteObject(ref(storage, image.storagePath)).catch(() => undefined);
+    }
   }
   await updateDocument(COLLECTIONS.imageAdverts, image.id, { status: "inactive" });
   await writeAuditLog({

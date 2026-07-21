@@ -222,11 +222,30 @@ async function removeChunkedVideoData(videoId: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTIONS.videoChunks, videoId)).catch(() => undefined);
 }
 
+/** True when ANOTHER (non-deleted) video doc points at the same stored file —
+    cross-branch copies share one object, so deleting one branch's row must
+    never destroy the file the other branches still play. */
+async function storedFileStillReferenced(video: VideoAsset): Promise<boolean> {
+  if (!video.storagePath) return false;
+  try {
+    const sharers = await listDocuments<VideoAsset>(COLLECTIONS.videos, [
+      where("storagePath", "==", video.storagePath),
+    ]);
+    return sharers.some((v) => v.id !== video.id && v.status !== "inactive");
+  } catch {
+    // If the check itself fails, err on the side of KEEPING the file — the
+    // "Clean up unused files" button reclaims true orphans later.
+    return true;
+  }
+}
+
 async function removeStoredVideoBytes(video: VideoAsset): Promise<void> {
   if (video.sourceType === "r2" && video.storagePath) {
+    if (await storedFileStillReferenced(video)) return;
     await deleteR2Object(video.storagePath);
   }
   if (video.sourceType === "storage" && video.storagePath) {
+    if (await storedFileStillReferenced(video)) return;
     await deleteObject(ref(storage, video.storagePath)).catch(() => undefined);
   }
   if (video.sourceType === "chunked") {
