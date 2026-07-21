@@ -693,9 +693,13 @@ export default function VideosPage() {
   async function handleStorageCleanup() {
     setCleaningStorage(true);
     try {
-      const [allVideos, allImages] = await Promise.all([
+      const [allVideos, allImages, allBranchDocs, allTickerDocs] = await Promise.all([
         listDocuments<VideoAsset>(COLLECTIONS.videos, []),
         listDocuments<ImageAdvert>(COLLECTIONS.imageAdverts, []),
+        // Branch settings + tickers reference stored files DIRECTLY by URL
+        // (promo gallery, logos, announcement media) — those must be kept too.
+        listDocuments<Record<string, unknown>>(COLLECTIONS.branches, []),
+        listDocuments<Record<string, unknown>>(COLLECTIONS.tickerMessages, []),
       ]);
       const inUse = [
         ...allVideos.filter((v) => v.status !== "inactive"),
@@ -709,6 +713,13 @@ export default function VideosPage() {
         const u = m.downloadUrl ?? "";
         const match = u.match(/\/((?:videos|images)\/[^?#]+)/);
         if (match) keep.add(decodeURIComponent(match[1]));
+      }
+      // EVERY file URL that appears anywhere in branch settings or tickers.
+      for (const docObj of [...allBranchDocs, ...allTickerDocs]) {
+        const json = JSON.stringify(docObj);
+        for (const m of json.matchAll(/\/((?:videos|images)\/[^"?#\\\s]+)/g)) {
+          keep.add(decodeURIComponent(m[1]));
+        }
       }
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Not signed in");
