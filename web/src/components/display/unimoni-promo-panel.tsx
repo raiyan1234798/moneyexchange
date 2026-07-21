@@ -21,9 +21,14 @@ interface UnimoniPromoPanelProps {
   onVideoLoaded?: () => void;
   onVideoError?: () => void;
   onVideoEnded?: () => void;
+  /** Fires on every playback progress tick — feeds the display's stall watchdog. */
+  onVideoProgress?: () => void;
   className?: string;
   /** Transition when the image/video changes. Default fade. */
   mediaTransition?: string;
+  /** Changes on every play-order STEP — remounts the media element so the SAME
+      video repeated back-to-back restarts instead of freezing on its last frame. */
+  mediaKey?: string | number;
   /** Overlays scoped to the promo area (e.g. the drop-down announcement). */
   children?: React.ReactNode;
 }
@@ -40,8 +45,10 @@ export function UnimoniPromoPanel({
   onVideoLoaded,
   onVideoError,
   onVideoEnded,
+  onVideoProgress,
   className = "",
   mediaTransition = "fade",
+  mediaKey,
   children,
 }: UnimoniPromoPanelProps) {
   // A broken advert image URL must fall back to the branded placeholder, not
@@ -94,7 +101,7 @@ export function UnimoniPromoPanel({
             />
           ) : null}
           <video
-            key={videoUrl}
+            key={`${videoUrl}-${mediaKey ?? ""}`}
             src={videoUrl ?? undefined}
             className={`absolute inset-0 z-[1] h-full w-full ${objectClass} ${slideTransitionClass(mediaTransition)}`}
             autoPlay
@@ -122,6 +129,7 @@ export function UnimoniPromoPanel({
               }
             }}
             onLoadedData={onVideoLoaded}
+            onTimeUpdate={onVideoProgress}
             onPlaying={() => setPlayingUrl(videoUrl ?? null)}
             onCanPlay={(e) => {
               // Some TV WebViews leave a freshly-loaded video paused (showing the

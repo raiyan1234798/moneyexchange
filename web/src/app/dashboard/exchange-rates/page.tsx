@@ -1300,6 +1300,9 @@ export default function ExchangeRatesPage() {
               <DataTable
                 data={currencies}
                 keyExtractor={(c) => c.id}
+                // Wide enough that every column (incl. the action buttons on the
+                // right) keeps its full size — the panel then scrolls sideways.
+                tableClassName="min-w-[1050px]"
                 mobileTitle={(c) => {
                   const row = getCatalogCurrency(c);
                   return `${row.flag} ${row.code}`;
@@ -1373,7 +1376,7 @@ export default function ExchangeRatesPage() {
                   {
                     key: "actions",
                     header: "Actions",
-                    width: "w-[100px]",
+                    width: "w-[210px]",
                     headerClassName: "text-right",
                     className: "text-right",
                     cell: (c) => (
@@ -1406,7 +1409,7 @@ export default function ExchangeRatesPage() {
                               )
                           }
                         >
-                          Toggle
+                          {c.status === "active" ? "Turn off" : "Turn on"}
                         </Button>
                       </span>
                     ),

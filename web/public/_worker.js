@@ -381,9 +381,47 @@ function extractRateRows(text) {
   return out;
 }
 
+// TRUE storage usage: list every object actually in the R2 bucket and sum the
+// sizes — exactly what Cloudflare bills, including files the app lost track of.
+// Same auth gate as uploads: listing the whole bucket on every call is not
+// something anonymous internet traffic gets to trigger.
+async function handleStorageUsage(request, env) {
+  const apiKey = env.FIREBASE_API_KEY || FIREBASE_API_KEY_FALLBACK;
+  const token = bearer(request);
+  if (!token) return json({ error: "Missing Authorization Bearer token" }, 401);
+  const user = await verifyToken(token, apiKey);
+  if (!user) return json({ error: "Invalid or expired sign-in token" }, 401);
+  if (!(await isMediaManager(user, token, env))) {
+    return json({ error: "Only admins can read storage usage" }, 403);
+  }
+  const bucket = env.R2_BUCKET;
+  if (!bucket) {
+    return json({ error: "R2 bucket is not bound (add the R2_BUCKET binding in Pages settings)." }, 503);
+  }
+  let bytes = 0;
+  let objects = 0;
+  let cursor = undefined;
+  do {
+    const page = await bucket.list({ cursor, limit: 1000 });
+    for (const obj of page.objects) {
+      bytes += obj.size || 0;
+      objects += 1;
+    }
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+  return json({ bytes, objects, source: "r2-live" });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/storage-usage") {
+      try {
+        return await handleStorageUsage(request, env);
+      } catch (err) {
+        return json({ error: err && err.message ? err.message : "Usage check failed" }, 500);
+      }
+    }
     if (url.pathname === "/api/upload") {
       try {
         return await handleUpload(request, env);

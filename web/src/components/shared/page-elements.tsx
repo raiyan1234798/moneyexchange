@@ -296,12 +296,16 @@ export function DataTable<T>({
   keyExtractor,
   emptyMessage = "No data",
   mobileTitle,
+  tableClassName,
 }: {
   columns: DataTableColumn<T>[];
   data: T[];
   keyExtractor: (row: T) => string;
   emptyMessage?: string;
   mobileTitle?: (row: T) => string;
+  /** Extra classes for the desktop <table> — e.g. a larger min-width so wide
+      tables actually engage the horizontal scroll instead of squeezing cells. */
+  tableClassName?: string;
 }) {
   if (data.length === 0) {
     return <p className="py-8 text-center text-sm text-muted-foreground">{emptyMessage}</p>;
@@ -328,7 +332,7 @@ export function DataTable<T>({
       </div>
 
       <div className="data-table-scroll hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[760px] table-fixed caption-bottom text-sm">
+        <table className={cn("w-full min-w-[760px] table-fixed caption-bottom text-sm", tableClassName)}>
           <thead>
             <tr className="border-b border-border/40">
               {columns.map((col) => (

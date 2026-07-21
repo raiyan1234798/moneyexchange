@@ -151,6 +151,8 @@ export interface BranchSettings {
   /** TV edge-cut (overscan) fix: shrink the whole display by this % per edge
       (0 = off). Many TVs crop 2–5% of an HDMI input; this keeps everything visible. */
   displaySafeAreaPercent?: number;
+  /** Seconds per full spin/flip turn for flags, currency letters and headings (default 3). */
+  rateAnimationSpeedSeconds?: number;
   /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
   logoAutoRemoveBg?: boolean;
   /** Transition when the video-area image/video changes. */
@@ -288,6 +290,8 @@ export interface ExchangeRate {
   currencyCode: string;
   /** Branch-specific label shown on dashboard and TV display (defaults to currency code). */
   displayName?: string;
+  /** Flag emoji saved with the rate (fallback when the code isn't in the catalog). */
+  flag?: string;
   buyRate: number;
   sellRate: number;
   /** @deprecated single-value remittance rate — superseded by transferUsd/transferLocal. */
@@ -350,6 +354,10 @@ export interface ImageAdvert {
   displayDurationSeconds: number;
   /** Rotation order on the display (lower = earlier). Unset = by newest. */
   displayOrder?: number;
+  /** Position in the COMBINED videos+images play order (lower = earlier). */
+  playOrder?: number;
+  /** How many times in a row this plays each loop (default 1). */
+  playRepeat?: number;
   status: EntityStatus;
   createdBy: string;
   createdAt: Timestamp | Date;
@@ -371,6 +379,10 @@ export interface VideoAsset {
   fileSizeBytes?: number;
   /** Rotation order on the display (lower = earlier). Unset = by newest. */
   displayOrder?: number;
+  /** Position in the COMBINED videos+images play order (lower = earlier). */
+  playOrder?: number;
+  /** How many times in a row this plays each loop (default 1). */
+  playRepeat?: number;
   /**
    * "pending" = proposed by a branch user, awaiting branch-manager approval.
    * "uploading" = chunked upload in progress — hidden from TV and lists until

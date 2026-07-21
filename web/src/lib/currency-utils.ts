@@ -114,12 +114,19 @@ export function resolveCurrencyFields(currency: {
   }
 
   const country = currency.country?.trim() || meta?.country || "";
-  const flag =
-    currency.flag?.trim() && currency.flag.trim() !== "💱"
-      ? currency.flag.trim()
-      : meta?.flag ?? flagFromCurrencyCode(code) ?? "💱";
+  const stored = currency.flag?.trim() ?? "";
+  const flag = !isPlaceholderFlag(stored)
+    ? stored
+    : meta?.flag ?? flagFromCurrencyCode(code) ?? (stored || "💱");
 
   return { code, name, country, flag };
+}
+
+/** Generic stand-in glyphs saved before a real flag was known — never show these
+    when the catalog or the country-code rule can produce the actual flag. */
+export function isPlaceholderFlag(flag: string | null | undefined): boolean {
+  const f = flag?.trim() ?? "";
+  return f === "" || f === "💱" || f === "🌍" || f === "🌐" || f === "🏳️";
 }
 
 export function buildCurrencyPayload(input: {
@@ -142,8 +149,8 @@ export function buildCurrencyPayload(input: {
     currencyName,
     country: input.country?.trim() || meta?.country || "",
     flag:
-      input.flag?.trim() && input.flag.trim() !== "💱"
+      input.flag?.trim() && !isPlaceholderFlag(input.flag)
         ? input.flag.trim()
-        : meta?.flag ?? flagFromCurrencyCode(code) ?? "💱",
+        : meta?.flag ?? flagFromCurrencyCode(code) ?? (input.flag?.trim() || "💱"),
   };
 }

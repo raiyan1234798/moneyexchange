@@ -1,6 +1,6 @@
 import type { ExchangeRate } from "@/lib/types";
 import { BRAND } from "@/lib/brand";
-import { getCurrencyMeta } from "@/lib/currency-utils";
+import { flagFromCurrencyCode, getCurrencyMeta, isPlaceholderFlag } from "@/lib/currency-utils";
 
 /**
  * unimoni digital signage palette — locked to the official brand spec:
@@ -74,7 +74,13 @@ export function getRateDisplayLabel(rate: ExchangeRate): string {
  * display names. Flag resolved from the currency catalog metadata by code.
  */
 export function getRateFlag(rate: ExchangeRate): string | null {
-  return getCurrencyMeta(rate.currencyCode)?.flag ?? null;
+  const catalog = getCurrencyMeta(rate.currencyCode)?.flag;
+  if (catalog) return catalog;
+  // Not in the built-in catalog: use the flag saved on the rate itself (unless
+  // it's a stand-in glyph), then derive from the country code (KES → 🇰🇪).
+  const stored = rate.flag?.trim();
+  if (stored && !isPlaceholderFlag(stored)) return stored;
+  return flagFromCurrencyCode(rate.currencyCode);
 }
 
 export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {

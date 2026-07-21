@@ -6,6 +6,7 @@ import { subscribeBranch } from "@/lib/services/branch-service";
 import { subscribeExchangeRates } from "@/lib/services/exchange-rate-service";
 import { subscribeTransferRates } from "@/lib/services/transfer-rate-service";
 import { subscribeImageAdverts } from "@/lib/services/image-advert-service";
+import { expandMediaSequence, sortBranchMedia } from "@/lib/services/media-order-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVideoBlobUrl } from "@/lib/services/video-service";
 import { subscribeCurrencyOverrides } from "@/lib/services/currency-service";
@@ -202,14 +203,24 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // Admin look-changes for currencies (flag emoji by code) — public read.
   const [currencyOverrides, setCurrencyOverrides] = useState<Record<string, { flag?: string; name?: string }> | null>(null);
   const [images, setImages] = useState<ImageAdvert[]>([]);
-  const [videoIndex, setVideoIndex] = useState(0);
-  const [imageIndex, setImageIndex] = useState(0);
+  // ONE combined videos+images sequence cursor (admin-arranged play order).
+  const [seqIndex, setSeqIndex] = useState(0);
+  const seqLenRef = useRef(0);
   const ratesCycleKey = rates.map((r) => `${r.id}:${r.version}`).join("|");
-  const [cachedStorageUrl, setCachedStorageUrl] = useState<string | null>(null);
-  const [chunkedVideoUrl, setChunkedVideoUrl] = useState<string | null>(null);
+  // Cached/assembled playback URLs are TAGGED with the video id they belong to
+  // — a step change can then never serve one video with another's cached bytes,
+  // and repeat/return steps of the same video reuse them without reloading.
+  const [cachedStorageUrl, setCachedStorageUrl] = useState<{ id: string; url: string } | null>(null);
+  const [chunkedVideoUrl, setChunkedVideoUrl] = useState<{ id: string; url: string } | null>(null);
+  const chunkedObjectUrlRef = useRef<{ id: string; url: string } | null>(null);
   const prevHeadVideoIdRef = useRef("");
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [erroredVideoId, setErroredVideoId] = useState("");
+  // WHEN the current video error happened — a video the rotation returns to
+  // after 60s gets retried instead of staying error-latched forever.
+  const erroredAtRef = useRef(0);
+  // Last time the playing video reported progress — the stall watchdog below.
+  const videoProgressAtRef = useRef(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   // Adaptive promo sizing: measure the live main-area box and the current media
   // aspect so "auto" fit can resize the promo area to the video/image shape.
@@ -516,19 +527,46 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     () => images.filter((img) => img.status === "active"),
     [images],
   );
+
+  // The admin-arranged TV sequence: videos and images MIXED in one order
+  // (Media Manager → "TV play order"), each item repeated playRepeat times.
+  const mediaSequence = useMemo(
+    () => expandMediaSequence(sortBranchMedia(activeVideos, activeImages)),
+    [activeVideos, activeImages],
+  );
+  // Ref write happens in an effect (never during render — breaks lint/compiler).
+  useEffect(() => {
+    seqLenRef.current = mediaSequence.length;
+  }, [mediaSequence.length]);
+  const currentMedia = mediaSequence[seqIndex % Math.max(mediaSequence.length, 1)];
+
+  // Advance to the next play-order step. NOTE: cached/chunked URLs are NOT
+  // cleared here — repeat steps reuse the SAME video object, and clearing per
+  // step would strand a chunked/cached clip with no effect re-run to reload it
+  // (the loaders below key off the video identity/id, not the step).
+  const advanceMedia = useCallback(() => {
+    if (seqLenRef.current <= 1) return;
+    setVideoLoaded(false);
+    setSeqIndex((prev) => prev + 1);
+  }, []);
+
   const headVideoId = activeVideos[0]?.id ?? "";
 
   useEffect(() => {
     if (!headVideoId || prevHeadVideoIdRef.current === headVideoId) return;
     prevHeadVideoIdRef.current = headVideoId;
-    setVideoIndex(0);
+    setSeqIndex(0);
     setVideoLoaded(false);
     setErroredVideoId("");
     setCachedStorageUrl(null);
     setChunkedVideoUrl(null);
+    if (chunkedObjectUrlRef.current) {
+      URL.revokeObjectURL(chunkedObjectUrlRef.current.url);
+      chunkedObjectUrlRef.current = null;
+    }
   }, [headVideoId]);
 
-  const activeVideo = activeVideos[videoIndex % Math.max(activeVideos.length, 1)];
+  const activeVideo = currentMedia?.kind === "video" ? currentMedia.video : undefined;
   const activeVideoId = activeVideo?.id ?? "";
 
   // Self-healing kiosk: the error is scoped to the video id that failed, so
@@ -536,16 +574,32 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // — a transient error can never latch the whole display forever.
   const videoError = activeVideoId !== "" && erroredVideoId === activeVideoId;
 
-  // Retry the SAME video on a 60s backoff (e.g. after a network blip).
+  // A failed video is skipped after 8s so the rotation keeps moving. The error
+  // is remembered WITH its time: when the loop comes back to that video and the
+  // error is older than 60s, it gets a fresh chance (the cleanup-based retry of
+  // the old build died as soon as the rotation moved on, latching the error
+  // forever). Re-armed per STEP so a repeat step of a failed video also skips.
   useEffect(() => {
     if (!videoError) return;
-    const timer = window.setTimeout(() => {
+    const skipTimer = window.setTimeout(() => advanceMedia(), 8_000);
+    return () => window.clearTimeout(skipTimer);
+  }, [videoError, seqIndex, advanceMedia]);
+
+  useEffect(() => {
+    if (!videoError) return;
+    if (Date.now() - erroredAtRef.current > 60_000) {
       setErroredVideoId("");
       setVideoLoaded(false);
-    }, 60_000);
-    return () => window.clearTimeout(timer);
-  }, [videoError]);
-  const activeImage = activeImages[imageIndex % Math.max(activeImages.length, 1)];
+      return;
+    }
+    // Single-item sequence: nothing to skip to — retry in place after 60s.
+    const retryTimer = window.setTimeout(() => {
+      setErroredVideoId("");
+      setVideoLoaded(false);
+    }, 61_000);
+    return () => window.clearTimeout(retryTimer);
+  }, [videoError, seqIndex]);
+  const activeImage = currentMedia?.kind === "image" ? currentMedia.image : undefined;
   const playbackUrl = useMemo(() => {
     if (!activeVideo) return "";
     return resolveVideoPlaybackUrl(activeVideo);
@@ -553,16 +607,16 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
 
   const branchVideoUrl = useMemo(() => {
     if (!activeVideo) return null;
-    if (isChunkedVideo(activeVideo)) return chunkedVideoUrl || null;
+    if (isChunkedVideo(activeVideo)) {
+      return chunkedVideoUrl?.id === activeVideo.id ? chunkedVideoUrl.url : null;
+    }
     if (activeVideo.sourceType === "external") return playbackUrl || null;
-    return cachedStorageUrl ?? playbackUrl ?? null;
+    return (cachedStorageUrl?.id === activeVideo.id ? cachedStorageUrl.url : null) ?? playbackUrl ?? null;
   }, [activeVideo, chunkedVideoUrl, cachedStorageUrl, playbackUrl]);
 
-  const branchImageUrl = useMemo(() => {
-    if (!activeImage) return null;
-    if (activeVideos.length > 0 && videoLoaded && !videoError) return null;
-    return activeImage.downloadUrl;
-  }, [activeImage, activeVideos.length, videoError, videoLoaded]);
+  // With the unified sequence an image simply IS the current item — no more
+  // "images only while no video can play".
+  const branchImageUrl = activeImage?.downloadUrl ?? null;
 
   const activeTicker = tickers[0];
   const tickerMessages = useMemo(() => {
@@ -609,76 +663,108 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   const tickerFontColor = activeTicker?.fontColor || branchSettings.tickerFontColor || "#FFFFFF";
   const tickerFontSize = activeTicker?.fontSize || branchSettings.tickerFontSize;
 
+  // IMAGE step: stays exactly its "Seconds on screen", then the next item.
   useEffect(() => {
-    if (activeVideos.length <= 1) return;
-    const timer = window.setInterval(() => {
-      setVideoLoaded(false);
-      setVideoIndex((prev) => (prev + 1) % activeVideos.length);
-    }, 60000);
-    return () => window.clearInterval(timer);
-  }, [activeVideos.length]);
+    if (!activeImage || mediaSequence.length <= 1) return;
+    const durationMs = Math.max(2, activeImage.displayDurationSeconds ?? 15) * 1000;
+    const timer = window.setTimeout(() => advanceMedia(), durationMs);
+    return () => window.clearTimeout(timer);
+    // Re-arm per sequence STEP (repeat steps show the image again).
+  }, [activeImage, seqIndex, mediaSequence.length, advanceMedia]);
 
+  // VIDEO step: plays to its natural end (handleVideoEnded advances). Only a
+  // clip that never manages to START within 90s is skipped, so one broken
+  // upload can't freeze the rotation. (The old build force-cut every video at
+  // 60s even while playing fine — full clips now play out.)
   useEffect(() => {
-    if (activeImages.length <= 1) return;
-    const durationMs = (activeImage?.displayDurationSeconds ?? 15) * 1000;
+    if (!activeVideo || videoLoaded || mediaSequence.length <= 1) return;
+    const timer = window.setTimeout(() => advanceMedia(), 90_000);
+    return () => window.clearTimeout(timer);
+  }, [activeVideo, videoLoaded, seqIndex, mediaSequence.length, advanceMedia]);
+
+  // STALL watchdog for a video that started fine and then hung mid-stream
+  // (Wi-Fi drop while streaming): no error/ended ever fires, so without this
+  // the rotation would freeze. "No progress reported for 45s" = move on.
+  useEffect(() => {
+    if (!activeVideo || !videoLoaded || mediaSequence.length <= 1) return;
+    videoProgressAtRef.current = Date.now();
     const timer = window.setInterval(() => {
-      setImageIndex((prev) => (prev + 1) % activeImages.length);
-    }, durationMs);
+      if (Date.now() - videoProgressAtRef.current > 45_000) advanceMedia();
+    }, 15_000);
     return () => window.clearInterval(timer);
-  }, [activeImages.length, activeImage?.displayDurationSeconds]);
+  }, [activeVideo, videoLoaded, seqIndex, mediaSequence.length, advanceMedia]);
 
   useEffect(() => {
     if (!activeVideo || !playbackUrl || activeVideo.sourceType !== "storage") return;
 
+    const videoId = activeVideo.id;
     let alive = true;
-    void getCachedVideoUrl(activeVideo.id, playbackUrl).then((url) => {
-      if (alive) setCachedStorageUrl(url);
+    void getCachedVideoUrl(videoId, playbackUrl).then((url) => {
+      if (alive && url) setCachedStorageUrl({ id: videoId, url });
     });
-    void cacheVideoBlob(activeVideo.id, playbackUrl);
+    void cacheVideoBlob(videoId, playbackUrl);
     return () => {
       alive = false;
     };
   }, [activeVideo, playbackUrl]);
 
+  // Chunked videos: assembling the blob costs ~70 Firestore doc reads, so the
+  // assembled object URL is KEPT (in chunkedObjectUrlRef) while other items
+  // play and reused when the rotation returns — it is only revoked when a
+  // DIFFERENT chunked video replaces it or the display unmounts.
   useEffect(() => {
     if (!activeVideo || !isChunkedVideo(activeVideo)) return;
 
+    const videoId = activeVideo.id;
+    const kept = chunkedObjectUrlRef.current;
+    if (kept?.id === videoId) {
+      setChunkedVideoUrl(kept);
+      return;
+    }
     let alive = true;
-    let objectUrl: string | null = null;
     void loadChunkedVideoBlobUrl(activeVideo)
       .then((url) => {
         if (!alive) {
           URL.revokeObjectURL(url);
           return;
         }
-        objectUrl = url;
-        setChunkedVideoUrl(url);
+        if (chunkedObjectUrlRef.current && chunkedObjectUrlRef.current.id !== videoId) {
+          URL.revokeObjectURL(chunkedObjectUrlRef.current.url);
+        }
+        chunkedObjectUrlRef.current = { id: videoId, url };
+        setChunkedVideoUrl({ id: videoId, url });
       })
       .catch(() => {
-        if (alive) setErroredVideoId(activeVideo.id);
+        if (alive) {
+          erroredAtRef.current = Date.now();
+          setErroredVideoId(videoId);
+        }
       });
 
     return () => {
       alive = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [activeVideo]);
 
+  // Unmount only: release the kept chunked blob.
+  useEffect(
+    () => () => {
+      if (chunkedObjectUrlRef.current) URL.revokeObjectURL(chunkedObjectUrlRef.current.url);
+    },
+    [],
+  );
+
   const handleVideoEnded = useCallback(() => {
-    if (activeVideos.length > 1) {
-      setVideoLoaded(false);
-      setVideoIndex((prev) => (prev + 1) % activeVideos.length);
-      setCachedStorageUrl(null);
-      setChunkedVideoUrl(null);
-    }
-  }, [activeVideos.length]);
+    advanceMedia();
+  }, [advanceMedia]);
 
   const promoPanel = (
     <UnimoniPromoPanel
       videoUrl={branchVideoUrl && !videoError ? branchVideoUrl : null}
       imageUrl={branchImageUrl}
       videoLoaded={videoLoaded}
-      loopVideo={activeVideos.length <= 1}
+      loopVideo={mediaSequence.length <= 1}
+      mediaKey={seqIndex}
       fit={videoFit}
       widthPercent={effectivePromoWidth}
       soundOn={videoSoundOn}
@@ -688,8 +774,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         setErroredVideoId("");
       }}
       onVideoError={() => {
+        erroredAtRef.current = Date.now();
         setVideoLoaded(false);
         setErroredVideoId(activeVideoId);
+      }}
+      onVideoProgress={() => {
+        videoProgressAtRef.current = Date.now();
       }}
       onVideoEnded={handleVideoEnded}
       mediaTransition={branchSettings.videoImageTransition ?? "fade"}
@@ -782,17 +872,20 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // edge (logo/date/last column not fully visible). Uniformly shrinking the
   // WHOLE display leaves a black margin the TV crops instead of the content.
   const safeAreaPercent = Math.max(0, Math.min(10, branchSettings.displaySafeAreaPercent ?? 0));
+  // Admin-adjustable spin/flip cadence (Settings → "Spin / flip speed").
+  const rateAnimSecs = Math.max(1, Math.min(30, branchSettings.rateAnimationSpeedSeconds ?? 3));
 
   return (
     <div
       className={`relative flex h-screen w-screen flex-col overflow-hidden bg-black text-white select-none ${
         isFullscreen ? "display-kiosk" : ""
       }`}
-      style={
-        safeAreaPercent > 0
+      style={{
+        ...(safeAreaPercent > 0
           ? { transform: `scale(${(100 - 2 * safeAreaPercent) / 100})`, transformOrigin: "50% 50%" }
-          : undefined
-      }
+          : {}),
+        ["--rate-anim-secs" as string]: `${rateAnimSecs}s`,
+      }}
     >
       {!isFullscreen ? (
         <button

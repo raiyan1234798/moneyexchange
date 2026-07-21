@@ -720,13 +720,13 @@ function BranchSettingsForm({
             min={0}
             max={10}
             step={1}
-            value={settings.displaySafeAreaPercent ?? 0}
-            onChange={(event) =>
-              setSettings({
-                ...settings,
-                displaySafeAreaPercent: Math.max(0, Math.min(10, Number(event.target.value) || 0)),
-              })
-            }
+            key={`safe-area-${settings.displaySafeAreaPercent ?? 0}`}
+            defaultValue={settings.displaySafeAreaPercent ?? 0}
+            onBlur={(event) => {
+              const value = Math.max(0, Math.min(10, Number(event.target.value) || 0));
+              event.target.value = String(value);
+              setSettings({ ...settings, displaySafeAreaPercent: value });
+            }}
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
@@ -927,6 +927,27 @@ function BranchSettingsForm({
         <p className="text-xs text-muted-foreground">
           Moves the card title — the &quot;EXCHANGE RATES&quot; and &quot;TRANSFER RATES&quot;
           heading at the top of the rate card.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Spin / flip speed (seconds per turn)</Label>
+        <Input
+          type="number"
+          min={1}
+          max={30}
+          step={1}
+          key={`anim-speed-${settings.rateAnimationSpeedSeconds ?? 3}`}
+          defaultValue={settings.rateAnimationSpeedSeconds ?? 3}
+          onBlur={(event) => {
+            const value = Math.max(1, Math.min(30, Number(event.target.value) || 3));
+            event.target.value = String(value);
+            setSettings({ ...settings, rateAnimationSpeedSeconds: value });
+          }}
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          How long ONE full spin or flip takes for the flags, currency letters and headings
+          above. Bigger number = slower, calmer movement. 3 is the default.
         </p>
       </div>
       </div>

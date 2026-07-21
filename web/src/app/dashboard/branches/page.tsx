@@ -8,7 +8,6 @@ import { BranchSelector } from "@/components/shared/branch-selector";
 import { DisplayUrlCard } from "@/components/shared/display-url-card";
 import {
   ContentPanel,
-  DataTable,
   EmptyState,
   FirestoreSetupNotice,
   FormSection,
@@ -16,6 +15,7 @@ import {
   PageShell,
   StatusBadge,
 } from "@/components/shared/page-elements";
+import { SortableDataTable } from "@/components/shared/sortable-data-table";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -386,11 +386,28 @@ export default function BranchesPage() {
               </ContentPanel>
             ) : null}
 
-            <ContentPanel title="Branch Directory" description={`${branches.length} location${branches.length === 1 ? "" : "s"}`}>
-            <DataTable
+            <ContentPanel
+              title="Branch Directory"
+              description={`${branches.length} location${branches.length === 1 ? "" : "s"}${
+                hasPermission("editBranch")
+                  ? " — drag rows (or use ▲▼) to set the order used in every branch list"
+                  : ""
+              }`}
+            >
+            <SortableDataTable
               data={branches}
               keyExtractor={(b) => b.id}
               mobileTitle={(b) => b.name}
+              reorderDisabled={!hasPermission("editBranch")}
+              onReorder={(ordered) => {
+                if (!user || !profile) return;
+                void reorderBranches(
+                  ordered.map((b) => b.id),
+                  { userId: user.uid, userName: profile.displayName || profile.email },
+                ).catch((error) =>
+                  toast.error(error instanceof Error ? error.message : "Failed to reorder branches"),
+                );
+              }}
               columns={[
                 ...(hasPermission("editBranch")
                   ? [

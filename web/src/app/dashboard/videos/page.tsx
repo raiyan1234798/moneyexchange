@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Cloud, Link2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Cloud, Link2, Pencil, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
@@ -64,6 +64,7 @@ import {
   syncExternalVideoToBranches,
   syncImageUrlToBranches,
 } from "@/lib/services/branch-sync";
+import { auth } from "@/lib/firebase/client";
 import { getDocument, sumField } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import {
@@ -73,6 +74,15 @@ import {
   updateImageAdvertDuration,
   uploadImageAdvert,
 } from "@/lib/services/image-advert-service";
+import {
+  mediaItemId,
+  mediaItemTitle,
+  renameMediaItem,
+  reorderBranchMedia,
+  setMediaPlayRepeat,
+  sortBranchMedia,
+  type BranchMediaItem,
+} from "@/lib/services/media-order-service";
 import {
   deriveTitleFromFile,
   deriveTitleFromUrl,
@@ -98,6 +108,16 @@ export default function VideosPage() {
   const [file, setFile] = useState<File | null>(null);
   const [videoFiles, setVideoFiles] = useState<File[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
+  // Editable titles for the files picked above (index-aligned) — set BEFORE upload.
+  const [videoFileTitles, setVideoFileTitles] = useState<string[]>([]);
+  const [imageFileTitles, setImageFileTitles] = useState<string[]>([]);
+  // Inline rename of an EXISTING video/image row.
+  const [editingMedia, setEditingMedia] = useState<{ kind: "video" | "image"; id: string; value: string } | null>(null);
+  // "Remove all" (videos or images) in progress — disables both buttons.
+  const [removingAll, setRemovingAll] = useState<"videos" | "images" | null>(null);
+  // TRUE bucket usage from Cloudflare (worker /api/storage-usage) — what R2
+  // actually bills, including files the database lost track of.
+  const [realStorage, setRealStorage] = useState<{ bytes: number; objects: number } | null>(null);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
@@ -146,6 +166,33 @@ export default function VideosPage() {
   useEffect(() => {
     void refreshTotalStorage();
   }, [refreshTotalStorage, videos, images]);
+
+  // Prefer the REAL bucket total (live from Cloudflare) over the Firestore sum.
+  // Admin-authenticated, and re-fetched only when the tracked byte total moves
+  // (each call lists the whole bucket — not something to spam per snapshot).
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return;
+        const res = await fetch("/api/storage-usage", {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { bytes?: number; objects?: number };
+        if (alive && typeof data.bytes === "number") {
+          setRealStorage({ bytes: data.bytes, objects: data.objects ?? 0 });
+        }
+      } catch {
+        // Endpoint unavailable (e.g. old deploy) — the Firestore sum still shows.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [usedBytes]);
 
   /** Returns false (and toasts) when an upload would exceed the 10 GB budget. */
   function withinStorageBudget(addBytes: number): boolean {
@@ -315,7 +362,11 @@ export default function VideosPage() {
         const f = files[i];
         const { usedChunkFallback } = await uploadVideo(
           f,
-          { title: deriveTitleFromFile(f), branchId: effectiveBranchId, createdBy: user.uid },
+          {
+            title: videoFileTitles[i]?.trim() || deriveTitleFromFile(f),
+            branchId: effectiveBranchId,
+            createdBy: user.uid,
+          },
           { userId: user.uid, userName: profile.displayName || profile.email },
           (p) => setProgress(Math.round(((i + p / 100) / files.length) * 100)),
           { keepExisting: true },
@@ -328,6 +379,7 @@ export default function VideosPage() {
       setTitle("");
       setFile(null);
       setVideoFiles([]);
+      setVideoFileTitles([]);
     } catch (error) {
       toast.error(
         `${done} of ${files.length} uploaded before an error: ${error instanceof Error ? error.message : "failed"}`,
@@ -431,7 +483,7 @@ export default function VideosPage() {
       toast.success(
         count > 1
           ? `Image advert saved to ${count} branches`
-          : "Image advert saved — shows on display when no video is playing",
+          : "Image advert saved — it takes its turn in the TV play order",
       );
       setImageUrl("");
       setTitle("");
@@ -456,7 +508,7 @@ export default function VideosPage() {
       for (let i = 0; i < files.length; i++) {
         await uploadImageAdvert(
           {
-            title: files[i].name,
+            title: imageFileTitles[i]?.trim() || files[i].name.replace(/\.[^.]+$/, "") || files[i].name,
             branchId: effectiveBranchId,
             file: files[i],
             displayDurationSeconds: imageDuration,
@@ -470,11 +522,12 @@ export default function VideosPage() {
       }
       toast.success(
         files.length > 1
-          ? `${done} images uploaded — they rotate when no video is playing`
-          : "Image uploaded — shows on display when no video is playing",
+          ? `${done} images uploaded — they take their turns in the TV play order`
+          : "Image uploaded — it takes its turn in the TV play order",
       );
       setImageFile(null);
       setImageFiles([]);
+      setImageFileTitles([]);
       setTitle("");
     } catch (error) {
       toast.error(
@@ -488,12 +541,31 @@ export default function VideosPage() {
   // Reorder/upload actions are wrapped in uploadAccess.guard: it runs them
   // straight away when unlocked, otherwise it pops the password prompt and runs
   // them once the correct password is entered (no "you have no access" wall).
+  // Once the admin has arranged the COMBINED play order (playOrder set), a drag
+  // in the per-type tables must keep affecting the TV: rebuild the combined
+  // order with the videos/images re-sequenced INSIDE their existing slots.
+  const unifiedOrderActive = useMemo(
+    () =>
+      [...videos, ...images].some((m) => typeof (m as { playOrder?: number }).playOrder === "number"),
+    [videos, images],
+  );
+
+  function withReseqKind(kind: "video" | "image", orderedIds: string[]) {
+    const queue = [...orderedIds];
+    return sortBranchMedia(videos, images).map((slot) =>
+      slot.kind === kind ? { kind, id: queue.shift() ?? mediaItemId(slot) } : { kind: slot.kind, id: mediaItemId(slot) },
+    );
+  }
+
   async function reorderVideosList(ordered: VideoAsset[]) {
     const a = actor;
     if (!a) return;
     uploadAccess.guard(async () => {
       try {
         await reorderVideos(ordered.map((x) => x.id), a);
+        if (unifiedOrderActive) {
+          await reorderBranchMedia(withReseqKind("video", ordered.map((x) => x.id)), a);
+        }
         toast.success("Play order updated");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Could not reorder videos");
@@ -507,6 +579,9 @@ export default function VideosPage() {
     uploadAccess.guard(async () => {
       try {
         await reorderImageAdverts(ordered.map((x) => x.id), a);
+        if (unifiedOrderActive) {
+          await reorderBranchMedia(withReseqKind("image", ordered.map((x) => x.id)), a);
+        }
         toast.success("Image order updated");
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Could not reorder images");
@@ -514,40 +589,194 @@ export default function VideosPage() {
     });
   }
 
-  async function moveVideo(v: VideoAsset, dir: "up" | "down") {
+  // ONE combined videos+images play order for the TV (drag in the panel below).
+  const mediaOrder = useMemo(() => sortBranchMedia(videos, images), [videos, images]);
+
+  function reorderMediaList(ordered: BranchMediaItem[]) {
     const a = actor;
     if (!a) return;
+    uploadAccess.guard(async () => {
+      try {
+        await reorderBranchMedia(
+          ordered.map((m) => ({ kind: m.kind, id: mediaItemId(m) })),
+          a,
+        );
+        toast.success("TV play order updated");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not save the play order");
+      }
+    });
+  }
+
+  function moveMediaItem(item: BranchMediaItem, dir: "up" | "down") {
+    const ordered = [...mediaOrder];
+    const idx = ordered.findIndex((m) => mediaItemId(m) === mediaItemId(item) && m.kind === item.kind);
+    const swap = dir === "up" ? idx - 1 : idx + 1;
+    if (idx < 0 || swap < 0 || swap >= ordered.length) return;
+    [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
+    reorderMediaList(ordered);
+  }
+
+  function commitRepeat(item: BranchMediaItem, raw: string, revert: () => void) {
+    const a = actor;
+    if (!a) return;
+    const value = Math.max(1, Math.min(10, Number(raw) || 1));
+    uploadAccess.guard(
+      async () => {
+        try {
+          await setMediaPlayRepeat(item.kind, mediaItemId(item), value, a);
+          toast.success(value > 1 ? `Plays ${value} times in a row` : "Plays once per loop");
+        } catch (e) {
+          toast.error(e instanceof Error ? e.message : "Could not save");
+          revert();
+        }
+      },
+      revert,
+    );
+  }
+
+  function commitRename() {
+    const a = actor;
+    const editing = editingMedia;
+    if (!a || !editing) return;
+    setEditingMedia(null);
+    if (!editing.value.trim()) return;
+    uploadAccess.guard(async () => {
+      try {
+        await renameMediaItem(editing.kind, editing.id, editing.value, a);
+        toast.success("Renamed");
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not rename");
+      }
+    });
+  }
+
+  /** Title cell with a pencil — click to rename in place (videos AND images). */
+  function renameableTitle(kind: "video" | "image", id: string, currentTitle: string) {
+    if (editingMedia && editingMedia.kind === kind && editingMedia.id === id) {
+      return (
+        <Input
+          autoFocus
+          value={editingMedia.value}
+          onChange={(e) =>
+            setEditingMedia((prev) => (prev ? { ...prev, value: e.target.value } : prev))
+          }
+          onBlur={() => commitRename()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitRename();
+            if (e.key === "Escape") setEditingMedia(null);
+          }}
+          className="h-8 rounded-lg text-sm"
+        />
+      );
+    }
+    return (
+      <span className="flex items-center gap-1.5">
+        <span className="truncate font-medium">{currentTitle}</span>
+        <button
+          type="button"
+          title="Rename"
+          aria-label={`Rename ${currentTitle}`}
+          className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          onClick={() => setEditingMedia({ kind, id, value: currentTitle })}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      </span>
+    );
+  }
+
+  function removeAllMedia(kind: "videos" | "images") {
+    const a = actor;
+    if (!a) return;
+    const items = kind === "videos" ? videos : images;
+    if (items.length === 0) return;
+    uploadAccess.guard(async () => {
+      setRemovingAll(kind);
+      let done = 0;
+      try {
+        if (kind === "videos") {
+          for (const v of videos) {
+            await deleteVideo(v, a);
+            done += 1;
+          }
+        } else {
+          for (const img of images) {
+            await deleteImageAdvert(img, a);
+            done += 1;
+          }
+        }
+        toast.success(`Removed all ${done} ${kind} from this branch`);
+      } catch (e) {
+        toast.error(
+          `${done} of ${items.length} removed before an error: ${e instanceof Error ? e.message : "failed"}`,
+        );
+      } finally {
+        setRemovingAll(null);
+      }
+    });
+  }
+
+  /** Confirm-then-remove-everything button used by both tables below. */
+  function removeAllButton(kind: "videos" | "images", count: number) {
+    if (count === 0) return null;
+    return (
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={removingAll !== null}
+              className="rounded-lg text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              {removingAll === kind ? "Removing…" : `Remove all ${count}`}
+            </Button>
+          }
+        />
+        <AlertDialogContent className="rounded-2xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove all {count} {kind} from {branch?.name ?? "this branch"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They stop playing on the TV immediately and their files are removed from storage.
+              This cannot be undone — you would need to upload them again.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => removeAllMedia(kind)}
+            >
+              Yes, remove all {kind}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
+  async function moveVideo(v: VideoAsset, dir: "up" | "down") {
+    if (!actor) return;
     const ordered = [...videos];
     const idx = ordered.findIndex((x) => x.id === v.id);
     const swap = dir === "up" ? idx - 1 : idx + 1;
     if (idx < 0 || swap < 0 || swap >= ordered.length) return;
     [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
-    uploadAccess.guard(async () => {
-      try {
-        await reorderVideos(ordered.map((x) => x.id), a);
-        toast.success("Play order updated");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Could not reorder videos");
-      }
-    });
+    await reorderVideosList(ordered);
   }
 
   async function moveImage(img: ImageAdvert, dir: "up" | "down") {
-    const a = actor;
-    if (!a) return;
+    if (!actor) return;
     const ordered = [...images];
     const idx = ordered.findIndex((x) => x.id === img.id);
     const swap = dir === "up" ? idx - 1 : idx + 1;
     if (idx < 0 || swap < 0 || swap >= ordered.length) return;
     [ordered[idx], ordered[swap]] = [ordered[swap], ordered[idx]];
-    uploadAccess.guard(async () => {
-      try {
-        await reorderImageAdverts(ordered.map((x) => x.id), a);
-        toast.success("Image order updated");
-      } catch (e) {
-        toast.error(e instanceof Error ? e.message : "Could not reorder images");
-      }
-    });
+    await reorderImagesList(ordered);
   }
 
   // Per client (2026-07-11): advert videos/images are ADMIN-ONLY.
@@ -591,9 +820,9 @@ export default function VideosPage() {
 
         <PreviewDisplayLink branchCode={branch?.code} />
 
-        {totalStorageBytes !== null
+        {totalStorageBytes !== null || realStorage !== null
           ? (() => {
-              const used = totalStorageBytes;
+              const used = realStorage?.bytes ?? totalStorageBytes ?? 0;
               const pct = Math.min(100, Math.round((used / MAX_TOTAL_STORAGE_BYTES) * 100));
               const freeGb = gb(Math.max(0, MAX_TOTAL_STORAGE_BYTES - used));
               const almostFull = used >= STORAGE_WARN_BYTES;
@@ -616,6 +845,9 @@ export default function VideosPage() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {freeGb} GB free · Cloudflare R2 gives 10 GB free, then charges per GB.
+                        {realStorage
+                          ? ` Counted live from the storage itself (${realStorage.objects} files) — this is the real number Cloudflare sees.`
+                          : ""}
                       </p>
                     </div>
                     <span
@@ -741,6 +973,7 @@ export default function VideosPage() {
                     onChange={(e) => {
                       const list = Array.from(e.target.files ?? []);
                       setVideoFiles(list);
+                      setVideoFileTitles(list.map((f) => deriveTitleFromFile(f)));
                       const selected = list[0] ?? null;
                       setFile(selected);
                       if (selected && !title.trim()) {
@@ -750,9 +983,29 @@ export default function VideosPage() {
                     className="rounded-xl"
                   />
                   {videoFiles.length > 1 ? (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                      {videoFiles.length} videos selected — all will play in rotation on the display.
-                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                        {videoFiles.length} videos selected — all will play in rotation on the display.
+                        Edit the names below before uploading.
+                      </p>
+                      {videoFiles.map((f, i) => (
+                        <div key={`${f.name}-${i}`} className="flex items-center gap-2">
+                          <span className="w-24 shrink-0 truncate text-xs text-muted-foreground" title={f.name}>
+                            {f.name}
+                          </span>
+                          <Input
+                            value={videoFileTitles[i] ?? ""}
+                            onChange={(e) =>
+                              setVideoFileTitles((prev) =>
+                                prev.map((t, ti) => (ti === i ? e.target.value : t)),
+                              )
+                            }
+                            placeholder="Name shown in lists"
+                            className="h-8 rounded-lg text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   ) : null}
                   {file ? (
                     <p className="text-xs text-muted-foreground">
@@ -943,7 +1196,7 @@ export default function VideosPage() {
         ) : null}
 
         {canManageImages && effectiveBranchId ? (
-          <ContentPanel title="Image Adverts" description="Static images rotate on the display when no video is playing">
+          <ContentPanel title="Image Adverts" description="Images play in the TV play order together with the videos — arrange them in the panel above">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
                 checked={applyToAll}
@@ -1001,13 +1254,35 @@ export default function VideosPage() {
                       const list = Array.from(e.target.files ?? []);
                       setImageFiles(list);
                       setImageFile(list[0] ?? null);
+                      setImageFileTitles(list.map((f) => f.name.replace(/\.[^.]+$/, "") || f.name));
                     }}
                     className="rounded-xl"
                   />
-                  {imageFiles.length > 1 ? (
-                    <p className="text-xs text-emerald-600 dark:text-emerald-400">
-                      {imageFiles.length} images selected — they rotate when no video plays.
-                    </p>
+                  {imageFiles.length > 0 ? (
+                    <div className="space-y-2">
+                      {imageFiles.length > 1 ? (
+                        <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                          {imageFiles.length} images selected — edit the names below before uploading.
+                        </p>
+                      ) : null}
+                      {imageFiles.map((f, i) => (
+                        <div key={`${f.name}-${i}`} className="flex items-center gap-2">
+                          <span className="w-24 shrink-0 truncate text-xs text-muted-foreground" title={f.name}>
+                            {f.name}
+                          </span>
+                          <Input
+                            value={imageFileTitles[i] ?? ""}
+                            onChange={(e) =>
+                              setImageFileTitles((prev) =>
+                                prev.map((t, ti) => (ti === i ? e.target.value : t)),
+                              )
+                            }
+                            placeholder="Name shown in lists"
+                            className="h-8 rounded-lg text-sm"
+                          />
+                        </div>
+                      ))}
+                    </div>
                   ) : null}
                 </div>
                 <Button
@@ -1020,6 +1295,119 @@ export default function VideosPage() {
                 </Button>
               </TabsContent>
             </Tabs>
+          </ContentPanel>
+        ) : null}
+
+        {effectiveBranchId && videos.length + images.length > 0 ? (
+          <ContentPanel
+            title="TV play order — videos & images together"
+            description="This is the EXACT sequence the TV plays, top to bottom, then repeats. Drag rows to mix videos and images any way you like (video → image → video …). “Plays in a row” repeats an item several times before moving on."
+          >
+            <SortableDataTable
+              data={mediaOrder}
+              keyExtractor={(m) => `${m.kind}:${mediaItemId(m)}`}
+              mobileTitle={(m) => mediaItemTitle(m)}
+              onReorder={(ordered) => reorderMediaList(ordered)}
+              reorderDisabled={!canManageVideos}
+              columns={[
+                {
+                  key: "position",
+                  header: "#",
+                  cell: (m) => (
+                    <span className="text-sm font-semibold tabular-nums text-muted-foreground">
+                      {mediaOrder.findIndex((x) => x.kind === m.kind && mediaItemId(x) === mediaItemId(m)) + 1}
+                    </span>
+                  ),
+                },
+                {
+                  key: "type",
+                  header: "Type",
+                  cell: (m) =>
+                    m.kind === "video" ? (
+                      <Badge className="bg-sky-500/15 text-sky-600 dark:text-sky-400">Video</Badge>
+                    ) : (
+                      <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">Image</Badge>
+                    ),
+                },
+                {
+                  key: "title",
+                  header: "Title",
+                  cell: (m) => <span className="truncate font-medium">{mediaItemTitle(m)}</span>,
+                },
+                {
+                  key: "shows",
+                  header: "Shows for",
+                  hideOnMobile: true,
+                  cell: (m) =>
+                    m.kind === "video" ? (
+                      <span className="text-xs text-muted-foreground">full video</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        {m.image.displayDurationSeconds ?? 15}s
+                      </span>
+                    ),
+                },
+                {
+                  key: "repeat",
+                  header: "Plays in a row",
+                  cell: (m) => {
+                    const id = mediaItemId(m);
+                    const current = (m.kind === "video" ? m.video.playRepeat : m.image.playRepeat) ?? 1;
+                    return (
+                      <Input
+                        key={`${id}-${current}`}
+                        type="number"
+                        min={1}
+                        max={10}
+                        defaultValue={current}
+                        disabled={!canManageVideos}
+                        onBlur={(e) => {
+                          const input = e.target;
+                          // Echo the CLAMPED value back immediately — typing "0"
+                          // or clearing must never leave a stale number visible.
+                          const value = Math.max(1, Math.min(10, Number(input.value) || 1));
+                          input.value = String(value);
+                          if (value === current) return;
+                          commitRepeat(m, String(value), () => {
+                            input.value = String(current);
+                          });
+                        }}
+                        className="h-8 w-16 rounded-lg text-sm"
+                      />
+                    );
+                  },
+                },
+                {
+                  key: "order",
+                  header: "Order",
+                  className: "text-right",
+                  cell: (m) => (
+                    <div className="flex justify-end gap-1.5">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 rounded-lg p-0"
+                        disabled={!canManageVideos}
+                        aria-label="Move earlier"
+                        onClick={() => moveMediaItem(m, "up")}
+                      >
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 rounded-lg p-0"
+                        disabled={!canManageVideos}
+                        aria-label="Move later"
+                        onClick={() => moveMediaItem(m, "down")}
+                      >
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </ContentPanel>
         ) : null}
 
@@ -1036,6 +1424,9 @@ export default function VideosPage() {
             title="Branch Videos"
             description="Drag rows to set play order, or use ▲ ▼ as a fallback."
           >
+            {canManageVideos ? (
+              <div className="mb-3 flex justify-end">{removeAllButton("videos", videos.length)}</div>
+            ) : null}
             <SortableDataTable
               data={videos}
               keyExtractor={(v) => v.id}
@@ -1043,7 +1434,7 @@ export default function VideosPage() {
               onReorder={(ordered) => void reorderVideosList(ordered)}
               reorderDisabled={!canManageVideos}
               columns={[
-                { key: "title", header: "Title", cell: (v) => <span className="font-medium">{v.title}</span> },
+                { key: "title", header: "Title", cell: (v) => renameableTitle("video", v.id, v.title) },
                 {
                   key: "source",
                   header: "Source",
@@ -1158,6 +1549,9 @@ export default function VideosPage() {
 
         {images.length > 0 ? (
           <ContentPanel title="Active Image Adverts" description="Drag rows to set order, or use ▲ ▼ as a fallback">
+            {canManageImages ? (
+              <div className="mb-3 flex justify-end">{removeAllButton("images", images.length)}</div>
+            ) : null}
             {/* Change every image in one go — with many images, setting each row
                 one by one takes ages. Per-image boxes below still work too. */}
             {images.length > 1 ? (
@@ -1218,7 +1612,7 @@ export default function VideosPage() {
               onReorder={(ordered) => void reorderImagesList(ordered)}
               reorderDisabled={!canManageImages}
               columns={[
-                { key: "title", header: "Title", cell: (img) => img.title },
+                { key: "title", header: "Title", cell: (img) => renameableTitle("image", img.id, img.title) },
                 {
                   key: "duration",
                   header: "Seconds on screen",

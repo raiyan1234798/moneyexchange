@@ -139,6 +139,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateTransferDurationSeconds: null as number | null,
   /** TV edge-cut (overscan) fix: shrink the whole display this % per edge. */
   displaySafeAreaPercent: 0,
+  /** Seconds per full spin/flip turn for flags, currency letters and headings. */
+  rateAnimationSpeedSeconds: 3,
   // ONE font for the whole display — overrides all the individual fonts below.
   displayFont: null as string | null,
   rateCardFont: null as string | null,
@@ -353,7 +355,7 @@ export const NAV_ITEMS: Array<{
   },
   // Per client (2026-07-11): advert videos/images, scrolling messages, logos
   // and display settings are ADMIN-ONLY. Branch staff see rates only.
-  { href: "/dashboard/videos", label: "Videos", icon: "Video", roles: ["superAdmin", "admin"] },
+  { href: "/dashboard/videos", label: "Media Manager", icon: "Video", roles: ["superAdmin", "admin"] },
   {
     href: "/dashboard/tickers",
     label: "Display Messages",
