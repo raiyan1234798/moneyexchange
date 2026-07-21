@@ -643,9 +643,9 @@ export default function UsersPage() {
                           <SelectItem value="admin">Admin — all branches, media & view rates</SelectItem>
                         ) : null}
                         {canInviteAdmin ? (
-                          <SelectItem value="branchManager">Branch Manager — full branch control</SelectItem>
+                          <SelectItem value="branchManager">Branch Manager — exchange & transfer rates</SelectItem>
                         ) : null}
-                        <SelectItem value="branchUser">Branch User — exchange rates only</SelectItem>
+                        <SelectItem value="branchUser">Branch User — forex rates only</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

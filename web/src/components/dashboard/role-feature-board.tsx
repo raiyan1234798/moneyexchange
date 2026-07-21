@@ -35,11 +35,12 @@ const ADMIN_FEATURES: FeatureCard[] = [
   { title: "Notifications", description: "Alerts and system announcements", href: "/dashboard/notifications", icon: Bell },
 ];
 
+// Per client (2026-07-21): branch managers handle RATES ONLY — exchange
+// rates + the transfer rates card. No media, messages, or team management
+// (grant extra modules per user in Users if ever needed).
 const BRANCH_MANAGER_FEATURES: FeatureCard[] = [
-  { title: "Exchange Rates", description: "Import, edit, and publish branch rates", href: "/dashboard/exchange-rates", icon: TrendingUp },
-  { title: "Media Manager", description: "Manage your branch video & image playlist", href: "/dashboard/videos", icon: Video },
-  { title: "Display Messages", description: "Ticker messages on your signage", href: "/dashboard/tickers", icon: TextCursorInput },
-  { title: "Team", description: "Invite branch users for rate editing", href: "/dashboard/users", icon: Users },
+  { title: "Exchange Rates", description: "Import, edit, and publish branch forex rates", href: "/dashboard/exchange-rates", icon: TrendingUp },
+  { title: "Transfer Rates", description: "Upload and edit the money-transfer rates card", href: "/dashboard/exchange-rates#transfer-rates", icon: TrendingUp },
   { title: "Notifications", description: "Stay updated on approvals and changes", href: "/dashboard/notifications", icon: Bell },
   { title: "Profile", description: "Your account and branch details", href: "/dashboard/profile", icon: User },
 ];
