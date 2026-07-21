@@ -141,6 +141,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   displaySafeAreaPercent: 0,
   /** Seconds per full spin/flip turn for flags, currency letters and headings. */
   rateAnimationSpeedSeconds: 3,
+  /** Seconds the flags/letters/numbers STAND STILL between spin/flip turns. */
+  rateAnimationPauseSeconds: 1,
   // ONE font for the whole display — overrides all the individual fonts below.
   displayFont: null as string | null,
   rateCardFont: null as string | null,

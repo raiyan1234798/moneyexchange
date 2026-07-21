@@ -239,7 +239,13 @@ service cloud.firestore {
           && request.resource.data.role != 'superAdmin') ||
         (request.auth.uid == userId && request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastLoginAt', 'updatedAt', 'displayName', 'photoURL'])) ||
         (request.auth.uid == userId && isSuperAdminEmail() && isValidUserUpdate());
-      allow delete: if isSuperAdmin();
+      // Permanent removal is limited to the OWNER admins (the same two accounts
+      // that hold the password vault) — and nobody can delete the superAdmin.
+      allow delete: if isSuperAdmin() ||
+        (isAdmin()
+          && resource.data.role != 'superAdmin'
+          && (authEmailLower() == 'admin@unimoni-signage.com'
+            || authEmailLower() == 'mohamedaalthaf@gmail.com'));
     }
 
     match /user_invites/{inviteEmail} {

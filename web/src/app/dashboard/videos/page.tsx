@@ -65,7 +65,7 @@ import {
   syncImageUrlToBranches,
 } from "@/lib/services/branch-sync";
 import { auth } from "@/lib/firebase/client";
-import { getDocument, sumField } from "@/lib/firebase/firestore";
+import { getDocument, listDocuments, sumField } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import {
   deleteImageAdvert,
@@ -118,6 +118,7 @@ export default function VideosPage() {
   // TRUE bucket usage from Cloudflare (worker /api/storage-usage) — what R2
   // actually bills, including files the database lost track of.
   const [realStorage, setRealStorage] = useState<{ bytes: number; objects: number } | null>(null);
+  const [cleaningStorage, setCleaningStorage] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
@@ -686,6 +687,53 @@ export default function VideosPage() {
     );
   }
 
+  // Reclaim space: delete every stored file that no current (non-deleted)
+  // video/image references — across ALL branches. This is what actually frees
+  // the space of removed videos when their file delete had silently failed.
+  async function handleStorageCleanup() {
+    setCleaningStorage(true);
+    try {
+      const [allVideos, allImages] = await Promise.all([
+        listDocuments<VideoAsset>(COLLECTIONS.videos, []),
+        listDocuments<ImageAdvert>(COLLECTIONS.imageAdverts, []),
+      ]);
+      const keep = [
+        ...allVideos.filter((v) => v.status !== "inactive"),
+        ...allImages.filter((img) => img.status !== "inactive"),
+      ]
+        .map((m) => m.storagePath)
+        .filter((p): p is string => typeof p === "string" && p.length > 0);
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not signed in");
+      const res = await fetch("/api/storage-cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ keep }),
+      });
+      const data = (await res.json()) as { deleted?: number; freedBytes?: number; error?: string };
+      if (!res.ok) throw new Error(data.error || "Cleanup failed");
+      toast.success(
+        data.deleted
+          ? `Removed ${data.deleted} unused file${data.deleted === 1 ? "" : "s"} — freed ${gb(data.freedBytes ?? 0)} GB`
+          : "Nothing to clean — every stored file is in use",
+        { duration: 8000 },
+      );
+      setRealStorage(null); // re-measure below
+      const usage = await fetch("/api/storage-usage", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (usage.ok) {
+        const u = (await usage.json()) as { bytes: number; objects: number };
+        setRealStorage({ bytes: u.bytes, objects: u.objects });
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Cleanup failed");
+    } finally {
+      setCleaningStorage(false);
+    }
+  }
+
   function removeAllMedia(kind: "videos" | "images") {
     const a = actor;
     if (!a) return;
@@ -863,6 +911,35 @@ export default function VideosPage() {
                     </span>
                   </div>
                   <Progress value={pct} className="mt-3" />
+                  {canManageVideos ? (
+                    <div className="mt-3 flex justify-end">
+                      <AlertDialog>
+                        <AlertDialogTrigger
+                          render={
+                            <Button variant="outline" size="sm" className="rounded-lg" disabled={cleaningStorage}>
+                              {cleaningStorage ? "Cleaning…" : "Clean up unused files"}
+                            </Button>
+                          }
+                        />
+                        <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Free up storage space?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This deletes stored files that no current video or image uses — including
+                              files left behind by videos you removed earlier. Everything still in any
+                              branch&apos;s lists stays untouched.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                            <AlertDialogAction className="rounded-xl" onClick={() => void handleStorageCleanup()}>
+                              Yes, clean up
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  ) : null}
                   {full ? (
                     <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400">
                       Storage is full. New uploads will be billed by Cloudflare (or may fail) — remove

@@ -872,8 +872,15 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   // edge (logo/date/last column not fully visible). Uniformly shrinking the
   // WHOLE display leaves a black margin the TV crops instead of the content.
   const safeAreaPercent = Math.max(0, Math.min(10, branchSettings.displaySafeAreaPercent ?? 0));
-  // Admin-adjustable spin/flip cadence (Settings → "Spin / flip speed").
+  // Admin-adjustable spin/flip cadence (Settings → "Spin / flip speed") plus an
+  // adjustable STAND-STILL between turns: one animation cycle = pause + turn,
+  // holding still for the first pause/(pause+turn) of the cycle. The keyframes
+  // are re-declared below with the computed hold percentage (CSS can't put a
+  // var() inside a keyframe selector), overriding the static ones in globals.css.
   const rateAnimSecs = Math.max(1, Math.min(30, branchSettings.rateAnimationSpeedSeconds ?? 3));
+  const rateAnimPauseSecs = Math.max(0, Math.min(30, branchSettings.rateAnimationPauseSeconds ?? 1));
+  const rateAnimCycleSecs = rateAnimSecs + rateAnimPauseSecs;
+  const rateAnimHoldPct = Math.round((rateAnimPauseSecs / rateAnimCycleSecs) * 1000) / 10;
 
   return (
     <div
@@ -884,7 +891,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         ...(safeAreaPercent > 0
           ? { transform: `scale(${(100 - 2 * safeAreaPercent) / 100})`, transformOrigin: "50% 50%" }
           : {}),
-        ["--rate-anim-secs" as string]: `${rateAnimSecs}s`,
+        ["--rate-anim-secs" as string]: `${rateAnimCycleSecs}s`,
       }}
     >
       {!isFullscreen ? (
@@ -1003,6 +1010,25 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         html,
         body {
           background: #000;
+        }
+        /* Spin/flip with an adjustable STAND-STILL: hold for the first
+           ${rateAnimHoldPct}% of each ${rateAnimCycleSecs}s cycle, then turn
+           once. Overrides the static keyframes in globals.css. */
+        @keyframes display-cell-spin {
+          0%, ${rateAnimHoldPct}% {
+            transform: perspective(600px) rotateY(0deg);
+          }
+          100% {
+            transform: perspective(600px) rotateY(360deg);
+          }
+        }
+        @keyframes display-cell-flip {
+          0%, ${rateAnimHoldPct}% {
+            transform: perspective(600px) rotateX(0deg);
+          }
+          100% {
+            transform: perspective(600px) rotateX(360deg);
+          }
         }
         .display-kiosk:hover button[aria-label="Exit fullscreen"] {
           opacity: 0.6;

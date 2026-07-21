@@ -1,5 +1,5 @@
 import { doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import { changeAuthAccountPassword, db } from "@/lib/firebase/client";
+import { changeAuthAccountPassword, deleteAuthAccount, db } from "@/lib/firebase/client";
 import { subscribeCollection, writeAuditLog } from "@/lib/firebase/firestore";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { CLIENT_ADMIN_EMAIL } from "@/lib/constants";
@@ -105,4 +105,44 @@ export async function resetUserPassword(
 /** Forget a stored credential (e.g. after the account was removed). */
 export async function deleteCredential(email: string): Promise<void> {
   await deleteDoc(doc(db, COLLECTION, normalizeEmail(email)));
+}
+
+/**
+ * PERMANENTLY delete a team member (owner admins only):
+ *  1. Their Firebase Auth login is destroyed when we hold their password in the
+ *     vault — email/password sign-in stops working immediately.
+ *  2. Their profile doc is deleted, so even a Google sign-in with the same
+ *     address gets "not invited" and is bounced out.
+ *  3. Any open invite and the stored password are removed too.
+ * Google-only accounts (no stored password) lose all access via 2+3; their
+ * Google identity itself lives at Google and cannot be deleted from here.
+ */
+export async function deleteUserAccount(
+  target: { uid: string; email: string },
+  storedPassword: string | null,
+  actor: { userId: string; userName: string },
+): Promise<{ authDeleted: boolean }> {
+  const email = normalizeEmail(target.email);
+  let authDeleted = false;
+  if (storedPassword) {
+    try {
+      await deleteAuthAccount(email, storedPassword);
+      authDeleted = true;
+    } catch {
+      // Stored password no longer matches (user changed it) — the profile
+      // delete below still cuts off ALL access; report authDeleted=false.
+    }
+  }
+  await deleteDoc(doc(db, "users", target.uid));
+  await deleteDoc(doc(db, "user_invites", email)).catch(() => undefined);
+  await deleteCredential(email).catch(() => undefined);
+  await writeAuditLog({
+    action: "delete",
+    entityType: "user",
+    entityId: target.uid,
+    userId: actor.userId,
+    userName: actor.userName,
+    metadata: { email, authDeleted },
+  }).catch(() => undefined);
+  return { authDeleted };
 }

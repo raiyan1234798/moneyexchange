@@ -126,6 +126,29 @@ export async function changeAuthAccountPassword(
   }
 }
 
+/**
+ * Permanently delete a password login from Firebase Auth WITHOUT touching the
+ * admin's own session: sign the target account in on a throwaway secondary app
+ * (we hold its password in the owner vault) and self-delete it. After this the
+ * email/password can never sign in again. Returns the deleted uid.
+ */
+export async function deleteAuthAccount(email: string, password: string): Promise<string> {
+  const { initializeApp: initSecondary, deleteApp } = await import("firebase/app");
+  const { getAuth: getSecondaryAuth, signInWithEmailAndPassword, deleteUser } = await import(
+    "firebase/auth"
+  );
+  const secondary = initSecondary(firebaseConfig, `account-delete-${Date.now()}`);
+  try {
+    const secondaryAuth = getSecondaryAuth(secondary);
+    const credential = await signInWithEmailAndPassword(secondaryAuth, email, password);
+    const uid = credential.user.uid;
+    await deleteUser(credential.user);
+    return uid;
+  } finally {
+    await deleteApp(secondary).catch(() => undefined);
+  }
+}
+
 let analytics: Analytics | null = null;
 
 export async function getFirebaseAnalytics(): Promise<Analytics | null> {

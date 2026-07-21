@@ -62,6 +62,7 @@ import { completeLoginEmail, normalizeEmail, TEAM_LOGIN_DOMAIN } from "@/lib/aut
 import {
   canManageCredentials,
   deleteCredential,
+  deleteUserAccount,
   resetUserPassword,
   saveCredential,
   subscribeUserCredentials,
@@ -391,11 +392,29 @@ export default function UsersPage() {
     if (!deleteUserTarget || !user || !profile) return;
     setActionId(deleteUserTarget.uid);
     try {
-      await deleteUserProfile(
-        { uid: deleteUserTarget.uid, email: deleteUserTarget.email, branchId: deleteUserTarget.branchId },
-        { userId: user.uid, userName: profile.displayName || profile.email },
-      );
-      toast.success("User removed");
+      if (isCredentialOwner) {
+        // Full removal: destroys the password login itself (when we hold the
+        // password in the vault) + profile + invite + stored password.
+        const stored = credentials.find(
+          (c) => normalizeEmail(c.email) === normalizeEmail(deleteUserTarget.email),
+        );
+        const { authDeleted } = await deleteUserAccount(
+          { uid: deleteUserTarget.uid, email: deleteUserTarget.email },
+          stored?.password ?? null,
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        toast.success(
+          authDeleted
+            ? "User deleted — their email & password can no longer sign in"
+            : "User deleted — any sign-in attempt now gets no access",
+        );
+      } else {
+        await deleteUserProfile(
+          { uid: deleteUserTarget.uid, email: deleteUserTarget.email, branchId: deleteUserTarget.branchId },
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        toast.success("User removed");
+      }
       setDeleteUserTarget(null);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to remove user");
@@ -981,7 +1000,7 @@ export default function UsersPage() {
                         >
                           {m.isActive ? "Deactivate" : "Activate"}
                         </Button>
-                        {isSuperAdmin ? (
+                        {isSuperAdmin || isCredentialOwner ? (
                           <Button
                             variant="outline"
                             size="sm"
@@ -1063,10 +1082,11 @@ export default function UsersPage() {
         <AlertDialog open={!!deleteUserTarget} onOpenChange={(open) => !open && setDeleteUserTarget(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Remove {deleteUserTarget?.displayName}?</AlertDialogTitle>
+              <AlertDialogTitle>Delete {deleteUserTarget?.displayName} permanently?</AlertDialogTitle>
               <AlertDialogDescription>
-                <strong>{deleteUserTarget?.email}</strong> will lose access immediately and can only
-                return if re-invited. Their past activity stays in the audit trail.
+                <strong>{deleteUserTarget?.email}</strong> is removed completely: their password
+                login is destroyed and any sign-in (email &amp; password or Google) gets no access.
+                They can only return if you create them again. Past activity stays in the audit trail.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

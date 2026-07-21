@@ -950,6 +950,27 @@ function BranchSettingsForm({
           above. Bigger number = slower, calmer movement. 3 is the default.
         </p>
       </div>
+      <div className="space-y-2">
+        <Label>Pause between spins (seconds)</Label>
+        <Input
+          type="number"
+          min={0}
+          max={30}
+          step={1}
+          key={`anim-pause-${settings.rateAnimationPauseSeconds ?? 1}`}
+          defaultValue={settings.rateAnimationPauseSeconds ?? 1}
+          onBlur={(event) => {
+            const value = Math.max(0, Math.min(30, Number(event.target.value) || 0));
+            event.target.value = String(value);
+            setSettings({ ...settings, rateAnimationPauseSeconds: value });
+          }}
+          className="rounded-xl"
+        />
+        <p className="text-xs text-muted-foreground">
+          The currencies, rates and flags STAND STILL this long between turns, so they stay
+          readable while each slide is on screen. 0 = keep turning non-stop. 1 is the default.
+        </p>
+      </div>
       </div>
       <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
         <div>

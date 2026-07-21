@@ -253,11 +253,17 @@ export async function deleteR2Object(storagePath: string): Promise<void> {
   try {
     const token = await getIdToken();
     const url = `${getR2UploadUrl()}?key=${encodeURIComponent(storagePath)}`;
-    await fetch(url, {
+    const res = await fetch(url, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token}` },
     });
+    if (!res.ok) {
+      // Still best-effort (the doc removal must not fail), but LOUD: leaked
+      // objects were silently eating the storage quota. The "Clean up unused
+      // files" button reconciles any leftovers.
+      console.warn(`[r2] delete failed for ${storagePath}: HTTP ${res.status}`);
+    }
   } catch {
-    // Best-effort cleanup — orphaned objects can be removed via R2 lifecycle rules
+    // Best-effort cleanup — the storage cleanup button reconciles leftovers.
   }
 }

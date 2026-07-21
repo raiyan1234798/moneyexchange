@@ -153,6 +153,8 @@ export interface BranchSettings {
   displaySafeAreaPercent?: number;
   /** Seconds per full spin/flip turn for flags, currency letters and headings (default 3). */
   rateAnimationSpeedSeconds?: number;
+  /** Seconds the flags/letters/numbers stand still BETWEEN turns (default 1). */
+  rateAnimationPauseSeconds?: number;
   /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
   logoAutoRemoveBg?: boolean;
   /** Transition when the video-area image/video changes. */
