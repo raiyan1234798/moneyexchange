@@ -230,52 +230,53 @@ export function CentralTransferPanel({
       title="Money Transfer Rates"
       description={`One set for ALL branches — upload an Excel or edit below. T.T rate against USD/${localLabel}.`}
     >
-      {/* ONE Excel/CSV upload updates the transfer rates on ALL branches at once —
-          a BIG drop zone; the wording lives in the panel description above. */}
-      <div className="mb-4">
-        <div className="flex w-full flex-col gap-3">
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".xlsx,.xls,.csv"
-            aria-label="Upload transfer rates Excel for all branches"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void handleTransferUpload(f);
-            }}
-          />
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => fileRef.current?.click()}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              const f = e.dataTransfer.files?.[0];
-              if (f) void handleTransferUpload(f);
-            }}
-            // ONE slim line — no floating island, no dead space around it.
-            className={`flex w-full flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-xl border border-dashed px-4 py-2.5 text-center transition-colors ${
-              dragOver
-                ? "border-sky-500 bg-sky-500/10"
-                : "border-sky-500/40 bg-background/60 hover:border-sky-500/60 hover:bg-sky-500/5"
-            } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
-          >
-            <Upload className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
-            <span className="text-sm font-medium">
-              {uploading ? "Uploading…" : "Upload transfer Excel/CSV"}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              (drop it here or click) — CURRENCY | $ (USD) | {localLabel}
-            </span>
-          </button>
-        </div>
+      {/* SAME layout as the forex uploader: helper text on the left, one
+          compact dashed drop box on the right of the SAME row. */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-sm text-sm text-muted-foreground">
+          One file updates the transfer card on every branch&apos;s TV at once. You can also
+          edit the values directly below.
+        </p>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          aria-label="Upload transfer rates Excel for all branches"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleTransferUpload(f);
+          }}
+        />
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            const f = e.dataTransfer.files?.[0];
+            if (f) void handleTransferUpload(f);
+          }}
+          className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors sm:max-w-xs ${
+            dragOver
+              ? "border-primary bg-primary/10"
+              : "border-border bg-background/60 hover:border-primary/60 hover:bg-primary/5"
+          } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+        >
+          <Upload className="h-8 w-8 text-primary" />
+          <span className="text-sm font-medium">
+            {uploading ? "Uploading…" : "Drop the transfer Excel/CSV here"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            .xlsx, .xls, .csv — CURRENCY | $ (USD) | {localLabel}
+          </span>
+        </button>
       </div>
       <div className="space-y-2">
         {rows.map((row) => {

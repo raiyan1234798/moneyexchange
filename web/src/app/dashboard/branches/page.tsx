@@ -109,6 +109,8 @@ export default function BranchesPage() {
   const [form, setForm] = useState(emptyForm);
   // Per-day opening hours ("each day has different timing, Sunday differs").
   const [dayHours, setDayHours] = useState<Record<string, string>>({});
+  // "simple" = one time Mon–Fri + Saturday + Sunday; "days" = each day its own.
+  const [hoursMode, setHoursMode] = useState<"simple" | "days">("simple");
   const [saving, setSaving] = useState(false);
   const [editBranch, setEditBranch] = useState<Branch | null>(null);
   const [displayBranchId, setDisplayBranchId] = useState("");
@@ -151,11 +153,12 @@ export default function BranchesPage() {
     });
     // Prefill each day from saved per-day values; fall back to the legacy line.
     const legacy = branch.workingHours ?? "";
-    setDayHours(
-      Object.fromEntries(
-        DAY_KEYS.map((d) => [d, branch.workingHoursByDay?.[d] ?? legacy]),
-      ),
-    );
+    const filled = Object.fromEntries(
+      DAY_KEYS.map((d) => [d, branch.workingHoursByDay?.[d] ?? legacy]),
+    ) as Record<string, string>;
+    setDayHours(filled);
+    const weekdays = ["mon", "tue", "wed", "thu", "fri"].map((d) => filled[d] ?? "");
+    setHoursMode(weekdays.every((v) => v === weekdays[0]) ? "simple" : "days");
     setEditBranch(branch);
     setOpen(true);
   }
@@ -367,22 +370,70 @@ export default function BranchesPage() {
                 >
                   {/* Slogan and Brand Color were removed from this form per the
                       client — existing saved values are kept untouched on save. */}
-                  {DAY_KEYS.map((day) => (
-                    <div key={day} className="flex items-center gap-2">
-                      <Label className="w-24 shrink-0">{DAY_LABELS[day]}</Label>
-                      <Input
-                        value={dayHours[day] ?? ""}
-                        onChange={(event) =>
-                          setDayHours((prev) => ({ ...prev, [day]: event.target.value }))
-                        }
-                        placeholder={day === "sun" ? "e.g. Closed or 10:00 - 16:00" : "e.g. 08:30 - 17:30"}
-                        className="rounded-xl"
-                      />
+                  <div className="space-y-3 sm:col-span-2">
+                    <div className="flex gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={hoursMode === "simple" ? "default" : "outline"}
+                        className="rounded-lg"
+                        onClick={() => setHoursMode("simple")}
+                      >
+                        Mon–Fri / Sat / Sun
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={hoursMode === "days" ? "default" : "outline"}
+                        className="rounded-lg"
+                        onClick={() => setHoursMode("days")}
+                      >
+                        Each day separately
+                      </Button>
                     </div>
-                  ))}
-                  <p className="text-xs text-muted-foreground sm:col-span-2">
-                    Tip: type &quot;Closed&quot; for days the branch doesn&apos;t open.
-                  </p>
+                    {hoursMode === "simple" ? (
+                      <>
+                        {([
+                          ["Mon – Fri", ["mon", "tue", "wed", "thu", "fri"]],
+                          ["Saturday", ["sat"]],
+                          ["Sunday", ["sun"]],
+                        ] as Array<[string, string[]]>).map(([label, days]) => (
+                          <div key={label} className="grid grid-cols-[7rem_1fr] items-center gap-3">
+                            <Label>{label}</Label>
+                            <Input
+                              value={dayHours[days[0]] ?? ""}
+                              onChange={(event) =>
+                                setDayHours((prev) => {
+                                  const next = { ...prev };
+                                  for (const d of days) next[d] = event.target.value;
+                                  return next;
+                                })
+                              }
+                              placeholder={label === "Sunday" ? "e.g. Closed or 10:00 - 16:00" : "e.g. 08:30 - 17:30"}
+                              className="rounded-xl"
+                            />
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      DAY_KEYS.map((day) => (
+                        <div key={day} className="grid grid-cols-[7rem_1fr] items-center gap-3">
+                          <Label>{DAY_LABELS[day]}</Label>
+                          <Input
+                            value={dayHours[day] ?? ""}
+                            onChange={(event) =>
+                              setDayHours((prev) => ({ ...prev, [day]: event.target.value }))
+                            }
+                            placeholder={day === "sun" ? "e.g. Closed or 10:00 - 16:00" : "e.g. 08:30 - 17:30"}
+                            className="rounded-xl"
+                          />
+                        </div>
+                      ))
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Type &quot;Closed&quot; for days the branch doesn&apos;t open.
+                    </p>
+                  </div>
                 </FormSection>
                 {editBranch ? null : (
                 <FormSection title="Branch Manager" description="Optional — invite a manager by Gmail for first-time Google sign-in">

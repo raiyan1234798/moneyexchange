@@ -921,6 +921,25 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         ["--rate-anim-secs" as string]: `${rateAnimCycleSecs}s`,
       }}
     >
+      {/* Dynamic spin/flip keyframes as a RAW style tag — styled-jsx strips
+          interpolated @keyframes bodies (they arrived EMPTY in production and
+          silently killed every spin), so this must NOT go through it. Rendered
+          in the body = later in cascade order than the static stylesheet. */}
+      <style
+        // eslint-disable-next-line react/no-danger
+        dangerouslySetInnerHTML={{
+          __html: `
+@keyframes display-cell-spin { 0%, ${rateAnimHoldPct}% { transform: perspective(600px) rotateY(0deg); } 100% { transform: perspective(600px) rotateY(360deg); } }
+@keyframes display-cell-flip { 0%, ${rateAnimHoldPct}% { transform: perspective(600px) rotateX(0deg); } 100% { transform: perspective(600px) rotateX(360deg); } }
+@keyframes display-cell-spin-tr { 0%, ${trAnimHoldPct}% { transform: perspective(600px) rotateY(0deg); } 100% { transform: perspective(600px) rotateY(360deg); } }
+@keyframes display-cell-flip-tr { 0%, ${trAnimHoldPct}% { transform: perspective(600px) rotateX(0deg); } 100% { transform: perspective(600px) rotateX(360deg); } }
+[data-anim-kind="transfer"] .display-rate-row .ticker-logo-spin,
+[data-anim-kind="transfer"] .display-text-anim.ticker-logo-spin { animation: display-cell-spin-tr ${trAnimCycleSecs}s ease-in-out infinite; }
+[data-anim-kind="transfer"] .display-rate-row .ticker-logo-flipx,
+[data-anim-kind="transfer"] .display-text-anim.ticker-logo-flipx { animation: display-cell-flip-tr ${trAnimCycleSecs}s ease-in-out infinite; }
+`,
+        }}
+      />
       {!isFullscreen ? (
         <button
           type="button"
@@ -1037,52 +1056,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         html,
         body {
           background: #000;
-        }
-        /* Spin/flip with an adjustable STAND-STILL: hold for the first
-           ${rateAnimHoldPct}% of each ${rateAnimCycleSecs}s cycle, then turn
-           once. Overrides the static keyframes in globals.css. */
-        @keyframes display-cell-spin {
-          0%, ${rateAnimHoldPct}% {
-            transform: perspective(600px) rotateY(0deg);
-          }
-          100% {
-            transform: perspective(600px) rotateY(360deg);
-          }
-        }
-        @keyframes display-cell-flip {
-          0%, ${rateAnimHoldPct}% {
-            transform: perspective(600px) rotateX(0deg);
-          }
-          100% {
-            transform: perspective(600px) rotateX(360deg);
-          }
-        }
-        /* TRANSFER slide: its own cadence (${trAnimSecs}s turn + ${trAnimPauseSecs}s
-           pause). The rate panel stamps data-anim-kind with the active slide, and
-           these higher-specificity rules re-time the same animations there. */
-        @keyframes display-cell-spin-tr {
-          0%, ${trAnimHoldPct}% {
-            transform: perspective(600px) rotateY(0deg);
-          }
-          100% {
-            transform: perspective(600px) rotateY(360deg);
-          }
-        }
-        @keyframes display-cell-flip-tr {
-          0%, ${trAnimHoldPct}% {
-            transform: perspective(600px) rotateX(0deg);
-          }
-          100% {
-            transform: perspective(600px) rotateX(360deg);
-          }
-        }
-        [data-anim-kind="transfer"] .display-rate-row .ticker-logo-spin,
-        [data-anim-kind="transfer"] .display-text-anim.ticker-logo-spin {
-          animation: display-cell-spin-tr ${trAnimCycleSecs}s ease-in-out infinite;
-        }
-        [data-anim-kind="transfer"] .display-rate-row .ticker-logo-flipx,
-        [data-anim-kind="transfer"] .display-text-anim.ticker-logo-flipx {
-          animation: display-cell-flip-tr ${trAnimCycleSecs}s ease-in-out infinite;
         }
         .display-kiosk:hover button[aria-label="Exit fullscreen"] {
           opacity: 0.6;
