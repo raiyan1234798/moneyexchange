@@ -105,6 +105,7 @@ function BranchSettingsForm({
   onSave,
   onCopyFontsToAll,
   branchCount = 1,
+  otherBranches = [],
 }: {
   branchId: string;
   branchName: string;
@@ -118,19 +119,24 @@ function BranchSettingsForm({
   navSlot?: HTMLElement | null;
   onSave: (
     data: { logoUrl: string; brandingColor: string; settings: BranchSettings },
-    opts?: { allBranches?: boolean },
+    opts?: { targetBranchIds?: string[]; includePromo?: boolean },
   ) => Promise<void>;
   /** Copy THIS form's font choices to every branch (admin convenience). */
   onCopyFontsToAll?: (settings: BranchSettings) => Promise<void>;
   /** How many active branches exist — shows the "apply to all N" count. */
   branchCount?: number;
+  /** Other branches (excluding the one being edited) for the apply-to picker. */
+  otherBranches?: Array<{ id: string; name: string; code: string }>;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [color, setColor] = useState(initialColor);
   const [settings, setSettings] = useState(initialSettings);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  // "Apply to all branches" choice in the save confirm dialog.
-  const [applyAllBranches, setApplyAllBranches] = useState(false);
+  // Save-target choice in the confirm dialog: this branch, all, or picked ones,
+  // plus whether to also copy the promotion images/videos to them.
+  const [applyMode, setApplyMode] = useState<"this" | "all" | "some">("this");
+  const [pickedBranchIds, setPickedBranchIds] = useState<string[]>([]);
+  const [includePromo, setIncludePromo] = useState(false);
   const [promoLinkInput, setPromoLinkInput] = useState("");
   // Find-an-option search: hides sections without a match and glows the
   // matching fields, so nobody has to hunt (or ask) where a setting lives.
@@ -2193,52 +2199,125 @@ function BranchSettingsForm({
           {saving ? "Saving..." : "Save Branch Settings"}
         </Button>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent className="rounded-2xl">
+        <AlertDialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Apply these display changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              The branch TV updates immediately after saving. Please double-check the values before
+              The chosen TVs update immediately after saving. Please double-check the values before
               confirming.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {branchCount > 1 ? (
-            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
-              <input
-                type="checkbox"
-                checked={applyAllBranches}
-                onChange={(e) => setApplyAllBranches(e.target.checked)}
-                className="mt-0.5 h-4 w-4"
-              />
-              <span className="text-sm">
-                <span className="font-medium">Apply to all {branchCount} branches</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">
-                  Copies these look &amp; behaviour settings (fonts, colours, sizes, animations,
-                  timers, layout, ticker style) to every branch&apos;s TV. Each branch keeps its
-                  OWN videos, promo images, logos and rates — those are never changed.
-                </span>
-              </span>
-            </label>
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1.5 text-sm font-medium">Apply to</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    ["this", "This branch only"],
+                    ["all", `All ${branchCount} branches`],
+                    ["some", "Choose branches"],
+                  ] as Array<["this" | "all" | "some", string]>).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setApplyMode(mode)}
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        applyMode === mode
+                          ? "border-primary/60 bg-primary/15 text-primary"
+                          : "border-border/50 text-muted-foreground hover:bg-muted/40"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {applyMode === "some" ? (
+                <div className="max-h-40 space-y-1.5 overflow-y-auto rounded-xl border border-border/40 p-2">
+                  {otherBranches.map((b) => {
+                    const on = pickedBranchIds.includes(b.id);
+                    return (
+                      <label key={b.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/40">
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={() =>
+                            setPickedBranchIds((prev) =>
+                              on ? prev.filter((id) => id !== b.id) : [...prev, b.id],
+                            )
+                          }
+                          className="h-4 w-4"
+                        />
+                        <span className="text-sm">
+                          {b.name} <span className="text-xs text-muted-foreground">({b.code})</span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {applyMode !== "this" ? (
+                <>
+                  <p className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    Copies the look &amp; behaviour (fonts, colours, sizes, <strong>animations</strong>,
+                    timers, layout, ticker style) to the chosen branches. Their videos, logos and
+                    rates are never changed.
+                  </p>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+                    <input
+                      type="checkbox"
+                      checked={includePromo}
+                      onChange={(e) => setIncludePromo(e.target.checked)}
+                      className="mt-0.5 h-4 w-4"
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium">Also copy the promotion images &amp; videos</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Puts THIS branch&apos;s promotion slide pictures/videos on the chosen branches
+                        too, so they all play the same promotions. This replaces whatever promotions
+                        those branches currently have.
+                      </span>
+                    </span>
+                  </label>
+                </>
+              ) : null}
+            </div>
           ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl"
               onClick={() => {
-                // Close the dialog immediately, then save — the success toast
-                // confirms the write, so the confirm never lingers on screen.
-                const allBranches = applyAllBranches;
+                // Resolve the target branch ids from the chosen mode.
+                const targetBranchIds =
+                  applyMode === "all"
+                    ? otherBranches.map((b) => b.id)
+                    : applyMode === "some"
+                      ? pickedBranchIds
+                      : [];
+                const alsoPromo = applyMode !== "this" && includePromo;
                 setConfirmOpen(false);
-                setApplyAllBranches(false);
+                setApplyMode("this");
+                setPickedBranchIds([]);
+                setIncludePromo(false);
                 void (async () => {
-                  // Move any inline (base64) promo images to R2 first so the doc
-                  // stays under Firestore's 1MB limit.
                   const prepared = await migratePromoMediaForSave(settings);
                   if (prepared !== settings) setSettings(prepared);
-                  await onSave({ logoUrl, brandingColor: color, settings: prepared }, { allBranches });
+                  await onSave(
+                    { logoUrl, brandingColor: color, settings: prepared },
+                    { targetBranchIds, includePromo: alsoPromo },
+                  );
                 })();
               }}
+              disabled={applyMode === "some" && pickedBranchIds.length === 0}
             >
-              {applyAllBranches ? `Yes, apply to all ${branchCount}` : "Yes, apply to the display"}
+              {applyMode === "all"
+                ? `Yes, apply to all ${branchCount}`
+                : applyMode === "some"
+                  ? `Yes, apply to ${pickedBranchIds.length || ""} branch${pickedBranchIds.length === 1 ? "" : "es"}`
+                  : "Yes, apply to the display"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2349,7 +2428,7 @@ export default function SettingsPage() {
 
   async function saveBranchSettings(
     data: { logoUrl: string; brandingColor: string; settings: BranchSettings },
-    opts?: { allBranches?: boolean },
+    opts?: { targetBranchIds?: string[]; includePromo?: boolean },
   ) {
     if (!user || !profile || !effectiveBranchId) return;
     setSaving(true);
@@ -2362,29 +2441,37 @@ export default function SettingsPage() {
         actor,
       );
 
-      if (opts?.allBranches) {
-        // Copy the LOOK & BEHAVIOUR settings to every OTHER branch, but keep
-        // each one's own CONTENT (videos live outside settings; promo media,
-        // logos, announcements and per-branch text stay untouched) so this can
-        // never wipe another branch's uploads.
+      const targets = branches.filter(
+        (b) => b.id !== effectiveBranchId && (opts?.targetBranchIds ?? []).includes(b.id),
+      );
+      if (targets.length > 0) {
+        // Copy the LOOK & BEHAVIOUR settings (incl. animations) to the chosen
+        // branches. Their own CONTENT is preserved — videos live outside
+        // settings; logos, announcements and per-branch text stay untouched.
+        // The PROMOTION images/videos are preserved too UNLESS the admin ticked
+        // "also copy promotions", in which case those branches get THIS branch's
+        // promotions so they all play the same ones.
         const CONTENT_KEYS: Array<keyof BranchSettings> = [
-          "ratePromoMedia", "ratePromoImageUrl", "ratePromoText", "ratePromoTextTop",
           "headerLogoUrl", "headerLogoUrl2", "headerLogoUrls", "promoSlideLogoUrl",
           "tickerLogoUrl", "tickerLogoUrls", "tickerLogoText", "tickerHeadline",
           "announcementText", "announcementImageUrl", "announcementVideoUrl",
           "scrollingLogos", "scrollingLogoItems", "slogan",
         ];
+        const PROMO_KEYS: Array<keyof BranchSettings> = [
+          "ratePromoMedia", "ratePromoImageUrl", "ratePromoText", "ratePromoTextTop",
+        ];
+        const skip = opts?.includePromo ? CONTENT_KEYS : [...CONTENT_KEYS, ...PROMO_KEYS];
         const shared: Partial<BranchSettings> = { ...data.settings };
-        for (const k of CONTENT_KEYS) delete shared[k];
+        for (const k of skip) delete shared[k];
 
-        const others = branches.filter((b) => b.id !== effectiveBranchId);
         await Promise.all(
-          others.map((b) =>
-            updateBranch(b.id, { settings: { ...b.settings, ...shared } }, actor),
-          ),
+          targets.map((b) => updateBranch(b.id, { settings: { ...b.settings, ...shared } }, actor)),
         );
         toast.success(
-          `Settings applied to all ${others.length + 1} branches — each keeps its own videos, promo images and logos.`,
+          opts?.includePromo
+            ? `Settings + promotions applied to ${targets.length + 1} branches — they now play the same look and promotions.`
+            : `Settings applied to ${targets.length + 1} branches — each keeps its own videos, promotions and logos.`,
+          { duration: 8000 },
         );
       } else {
         toast.success("Branch settings saved");
@@ -2573,6 +2660,9 @@ export default function SettingsPage() {
                 onSave={saveBranchSettings}
                 onCopyFontsToAll={copyFontsToAllBranches}
                 branchCount={branches.length}
+                otherBranches={branches
+                  .filter((b) => b.id !== effectiveBranchId)
+                  .map((b) => ({ id: b.id, name: b.name, code: b.code }))}
               />
               <div className="hidden xl:block">
                 <div className="sticky top-3 space-y-2">
