@@ -84,6 +84,8 @@ export function CentralTransferPanel({
     try {
       const parsed = await parseRateFile(file);
       const transferRows = parsed
+        // USD is the base currency the card quotes against — skip its row.
+        .filter((r) => (normalizeCurrencyCode(r.currencyCode) || r.currencyCode.toUpperCase()) !== "USD")
         .filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0)
         .map((r) => ({
           currencyCode: r.currencyCode,
@@ -154,7 +156,8 @@ export function CentralTransferPanel({
   useEffect(() => {
     return subscribeTransferRates(
       (items) => {
-        setRows(items);
+        // USD is the base currency — never listed on the transfer card.
+        setRows(items.filter((t) => t.currencyCode?.toUpperCase() !== "USD"));
         // Merge, keeping in-progress edits.
         setDrafts((prev) => {
           const next: Record<string, Draft> = {};

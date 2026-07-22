@@ -244,6 +244,8 @@ export function UnimoniRatesPanel({
   // forex table. Rates come from the CENTRALIZED head-office set (same for all
   // branches) when provided; legacy branch-level values are the fallback.
   const centralTransferRows: ExchangeRate[] = (transferRates ?? [])
+    // USD is the base currency the card quotes against — never a row itself.
+    .filter((t) => t.currencyCode?.toUpperCase() !== "USD")
     .filter((t) => !t.isHidden && ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0))
     .map(
       (t) =>

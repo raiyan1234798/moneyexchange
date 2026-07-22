@@ -1477,47 +1477,71 @@ export default function ExchangeRatesPage() {
               {(() => {
                 if (!manageBranchesFor) return null;
                 const code = getCatalogCurrency(manageBranchesFor).code;
-                const rows = allRates.filter((r) => (r.currencyCode ?? "").toUpperCase() === code);
-                if (rows.length === 0) {
-                  return (
-                    <p className="text-sm text-muted-foreground">
-                      No branch carries {code} right now. Use &quot;Add Currency to Branch&quot; on a
-                      branch to add it.
-                    </p>
+                // EVERY branch, each with Add or Remove — fully editable here.
+                return branches.map((b) => {
+                  const carried = allRates.filter(
+                    (r) => (r.currencyCode ?? "").toUpperCase() === code && r.branchId === b.id,
                   );
-                }
-                return rows.map((r) => {
-                  const b = branches.find((x) => x.id === r.branchId);
+                  const on = carried.length > 0;
                   return (
                     <div
-                      key={r.id}
+                      key={b.id}
                       className="flex items-center justify-between gap-3 rounded-xl border border-border/30 p-3"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{b?.name ?? r.branchId}</p>
+                        <p className="truncate text-sm font-medium">{b.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {b?.code ?? ""}{r.isHidden ? " · hidden on TV" : ""}
+                          {b.code}
+                          {on
+                            ? carried.some((r) => r.isHidden)
+                              ? " · on this branch (hidden on TV)"
+                              : " · on this branch"
+                            : " · not on this branch"}
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg text-destructive hover:text-destructive"
-                        onClick={() => {
-                          if (!user || !profile) return;
-                          void removeBranchRate(
-                            r.id,
-                            { userId: user.uid, userName: profile.displayName || profile.email },
-                            r.branchId,
-                          )
-                            .then(() => toast.success(`${code} removed from ${b?.name ?? "branch"}`))
-                            .catch((e) =>
-                              toast.error(e instanceof Error ? e.message : "Failed to remove"),
-                            );
-                        }}
-                      >
-                        Remove
-                      </Button>
+                      {on ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg text-destructive hover:text-destructive"
+                          onClick={() => {
+                            if (!user || !profile) return;
+                            for (const r of carried) {
+                              void removeBranchRate(
+                                r.id,
+                                { userId: user.uid, userName: profile.displayName || profile.email },
+                                r.branchId,
+                              )
+                                .then(() => toast.success(`${code} removed from ${b.name}`))
+                                .catch((e) =>
+                                  toast.error(e instanceof Error ? e.message : "Failed to remove"),
+                                );
+                            }
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => {
+                            if (!user || !profile) return;
+                            void addBranchRate(b.id, manageBranchesFor, {
+                              userId: user.uid,
+                              userName: profile.displayName || profile.email,
+                              branchName: b.name,
+                            })
+                              .then(() => toast.success(`${code} added to ${b.name} — set its rates on that branch`))
+                              .catch((e) =>
+                                toast.error(e instanceof Error ? e.message : "Failed to add"),
+                              );
+                          }}
+                        >
+                          Add
+                        </Button>
+                      )}
                     </div>
                   );
                 });
