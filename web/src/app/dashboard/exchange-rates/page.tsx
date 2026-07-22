@@ -45,6 +45,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { db } from "@/lib/firebase/client";
@@ -271,7 +281,7 @@ export default function ExchangeRatesPage() {
     }
   }
 
-  async function saveRate(rate: ExchangeRate) {
+  async function saveRate(rate: ExchangeRate, opts?: { skipGuards?: boolean }) {
     if (!user || !profile || !effectiveBranchId) return;
     const draft = drafts[rate.id];
     if (!draft) return;
@@ -279,6 +289,42 @@ export default function ExchangeRatesPage() {
     const hasRateChange = draft.buyRate !== rate.buyRate || draft.sellRate !== rate.sellRate;
     const hasNameChange = draft.displayName.trim() !== label;
     if (!hasRateChange && !hasNameChange) return;
+
+    // SAFETY GUARDS on the customer-facing rate before it goes live on the TV.
+    if (hasRateChange && !opts?.skipGuards) {
+      const buy = draft.buyRate;
+      const sell = draft.sellRate;
+      // HARD BLOCK: a blank field becomes 0; zero/negative is never a real rate.
+      if (!Number.isFinite(buy) || buy <= 0 || !Number.isFinite(sell) || sell <= 0) {
+        toast.error(
+          `Enter a real We Buy and We Sell for ${label} — both must be greater than 0. (An empty box counts as 0.)`,
+          { duration: 9000 },
+        );
+        return;
+      }
+      // WARN + CONFIRM: inverted spread (buy ≥ sell = losing money each deal),
+      // or a big jump from the current live rate (likely a typo / decimal slip).
+      const warnings: string[] = [];
+      if (buy >= sell) {
+        warnings.push(
+          `We Buy (${buy}) is not lower than We Sell (${sell}). Normally We Sell is higher — otherwise the shop loses money on every exchange.`,
+        );
+      }
+      const pctOff = (next: number, prev: number) =>
+        prev > 0 ? Math.abs(next - prev) / prev : 0;
+      const buyJump = pctOff(buy, rate.buyRate);
+      const sellJump = pctOff(sell, rate.sellRate);
+      if (buyJump >= 0.25 || sellJump >= 0.25) {
+        const worst = Math.round(Math.max(buyJump, sellJump) * 100);
+        warnings.push(
+          `This is about ${worst}% different from the current rate (was ${rate.buyRate} / ${rate.sellRate}). Please double-check for a typo.`,
+        );
+      }
+      if (warnings.length > 0) {
+        setRateGuardConfirm({ rate, label, warnings });
+        return;
+      }
+    }
 
     try {
       const result = await updateExchangeRate(rate, draft.buyRate, draft.sellRate, {
@@ -510,6 +556,12 @@ export default function ExchangeRatesPage() {
   const isBranchOnlyRow = (c: Currency) => c.id.startsWith("branch-only-");
   // "Manage branches" dialog: remove ONE currency from chosen branches.
   const [manageBranchesFor, setManageBranchesFor] = useState<Currency | null>(null);
+  // Publish safety confirm (inverted spread / big jump) — set to open the dialog.
+  const [rateGuardConfirm, setRateGuardConfirm] = useState<{
+    rate: ExchangeRate;
+    label: string;
+    warnings: string[];
+  } | null>(null);
 
   async function handleRemove(rateId: string) {
     if (!user || !profile || !effectiveBranchId) return;
@@ -1463,6 +1515,39 @@ export default function ExchangeRatesPage() {
             )}
           </ContentPanel>
         ) : null}
+
+        {/* Publish safety net: confirm an inverted spread or a big rate jump
+            before it goes live on the customer-facing TV. */}
+        <AlertDialog open={rateGuardConfirm !== null} onOpenChange={(o) => !o && setRateGuardConfirm(null)}>
+          <AlertDialogContent className="rounded-2xl sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Double-check {rateGuardConfirm?.label} before it goes live?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This shows on your shop TV immediately.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-2">
+              {rateGuardConfirm?.warnings.map((w, i) => (
+                <p key={i} className="text-sm text-amber-600 dark:text-amber-400">
+                  • {w}
+                </p>
+              ))}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Go back &amp; fix</AlertDialogCancel>
+              <AlertDialogAction
+                className="rounded-xl"
+                onClick={() => {
+                  const target = rateGuardConfirm?.rate;
+                  setRateGuardConfirm(null);
+                  if (target) void saveRate(target, { skipGuards: true });
+                }}
+              >
+                Publish anyway
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Per-branch presence: see every branch carrying this currency and
             remove it from chosen branches (deletes that branch's rate row). */}

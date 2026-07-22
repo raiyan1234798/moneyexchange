@@ -104,6 +104,7 @@ function BranchSettingsForm({
   navSlot,
   onSave,
   onCopyFontsToAll,
+  branchCount = 1,
 }: {
   branchId: string;
   branchName: string;
@@ -115,14 +116,21 @@ function BranchSettingsForm({
   saveSlot?: HTMLElement | null;
   /** Element below the save bar that hosts the section jump-nav on xl screens. */
   navSlot?: HTMLElement | null;
-  onSave: (data: { logoUrl: string; brandingColor: string; settings: BranchSettings }) => Promise<void>;
+  onSave: (
+    data: { logoUrl: string; brandingColor: string; settings: BranchSettings },
+    opts?: { allBranches?: boolean },
+  ) => Promise<void>;
   /** Copy THIS form's font choices to every branch (admin convenience). */
   onCopyFontsToAll?: (settings: BranchSettings) => Promise<void>;
+  /** How many active branches exist — shows the "apply to all N" count. */
+  branchCount?: number;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [color, setColor] = useState(initialColor);
   const [settings, setSettings] = useState(initialSettings);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // "Apply to all branches" choice in the save confirm dialog.
+  const [applyAllBranches, setApplyAllBranches] = useState(false);
   const [promoLinkInput, setPromoLinkInput] = useState("");
   // Find-an-option search: hides sections without a match and glows the
   // matching fields, so nobody has to hunt (or ask) where a setting lives.
@@ -2193,6 +2201,24 @@ function BranchSettingsForm({
               confirming.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {branchCount > 1 ? (
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+              <input
+                type="checkbox"
+                checked={applyAllBranches}
+                onChange={(e) => setApplyAllBranches(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span className="text-sm">
+                <span className="font-medium">Apply to all {branchCount} branches</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  Copies these look &amp; behaviour settings (fonts, colours, sizes, animations,
+                  timers, layout, ticker style) to every branch&apos;s TV. Each branch keeps its
+                  OWN videos, promo images, logos and rates — those are never changed.
+                </span>
+              </span>
+            </label>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -2200,17 +2226,19 @@ function BranchSettingsForm({
               onClick={() => {
                 // Close the dialog immediately, then save — the success toast
                 // confirms the write, so the confirm never lingers on screen.
+                const allBranches = applyAllBranches;
                 setConfirmOpen(false);
+                setApplyAllBranches(false);
                 void (async () => {
                   // Move any inline (base64) promo images to R2 first so the doc
                   // stays under Firestore's 1MB limit.
                   const prepared = await migratePromoMediaForSave(settings);
                   if (prepared !== settings) setSettings(prepared);
-                  await onSave({ logoUrl, brandingColor: color, settings: prepared });
+                  await onSave({ logoUrl, brandingColor: color, settings: prepared }, { allBranches });
                 })();
               }}
             >
-              Yes, apply to the display
+              {applyAllBranches ? `Yes, apply to all ${branchCount}` : "Yes, apply to the display"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2319,24 +2347,48 @@ export default function SettingsPage() {
     }
   }
 
-  async function saveBranchSettings(data: {
-    logoUrl: string;
-    brandingColor: string;
-    settings: BranchSettings;
-  }) {
+  async function saveBranchSettings(
+    data: { logoUrl: string; brandingColor: string; settings: BranchSettings },
+    opts?: { allBranches?: boolean },
+  ) {
     if (!user || !profile || !effectiveBranchId) return;
     setSaving(true);
+    const actor = { userId: user.uid, userName: profile.displayName || profile.email };
     try {
+      // Always save the branch being edited in full (its own media included).
       await updateBranch(
         effectiveBranchId,
-        {
-          logoUrl: data.logoUrl || null,
-          brandingColor: data.brandingColor,
-          settings: data.settings,
-        },
-        { userId: user.uid, userName: profile.displayName || profile.email },
+        { logoUrl: data.logoUrl || null, brandingColor: data.brandingColor, settings: data.settings },
+        actor,
       );
-      toast.success("Branch settings saved");
+
+      if (opts?.allBranches) {
+        // Copy the LOOK & BEHAVIOUR settings to every OTHER branch, but keep
+        // each one's own CONTENT (videos live outside settings; promo media,
+        // logos, announcements and per-branch text stay untouched) so this can
+        // never wipe another branch's uploads.
+        const CONTENT_KEYS: Array<keyof BranchSettings> = [
+          "ratePromoMedia", "ratePromoImageUrl", "ratePromoText", "ratePromoTextTop",
+          "headerLogoUrl", "headerLogoUrl2", "headerLogoUrls", "promoSlideLogoUrl",
+          "tickerLogoUrl", "tickerLogoUrls", "tickerLogoText", "tickerHeadline",
+          "announcementText", "announcementImageUrl", "announcementVideoUrl",
+          "scrollingLogos", "scrollingLogoItems", "slogan",
+        ];
+        const shared: Partial<BranchSettings> = { ...data.settings };
+        for (const k of CONTENT_KEYS) delete shared[k];
+
+        const others = branches.filter((b) => b.id !== effectiveBranchId);
+        await Promise.all(
+          others.map((b) =>
+            updateBranch(b.id, { settings: { ...b.settings, ...shared } }, actor),
+          ),
+        );
+        toast.success(
+          `Settings applied to all ${others.length + 1} branches — each keeps its own videos, promo images and logos.`,
+        );
+      } else {
+        toast.success("Branch settings saved");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to save branch settings");
     } finally {
@@ -2520,6 +2572,7 @@ export default function SettingsPage() {
                 navSlot={navSlot}
                 onSave={saveBranchSettings}
                 onCopyFontsToAll={copyFontsToAllBranches}
+                branchCount={branches.length}
               />
               <div className="hidden xl:block">
                 <div className="sticky top-3 space-y-2">
