@@ -62,7 +62,6 @@ export function UnimoniPromoPanel({
   const showVideo = Boolean(videoUrl);
   const showImage = Boolean(imageUrl) && !showVideo && !imageFailed;
   const showPlaceholder = !showVideo && !showImage;
-  const showBrandingOverlay = showPlaceholder || (showImage && !videoLoaded);
 
   // "stretch" (default): media is stretched to exactly fill the fixed area —
   // whole content visible, no bars, no crop (matches the client's previous
@@ -228,13 +227,9 @@ export function UnimoniPromoPanel({
         </div>
       ) : null}
 
-      {showBrandingOverlay && showImage ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-6 py-4">
-          <p className="text-center font-[Arial,Helvetica,sans-serif] text-[clamp(0.7rem,1.1vw,0.9rem)] font-medium text-white/90">
-            unimoni.com
-          </p>
-        </div>
-      ) : null}
+      {/* The app-added "unimoni.com" caption over adverts was removed per the
+          client — uploaded images are already branded, so nothing is drawn on
+          top of them. */}
 
       {children}
     </section>
