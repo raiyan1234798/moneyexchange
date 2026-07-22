@@ -188,10 +188,21 @@ export function CentralTransferPanel({
   async function saveRow(row: TransferRate) {
     const draft = drafts[row.id];
     if (!draft) return;
+    const usd = num(draft.transferUsd);
+    const local = num(draft.transferLocal);
+    // At least one real (>0) rate is required — an all-blank/zero row would show
+    // nothing (or a stray 0) on every branch's transfer card.
+    if (usd === null && local === null) {
+      toast.error(
+        `Enter a real rate for ${row.currencyCode} — the USD or ${localLabel} value must be greater than 0.`,
+        { duration: 8000 },
+      );
+      return;
+    }
     setBusy(true);
     try {
       await upsertTransferRate(
-        { currencyCode: row.currencyCode, transferUsd: num(draft.transferUsd), transferLocal: num(draft.transferLocal) },
+        { currencyCode: row.currencyCode, transferUsd: usd, transferLocal: local },
         actor,
       );
       toast.success(`${row.currencyCode} transfer rate published to ALL branches`);
