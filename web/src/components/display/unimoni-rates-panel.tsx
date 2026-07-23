@@ -87,6 +87,8 @@ interface UnimoniRatesPanelProps {
   rateNoteFontCss?: string;
   /** Align rate-card sheets to wall-clock so multiple TVs stay in sync. */
   syncPlayback?: boolean;
+  /** Hide pagination dots while a promotion image/video is showing. Default true. */
+  hideDotsOnPromo?: boolean;
   /** CSS font-family for the whole rate card (header + table). */
   fontCss?: string;
   /** Seconds each rotating rate screen stays visible. Default 5. */
@@ -227,6 +229,7 @@ export function UnimoniRatesPanel({
   rateNoteScale = 0.85,
   rateNoteFontCss,
   syncPlayback = false,
+  hideDotsOnPromo = true,
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
@@ -778,13 +781,12 @@ export function UnimoniRatesPanel({
         </>
         )}
 
-        {/* Pagination dots stay on forex/transfer pages only — hidden while a
-            promotion image/video is showing so the artwork is uninterrupted. */}
-        {sheetCount > 1 && !isPromoSheet ? (
+        {/* Pagination dots: forex/transfer only. Hidden on promotion slides so
+            the image/video is uninterrupted (toggle: hideDotsOnPromo). */}
+        {sheetCount > 1 && !(hideDotsOnPromo && isPromoSheet) ? (
           <div
-            className={`flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] ${
-              hidePromoHeader ? "pt-[0.4vh]" : ""
-            }`}
+            className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] pt-[0.35vh]"
+            aria-hidden
           >
             {sheets.map((sheet, i) => (
               <span

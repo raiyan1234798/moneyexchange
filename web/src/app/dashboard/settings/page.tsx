@@ -1355,6 +1355,21 @@ function BranchSettingsForm({
         </div>
         <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
           <div>
+            <Label>Hide dots on promotion slides</Label>
+            <p className="text-xs text-muted-foreground">
+              When a promotion image or video is on the rate card, hide the pagination dots
+              underneath. Dots still show on forex and transfer pages.
+            </p>
+          </div>
+          <Switch
+            checked={settings.hideDotsOnPromo !== false}
+            onCheckedChange={(checked) =>
+              setSettings({ ...settings, hideDotsOnPromo: checked })
+            }
+          />
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+          <div>
             <Label>Show the promotion slide on the TV</Label>
             <p className="text-xs text-muted-foreground">
               Turn off to remove the promotion from the rotation WITHOUT deleting your images,

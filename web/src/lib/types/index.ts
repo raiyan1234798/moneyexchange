@@ -205,9 +205,9 @@ export interface BranchSettings {
   rateNoteScale?: number;
   /** Font key for the WE BUY note — null = use the rate-card / display font. */
   rateNoteFont?: string | null;
-  /** When true, every TV with the same slide timings stays on the same rate-card
-      sheet at the same wall-clock time (synchronized playback across branches). */
-  syncRateCardPlayback?: boolean;
+  /** When true (default), hide the rate-card pagination dots while a promotion
+      image/video is on screen. Forex/transfer pages still show the dots. */
+  hideDotsOnPromo?: boolean;
   /** Seconds each rotating rate screen stays visible (forex/transfer pages). Default 5. */
   rateSheetIntervalSeconds?: number;
   /** Order the rotating rate-card slides appear in. Missing slides are skipped. */

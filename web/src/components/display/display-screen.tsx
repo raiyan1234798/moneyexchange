@@ -61,6 +61,7 @@ interface TimedRatesPanelProps {
   rateNoteScale: number;
   rateNoteFontCss?: string;
   syncPlayback: boolean;
+  hideDotsOnPromo: boolean;
   fontCss: string;
   sheetIntervalSeconds: number;
   promoImageUrl: string | null;
@@ -115,6 +116,7 @@ function TimedRatesPanel({
   rateNoteScale,
   rateNoteFontCss,
   syncPlayback,
+  hideDotsOnPromo,
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
@@ -181,6 +183,7 @@ function TimedRatesPanel({
       rateNoteScale={rateNoteScale}
       rateNoteFontCss={rateNoteFontCss}
       syncPlayback={syncPlayback}
+      hideDotsOnPromo={hideDotsOnPromo}
       fontCss={fontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={promoImageUrl}
@@ -403,6 +406,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     branchSettings.rateNoteFont || branchSettings.displayFont || branchSettings.rateCardFont,
   );
   const syncRateCardPlayback = branchSettings.syncRateCardPlayback === true;
+  const hideDotsOnPromo = branchSettings.hideDotsOnPromo !== false;
   // ONE font for the whole screen. When set, it overrides every element's font
   // below (rate card, announcement, ticker message, ticker logo).
   const masterFont = branchSettings.displayFont?.trim() || null;
@@ -876,6 +880,7 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       rateNoteScale={rateNoteScale}
       rateNoteFontCss={rateNoteFontCss}
       syncPlayback={syncRateCardPlayback}
+      hideDotsOnPromo={hideDotsOnPromo}
       fontCss={rateCardFontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={ratePromoImageUrl}

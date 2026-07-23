@@ -112,6 +112,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateNoteScale: 0.85,
   rateNoteFont: null as string | null,
   syncRateCardPlayback: false,
+  hideDotsOnPromo: true,
   rateSheetIntervalSeconds: 5,
   // Order the rotating rate-card slides appear in (client can pick which shows
   // first). Only the slides that actually exist are shown, in this order.

@@ -406,6 +406,19 @@ export default function PromotionsPage() {
                     onCheckedChange={(v) => set({ ratePromoEnabled: v })}
                   />
                 </div>
+                <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 p-3">
+                  <div>
+                    <p className="text-sm font-semibold">Hide dots on promotion slides</p>
+                    <p className="text-xs text-muted-foreground">
+                      Removes the pagination dots under the rate card while a promo image/video
+                      plays. Forex and transfer pages keep their dots.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={s.hideDotsOnPromo !== false}
+                    onCheckedChange={(v) => set({ hideDotsOnPromo: v })}
+                  />
+                </div>
                 <div className="space-y-2">
                   <Label>Promotion image</Label>
                   <p className="text-xs text-muted-foreground">
