@@ -943,7 +943,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           silently killed every spin), so this must NOT go through it. Rendered
           in the body = later in cascade order than the static stylesheet. */}
       <style
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: `
 @keyframes display-cell-spin { 0%, ${rateAnimHoldPct}% { transform: perspective(600px) rotateY(0deg); } 100% { transform: perspective(600px) rotateY(360deg); } }
