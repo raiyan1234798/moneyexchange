@@ -75,6 +75,7 @@ interface TimedRatesPanelProps {
   videoSoundOn: boolean;
   sheetTransition: string;
   promoTransition: string | null;
+  promoTransitionSeconds: number;
   promoTransitionSpeed: "fast" | "normal" | "slow";
   valueTextAnimation: string | null;
   currencyTextAnimation: string | null;
@@ -132,6 +133,7 @@ function TimedRatesPanel({
   videoSoundOn,
   sheetTransition,
   promoTransition,
+  promoTransitionSeconds,
   promoTransitionSpeed,
   valueTextAnimation,
   currencyTextAnimation,
@@ -201,6 +203,7 @@ function TimedRatesPanel({
       videoSoundOn={videoSoundOn}
       sheetTransition={sheetTransition}
       promoTransition={promoTransition}
+      promoTransitionSeconds={promoTransitionSeconds}
       promoTransitionSpeed={promoTransitionSpeed}
       valueTextAnimation={valueTextAnimation}
       currencyTextAnimation={currencyTextAnimation}
@@ -900,7 +903,15 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       videoSoundOn={ratePromoSoundOn}
       sheetTransition={branchSettings.rateCardTransition ?? "fade"}
       promoTransition={branchSettings.ratePromoTransition ?? "flip"}
-      promoTransitionSpeed={branchSettings.ratePromoTransitionSpeed ?? "fast"}
+      promoTransitionSeconds={
+        branchSettings.ratePromoTransitionSeconds ??
+        (branchSettings.ratePromoTransitionSpeed === "fast"
+          ? 0.3
+          : branchSettings.ratePromoTransitionSpeed === "slow"
+            ? 0.75
+            : 0.8)
+      }
+      promoTransitionSpeed={branchSettings.ratePromoTransitionSpeed ?? "normal"}
       valueTextAnimation={branchSettings.rateTextAnimation ?? null}
       currencyTextAnimation={branchSettings.rateCurrencyAnimation ?? null}
       flagAnimation={branchSettings.rateFlagAnimation ?? null}

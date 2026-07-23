@@ -139,8 +139,10 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoDurationSeconds: 4,
   /** Entrance animation for promotion sheets (independent of forex/transfer). */
   ratePromoTransition: "flip" as string,
-  /** How fast the promo entrance plays: fast | normal | slow. */
-  ratePromoTransitionSpeed: "fast" as "fast" | "normal" | "slow",
+  /** How long the flip/pass animation lasts when changing promo (seconds). */
+  ratePromoTransitionSeconds: 0.8,
+  /** @deprecated Prefer ratePromoTransitionSeconds. Kept for older saved settings. */
+  ratePromoTransitionSpeed: "normal" as "fast" | "normal" | "slow",
   /** How promo media fits its card: fill=stretch (no gaps, nothing cut),
       cover=zoom to fill (edges crop), contain=show whole (may leave bands). */
   ratePromoMediaFit: "fill" as "fill" | "cover" | "contain",
@@ -272,6 +274,21 @@ export function slideTransitionClass(name: string | null | undefined): string {
 export function slideTransitionMs(speed: string | null | undefined): number {
   const found = SLIDE_TRANSITION_SPEEDS.find((s) => s.key === speed);
   return found?.ms ?? 450;
+}
+
+/**
+ * Resolve promotion between-pass duration in ms.
+ * Prefers explicit seconds; falls back to legacy fast/normal/slow.
+ */
+export function promoTransitionDurationMs(
+  seconds: number | null | undefined,
+  legacySpeed: string | null | undefined,
+): number {
+  if (typeof seconds === "number" && Number.isFinite(seconds)) {
+    // 0.2s floor so the flip is still visible; 3s cap so it can't eat the hold.
+    return Math.round(Math.min(3, Math.max(0.2, seconds)) * 1000);
+  }
+  return slideTransitionMs(legacySpeed ?? "normal");
 }
 
 /** Every movement effect available across the display — logos, badge, texts.

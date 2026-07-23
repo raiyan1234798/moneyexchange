@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
-import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, SLIDE_TRANSITION_SPEEDS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -501,47 +501,97 @@ export default function PromotionsPage() {
                   />
                 </div>
                 <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
-                  <StepLabel step={2} title="Flip timer" hint="How long each promo stays before the next." />
-                  <div className="flex flex-wrap items-center gap-2">
-                    {(
-                      [
-                        { label: "Fast 3s", value: 3 },
-                        { label: "Normal 4s", value: 4 },
-                        { label: "Hold 6s", value: 6 },
-                        { label: "Long 10s", value: 10 },
-                      ] as const
-                    ).map((preset) => {
-                      const current = s.ratePromoDurationSeconds ?? 4;
-                      const active = current === preset.value;
-                      return (
-                        <Button
-                          key={preset.value}
-                          type="button"
-                          size="sm"
-                          variant={active ? "default" : "outline"}
-                          className="rounded-lg"
-                          onClick={() => set({ ratePromoDurationSeconds: preset.value })}
-                        >
-                          {preset.label}
-                        </Button>
-                      );
-                    })}
-                    <Input
-                      type="number"
-                      min={2}
-                      max={60}
-                      value={s.ratePromoDurationSeconds ?? 4}
-                      onChange={(e) => set({ ratePromoDurationSeconds: Number(e.target.value) })}
-                      className="w-24 rounded-xl"
-                      aria-label="Custom promotion flip seconds"
-                    />
+                  <StepLabel
+                    step={2}
+                    title="Rotation & between-pass timing"
+                    hint="Rotation = how long each stays. Between pass = flip animation length."
+                  />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Rotation (seconds)</Label>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={60}
+                        step={1}
+                        value={s.ratePromoDurationSeconds ?? 4}
+                        onChange={(e) =>
+                          set({ ratePromoDurationSeconds: Math.max(2, Number(e.target.value) || 4) })
+                        }
+                        className="rounded-xl"
+                      />
+                      <div className="flex flex-wrap gap-1.5">
+                        {([3, 4, 6, 8, 10] as const).map((value) => (
+                          <Button
+                            key={value}
+                            type="button"
+                            size="sm"
+                            variant={(s.ratePromoDurationSeconds ?? 4) === value ? "default" : "outline"}
+                            className="h-7 rounded-md px-2 text-xs"
+                            onClick={() => set({ ratePromoDurationSeconds: value })}
+                          >
+                            {value}s
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Between pass (seconds)</Label>
+                      <Input
+                        type="number"
+                        min={0.2}
+                        max={3}
+                        step={0.1}
+                        value={
+                          s.ratePromoTransitionSeconds ??
+                          (s.ratePromoTransitionSpeed === "fast"
+                            ? 0.3
+                            : s.ratePromoTransitionSpeed === "slow"
+                              ? 0.75
+                              : 0.8)
+                        }
+                        onChange={(e) =>
+                          set({
+                            ratePromoTransitionSeconds: Math.min(
+                              3,
+                              Math.max(0.2, Number(e.target.value) || 0.8),
+                            ),
+                          })
+                        }
+                        className="rounded-xl"
+                      />
+                      <div className="flex flex-wrap gap-1.5">
+                        {([0.4, 0.8, 1.2, 1.5, 2] as const).map((value) => {
+                          const current =
+                            s.ratePromoTransitionSeconds ??
+                            (s.ratePromoTransitionSpeed === "fast"
+                              ? 0.3
+                              : s.ratePromoTransitionSpeed === "slow"
+                                ? 0.75
+                                : 0.8);
+                          return (
+                            <Button
+                              key={value}
+                              type="button"
+                              size="sm"
+                              variant={Math.abs(current - value) < 0.05 ? "default" : "outline"}
+                              className="h-7 rounded-md px-2 text-xs"
+                              onClick={() => set({ ratePromoTransitionSeconds: value })}
+                            >
+                              {value}s
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        If you couldn&apos;t see the flip, try 1.2s. Need 2+ promos to see it between them.
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
-                    <StepLabel step={3} title="Flip style & speed" />
-                  </div>
+                <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-1">
                   <div className="space-y-2">
+                    <StepLabel step={3} title="Flip animation style" />
                     <Label>Animation</Label>
                     <Select
                       value={s.ratePromoTransition ?? s.rateCardTransition ?? "flip"}
@@ -554,26 +604,6 @@ export default function PromotionsPage() {
                         {SLIDE_TRANSITIONS.map((t) => (
                           <SelectItem key={t.key} value={t.key}>
                             {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Speed</Label>
-                    <Select
-                      value={s.ratePromoTransitionSpeed ?? "fast"}
-                      onValueChange={(v) =>
-                        set({ ratePromoTransitionSpeed: (v as "fast" | "normal" | "slow") ?? "fast" })
-                      }
-                    >
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SLIDE_TRANSITION_SPEEDS.map((speed) => (
-                          <SelectItem key={speed.key} value={speed.key}>
-                            {speed.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
