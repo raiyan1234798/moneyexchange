@@ -7,7 +7,7 @@ import {
   getRateFlag,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
-import { displayAnimationClass, slideTransitionClass, promoTransitionDurationMs, slideTransitionMs } from "@/lib/constants";
+import { displayAnimationClass, slideTransitionClass, promoTransitionDurationMs } from "@/lib/constants";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
@@ -442,14 +442,16 @@ export function UnimoniRatesPanel({
   const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
   const isPromoSheet = activeSheet.kind === "promo";
-  const activeSheetTransition = isPromoSheet
-    ? (promoTransition?.trim() || "flip")
-    : sheetTransition;
-  const activeSheetAnimMs = isPromoSheet
-    ? promoPassMs
-    : slideTransitionMs("normal");
+  // Promotion slide controls drive the whole rate-card flip (forex/transfer/promo)
+  // so Rotation / Between pass / Animation in Settings actually show on the TV.
+  const activeSheetTransition =
+    (promoTransition?.trim() || sheetTransition?.trim() || (isPromoSheet ? "flip" : "fade"));
+  const activeSheetAnimMs = promoTransitionDurationMs(
+    promoTransitionSeconds,
+    promoTransitionSpeed ?? "normal",
+  );
   const sheetAnimStyle = {
-    ["--sheet-anim-ms" as string]: `${activeSheetAnimMs}ms`,
+    animationDuration: `${activeSheetAnimMs}ms`,
   } as CSSProperties;
   // The note ("WE BUY US$ small bills @ …") belongs to the FOREX rates. It shows
   // on the first forex page WHEREVER it lands in the chosen slide order (so it

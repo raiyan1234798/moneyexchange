@@ -25,6 +25,8 @@ import type { Branch, ExchangeRate, ImageAdvert, TickerMessage, TransferRate, Vi
 
 interface DisplayScreenProps {
   branchId?: string;
+  /** When set (Settings live preview), these override Firestore branch.settings. */
+  settingsOverride?: Partial<import("@/lib/types").BranchSettings> | null;
 }
 
 interface TimedRatesPanelProps {
@@ -215,7 +217,7 @@ function TimedRatesPanel({
   );
 }
 
-export function DisplayScreen({ branchId }: DisplayScreenProps) {
+export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScreenProps) {
   const [branch, setBranch] = useState<Branch | null>(null);
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [transferRates, setTransferRates] = useState<TransferRate[]>([]);
@@ -259,7 +261,11 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
     return () => ro.disconnect();
   }, []);
 
-  const branchSettings = branch?.settings ?? DEFAULT_BRANCH_SETTINGS;
+  const branchSettings = {
+    ...DEFAULT_BRANCH_SETTINGS,
+    ...(branch?.settings ?? {}),
+    ...(settingsOverride ?? {}),
+  };
   const rateCardPosition = branchSettings.rateCardPosition ?? "right";
   const rateCardDisplaySeconds = branchSettings.rateCardDisplaySeconds ?? 0;
   const rateCardHideSeconds = branchSettings.rateCardHideSeconds ?? 0;
@@ -825,7 +831,19 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
         videoProgressAtRef.current = Date.now();
       }}
       onVideoEnded={handleVideoEnded}
-      mediaTransition={branchSettings.videoImageTransition ?? "fade"}
+      mediaTransition={
+        branchSettings.ratePromoTransition ??
+        branchSettings.videoImageTransition ??
+        "fade"
+      }
+      mediaTransitionSeconds={
+        branchSettings.ratePromoTransitionSeconds ??
+        (branchSettings.ratePromoTransitionSpeed === "fast"
+          ? 0.3
+          : branchSettings.ratePromoTransitionSpeed === "slow"
+            ? 0.75
+            : 0.8)
+      }
     >
       {/* Admin-controlled announcement over the video area (pop-up / full screen).
           band / video-top render in the message strip, rate-card over the rate

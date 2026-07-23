@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
@@ -22,7 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, messageFontCss } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_BRANCH_SETTINGS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { checkPromoMediaFit } from "@/lib/promo-fit";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
@@ -46,6 +46,7 @@ import {
   StepLabel,
   useSettingsViewMode,
 } from "@/components/dashboard/settings-ux";
+import { DisplayScreen } from "@/components/display/display-screen";
 
 const SETTINGS_ID = "global";
 
@@ -113,6 +114,7 @@ function BranchSettingsForm({
   onCopyFontsToAll,
   branchCount = 1,
   otherBranches = [],
+  onDraftChange,
 }: {
   branchId: string;
   branchName: string;
@@ -134,10 +136,15 @@ function BranchSettingsForm({
   branchCount?: number;
   /** Other branches (excluding the one being edited) for the apply-to picker. */
   otherBranches?: Array<{ id: string; name: string; code: string }>;
+  /** Live preview: push the in-progress form settings (including unsaved). */
+  onDraftChange?: (settings: BranchSettings) => void;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [color, setColor] = useState(initialColor);
   const [settings, setSettings] = useState(initialSettings);
+  useEffect(() => {
+    onDraftChange?.(settings);
+  }, [settings, onDraftChange]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Save-target choice in the confirm dialog: this branch, all, or picked ones,
   // plus whether to also copy the promotion images/videos to them.
@@ -1434,10 +1441,11 @@ function BranchSettingsForm({
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">
-                Length of the flip/fade when changing promo. Try 0.8–1.2s if you couldn&apos;t see
-                the animation before. Need 2+ promos (or forex→promo) to notice it.
-              </p>
+          <p className="text-xs text-muted-foreground">
+            Length of the flip/fade when the rate card or main media changes. Try{" "}
+            <strong>1.2s</strong> if cube/flip was invisible before.{" "}
+            <strong>Save Branch Settings</strong> to push this to the real TV.
+          </p>
             </div>
           </div>
           <StepLabel
@@ -1450,7 +1458,14 @@ function BranchSettingsForm({
             <Select
               value={settings.ratePromoTransition ?? settings.rateCardTransition ?? "flip"}
               onValueChange={(value) =>
-                setSettings({ ...settings, ratePromoTransition: value ?? "flip" })
+                setSettings({
+                  ...settings,
+                  ratePromoTransition: value ?? "flip",
+                  // Keep the whole rate-card flip style in sync so forex→promo→transfer
+                  // all use the animation the admin just picked.
+                  rateCardTransition: value ?? "flip",
+                  videoImageTransition: value ?? "flip",
+                })
               }
             >
               <SelectTrigger className="rounded-xl">
@@ -2597,6 +2612,11 @@ export default function SettingsPage() {
   // Slots under the live TV preview: save bar, then the section jump-nav.
   const [saveSlot, setSaveSlot] = useState<HTMLElement | null>(null);
   const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
+  const [draftSettings, setDraftSettings] = useState<BranchSettings | null>(null);
+  const [previewSavedAt, setPreviewSavedAt] = useState(0);
+  const onDraftChange = useCallback((next: BranchSettings) => {
+    setDraftSettings(next);
+  }, []);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
@@ -2701,6 +2721,8 @@ export default function SettingsPage() {
         { logoUrl: data.logoUrl || null, brandingColor: data.brandingColor, settings: data.settings },
         actor,
       );
+      setPreviewSavedAt(Date.now());
+      setDraftSettings(data.settings);
 
       const targets = branches.filter(
         (b) => b.id !== effectiveBranchId && (opts?.targetBranchIds ?? []).includes(b.id),
@@ -2914,12 +2936,13 @@ export default function SettingsPage() {
                 branchName={branch.name}
                 initialLogoUrl={branch.logoUrl ?? ""}
                 initialColor={branch.brandingColor ?? "#0066B3"}
-                initialSettings={branch.settings}
+                initialSettings={{ ...DEFAULT_BRANCH_SETTINGS, ...(branch.settings ?? {}) }}
                 saving={saving}
                 saveSlot={saveSlot}
                 navSlot={navSlot}
                 onSave={saveBranchSettings}
                 onCopyFontsToAll={copyFontsToAllBranches}
+                onDraftChange={onDraftChange}
                 branchCount={branches.length}
                 otherBranches={branches
                   .filter((b) => b.id !== effectiveBranchId)
@@ -2928,15 +2951,20 @@ export default function SettingsPage() {
               <div className="hidden xl:block">
                 <div className="sticky top-3 space-y-2">
                   <Label>Live TV preview — {branch.name}</Label>
-                  <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
-                    <iframe
-                      src={`/display/?branch=${encodeURIComponent(branch.code)}`}
-                      title={`Live display preview for ${branch.name}`}
-                      className="aspect-video w-full border-0"
-                    />
+                  <div className="relative overflow-hidden rounded-xl border border-border/60 bg-black shadow-lg [container-type:size]">
+                    <div className="aspect-video w-full overflow-hidden">
+                      <div className="h-[1080px] w-[1920px] origin-top-left [transform:scale(calc(100cqw/1920))]">
+                        <DisplayScreen
+                          key={`${branch.id}-${previewSavedAt}`}
+                          branchId={branch.id}
+                          settingsOverride={draftSettings}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    This is the real branch display, live. Saved changes appear here within seconds.
+                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+                    Preview follows your form (even before Save). The shop TV only updates after{" "}
+                    <strong>Save Branch Settings</strong>.
                   </p>
                   <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
                   <div id="branch-nav-slot" ref={setNavSlot} />

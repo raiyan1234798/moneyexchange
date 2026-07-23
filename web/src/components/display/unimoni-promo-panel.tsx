@@ -3,7 +3,7 @@
 import { useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
-import { slideTransitionClass } from "@/lib/constants";
+import { promoTransitionDurationMs, slideTransitionClass } from "@/lib/constants";
 
 interface UnimoniPromoPanelProps {
   videoUrl?: string | null;
@@ -26,6 +26,8 @@ interface UnimoniPromoPanelProps {
   className?: string;
   /** Transition when the image/video changes. Default fade. */
   mediaTransition?: string;
+  /** How long that entrance animation lasts (seconds). */
+  mediaTransitionSeconds?: number | null;
   /** Changes on every play-order STEP — remounts the media element so the SAME
       video repeated back-to-back restarts instead of freezing on its last frame. */
   mediaKey?: string | number;
@@ -48,6 +50,7 @@ export function UnimoniPromoPanel({
   onVideoProgress,
   className = "",
   mediaTransition = "fade",
+  mediaTransitionSeconds = null,
   mediaKey,
   children,
 }: UnimoniPromoPanelProps) {
@@ -72,6 +75,9 @@ export function UnimoniPromoPanel({
   const objectClass =
     fit === "stretch" ? "object-fill" : fit === "cover" ? "object-cover" : "object-contain";
   const useBackdrop = fit === "contain";
+  const mediaAnimMs = promoTransitionDurationMs(mediaTransitionSeconds, "normal");
+  const mediaAnimStyle = { animationDuration: `${mediaAnimMs}ms` } as CSSProperties;
+  const mediaAnimClass = slideTransitionClass(mediaTransition);
 
   const panelStyle: CSSProperties =
     showVideo || showImage ? {} : { backgroundColor: UNIMONI_COLORS.panelBlue };
@@ -102,7 +108,8 @@ export function UnimoniPromoPanel({
           <video
             key={`${videoUrl}-${mediaKey ?? ""}`}
             src={videoUrl ?? undefined}
-            className={`absolute inset-0 z-[1] h-full w-full ${objectClass} ${slideTransitionClass(mediaTransition)}`}
+            className={`absolute inset-0 z-[1] h-full w-full ${objectClass} ${mediaAnimClass}`}
+            style={mediaAnimStyle}
             autoPlay
             muted={!soundOn}
             loop={loopVideo}
@@ -161,21 +168,26 @@ export function UnimoniPromoPanel({
               unoptimized
             />
           ) : null}
-          <Image
-            key={imageUrl}
-            src={imageUrl!}
-            alt="Branch advert"
-            fill
-            className={`absolute inset-0 z-[1] ${objectClass} ${slideTransitionClass(mediaTransition)}`}
-            unoptimized
-            priority
-            onLoad={(e) => {
-              const img = e.currentTarget as HTMLImageElement;
-              if (img.naturalWidth && img.naturalHeight)
-                onMediaAspectChange?.(img.naturalWidth / img.naturalHeight);
-            }}
-            onError={() => setFailedImageUrl(imageUrl ?? null)}
-          />
+          <div
+            key={`${imageUrl}-${mediaKey ?? ""}`}
+            className={`absolute inset-0 z-[1] ${mediaAnimClass}`}
+            style={mediaAnimStyle}
+          >
+            <Image
+              src={imageUrl!}
+              alt="Branch advert"
+              fill
+              className={objectClass}
+              unoptimized
+              priority
+              onLoad={(e) => {
+                const img = e.currentTarget as HTMLImageElement;
+                if (img.naturalWidth && img.naturalHeight)
+                  onMediaAspectChange?.(img.naturalWidth / img.naturalHeight);
+              }}
+              onError={() => setFailedImageUrl(imageUrl ?? null)}
+            />
+          </div>
         </>
       ) : null}
 
