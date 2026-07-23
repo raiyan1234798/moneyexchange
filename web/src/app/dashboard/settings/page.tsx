@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
+import { RefreshCw } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { ContentPanel, FormSection, PageShell, PageLoader } from "@/components/shared/page-elements";
@@ -46,7 +47,6 @@ import {
   StepLabel,
   useSettingsViewMode,
 } from "@/components/dashboard/settings-ux";
-import { DisplayScreen } from "@/components/display/display-screen";
 
 const SETTINGS_ID = "global";
 
@@ -114,7 +114,6 @@ function BranchSettingsForm({
   onCopyFontsToAll,
   branchCount = 1,
   otherBranches = [],
-  onDraftChange,
 }: {
   branchId: string;
   branchName: string;
@@ -136,15 +135,10 @@ function BranchSettingsForm({
   branchCount?: number;
   /** Other branches (excluding the one being edited) for the apply-to picker. */
   otherBranches?: Array<{ id: string; name: string; code: string }>;
-  /** Live preview: push the in-progress form settings (including unsaved). */
-  onDraftChange?: (settings: BranchSettings) => void;
 }) {
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [color, setColor] = useState(initialColor);
   const [settings, setSettings] = useState(initialSettings);
-  useEffect(() => {
-    onDraftChange?.(settings);
-  }, [settings, onDraftChange]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Save-target choice in the confirm dialog: this branch, all, or picked ones,
   // plus whether to also copy the promotion images/videos to them.
@@ -2612,11 +2606,8 @@ export default function SettingsPage() {
   // Slots under the live TV preview: save bar, then the section jump-nav.
   const [saveSlot, setSaveSlot] = useState<HTMLElement | null>(null);
   const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
-  const [draftSettings, setDraftSettings] = useState<BranchSettings | null>(null);
+  // Bump after save (or Refresh) so the iframe reloads the real display.
   const [previewSavedAt, setPreviewSavedAt] = useState(0);
-  const onDraftChange = useCallback((next: BranchSettings) => {
-    setDraftSettings(next);
-  }, []);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
@@ -2722,7 +2713,6 @@ export default function SettingsPage() {
         actor,
       );
       setPreviewSavedAt(Date.now());
-      setDraftSettings(data.settings);
 
       const targets = branches.filter(
         (b) => b.id !== effectiveBranchId && (opts?.targetBranchIds ?? []).includes(b.id),
@@ -2942,29 +2932,39 @@ export default function SettingsPage() {
                 navSlot={navSlot}
                 onSave={saveBranchSettings}
                 onCopyFontsToAll={copyFontsToAllBranches}
-                onDraftChange={onDraftChange}
                 branchCount={branches.length}
                 otherBranches={branches
                   .filter((b) => b.id !== effectiveBranchId)
                   .map((b) => ({ id: b.id, name: b.name, code: b.code }))}
               />
-              <div className="hidden xl:block">
-                <div className="sticky top-3 space-y-2">
-                  <Label>Live TV preview — {branch.name}</Label>
-                  <div className="relative overflow-hidden rounded-xl border border-border/60 bg-black shadow-lg [container-type:size]">
-                    <div className="aspect-video w-full overflow-hidden">
-                      <div className="h-[1080px] w-[1920px] origin-top-left [transform:scale(calc(100cqw/1920))]">
-                        <DisplayScreen
-                          key={`${branch.id}-${previewSavedAt}`}
-                          branchId={branch.id}
-                          settingsOverride={draftSettings}
-                        />
-                      </div>
-                    </div>
+              {/* Live TV preview — always visible (sticky on wide screens). */}
+              <div>
+                <div className="space-y-2 xl:sticky xl:top-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label>Live TV preview — {branch.name}</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg"
+                      onClick={() => setPreviewSavedAt(Date.now())}
+                    >
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                      Refresh
+                    </Button>
+                  </div>
+                  <div className="overflow-hidden rounded-xl border border-border/60 bg-black shadow-lg">
+                    <iframe
+                      key={`${branch.id}-${previewSavedAt}`}
+                      src={`/display/?branch=${encodeURIComponent(branch.code)}&preview=1&t=${previewSavedAt || "0"}`}
+                      title={`Live display preview for ${branch.name}`}
+                      className="aspect-video w-full border-0 bg-black"
+                      allow="autoplay; fullscreen"
+                    />
                   </div>
                   <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-                    Preview follows your form (even before Save). The shop TV only updates after{" "}
-                    <strong>Save Branch Settings</strong>.
+                    This is the real branch display. Click <strong>Save Branch Settings</strong>, then{" "}
+                    <strong>Refresh</strong> if the preview looks stale.
                   </p>
                   <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
                   <div id="branch-nav-slot" ref={setNavSlot} />
