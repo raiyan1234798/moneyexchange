@@ -595,7 +595,13 @@ export default function PromotionsPage() {
                     <Label>Animation</Label>
                     <Select
                       value={s.ratePromoTransition ?? s.rateCardTransition ?? "flip"}
-                      onValueChange={(v) => set({ ratePromoTransition: v ?? "flip" })}
+                      onValueChange={(v) =>
+                        set({
+                          ratePromoTransition: v ?? "flip",
+                          rateCardTransition: v ?? "flip",
+                          videoImageTransition: v ?? "flip",
+                        })
+                      }
                     >
                       <SelectTrigger className="rounded-xl">
                         <SelectValue />
