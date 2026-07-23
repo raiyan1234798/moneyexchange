@@ -109,6 +109,9 @@ export const DEFAULT_BRANCH_SETTINGS = {
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,
   rateNotePlacement: "first" as "first" | "all",
+  rateNoteScale: 0.85,
+  rateNoteFont: null as string | null,
+  syncRateCardPlayback: false,
   rateSheetIntervalSeconds: 5,
   // Order the rotating rate-card slides appear in (client can pick which shows
   // first). Only the slides that actually exist are shown, in this order.

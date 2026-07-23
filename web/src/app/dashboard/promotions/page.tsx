@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
-import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -485,6 +485,31 @@ export default function PromotionsPage() {
                     onChange={(e) => set({ ratePromoDurationSeconds: Number(e.target.value) })}
                     className="rounded-xl sm:max-w-[200px]"
                   />
+                  <p className="text-xs text-muted-foreground">
+                    How long each promotion image/video stays. Lower = faster flips.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Slide change animation (flip / fade / …)</Label>
+                  <Select
+                    value={s.rateCardTransition ?? "fade"}
+                    onValueChange={(v) => set({ rateCardTransition: v ?? "fade" })}
+                  >
+                    <SelectTrigger className="rounded-xl">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SLIDE_TRANSITIONS.map((t) => (
+                        <SelectItem key={t.key} value={t.key}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Animation when the promotion slide (and other rate-card pages) change. Pick
+                    Instant to disable.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion video sound (rate card)</Label>
