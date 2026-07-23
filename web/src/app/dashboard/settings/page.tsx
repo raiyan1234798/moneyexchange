@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
-import { RefreshCw } from "lucide-react";
+import { ExternalLink, RefreshCw } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { ContentPanel, FormSection, PageShell, PageLoader } from "@/components/shared/page-elements";
@@ -2919,29 +2919,21 @@ export default function SettingsPage() {
           ) : null}
 
           {effectiveBranchId && branch ? (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
-              <BranchSettingsForm
-                key={branch.id}
-                branchId={branch.id}
-                branchName={branch.name}
-                initialLogoUrl={branch.logoUrl ?? ""}
-                initialColor={branch.brandingColor ?? "#0066B3"}
-                initialSettings={{ ...DEFAULT_BRANCH_SETTINGS, ...(branch.settings ?? {}) }}
-                saving={saving}
-                saveSlot={saveSlot}
-                navSlot={navSlot}
-                onSave={saveBranchSettings}
-                onCopyFontsToAll={copyFontsToAllBranches}
-                branchCount={branches.length}
-                otherBranches={branches
-                  .filter((b) => b.id !== effectiveBranchId)
-                  .map((b) => ({ id: b.id, name: b.name, code: b.code }))}
-              />
-              {/* Live TV preview — always visible (sticky on wide screens). */}
-              <div>
-                <div className="space-y-2 xl:sticky xl:top-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <Label>Live TV preview — {branch.name}</Label>
+            <div className="space-y-6">
+              {/*
+                Live TV must stay full-width at the top — aspect-ratio on a bare
+                <iframe> collapses to 0 height in some layouts, which made the
+                preview look “gone”. Wrapper + absolute iframe keeps a real TV.
+              */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-base">Live TV — {branch.name}</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Playing this branch&apos;s live screen ({branch.code}). Same feed as the shop TV.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       type="button"
                       variant="outline"
@@ -2952,22 +2944,57 @@ export default function SettingsPage() {
                       <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
                       Refresh
                     </Button>
+                    <a
+                      href={`/display/?branch=${encodeURIComponent(branch.code)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-8 items-center rounded-lg border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                      Open live TV
+                    </a>
                   </div>
-                  <div className="overflow-hidden rounded-xl border border-border/60 bg-black shadow-lg">
-                    <iframe
-                      key={`${branch.id}-${previewSavedAt}`}
-                      src={`/display/?branch=${encodeURIComponent(branch.code)}&preview=1&t=${previewSavedAt || "0"}`}
-                      title={`Live display preview for ${branch.name}`}
-                      className="aspect-video w-full border-0 bg-black"
-                      allow="autoplay; fullscreen"
-                    />
+                </div>
+                <div className="relative min-h-[220px] w-full overflow-hidden rounded-xl border border-border/60 bg-black shadow-lg aspect-video">
+                  <iframe
+                    key={`${branch.id}-${previewSavedAt}`}
+                    src={`/display/?branch=${encodeURIComponent(branch.code)}&preview=1&t=${previewSavedAt || "0"}`}
+                    title={`Live display for ${branch.name}`}
+                    className="absolute inset-0 h-full w-full border-0 bg-black"
+                    allow="autoplay; fullscreen"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Shop TVs update after <strong>Save Branch Settings</strong>. Use Refresh if this preview looks stale.
+                </p>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]">
+                <BranchSettingsForm
+                  key={branch.id}
+                  branchId={branch.id}
+                  branchName={branch.name}
+                  initialLogoUrl={branch.logoUrl ?? ""}
+                  initialColor={branch.brandingColor ?? "#0066B3"}
+                  initialSettings={{ ...DEFAULT_BRANCH_SETTINGS, ...(branch.settings ?? {}) }}
+                  saving={saving}
+                  saveSlot={saveSlot}
+                  navSlot={navSlot}
+                  onSave={saveBranchSettings}
+                  onCopyFontsToAll={copyFontsToAllBranches}
+                  branchCount={branches.length}
+                  otherBranches={branches
+                    .filter((b) => b.id !== effectiveBranchId)
+                    .map((b) => ({ id: b.id, name: b.name, code: b.code }))}
+                />
+                <div>
+                  <div className="space-y-2 xl:sticky xl:top-3">
+                    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+                      Changes go live on the <strong>{branch.name}</strong> TV only after you save.
+                    </p>
+                    <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
+                    <div id="branch-nav-slot" ref={setNavSlot} />
                   </div>
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-                    This is the real branch display. Click <strong>Save Branch Settings</strong>, then{" "}
-                    <strong>Refresh</strong> if the preview looks stale.
-                  </p>
-                  <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
-                  <div id="branch-nav-slot" ref={setNavSlot} />
                 </div>
               </div>
             </div>
