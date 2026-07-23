@@ -74,6 +74,8 @@ interface TimedRatesPanelProps {
   rateCardOrder: Array<"forex" | "transfer" | "promo">;
   videoSoundOn: boolean;
   sheetTransition: string;
+  promoTransition: string | null;
+  promoTransitionSpeed: "fast" | "normal" | "slow";
   valueTextAnimation: string | null;
   currencyTextAnimation: string | null;
   flagAnimation: string | null;
@@ -129,6 +131,8 @@ function TimedRatesPanel({
   rateCardOrder,
   videoSoundOn,
   sheetTransition,
+  promoTransition,
+  promoTransitionSpeed,
   valueTextAnimation,
   currencyTextAnimation,
   flagAnimation,
@@ -196,6 +200,8 @@ function TimedRatesPanel({
       rateCardOrder={rateCardOrder}
       videoSoundOn={videoSoundOn}
       sheetTransition={sheetTransition}
+      promoTransition={promoTransition}
+      promoTransitionSpeed={promoTransitionSpeed}
       valueTextAnimation={valueTextAnimation}
       currencyTextAnimation={currencyTextAnimation}
       flagAnimation={flagAnimation}
@@ -893,6 +899,8 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       rateCardOrder={rateCardOrder}
       videoSoundOn={ratePromoSoundOn}
       sheetTransition={branchSettings.rateCardTransition ?? "fade"}
+      promoTransition={branchSettings.ratePromoTransition ?? "flip"}
+      promoTransitionSpeed={branchSettings.ratePromoTransitionSpeed ?? "fast"}
       valueTextAnimation={branchSettings.rateTextAnimation ?? null}
       currencyTextAnimation={branchSettings.rateCurrencyAnimation ?? null}
       flagAnimation={branchSettings.rateFlagAnimation ?? null}

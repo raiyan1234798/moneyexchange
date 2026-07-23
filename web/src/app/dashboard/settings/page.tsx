@@ -22,7 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, messageFontCss } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, SLIDE_TRANSITION_SPEEDS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { checkPromoMediaFit } from "@/lib/promo-fit";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
@@ -1226,14 +1226,14 @@ function BranchSettingsForm({
             type="number"
             min={2}
             max={120}
-            value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 5}
+            value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4}
             onChange={(event) =>
               setSettings({ ...settings, ratePromoDurationSeconds: Number(event.target.value) })
             }
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            The promotion slide&apos;s own manual seconds — longer or shorter than the others.
+            Also editable at the top of Promotion slide — lower = faster flips between promos.
           </p>
         </div>
       </div>
@@ -1274,46 +1274,108 @@ function BranchSettingsForm({
         title="Promotion slide"
         description="Its own screen in the rate-card rotation: message above and/or below, with images and videos. With no text the image fills the whole card; leave everything empty to hide it."
       >
-        <div className="grid gap-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4 sm:grid-cols-2">
+        <div className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
           <div className="space-y-2">
-            <Label>Promotion slide shows for (seconds)</Label>
-            <Input
-              type="number"
-              min={2}
-              max={120}
-              value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 5}
-              onChange={(event) =>
-                setSettings({ ...settings, ratePromoDurationSeconds: Number(event.target.value) })
-              }
-              className="rounded-xl"
-            />
+            <Label>Flip timer — each promo stays (seconds)</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  { label: "Fast 3s", value: 3 },
+                  { label: "Normal 4s", value: 4 },
+                  { label: "Hold 6s", value: 6 },
+                  { label: "Long 10s", value: 10 },
+                ] as const
+              ).map((preset) => {
+                const current =
+                  settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4;
+                const active = current === preset.value;
+                return (
+                  <Button
+                    key={preset.value}
+                    type="button"
+                    size="sm"
+                    variant={active ? "default" : "outline"}
+                    className="rounded-lg"
+                    onClick={() =>
+                      setSettings({ ...settings, ratePromoDurationSeconds: preset.value })
+                    }
+                  >
+                    {preset.label}
+                  </Button>
+                );
+              })}
+              <Input
+                type="number"
+                min={2}
+                max={120}
+                value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4}
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    ratePromoDurationSeconds: Number(event.target.value),
+                  })
+                }
+                className="w-24 rounded-xl"
+                aria-label="Custom promotion flip seconds"
+              />
+            </div>
             <p className="text-xs text-muted-foreground">
-              How long each promotion image/video stays on screen. Lower = faster rotation.
+              How long each promotion image/video stays before flipping to the next. Lower = faster
+              rotation. Default is 4 seconds.
             </p>
           </div>
-          <div className="space-y-2">
-            <Label>Promotion / rate-card slide animation</Label>
-            <Select
-              value={settings.rateCardTransition ?? "fade"}
-              onValueChange={(value) =>
-                setSettings({ ...settings, rateCardTransition: value ?? "fade" })
-              }
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SLIDE_TRANSITIONS.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Flip, fade, zoom, etc. when the promotion (and other rate-card slides) change. Choose
-              &quot;Instant&quot; to turn the animation off.
-            </p>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Promotion flip animation</Label>
+              <Select
+                value={settings.ratePromoTransition ?? settings.rateCardTransition ?? "flip"}
+                onValueChange={(value) =>
+                  setSettings({ ...settings, ratePromoTransition: value ?? "flip" })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SLIDE_TRANSITIONS.map((t) => (
+                    <SelectItem key={t.key} value={t.key}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                New options: cube, swipe both ways, bounce, wipe, snap, spin-in, and more. Applies
+                when a promotion image/video enters.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Flip speed (animation itself)</Label>
+              <Select
+                value={settings.ratePromoTransitionSpeed ?? "fast"}
+                onValueChange={(value) =>
+                  setSettings({
+                    ...settings,
+                    ratePromoTransitionSpeed: (value as "fast" | "normal" | "slow") ?? "fast",
+                  })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SLIDE_TRANSITION_SPEEDS.map((s) => (
+                    <SelectItem key={s.key} value={s.key}>
+                      {s.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                How snappy the flip/fade looks. &quot;Fast&quot; is recommended if the old flip felt
+                slow.
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
