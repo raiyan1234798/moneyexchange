@@ -1451,27 +1451,33 @@ export default function VideosPage() {
 
         {canApplyToAll && effectiveBranchId && videos.length + images.length > 0 ? (
           <ContentPanel
-            title="Push this playlist to all branches"
-            description={`Copy what “${branch?.name ?? "this branch"}” already plays onto every other active branch. Use this after you finish uploading on one branch.`}
+            title="Copy this playlist to every branch"
+            description="Finished uploading on one branch? Push the same videos and images to the others in one click."
           >
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Ready:{" "}
-                <strong className="text-foreground">
-                  {videos.filter((v) => v.status === "active" && v.sourceType !== "chunked").length} video(s)
-                </strong>
-                {" · "}
-                <strong className="text-foreground">
-                  {images.filter((img) => img.status === "active").length} image(s)
-                </strong>
-                {" → "}
-                <strong className="text-foreground">
-                  {branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId).length} other
-                  branch(es)
-                </strong>
-                . Chunked (Firestore-only) videos stay on this branch. Rate-card promotion images are separate —
-                use Settings → Save with “copy promotions” for those.
-              </p>
+              <ol className="grid gap-2 text-sm sm:grid-cols-3">
+                <li className="rounded-xl border border-border/40 bg-muted/20 p-3">
+                  <span className="font-semibold text-foreground">1. Check this branch</span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {videos.filter((v) => v.status === "active" && v.sourceType !== "chunked").length} video(s) ·{" "}
+                    {images.filter((img) => img.status === "active").length} image(s) ready
+                  </p>
+                </li>
+                <li className="rounded-xl border border-border/40 bg-muted/20 p-3">
+                  <span className="font-semibold text-foreground">2. Choose replace or add</span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Replace = other branches match this one. Add = keep their old media too.
+                  </p>
+                </li>
+                <li className="rounded-xl border border-border/40 bg-muted/20 p-3">
+                  <span className="font-semibold text-foreground">3. Confirm</span>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Updates{" "}
+                    {branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId).length} other
+                    active branch(es). Rate-card promotions are separate (Settings → Save).
+                  </p>
+                </li>
+              </ol>
               <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
                 <Checkbox
                   id="push-replace-existing"
@@ -1480,11 +1486,10 @@ export default function VideosPage() {
                 />
                 <div className="space-y-0.5">
                   <Label htmlFor="push-replace-existing" className="cursor-pointer text-sm font-medium">
-                    Replace existing media on other branches
+                    Replace media on other branches
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    On: clear each branch’s Media Manager playlist first, then copy. Off: add these files
-                    alongside what they already have.
+                    Recommended when every TV should play the same playlist.
                   </p>
                 </div>
               </div>

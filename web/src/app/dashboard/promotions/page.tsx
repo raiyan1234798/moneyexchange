@@ -26,6 +26,7 @@ import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compr
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
 import type { BranchSettings } from "@/lib/types";
+import { AdvancedDetails, GettingStartedCard, StepLabel } from "@/components/dashboard/settings-ux";
 
 export default function PromotionsPage() {
   const { user, profile, isSuperAdmin, isAdmin } = useAuth();
@@ -85,7 +86,7 @@ export default function PromotionsPage() {
     <>
       <DashboardHeader
         title="Promotions"
-        description="Per-branch announcements (prize winners, offers) and the rotating promotion card."
+        description="Add offer images for the rate card — timer and flip style are at the top."
         accent="amber"
       />
       <PageShell>
@@ -99,10 +100,20 @@ export default function PromotionsPage() {
           </ContentPanel>
         ) : (
           <div className="space-y-6">
+            <GettingStartedCard
+              title="Quick start"
+              steps={[
+                { label: "Upload promo images/videos", hint: "Best size: tall 3:5 portrait (1080×1800)." },
+                { label: "Set flip timer", hint: "Try Fast 3s or Normal 4s." },
+                { label: "Pick an animation", hint: "3D flip or Snap look great." },
+                { label: "Save", hint: "Changes go live on this branch’s TV." },
+              ]}
+            />
+
             {/* ---- Announcement ---- */}
-            <ContentPanel
-              title="Announcement / display message"
-              description="Play text, an image or a video for a set time, then it animates away and the screen returns to normal."
+            <AdvancedDetails
+              title="Announcement banner (optional)"
+              description="Full-screen text/image/video that appears for a while, then goes away. Most branches leave this empty."
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 p-3">
@@ -386,19 +397,20 @@ export default function PromotionsPage() {
                   ) : null}
                 </div>
               </div>
-            </ContentPanel>
+            </AdvancedDetails>
 
             {/* ---- Promotion card in the rate rotation ---- */}
             <ContentPanel
-              title="Promotion card (rate rotation)"
-              description="An image and/or message that appears as its own screen in the rate-card rotation. Leave empty to hide."
+              title="Promotion card"
+              description="Images/videos that rotate on the rate card. Follow the numbered steps."
             >
               <div className="space-y-4">
+                <StepLabel step={1} title="Show on the TV" hint="Turn off to hide without deleting uploads." />
                 <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 p-3">
                   <div>
-                    <p className="text-sm font-semibold">Show the promotion slide on the TV</p>
+                    <p className="text-sm font-semibold">Show the promotion slide</p>
                     <p className="text-xs text-muted-foreground">
-                      Turn off to hide it from the rotation without deleting your images/videos/text.
+                      Off hides it from the rotation without deleting your content.
                     </p>
                   </div>
                   <Switch
@@ -489,7 +501,7 @@ export default function PromotionsPage() {
                   />
                 </div>
                 <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
-                  <Label>Flip timer — each promo stays (seconds)</Label>
+                  <StepLabel step={2} title="Flip timer" hint="How long each promo stays before the next." />
                   <div className="flex flex-wrap items-center gap-2">
                     {(
                       [
@@ -524,13 +536,13 @@ export default function PromotionsPage() {
                       aria-label="Custom promotion flip seconds"
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Lower = faster flips between promotion images/videos.
-                  </p>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-2">
+                  <div className="space-y-2 sm:col-span-2">
+                    <StepLabel step={3} title="Flip style & speed" />
+                  </div>
                   <div className="space-y-2">
-                    <Label>Promotion flip animation</Label>
+                    <Label>Animation</Label>
                     <Select
                       value={s.ratePromoTransition ?? s.rateCardTransition ?? "flip"}
                       onValueChange={(v) => set({ ratePromoTransition: v ?? "flip" })}
@@ -548,7 +560,7 @@ export default function PromotionsPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Flip speed</Label>
+                    <Label>Speed</Label>
                     <Select
                       value={s.ratePromoTransitionSpeed ?? "fast"}
                       onValueChange={(v) =>
