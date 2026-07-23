@@ -141,6 +141,10 @@ export interface BranchSettings {
   tickerLogoFit?: "contain" | "cover" | "fill";
   /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
   rateCardTransition?: string;
+  /** Entrance animation for promotion sheets only. null = use rateCardTransition. */
+  ratePromoTransition?: string | null;
+  /** How fast the promotion entrance plays: fast | normal | slow. */
+  ratePromoTransitionSpeed?: "fast" | "normal" | "slow";
   /** Continuous movement of the WE BUY / WE SELL numbers. null = still. */
   rateTextAnimation?: string | null;
   /** Continuous movement for the currency CODE letters (USD, EUR, …). */
@@ -251,7 +255,7 @@ export interface BranchSettings {
   ratePromoTextTop?: string | null;
   /** Promotional card: text message below the image (shown alone or under the image). */
   ratePromoText?: string | null;
-  /** Seconds the promotional card stays visible. Defaults to rateSheetIntervalSeconds. */
+  /** Seconds each promotional image/video stays visible. Defaults to rateSheetIntervalSeconds. */
   ratePromoDurationSeconds?: number;
   /** ONE font for the whole TV screen — rate card, messages, announcements, logo.
    *  When set it overrides every individual font below. See MESSAGE_FONTS. */

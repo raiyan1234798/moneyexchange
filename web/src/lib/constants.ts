@@ -135,7 +135,12 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoEnabled: true,
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
-  ratePromoDurationSeconds: 6,
+  // Default 4s — promotions used to feel slow at 6s; admins can raise it.
+  ratePromoDurationSeconds: 4,
+  /** Entrance animation for promotion sheets (independent of forex/transfer). */
+  ratePromoTransition: "flip" as string,
+  /** How fast the promo entrance plays: fast | normal | slow. */
+  ratePromoTransitionSpeed: "fast" as "fast" | "normal" | "slow",
   /** How promo media fits its card: fill=stretch (no gaps, nothing cut),
       cover=zoom to fill (edges crop), contain=show whole (may leave bands). */
   ratePromoMediaFit: "fill" as "fill" | "cover" | "contain",
@@ -213,27 +218,60 @@ export const RECOMMENDED_VIDEO_FORMATS = [
 /** Transition styles for slide changes (rate-card sheets, video-area media). */
 export const SLIDE_TRANSITIONS: Array<{ key: string; label: string }> = [
   { key: "fade", label: "Fade (default)" },
-  { key: "slide-left", label: "Slide in from the right" },
+  { key: "flip", label: "3D flip (card turn)" },
+  { key: "flip-x", label: "Flip up (horizontal hinge)" },
+  { key: "cube", label: "Cube turn" },
+  { key: "slide-left", label: "Swipe from the right" },
+  { key: "slide-right", label: "Swipe from the left" },
   { key: "slide-up", label: "Slide up" },
   { key: "drop", label: "Drop in from the top" },
   { key: "zoom", label: "Zoom in" },
-  { key: "flip", label: "3D flip" },
+  { key: "zoom-out", label: "Zoom out (pull back)" },
+  { key: "rotate", label: "Spin in" },
+  { key: "bounce", label: "Bounce in" },
+  { key: "wipe", label: "Wipe reveal" },
   { key: "blur", label: "Blur in" },
+  { key: "snap", label: "Snap (quick punch)" },
   { key: "none", label: "Instant (no animation)" },
+];
+
+/** How fast the one-shot slide entrance plays. */
+export const SLIDE_TRANSITION_SPEEDS: Array<{
+  key: "fast" | "normal" | "slow";
+  label: string;
+  ms: number;
+}> = [
+  { key: "fast", label: "Fast — snappy flip", ms: 280 },
+  { key: "normal", label: "Normal", ms: 450 },
+  { key: "slow", label: "Slow — dramatic", ms: 750 },
 ];
 
 /** CSS class for a SLIDE_TRANSITIONS key. */
 export function slideTransitionClass(name: string | null | undefined): string {
   switch (name) {
     case "slide-left": return "sheet-anim-slide-left";
+    case "slide-right": return "sheet-anim-slide-right";
     case "slide-up": return "sheet-anim-slide-up";
     case "drop": return "sheet-anim-drop";
     case "zoom": return "sheet-anim-zoom";
+    case "zoom-out": return "sheet-anim-zoom-out";
     case "flip": return "sheet-anim-flip";
+    case "flip-x": return "sheet-anim-flip-x";
+    case "cube": return "sheet-anim-cube";
+    case "rotate": return "sheet-anim-rotate";
+    case "bounce": return "sheet-anim-bounce";
+    case "wipe": return "sheet-anim-wipe";
     case "blur": return "sheet-anim-blur";
+    case "snap": return "sheet-anim-snap";
     case "none": return "";
     default: return "sheet-anim-fade";
   }
+}
+
+/** Milliseconds for a SLIDE_TRANSITION_SPEEDS key. */
+export function slideTransitionMs(speed: string | null | undefined): number {
+  const found = SLIDE_TRANSITION_SPEEDS.find((s) => s.key === speed);
+  return found?.ms ?? 450;
 }
 
 /** Every movement effect available across the display — logos, badge, texts.

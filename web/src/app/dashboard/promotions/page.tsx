@@ -21,7 +21,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
-import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, SLIDE_TRANSITION_SPEEDS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -488,41 +488,85 @@ export default function PromotionsPage() {
                     className="rounded-xl"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Promotion card duration (seconds)</Label>
-                  <Input
-                    type="number"
-                    min={2}
-                    max={60}
-                    value={s.ratePromoDurationSeconds ?? 6}
-                    onChange={(e) => set({ ratePromoDurationSeconds: Number(e.target.value) })}
-                    className="rounded-xl sm:max-w-[200px]"
-                  />
+                <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
+                  <Label>Flip timer — each promo stays (seconds)</Label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(
+                      [
+                        { label: "Fast 3s", value: 3 },
+                        { label: "Normal 4s", value: 4 },
+                        { label: "Hold 6s", value: 6 },
+                        { label: "Long 10s", value: 10 },
+                      ] as const
+                    ).map((preset) => {
+                      const current = s.ratePromoDurationSeconds ?? 4;
+                      const active = current === preset.value;
+                      return (
+                        <Button
+                          key={preset.value}
+                          type="button"
+                          size="sm"
+                          variant={active ? "default" : "outline"}
+                          className="rounded-lg"
+                          onClick={() => set({ ratePromoDurationSeconds: preset.value })}
+                        >
+                          {preset.label}
+                        </Button>
+                      );
+                    })}
+                    <Input
+                      type="number"
+                      min={2}
+                      max={60}
+                      value={s.ratePromoDurationSeconds ?? 4}
+                      onChange={(e) => set({ ratePromoDurationSeconds: Number(e.target.value) })}
+                      className="w-24 rounded-xl"
+                      aria-label="Custom promotion flip seconds"
+                    />
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    How long each promotion image/video stays. Lower = faster flips.
+                    Lower = faster flips between promotion images/videos.
                   </p>
                 </div>
-                <div className="space-y-2">
-                  <Label>Slide change animation (flip / fade / …)</Label>
-                  <Select
-                    value={s.rateCardTransition ?? "fade"}
-                    onValueChange={(v) => set({ rateCardTransition: v ?? "fade" })}
-                  >
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SLIDE_TRANSITIONS.map((t) => (
-                        <SelectItem key={t.key} value={t.key}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Animation when the promotion slide (and other rate-card pages) change. Pick
-                    Instant to disable.
-                  </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Promotion flip animation</Label>
+                    <Select
+                      value={s.ratePromoTransition ?? s.rateCardTransition ?? "flip"}
+                      onValueChange={(v) => set({ ratePromoTransition: v ?? "flip" })}
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SLIDE_TRANSITIONS.map((t) => (
+                          <SelectItem key={t.key} value={t.key}>
+                            {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Flip speed</Label>
+                    <Select
+                      value={s.ratePromoTransitionSpeed ?? "fast"}
+                      onValueChange={(v) =>
+                        set({ ratePromoTransitionSpeed: (v as "fast" | "normal" | "slow") ?? "fast" })
+                      }
+                    >
+                      <SelectTrigger className="rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SLIDE_TRANSITION_SPEEDS.map((speed) => (
+                          <SelectItem key={speed.key} value={speed.key}>
+                            {speed.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion video sound (rate card)</Label>

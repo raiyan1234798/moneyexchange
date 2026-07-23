@@ -7,7 +7,7 @@ import {
   getRateFlag,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
-import { displayAnimationClass, slideTransitionClass } from "@/lib/constants";
+import { displayAnimationClass, slideTransitionClass, slideTransitionMs } from "@/lib/constants";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
@@ -113,6 +113,10 @@ interface UnimoniRatesPanelProps {
   videoSoundOn?: boolean;
   /** Transition when the rotating sheet changes. Default fade. */
   sheetTransition?: string;
+  /** Entrance for promotion sheets only — falls back to sheetTransition. */
+  promoTransition?: string | null;
+  /** How fast the promotion entrance plays (fast / normal / slow). */
+  promoTransitionSpeed?: "fast" | "normal" | "slow" | null;
   /** Continuous movement applied to every WE BUY / WE SELL value. */
   valueTextAnimation?: string | null;
   /** Continuous movement applied to every currency CODE (USD, EUR, …). */
@@ -242,6 +246,8 @@ export function UnimoniRatesPanel({
   rateCardOrder,
   videoSoundOn = false,
   sheetTransition = "fade",
+  promoTransition = null,
+  promoTransitionSpeed = "fast",
   valueTextAnimation = null,
   currencyTextAnimation = null,
   flagAnimation = null,
@@ -426,6 +432,15 @@ export function UnimoniRatesPanel({
   const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
   const isPromoSheet = activeSheet.kind === "promo";
+  const activeSheetTransition = isPromoSheet
+    ? (promoTransition?.trim() || "flip")
+    : sheetTransition;
+  const activeSheetAnimMs = isPromoSheet
+    ? slideTransitionMs(promoTransitionSpeed ?? "fast")
+    : slideTransitionMs("normal");
+  const sheetAnimStyle = {
+    ["--sheet-anim-ms" as string]: `${activeSheetAnimMs}ms`,
+  } as CSSProperties;
   // The note ("WE BUY US$ small bills @ …") belongs to the FOREX rates. It shows
   // on the first forex page WHEREVER it lands in the chosen slide order (so it
   // still appears even when transfer/promo is set first), or on every forex page
@@ -626,11 +641,12 @@ export function UnimoniRatesPanel({
         {isPromoSheet ? (
           <div
             key={`promo-${sheetIndex}`}
-            className={`${slideTransitionClass(sheetTransition)} flex min-h-0 flex-1 flex-col ${
+            className={`${slideTransitionClass(activeSheetTransition)} flex min-h-0 flex-1 flex-col ${
               activeSheet.promoMedia && !promoTop && !promoMessage
                 ? "overflow-hidden"
                 : `items-center justify-center ${promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""}`
             }`}
+            style={sheetAnimStyle}
           >
             {promoTop ? (
               <p
@@ -721,7 +737,8 @@ export function UnimoniRatesPanel({
 
         <div
           key={`${activeSheet.kind}-${sheetIndex}`}
-          className={`display-rates-body ${slideTransitionClass(sheetTransition)} min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]`}
+          className={`display-rates-body ${slideTransitionClass(activeSheetTransition)} min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]`}
+          style={sheetAnimStyle}
         >
           {/* Empty-state for THIS slide's rows — checking the forex list here
               wrongly printed "being updated" on top of a full TRANSFER slide
