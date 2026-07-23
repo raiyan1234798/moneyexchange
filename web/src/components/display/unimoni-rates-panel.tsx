@@ -7,7 +7,7 @@ import {
   getRateFlag,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
-import { displayAnimationClass, slideTransitionClass, slideTransitionMs } from "@/lib/constants";
+import { displayAnimationClass, slideTransitionClass, promoTransitionDurationMs, slideTransitionMs } from "@/lib/constants";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
@@ -115,7 +115,9 @@ interface UnimoniRatesPanelProps {
   sheetTransition?: string;
   /** Entrance for promotion sheets only — falls back to sheetTransition. */
   promoTransition?: string | null;
-  /** How fast the promotion entrance plays (fast / normal / slow). */
+  /** How long the promo flip lasts, in seconds (between-pass). */
+  promoTransitionSeconds?: number | null;
+  /** Legacy: fast / normal / slow — used when promoTransitionSeconds is unset. */
   promoTransitionSpeed?: "fast" | "normal" | "slow" | null;
   /** Continuous movement applied to every WE BUY / WE SELL value. */
   valueTextAnimation?: string | null;
@@ -247,7 +249,8 @@ export function UnimoniRatesPanel({
   videoSoundOn = false,
   sheetTransition = "fade",
   promoTransition = null,
-  promoTransitionSpeed = "fast",
+  promoTransitionSeconds = null,
+  promoTransitionSpeed = "normal",
   valueTextAnimation = null,
   currencyTextAnimation = null,
   flagAnimation = null,
@@ -368,8 +371,15 @@ export function UnimoniRatesPanel({
 
   // Manually adjustable sequence timing (per the client: "3 seconds, 6 seconds,
   // 10 seconds — set manually"). The promo card can hold its own duration.
+  // Between-pass animation must finish inside the hold, or the flip is cut off
+  // and looks like "no animation".
   const rateMs = Math.max(2, sheetIntervalSeconds ?? 5) * 1000;
-  const promoMs = Math.max(2, promoDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
+  const promoPassMs = promoTransitionDurationMs(promoTransitionSeconds, promoTransitionSpeed);
+  const promoMs = Math.max(
+    2 * 1000,
+    (promoDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000,
+    promoPassMs + 800,
+  );
   // The transfer card can hold its own seconds too (three independent timers:
   // forex / transfer / promotion). Unset = same as the forex slides.
   const transferMs = Math.max(2, transferDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
@@ -436,7 +446,7 @@ export function UnimoniRatesPanel({
     ? (promoTransition?.trim() || "flip")
     : sheetTransition;
   const activeSheetAnimMs = isPromoSheet
-    ? slideTransitionMs(promoTransitionSpeed ?? "fast")
+    ? promoPassMs
     : slideTransitionMs("normal");
   const sheetAnimStyle = {
     ["--sheet-anim-ms" as string]: `${activeSheetAnimMs}ms`,

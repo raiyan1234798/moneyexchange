@@ -143,7 +143,9 @@ export interface BranchSettings {
   rateCardTransition?: string;
   /** Entrance animation for promotion sheets only. null = use rateCardTransition. */
   ratePromoTransition?: string | null;
-  /** How fast the promotion entrance plays: fast | normal | slow. */
+  /** Seconds the promotion entrance animation lasts (between-pass). e.g. 0.8. */
+  ratePromoTransitionSeconds?: number;
+  /** @deprecated Prefer ratePromoTransitionSeconds. */
   ratePromoTransitionSpeed?: "fast" | "normal" | "slow";
   /** Continuous movement of the WE BUY / WE SELL numbers. null = still. */
   rateTextAnimation?: string | null;

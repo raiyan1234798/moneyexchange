@@ -22,7 +22,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, SLIDE_TRANSITION_SPEEDS, messageFontCss } from "@/lib/constants";
+import { COLLECTIONS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, messageFontCss } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { checkPromoMediaFit } from "@/lib/promo-fit";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
@@ -1323,102 +1323,147 @@ function BranchSettingsForm({
         <div className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
           <StepLabel
             step={1}
-            title="How long each promo stays"
-            hint="Lower = faster flips between images/videos."
+            title="Rotation & between-pass timing"
+            hint="Rotation = how long each promo stays. Between pass = how long the flip animation lasts."
           />
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {(
-                [
-                  { label: "Fast 3s", value: 3 },
-                  { label: "Normal 4s", value: 4 },
-                  { label: "Hold 6s", value: 6 },
-                  { label: "Long 10s", value: 10 },
-                ] as const
-              ).map((preset) => {
-                const current =
-                  settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4;
-                const active = current === preset.value;
-                return (
-                  <Button
-                    key={preset.value}
-                    type="button"
-                    size="sm"
-                    variant={active ? "default" : "outline"}
-                    className="rounded-lg"
-                    onClick={() =>
-                      setSettings({ ...settings, ratePromoDurationSeconds: preset.value })
-                    }
-                  >
-                    {preset.label}
-                  </Button>
-                );
-              })}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Rotation (seconds)</Label>
               <Input
                 type="number"
                 min={2}
                 max={120}
+                step={1}
                 value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4}
                 onChange={(event) =>
                   setSettings({
                     ...settings,
-                    ratePromoDurationSeconds: Number(event.target.value),
+                    ratePromoDurationSeconds: Math.max(2, Number(event.target.value) || 4),
                   })
                 }
-                className="w-24 rounded-xl"
-                aria-label="Custom promotion flip seconds"
+                className="rounded-xl"
               />
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    { label: "3s", value: 3 },
+                    { label: "4s", value: 4 },
+                    { label: "6s", value: 6 },
+                    { label: "8s", value: 8 },
+                    { label: "10s", value: 10 },
+                  ] as const
+                ).map((preset) => {
+                  const current =
+                    settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4;
+                  return (
+                    <Button
+                      key={preset.value}
+                      type="button"
+                      size="sm"
+                      variant={current === preset.value ? "default" : "outline"}
+                      className="h-7 rounded-md px-2 text-xs"
+                      onClick={() =>
+                        setSettings({ ...settings, ratePromoDurationSeconds: preset.value })
+                      }
+                    >
+                      {preset.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                How long each promotion image/video stays on screen before the next one.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Between pass (seconds)</Label>
+              <Input
+                type="number"
+                min={0.2}
+                max={3}
+                step={0.1}
+                value={
+                  settings.ratePromoTransitionSeconds ??
+                  (settings.ratePromoTransitionSpeed === "fast"
+                    ? 0.3
+                    : settings.ratePromoTransitionSpeed === "slow"
+                      ? 0.75
+                      : 0.8)
+                }
+                onChange={(event) =>
+                  setSettings({
+                    ...settings,
+                    ratePromoTransitionSeconds: Math.min(
+                      3,
+                      Math.max(0.2, Number(event.target.value) || 0.8),
+                    ),
+                  })
+                }
+                className="rounded-xl"
+              />
+              <div className="flex flex-wrap gap-1.5">
+                {(
+                  [
+                    { label: "0.4s", value: 0.4 },
+                    { label: "0.8s", value: 0.8 },
+                    { label: "1.2s", value: 1.2 },
+                    { label: "1.5s", value: 1.5 },
+                    { label: "2s", value: 2 },
+                  ] as const
+                ).map((preset) => {
+                  const current =
+                    settings.ratePromoTransitionSeconds ??
+                    (settings.ratePromoTransitionSpeed === "fast"
+                      ? 0.3
+                      : settings.ratePromoTransitionSpeed === "slow"
+                        ? 0.75
+                        : 0.8);
+                  return (
+                    <Button
+                      key={preset.value}
+                      type="button"
+                      size="sm"
+                      variant={Math.abs(current - preset.value) < 0.05 ? "default" : "outline"}
+                      className="h-7 rounded-md px-2 text-xs"
+                      onClick={() =>
+                        setSettings({ ...settings, ratePromoTransitionSeconds: preset.value })
+                      }
+                    >
+                      {preset.label}
+                    </Button>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Length of the flip/fade when changing promo. Try 0.8–1.2s if you couldn&apos;t see
+                the animation before. Need 2+ promos (or forex→promo) to notice it.
+              </p>
             </div>
           </div>
           <StepLabel
             step={2}
-            title="Flip style & speed"
-            hint="Pick how the next promo appears. Fast is recommended."
+            title="Flip animation style"
+            hint="Pick Instant only if you want no motion between promos."
           />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Animation</Label>
-              <Select
-                value={settings.ratePromoTransition ?? settings.rateCardTransition ?? "flip"}
-                onValueChange={(value) =>
-                  setSettings({ ...settings, ratePromoTransition: value ?? "flip" })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SLIDE_TRANSITIONS.map((t) => (
-                    <SelectItem key={t.key} value={t.key}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Speed</Label>
-              <Select
-                value={settings.ratePromoTransitionSpeed ?? "fast"}
-                onValueChange={(value) =>
-                  setSettings({
-                    ...settings,
-                    ratePromoTransitionSpeed: (value as "fast" | "normal" | "slow") ?? "fast",
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SLIDE_TRANSITION_SPEEDS.map((s) => (
-                    <SelectItem key={s.key} value={s.key}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Animation</Label>
+            <Select
+              value={settings.ratePromoTransition ?? settings.rateCardTransition ?? "flip"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, ratePromoTransition: value ?? "flip" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SLIDE_TRANSITIONS.map((t) => (
+                  <SelectItem key={t.key} value={t.key}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
