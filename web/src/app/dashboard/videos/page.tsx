@@ -165,7 +165,11 @@ export default function VideosPage() {
   }, []);
 
   useEffect(() => {
-    void refreshTotalStorage();
+    // Defer so we don't setState synchronously inside the effect body (lint).
+    const id = window.setTimeout(() => {
+      void refreshTotalStorage();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [refreshTotalStorage, videos, images]);
 
   // Prefer the REAL bucket total (live from Cloudflare) over the Firestore sum.
