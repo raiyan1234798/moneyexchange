@@ -136,7 +136,7 @@ function BranchSettingsForm({
   // plus whether to also copy the promotion images/videos to them.
   const [applyMode, setApplyMode] = useState<"this" | "all" | "some">("this");
   const [pickedBranchIds, setPickedBranchIds] = useState<string[]>([]);
-  const [includePromo, setIncludePromo] = useState(false);
+  const [includePromo, setIncludePromo] = useState(true);
   const [promoLinkInput, setPromoLinkInput] = useState("");
   // Find-an-option search: hides sections without a match and glows the
   // matching fields, so nobody has to hunt (or ask) where a setting lives.
@@ -1129,6 +1129,50 @@ function BranchSettingsForm({
             </SelectContent>
           </Select>
         </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>WE BUY note size (%)</Label>
+            <Input
+              type="number"
+              min={40}
+              max={160}
+              step={5}
+              value={Math.round((settings.rateNoteScale ?? 0.85) * 100)}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  rateNoteScale: Math.min(1.6, Math.max(0.4, Number(event.target.value) / 100 || 0.85)),
+                })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">Default 85% — smaller than before so it doesn&apos;t dominate.</p>
+          </div>
+          <div className="space-y-2">
+            <Label>WE BUY note font</Label>
+            <Select
+              value={settings.rateNoteFont ?? "__master"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, rateNoteFont: value === "__master" ? null : value })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__master">Same as rate-card / display font</SelectItem>
+                {MESSAGE_FONTS.map((f) => (
+                  <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Use Save → All branches to apply size &amp; font everywhere.
+            </p>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground">
           Bold text at the bottom of the forex rates. It follows the forex page wherever you put it in
           the slide order — so it appears even when transfer or promo is first. Leave blank to hide it.
@@ -1230,6 +1274,63 @@ function BranchSettingsForm({
         title="Promotion slide"
         description="Its own screen in the rate-card rotation: message above and/or below, with images and videos. With no text the image fills the whole card; leave everything empty to hide it."
       >
+        <div className="grid gap-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Promotion slide shows for (seconds)</Label>
+            <Input
+              type="number"
+              min={2}
+              max={120}
+              value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 5}
+              onChange={(event) =>
+                setSettings({ ...settings, ratePromoDurationSeconds: Number(event.target.value) })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              How long each promotion image/video stays on screen. Lower = faster rotation.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Promotion / rate-card slide animation</Label>
+            <Select
+              value={settings.rateCardTransition ?? "fade"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, rateCardTransition: value ?? "fade" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SLIDE_TRANSITIONS.map((t) => (
+                  <SelectItem key={t.key} value={t.key}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Flip, fade, zoom, etc. when the promotion (and other rate-card slides) change. Choose
+              &quot;Instant&quot; to turn the animation off.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+          <div>
+            <Label>Sync playback across branches</Label>
+            <p className="text-xs text-muted-foreground">
+              When ON, every TV with the same slide timings shows the same promotion/rate page at
+              the same time (wall-clock sync). Best with &quot;Also copy promotions&quot; on Save.
+            </p>
+          </div>
+          <Switch
+            checked={settings.syncRateCardPlayback === true}
+            onCheckedChange={(checked) =>
+              setSettings({ ...settings, syncRateCardPlayback: checked })
+            }
+          />
+        </div>
         <div className="space-y-2">
           <Label>Image / video fit on the promo card</Label>
           <Select
@@ -1251,6 +1352,21 @@ function BranchSettingsForm({
             How every promotion image and video sits in the card. Upload at 1080 × 1800 (3:5)
             and all three look identical.
           </p>
+        </div>
+        <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+          <div>
+            <Label>Hide dots on promotion slides</Label>
+            <p className="text-xs text-muted-foreground">
+              When a promotion image or video is on the rate card, hide the pagination dots
+              underneath. Dots still show on forex and transfer pages.
+            </p>
+          </div>
+          <Switch
+            checked={settings.hideDotsOnPromo !== false}
+            onCheckedChange={(checked) =>
+              setSettings({ ...settings, hideDotsOnPromo: checked })
+            }
+          />
         </div>
         <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
           <div>
@@ -2262,10 +2378,10 @@ function BranchSettingsForm({
                 <>
                   <p className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                     Copies the look &amp; behaviour (fonts, colours, sizes, <strong>animations</strong>,
-                    timers, layout, ticker style) to the chosen branches. Their videos, logos and
-                    rates are never changed.
+                    timers, layout, ticker style, WE BUY note style, sync setting) to the chosen
+                    branches. Their main videos, logos and rates are never changed.
                   </p>
-                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
                     <input
                       type="checkbox"
                       checked={includePromo}
@@ -2273,11 +2389,13 @@ function BranchSettingsForm({
                       className="mt-0.5 h-4 w-4"
                     />
                     <span className="text-sm">
-                      <span className="font-medium">Also copy the promotion images &amp; videos</span>
+                      <span className="font-medium">
+                        Also copy the promotion images &amp; videos (play the same promotions)
+                      </span>
                       <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Puts THIS branch&apos;s promotion slide pictures/videos on the chosen branches
-                        too, so they all play the same promotions. This replaces whatever promotions
-                        those branches currently have.
+                        Puts THIS branch&apos;s promotion pictures/videos on the chosen branches so
+                        they all play the same promotions. Turn on &quot;Sync playback across
+                        branches&quot; in Promotion slide so every TV flips at the same time.
                       </span>
                     </span>
                   </label>
@@ -2301,7 +2419,7 @@ function BranchSettingsForm({
                 setConfirmOpen(false);
                 setApplyMode("this");
                 setPickedBranchIds([]);
-                setIncludePromo(false);
+                setIncludePromo(true);
                 void (async () => {
                   const prepared = await migratePromoMediaForSave(settings);
                   if (prepared !== settings) setSettings(prepared);

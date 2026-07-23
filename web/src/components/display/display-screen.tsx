@@ -58,6 +58,10 @@ interface TimedRatesPanelProps {
   headerLogoRotationIntervalSeconds: number;
   rateCardNote: string | null;
   rateNotePlacement: "first" | "all";
+  rateNoteScale: number;
+  rateNoteFontCss?: string;
+  syncPlayback: boolean;
+  hideDotsOnPromo: boolean;
   fontCss: string;
   sheetIntervalSeconds: number;
   promoImageUrl: string | null;
@@ -109,6 +113,10 @@ function TimedRatesPanel({
   headerLogoRotationIntervalSeconds,
   rateCardNote,
   rateNotePlacement,
+  rateNoteScale,
+  rateNoteFontCss,
+  syncPlayback,
+  hideDotsOnPromo,
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
@@ -172,6 +180,10 @@ function TimedRatesPanel({
       headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
+      rateNoteScale={rateNoteScale}
+      rateNoteFontCss={rateNoteFontCss}
+      syncPlayback={syncPlayback}
+      hideDotsOnPromo={hideDotsOnPromo}
       fontCss={fontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={promoImageUrl}
@@ -389,6 +401,12 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
   }, [videoSoundOn]);
   const rateCardNote = branchSettings.rateCardNote?.trim() || null;
   const rateNotePlacement = (branchSettings.rateNotePlacement ?? "first") as "first" | "all";
+  const rateNoteScale = branchSettings.rateNoteScale ?? 0.85;
+  const rateNoteFontCss = messageFontCss(
+    branchSettings.rateNoteFont || branchSettings.displayFont || branchSettings.rateCardFont,
+  );
+  const syncRateCardPlayback = branchSettings.syncRateCardPlayback === true;
+  const hideDotsOnPromo = branchSettings.hideDotsOnPromo !== false;
   // ONE font for the whole screen. When set, it overrides every element's font
   // below (rate card, announcement, ticker message, ticker logo).
   const masterFont = branchSettings.displayFont?.trim() || null;
@@ -859,6 +877,10 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
       headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
       rateNotePlacement={rateNotePlacement}
+      rateNoteScale={rateNoteScale}
+      rateNoteFontCss={rateNoteFontCss}
+      syncPlayback={syncRateCardPlayback}
+      hideDotsOnPromo={hideDotsOnPromo}
       fontCss={rateCardFontCss}
       sheetIntervalSeconds={sheetIntervalSeconds}
       promoImageUrl={ratePromoImageUrl}
@@ -926,7 +948,6 @@ export function DisplayScreen({ branchId }: DisplayScreenProps) {
           silently killed every spin), so this must NOT go through it. Rendered
           in the body = later in cascade order than the static stylesheet. */}
       <style
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{
           __html: `
 @keyframes display-cell-spin { 0%, ${rateAnimHoldPct}% { transform: perspective(600px) rotateY(0deg); } 100% { transform: perspective(600px) rotateY(360deg); } }

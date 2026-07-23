@@ -81,6 +81,14 @@ interface UnimoniRatesPanelProps {
   rateCardNote?: string | null;
   /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
   rateNotePlacement?: "first" | "all";
+  /** Size multiplier for the WE BUY note (1 = normal). */
+  rateNoteScale?: number;
+  /** CSS font-family for the WE BUY note (falls back to rate-card font). */
+  rateNoteFontCss?: string;
+  /** Align rate-card sheets to wall-clock so multiple TVs stay in sync. */
+  syncPlayback?: boolean;
+  /** Hide pagination dots while a promotion image/video is showing. Default true. */
+  hideDotsOnPromo?: boolean;
   /** CSS font-family for the whole rate card (header + table). */
   fontCss?: string;
   /** Seconds each rotating rate screen stays visible. Default 5. */
@@ -218,6 +226,10 @@ export function UnimoniRatesPanel({
   headerLogoUrls = null,
   rateCardNote,
   rateNotePlacement = "first",
+  rateNoteScale = 0.85,
+  rateNoteFontCss,
+  syncPlayback = false,
+  hideDotsOnPromo = true,
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
@@ -357,8 +369,40 @@ export function UnimoniRatesPanel({
   const transferMs = Math.max(2, transferDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
   const activeKind = (sheets[sheetIndex % sheetCount] ?? { kind: "rates" }).kind;
 
+  // Sheet durations in order — used for both free-running and wall-clock sync.
+  const sheetDurationsMs = sheets.map((s) =>
+    s.kind === "promo" ? promoMs : s.kind === "transfer" ? transferMs : rateMs,
+  );
+  const cycleMs = sheetDurationsMs.reduce((sum, ms) => sum + ms, 0);
+
+  function sheetIndexAtWallClock(nowMs: number): number {
+    if (sheetCount <= 1 || cycleMs <= 0) return 0;
+    let t = nowMs % cycleMs;
+    for (let i = 0; i < sheetDurationsMs.length; i++) {
+      if (t < sheetDurationsMs[i]) return i;
+      t -= sheetDurationsMs[i];
+    }
+    return 0;
+  }
+
   useEffect(() => {
     if (sheetCount <= 1) return;
+
+    // Synchronized mode: all TVs with the same timings land on the same sheet
+    // from wall-clock time — useful when promotions are copied to every branch.
+    if (syncPlayback) {
+      const tick = () => {
+        const next = sheetIndexAtWallClock(Date.now());
+        setSheetIndex((prev) => {
+          if (prev !== next && next === 0) onRotationComplete?.();
+          return next;
+        });
+      };
+      tick();
+      const timer = window.setInterval(tick, 250);
+      return () => window.clearInterval(timer);
+    }
+
     const timer = window.setTimeout(
       () => {
         setSheetIndex((i) => {
@@ -371,7 +415,9 @@ export function UnimoniRatesPanel({
       activeKind === "promo" ? promoMs : activeKind === "transfer" ? transferMs : rateMs,
     );
     return () => window.clearTimeout(timer);
-  }, [sheetCount, sheetIndex, activeKind, promoMs, transferMs, rateMs, onRotationComplete]);
+    // sheetDurationsMs / cycleMs are derived from the timing deps below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sheetCount, sheetIndex, activeKind, promoMs, transferMs, rateMs, onRotationComplete, syncPlayback, cycleMs]);
 
   const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
   // No padding: every page's rows share the full card height, so each rotating
@@ -735,11 +781,12 @@ export function UnimoniRatesPanel({
         </>
         )}
 
-        {sheetCount > 1 ? (
+        {/* Pagination dots: forex/transfer only. Hidden on promotion slides so
+            the image/video is uninterrupted (toggle: hideDotsOnPromo). */}
+        {sheetCount > 1 && !(hideDotsOnPromo && isPromoSheet) ? (
           <div
-            className={`flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] ${
-              hidePromoHeader ? "pt-[0.4vh]" : ""
-            }`}
+            className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] pt-[0.35vh]"
+            aria-hidden
           >
             {sheets.map((sheet, i) => (
               <span
@@ -748,12 +795,8 @@ export function UnimoniRatesPanel({
                 style={{
                   backgroundColor:
                     i === sheetIndex % sheetCount
-                      ? hidePromoHeader
-                        ? "#FFFFFF"
-                        : UNIMONI_COLORS.headerBlue
-                      : hidePromoHeader
-                        ? "rgba(255,255,255,0.35)"
-                        : "#C9D8E8",
+                      ? UNIMONI_COLORS.headerBlue
+                      : "#C9D8E8",
                 }}
               />
             ))}
@@ -767,7 +810,10 @@ export function UnimoniRatesPanel({
       {showNote ? (
         <div
           className="shrink-0 px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold uppercase leading-tight text-white"
-          style={{ fontSize: "clamp(0.7rem, 1.05vw, 1.05rem)" }}
+          style={{
+            fontSize: `calc(clamp(0.55rem, 0.85vw, 0.9rem) * ${rateNoteScale})`,
+            fontFamily: rateNoteFontCss ?? fontCss ?? "Arial, Helvetica, sans-serif",
+          }}
         >
           {noteText}
         </div>

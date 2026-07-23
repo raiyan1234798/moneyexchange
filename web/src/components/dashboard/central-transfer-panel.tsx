@@ -247,10 +247,6 @@ export function CentralTransferPanel({
       {/* SAME layout as the forex uploader: helper text on the left, one
           compact dashed drop box on the right of the SAME row. */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="max-w-sm text-sm text-muted-foreground">
-          One file updates the transfer card on every branch&apos;s TV at once. You can also
-          edit the values directly below.
-        </p>
         <input
           ref={fileRef}
           type="file"
