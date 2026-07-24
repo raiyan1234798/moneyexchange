@@ -1446,7 +1446,8 @@ export default function ExchangeRatesPage() {
                 keyExtractor={(c) => c.id}
                 // Wide enough that every column (incl. the action buttons on the
                 // right) keeps its full size — the panel then scrolls sideways.
-                tableClassName="min-w-[1150px]"
+                // Name is capped so it sits close to Country (not a huge empty stretch).
+                tableClassName="min-w-[980px]"
                 mobileTitle={(c) => {
                   const row = getCatalogCurrency(c);
                   return `${row.flag} ${row.code}`;
@@ -1469,6 +1470,7 @@ export default function ExchangeRatesPage() {
                   {
                     key: "name",
                     header: "Name",
+                    width: "w-[180px]",
                     cell: (c) => (
                       <span className="block truncate font-medium">{getCatalogCurrency(c).name}</span>
                     ),
@@ -1476,7 +1478,7 @@ export default function ExchangeRatesPage() {
                   {
                     key: "country",
                     header: "Country",
-                    width: "w-[160px]",
+                    width: "w-[150px]",
                     hideOnMobile: true,
                     cell: (c) => {
                       const country = getCatalogCurrency(c).country;
@@ -1490,7 +1492,7 @@ export default function ExchangeRatesPage() {
                   {
                     key: "branches",
                     header: "On branches",
-                    width: "w-[170px]",
+                    width: "w-[180px]",
                     hideOnMobile: true,
                     cell: (c) => {
                       const code = getCatalogCurrency(c).code;

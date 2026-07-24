@@ -529,10 +529,11 @@ export default function TickersPage() {
                 {
                   key: "actions",
                   header: "Actions",
+                  width: "w-[168px]",
                   className: "text-right",
                   cell: (t) =>
                     canManageTickers ? (
-                      <div className="flex flex-wrap justify-end gap-1.5">
+                      <div className="flex flex-col items-end gap-1.5 pt-6">
                         <Button variant="outline" size="sm" className="rounded-lg" onClick={() => openEdit(t)}>
                           <Pencil className="mr-1 h-3 w-3" />
                           Edit
