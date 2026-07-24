@@ -5,6 +5,7 @@ import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 import { displayAnimationClass } from "@/lib/constants";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
+import { stripLogoBackground } from "@/lib/image-utils";
 
 /** The real unimoni brand wordmark — shown by default in the pop-out badge. */
 const DEFAULT_LOGO_SRC = "/unimoni-logo-full.png";
@@ -111,6 +112,36 @@ function useLogoTone(src: string): "light" | "dark" | null {
   return tone;
 }
 
+const cleanLogoCache = new Map<string, string>();
+
+/** Automatically strips white/solid sticker backgrounds on the fly for scrolling logos. */
+function useCleanLogoSrc(src: string, enabled: boolean): string {
+  const [cleaned, setCleaned] = useState<string>(() => cleanLogoCache.get(src) ?? src);
+
+  useEffect(() => {
+    if (!enabled || !src || cleanLogoCache.has(src)) {
+      if (cleanLogoCache.has(src)) setCleaned(cleanLogoCache.get(src)!);
+      return;
+    }
+    let active = true;
+    void stripLogoBackground(src, "dark")
+      .then((res) => {
+        if (!active) return;
+        cleanLogoCache.set(src, res);
+        setCleaned(res);
+      })
+      .catch(() => {
+        if (!active) return;
+        cleanLogoCache.set(src, src);
+      });
+    return () => {
+      active = false;
+    };
+  }, [src, enabled]);
+
+  return enabled ? cleaned : src;
+}
+
 /** One scrolling logo with a contrast-aware chip. */
 function ScrollingLogoImg({
   src,
@@ -126,21 +157,17 @@ function ScrollingLogoImg({
   side: "start" | "end";
 }) {
   const tone = useLogoTone(src);
-  const chip =
-    bgMode === "transparent"
-      ? ""
-      : bgMode === "auto"
-        ? tone === "light"
-          ? "bg-slate-900/90 ring-1 ring-white/20"
-          : "bg-white/95"
-        : "bg-white/95";
+  const showChip = bgMode === "white" || (bgMode === "auto" && tone === "dark");
+  const effectiveSrc = useCleanLogoSrc(src, !showChip);
+  const chipClass = showChip ? "rounded-[3px] px-[0.3em] py-[0.15em] bg-white/95" : "";
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={src}
+      src={effectiveSrc}
       alt=""
-      className={`${side === "start" ? "mr-[1.6vw]" : "ml-[1.6vw]"} inline-block w-auto align-middle object-contain ${chip ? `rounded-[3px] px-[0.3em] py-[0.15em] ${chip}` : ""} ${animClass}`}
-      style={{ height: heightEm }}
+      className={`${side === "start" ? "mr-[1.6vw]" : "ml-[1.6vw]"} inline-block w-auto align-middle object-contain ${chipClass} ${animClass}`}
+      style={{ height: heightEm, maxHeight: "2.5em" }}
     />
   );
 }
@@ -385,7 +412,7 @@ function BreakingNewsTickerInner({
                         src={src}
                         bgMode={scrollLogoBg}
                         animClass={scrollLogoAnimClass}
-                        heightEm={`${(1.4 * scrollLogoScale).toFixed(2)}em`}
+                        heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="start"
                       />
                     ))
@@ -398,7 +425,7 @@ function BreakingNewsTickerInner({
                         src={src}
                         bgMode={scrollLogoBg}
                         animClass={scrollLogoAnimClass}
-                        heightEm={`${(1.4 * scrollLogoScale).toFixed(2)}em`}
+                        heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="end"
                       />
                     ))

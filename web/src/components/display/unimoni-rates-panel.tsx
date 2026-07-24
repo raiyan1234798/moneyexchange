@@ -81,6 +81,13 @@ interface UnimoniRatesPanelProps {
   rateCardNote?: string | null;
   /** Size multiplier for the rate-card note (1 = normal). */
   rateCardNoteFontScale?: number;
+  rateNoteScale?: number;
+  rateNoteFontCss?: string | null;
+  syncPlayback?: boolean;
+  hideDotsOnPromo?: boolean;
+  promoTransition?: string | null;
+  promoTransitionSeconds?: number;
+  promoTransitionSpeed?: "normal" | "fast" | "slow";
   /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
   rateNotePlacement?: "first" | "all";
   /** CSS font-family for the whole rate card (header + table). */

@@ -934,7 +934,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
             ? 0.75
             : 0.8)
       }
-      promoTransitionSpeed={branchSettings.ratePromoTransitionSpeed ?? "normal"}
+      promoTransitionSpeed={typeof branchSettings.ratePromoTransitionSpeed === "string" ? branchSettings.ratePromoTransitionSpeed : "normal"}
       valueTextAnimation={branchSettings.rateTextAnimation ?? null}
       currencyTextAnimation={branchSettings.rateCurrencyAnimation ?? null}
       flagAnimation={branchSettings.rateFlagAnimation ?? null}

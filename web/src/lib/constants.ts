@@ -108,6 +108,13 @@ export const DEFAULT_BRANCH_SETTINGS = {
   headerLogoRotationIntervalSeconds: 10,
   /** EXTRA rate-card header logos (any number) — they join the logo rotation. */
   headerLogoUrls: [] as string[],
+  rateNoteScale: 1,
+  rateNoteFont: null as string | null,
+  syncRateCardPlayback: false,
+  hideDotsOnPromo: false,
+  ratePromoTransition: "fade" as string,
+  ratePromoTransitionSeconds: 0.6,
+  ratePromoTransitionSpeed: 1,
   videoSoundOn: false,
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,
@@ -582,3 +589,5 @@ export const CURRENCY_METADATA: Record<
   ERN: { name: "Eritrean Nakfa", country: "Eritrea", flag: "🇪🇷" },
   MZN: { name: "Mozambican Metical", country: "Mozambique", flag: "🇲🇿" },
 };
+
+export const promoTransitionDurationMs = 600;

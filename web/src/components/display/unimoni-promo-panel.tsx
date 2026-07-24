@@ -75,7 +75,7 @@ export function UnimoniPromoPanel({
   const objectClass =
     fit === "stretch" ? "object-fill" : fit === "cover" ? "object-cover" : "object-contain";
   const useBackdrop = fit === "contain";
-  const mediaAnimMs = promoTransitionDurationMs(mediaTransitionSeconds, "normal");
+  const mediaAnimMs = typeof mediaTransitionSeconds === "number" ? Math.round(mediaTransitionSeconds * 1000) : promoTransitionDurationMs;
   const mediaAnimStyle = { animationDuration: `${mediaAnimMs}ms` } as CSSProperties;
   const mediaAnimClass = slideTransitionClass(mediaTransition);
 

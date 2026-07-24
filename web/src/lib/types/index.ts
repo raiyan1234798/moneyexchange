@@ -203,6 +203,13 @@ export interface BranchSettings {
   scrollingLogos?: string[];
   /** A note line shown under the forex rate screen (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  rateNoteScale?: number;
+  rateNoteFont?: string | null;
+  syncRateCardPlayback?: boolean;
+  hideDotsOnPromo?: boolean;
+  ratePromoTransition?: string;
+  ratePromoTransitionSeconds?: number;
+  ratePromoTransitionSpeed?: number | "normal" | "fast" | "slow";
   /** Size multiplier for the rate-card note text (1 = normal). */
   rateCardNoteFontScale?: number;
   /** Which forex page(s) show the note: the first forex page, or every forex page. */
