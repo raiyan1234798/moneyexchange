@@ -122,30 +122,39 @@ function useLogoTone(src: string): "light" | "dark" | null {
 
 const cleanLogoCache = new Map<string, string>();
 
-/** Automatically strips white/solid sticker backgrounds on the fly for scrolling logos. */
-function useCleanLogoSrc(src: string, enabled: boolean): string {
-  const [cleaned, setCleaned] = useState<string>(() => cleanLogoCache.get(src) ?? src);
+/** Automatically strips white/solid sticker backgrounds on the fly for scrolling logos.
+ *  surface="any" skips the readability guard so ALL solid backgrounds are removed regardless
+ *  of artwork colour — correct for fill-mode logos on a black ticker bar. */
+function useCleanLogoSrc(
+  src: string,
+  enabled: boolean,
+  surface: "light" | "dark" | "any" = "dark",
+): string {
+  const cacheKey = `${surface}:${src}`;
+  const [cleaned, setCleaned] = useState<string>(() => cleanLogoCache.get(cacheKey) ?? src);
 
   useEffect(() => {
-    if (!enabled || !src || cleanLogoCache.has(src)) {
-      if (cleanLogoCache.has(src)) setCleaned(cleanLogoCache.get(src)!);
+    if (!enabled || !src) return;
+    if (cleanLogoCache.has(cacheKey)) {
+      setCleaned(cleanLogoCache.get(cacheKey)!);
       return;
     }
     let active = true;
-    void stripLogoBackground(src, "dark")
+    void stripLogoBackground(src, surface)
       .then((res) => {
         if (!active) return;
-        cleanLogoCache.set(src, res);
+        cleanLogoCache.set(cacheKey, res);
         setCleaned(res);
       })
       .catch(() => {
         if (!active) return;
-        cleanLogoCache.set(src, src);
+        // Strip failed (e.g. photo or CORS) — use original
+        cleanLogoCache.set(cacheKey, src);
       });
     return () => {
       active = false;
     };
-  }, [src, enabled]);
+  }, [src, enabled, surface, cacheKey]);
 
   return enabled ? cleaned : src;
 }
@@ -170,27 +179,28 @@ function ScrollingLogoImg({
 }) {
   const tone = useLogoTone(src);
   const isStretch = fitMode === "fill" || fitMode === "stretch";
-  // In stretch mode we always strip the bg; in contain mode follow bgMode.
+  // In stretch/fill mode: always strip bg with surface="any" (no readability guard —
+  // the ticker bar is always black so any artwork colour will be visible).
+  // In contain mode: only strip when not showing a chip.
   const showChip = !isStretch && (bgMode === "white" || (bgMode === "auto" && tone === "dark"));
   const shouldStrip = removeBg && (isStretch || !showChip);
-  const effectiveSrc = useCleanLogoSrc(src, shouldStrip);
+  const stripSurface = isStretch ? "any" : "dark";
+  const effectiveSrc = useCleanLogoSrc(src, shouldStrip, stripSurface);
   const chipClass = showChip ? "rounded-[3px] px-[0.4em] py-[0.15em] bg-white/95" : "";
   const margin = side === "start" ? "mr-[1.2vw]" : "ml-[1.2vw]";
 
   if (isStretch) {
-    // Fill the full height of the ticker bar. The parent bar is `position:relative`,
-    // so we use a flex-shrink-0 container that matches the bar height and stretches the img.
     return (
       <span
         className={`${margin} inline-flex shrink-0 items-stretch self-stretch overflow-hidden ${animClass}`}
-        style={{ height: "100%", maxHeight: "100%" }}
+        style={{ height: "100%", maxHeight: "100%", background: "transparent" }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={effectiveSrc}
           alt=""
-          className="block h-full w-auto object-fill"
-          style={{ maxHeight: "100%" }}
+          className="block h-full w-auto"
+          style={{ maxHeight: "100%", objectFit: "fill", background: "transparent" }}
         />
       </span>
     );
