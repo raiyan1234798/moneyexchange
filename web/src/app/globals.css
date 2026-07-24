@@ -459,44 +459,43 @@
 
 /* Slide-change transitions — applied to the rotating rate-card sheets and the
    video-area media when they change. One-shot entrance animations.
-   Duration is set via inline `animationDuration` (TV browsers often ignore
-   `var(--sheet-anim-ms)` inside the animation shorthand). */
-.sheet-anim-fade { animation-name: sheet-fade; animation-timing-function: ease; animation-fill-mode: both; animation-duration: 0.45s; }
+   Duration comes from --sheet-anim-secs (Settings → Between pass). */
+.sheet-anim-fade { animation: sheet-fade var(--sheet-anim-secs, 0.6s) ease both; }
 @keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
-.sheet-anim-slide-left { animation-name: sheet-slide-left; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-slide-left { from { opacity: 0; transform: translateX(10%); } to { opacity: 1; transform: none; } }
-.sheet-anim-slide-right { animation-name: sheet-slide-right; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-slide-right { from { opacity: 0; transform: translateX(-10%); } to { opacity: 1; transform: none; } }
-.sheet-anim-slide-up { animation-name: sheet-slide-up; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-slide-up { from { opacity: 0; transform: translateY(8%); } to { opacity: 1; transform: none; } }
-.sheet-anim-drop { animation-name: sheet-drop; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-drop { from { opacity: 0; transform: translateY(-8%); } to { opacity: 1; transform: none; } }
-.sheet-anim-zoom { animation-name: sheet-zoom; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-zoom { from { opacity: 0; transform: scale(0.88); } to { opacity: 1; transform: none; } }
-.sheet-anim-zoom-out { animation-name: sheet-zoom-out; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-zoom-out { from { opacity: 0; transform: scale(1.1); } to { opacity: 1; transform: none; } }
-.sheet-anim-flip { animation-name: sheet-flip; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-flip { from { opacity: 0; transform: perspective(1200px) rotateY(60deg) scale(0.96); } to { opacity: 1; transform: none; } }
-.sheet-anim-flip-x { animation-name: sheet-flip-x; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-flip-x { from { opacity: 0; transform: perspective(1200px) rotateX(55deg) scale(0.96); } to { opacity: 1; transform: none; } }
-.sheet-anim-cube { animation-name: sheet-cube; animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); animation-fill-mode: both; animation-duration: 0.5s; }
+.sheet-anim-slide-left { animation: sheet-slide-left var(--sheet-anim-secs, 0.65s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-slide-left { from { opacity: 0; transform: translateX(9%); } to { opacity: 1; transform: none; } }
+.sheet-anim-slide-right { animation: sheet-slide-right var(--sheet-anim-secs, 0.65s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-slide-right { from { opacity: 0; transform: translateX(-9%); } to { opacity: 1; transform: none; } }
+.sheet-anim-slide-up { animation: sheet-slide-up var(--sheet-anim-secs, 0.65s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-slide-up { from { opacity: 0; transform: translateY(9%); } to { opacity: 1; transform: none; } }
+.sheet-anim-drop { animation: sheet-drop var(--sheet-anim-secs, 0.65s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-drop { from { opacity: 0; transform: translateY(-9%); } to { opacity: 1; transform: none; } }
+.sheet-anim-zoom { animation: sheet-zoom var(--sheet-anim-secs, 0.6s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-zoom { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+.sheet-anim-zoom-out { animation: sheet-zoom-out var(--sheet-anim-secs, 0.65s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-zoom-out { from { opacity: 0; transform: scale(1.18); } to { opacity: 1; transform: none; } }
+.sheet-anim-flip { animation: sheet-flip var(--sheet-anim-secs, 0.7s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-flip { from { opacity: 0; transform: perspective(1200px) rotateY(55deg); } to { opacity: 1; transform: none; } }
+.sheet-anim-flip-up { animation: sheet-flip-up var(--sheet-anim-secs, 0.75s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-flip-up { from { opacity: 0; transform: perspective(1200px) rotateX(70deg); transform-origin: top center; } to { opacity: 1; transform: none; } }
+.sheet-anim-cube { animation: sheet-cube var(--sheet-anim-secs, 0.85s) cubic-bezier(0.16, 1, 0.3, 1) both; }
 @keyframes sheet-cube {
-  from { opacity: 0; transform: perspective(1200px) rotateY(-48deg) scale(0.94); }
+  from { opacity: 0; transform: perspective(1400px) translateZ(-80px) rotateY(-72deg); }
   to { opacity: 1; transform: none; }
 }
-.sheet-anim-rotate { animation-name: sheet-rotate; animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1); animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-rotate { from { opacity: 0; transform: rotate(-8deg) scale(0.92); } to { opacity: 1; transform: none; } }
-.sheet-anim-bounce { animation-name: sheet-bounce; animation-timing-function: cubic-bezier(0.34, 1.4, 0.64, 1); animation-fill-mode: both; animation-duration: 0.55s; }
-@keyframes sheet-bounce { from { opacity: 0; transform: translateY(12%) scale(0.94); } to { opacity: 1; transform: none; } }
-.sheet-anim-wipe { animation-name: sheet-wipe; animation-timing-function: ease; animation-fill-mode: both; animation-duration: 0.45s; }
+.sheet-anim-spin-in { animation: sheet-spin-in var(--sheet-anim-secs, 0.7s) cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes sheet-spin-in { from { opacity: 0; transform: rotate(-28deg) scale(0.88); } to { opacity: 1; transform: none; } }
+.sheet-anim-bounce-in { animation: sheet-bounce-in var(--sheet-anim-secs, 0.75s) cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@keyframes sheet-bounce-in { from { opacity: 0; transform: translateY(14%) scale(0.92); } to { opacity: 1; transform: none; } }
+.sheet-anim-wipe { animation: sheet-wipe var(--sheet-anim-secs, 0.7s) ease both; }
 @keyframes sheet-wipe {
   from { opacity: 0; clip-path: inset(0 100% 0 0); }
   to { opacity: 1; clip-path: inset(0 0 0 0); }
 }
-.sheet-anim-blur { animation-name: sheet-blur; animation-timing-function: ease; animation-fill-mode: both; animation-duration: 0.45s; }
-@keyframes sheet-blur { from { opacity: 0; filter: blur(14px); } to { opacity: 1; filter: blur(0); } }
-.sheet-anim-snap { animation-name: sheet-snap; animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1); animation-fill-mode: both; animation-duration: 0.28s; }
-@keyframes sheet-snap { from { opacity: 0; transform: scale(0.82) translateY(4%); } to { opacity: 1; transform: none; } }
+.sheet-anim-blur { animation: sheet-blur var(--sheet-anim-secs, 0.7s) ease both; }
+@keyframes sheet-blur { from { opacity: 0; filter: blur(16px); } to { opacity: 1; filter: blur(0); } }
+.sheet-anim-snap { animation: sheet-snap var(--sheet-anim-secs, 0.45s) cubic-bezier(0.2, 0.9, 0.3, 1.2) both; }
+@keyframes sheet-snap { from { opacity: 0; transform: scale(0.72); } to { opacity: 1; transform: none; } }
 
 @keyframes rates-sheet-in {
   from { opacity: 0; }

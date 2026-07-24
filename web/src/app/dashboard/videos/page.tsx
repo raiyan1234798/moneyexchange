@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Cloud, Link2, Pencil, Share2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Cloud, Link2, Pencil, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
@@ -21,7 +21,6 @@ import { UploadAccessPanel, UploadPasswordDialog, useUploadAccess } from "@/comp
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -62,7 +61,6 @@ import {
 import {
   duplicateStorageVideoToBranch,
   getActiveBranchTargets,
-  pushBranchMediaToAllBranches,
   syncExternalVideoToBranches,
   syncImageUrlToBranches,
 } from "@/lib/services/branch-sync";
@@ -131,9 +129,8 @@ export default function VideosPage() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [applyToAll, setApplyToAll] = useState(false);
-  // Admin: push this branch's already-uploaded playlist to every other branch.
-  const [pushReplaceExisting, setPushReplaceExisting] = useState(true);
-  const [pushingPlaylist, setPushingPlaylist] = useState(false);
+  const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([effectiveBranchId]);
   // TOTAL storage across ALL branches (R2's 10 GB free tier is shared), summed
   // server-side so we never download every doc. Null until the first load.
   const [totalStorageBytes, setTotalStorageBytes] = useState<number | null>(null);
@@ -170,11 +167,7 @@ export default function VideosPage() {
   }, []);
 
   useEffect(() => {
-    // Defer so we don't setState synchronously inside the effect body (lint).
-    const id = window.setTimeout(() => {
-      void refreshTotalStorage();
-    }, 0);
-    return () => window.clearTimeout(id);
+    void refreshTotalStorage();
   }, [refreshTotalStorage, videos, images]);
 
   // Prefer the REAL bucket total (live from Cloudflare) over the Firestore sum.
@@ -854,52 +847,6 @@ export default function VideosPage() {
     await reorderImagesList(ordered);
   }
 
-  async function handlePushPlaylistToAll() {
-    if (!actor || !effectiveBranchId || !canApplyToAll) {
-      toast.error("Only admins can copy a playlist to all branches");
-      return;
-    }
-    const copyableVideos = videos.filter(
-      (v) => v.status === "active" && v.sourceType !== "chunked" && Boolean(v.downloadUrl?.trim()),
-    );
-    const copyableImages = images.filter(
-      (img) => img.status === "active" && Boolean(img.downloadUrl?.trim()),
-    );
-    if (copyableVideos.length + copyableImages.length === 0) {
-      toast.error("This branch has no copyable images or videos yet");
-      return;
-    }
-
-    setPushingPlaylist(true);
-    try {
-      const result = await pushBranchMediaToAllBranches(
-        branches,
-        effectiveBranchId,
-        videos,
-        images,
-        actor,
-        { replaceExisting: pushReplaceExisting },
-      );
-      if (result.targetCount === 0) {
-        toast.error("No other active branches to update");
-        return;
-      }
-      const parts = [
-        `Updated ${result.targetCount} branch${result.targetCount === 1 ? "" : "es"}`,
-        `${result.videosCopied} video copy(ies)`,
-        `${result.imagesCopied} image copy(ies)`,
-      ];
-      if (result.videosSkipped > 0) {
-        parts.push(`${result.videosSkipped} chunked video(s) skipped (branch-only)`);
-      }
-      toast.success(parts.join(" · "));
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not copy playlist to all branches");
-    } finally {
-      setPushingPlaylist(false);
-    }
-  }
-
   // Media module: admins by default; other users only when granted the
   // "Media Manager" module in Users.
   if (!isSuperAdmin && !isAdmin && !hasModule("media")) {
@@ -1050,9 +997,16 @@ export default function VideosPage() {
           <ContentPanel title="Add Video" description="Pick the easiest option — pasting a link is usually fastest">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
-                checked={applyToAll}
-                onChange={setApplyToAll}
-                branchCount={branches.filter((b) => b.status === "active").length}
+                id="video-apply-all"
+                scope={targetScope}
+                selectedBranchIds={selectedBranchIds}
+                branches={branches}
+                currentBranchId={effectiveBranchId}
+                onScopeChange={(sel) => {
+                  setTargetScope(sel.scope);
+                  setSelectedBranchIds(sel.selectedBranchIds);
+                  setApplyToAll(sel.scope === "all");
+                }}
                 className="mb-4"
               />
             ) : null}
@@ -1350,9 +1304,16 @@ export default function VideosPage() {
           <ContentPanel title="Image Adverts" description="Images play in the TV play order together with the videos — arrange them in the panel above">
             {canApplyToAll ? (
               <ApplyToAllCheckbox
-                checked={applyToAll}
-                onChange={setApplyToAll}
-                branchCount={branches.filter((b) => b.status === "active").length}
+                id="image-advert-apply-all"
+                scope={targetScope}
+                selectedBranchIds={selectedBranchIds}
+                branches={branches}
+                currentBranchId={effectiveBranchId}
+                onScopeChange={(sel) => {
+                  setTargetScope(sel.scope);
+                  setSelectedBranchIds(sel.selectedBranchIds);
+                  setApplyToAll(sel.scope === "all");
+                }}
                 className="mb-4"
               />
             ) : null}
@@ -1446,92 +1407,6 @@ export default function VideosPage() {
                 </Button>
               </TabsContent>
             </Tabs>
-          </ContentPanel>
-        ) : null}
-
-        {canApplyToAll && effectiveBranchId && videos.length + images.length > 0 ? (
-          <ContentPanel
-            title="Copy this playlist to every branch"
-            description="Finished uploading on one branch? Push the same videos and images to the others in one click."
-          >
-            <div className="space-y-4">
-              <ol className="grid gap-2 text-sm sm:grid-cols-3">
-                <li className="rounded-xl border border-border/40 bg-muted/20 p-3">
-                  <span className="font-semibold text-foreground">1. Check this branch</span>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {videos.filter((v) => v.status === "active" && v.sourceType !== "chunked").length} video(s) ·{" "}
-                    {images.filter((img) => img.status === "active").length} image(s) ready
-                  </p>
-                </li>
-                <li className="rounded-xl border border-border/40 bg-muted/20 p-3">
-                  <span className="font-semibold text-foreground">2. Choose replace or add</span>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Replace = other branches match this one. Add = keep their old media too.
-                  </p>
-                </li>
-                <li className="rounded-xl border border-border/40 bg-muted/20 p-3">
-                  <span className="font-semibold text-foreground">3. Confirm</span>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Updates{" "}
-                    {branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId).length} other
-                    active branch(es). Rate-card promotions are separate (Settings → Save).
-                  </p>
-                </li>
-              </ol>
-              <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
-                <Checkbox
-                  id="push-replace-existing"
-                  checked={pushReplaceExisting}
-                  onCheckedChange={(value) => setPushReplaceExisting(value === true)}
-                />
-                <div className="space-y-0.5">
-                  <Label htmlFor="push-replace-existing" className="cursor-pointer text-sm font-medium">
-                    Replace media on other branches
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Recommended when every TV should play the same playlist.
-                  </p>
-                </div>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger
-                  render={
-                    <Button className="rounded-xl" disabled={pushingPlaylist || !actor}>
-                      <Share2 className="mr-2 h-4 w-4" />
-                      {pushingPlaylist
-                        ? "Copying to all branches…"
-                        : pushReplaceExisting
-                          ? "Replace media on all branches"
-                          : "Add this media to all branches"}
-                    </Button>
-                  }
-                />
-                <AlertDialogContent className="rounded-2xl sm:max-w-md">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {pushReplaceExisting
-                        ? "Replace media on all branches?"
-                        : "Add this media to all branches?"}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {pushReplaceExisting
-                        ? `This copies the current Media Manager playlist from “${branch?.name ?? "this branch"}” to every other active branch, and removes their current videos/images first.`
-                        : `This adds the current Media Manager playlist from “${branch?.name ?? "this branch"}” onto every other active branch, keeping their existing media.`}{" "}
-                      Rate-card promotions are not changed.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="rounded-xl"
-                      onClick={() => void handlePushPlaylistToAll()}
-                    >
-                      {pushReplaceExisting ? "Replace on all branches" : "Add to all branches"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
           </ContentPanel>
         ) : null}
 

@@ -139,6 +139,7 @@ export default function ExchangeRatesPage() {
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [importPreview, setImportPreview] = useState<RateImportRow[] | null>(null);
+  const [importMode, setImportMode] = useState<"forex" | "transfer" | "all-in-one">("forex");
   const [dragOver, setDragOver] = useState(false);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
   const { notice: loadNotice, onError, clearNotice } = useFirestoreNotice("exchange rates");
@@ -150,6 +151,8 @@ export default function ExchangeRatesPage() {
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canCreateCatalog = hasPermission("manageCurrencies");
+  // Admins always can; branch staff need the opt-in "Add new currencies" module.
+  const canAddNewCurrencies = isSuperAdmin || isAdmin || hasModule("addBranchCurrencies");
   // For the catalog's "On branches" column: every branch's rates (admins only).
   const [allRates, setAllRates] = useState<ExchangeRate[]>([]);
   const transferLocalLabel = branch?.settings?.transferLocalLabel?.trim() || "UGX";
@@ -264,7 +267,7 @@ export default function ExchangeRatesPage() {
   }, [effectiveBranchId, isBranchUser]);
 
   async function initRates() {
-    if (!user || !profile || !effectiveBranchId) return;
+    if (!user || !profile || !effectiveBranchId || !canAddNewCurrencies) return;
     setLoadingInit(true);
     try {
       await initializeBranchRates(effectiveBranchId, currencies, {
@@ -352,7 +355,7 @@ export default function ExchangeRatesPage() {
   }
 
   async function handleAddCurrency(currency: Currency) {
-    if (!user || !profile || !effectiveBranchId) return;
+    if (!user || !profile || !effectiveBranchId || !canAddNewCurrencies) return;
     try {
       await addBranchRate(effectiveBranchId, currency, {
         userId: user.uid,
@@ -369,7 +372,8 @@ export default function ExchangeRatesPage() {
 
   async function handleCreateCurrency() {
     const code = currencyForm.currencyCode.trim().toUpperCase();
-    if (!user || !profile || !effectiveBranchId || !isValidCurrencyCode(code) || !currencyForm.currencyName.trim()) {
+    if (!user || !profile || !effectiveBranchId || !canAddNewCurrencies) return;
+    if (!isValidCurrencyCode(code) || !currencyForm.currencyName.trim()) {
       if (!isValidCurrencyCode(code)) {
         toast.error("Currency code must be exactly 3 letters (e.g. USD, CAD)");
       }
@@ -423,7 +427,7 @@ export default function ExchangeRatesPage() {
             userName: profile.displayName || profile.email,
             branchName: branch?.name || effectiveBranchId,
           },
-          { autoCreateCurrencies: false, requireApproval, actorRole: profile.role },
+          { autoCreateCurrencies: false, requireApproval, actorRole: profile.role, allowCreateRates: true },
         );
         await publishCentralTransfer();
         toast.success(`${code} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`);
@@ -616,9 +620,10 @@ export default function ExchangeRatesPage() {
     }
   }
 
-  async function handleBulkUpload(file: File) {
+  async function handleBulkUpload(file: File, mode: "forex" | "transfer" | "all-in-one" = "forex") {
     if (!user || !profile || !effectiveBranchId) return;
     setUploading(true);
+    setImportMode(mode);
     try {
       // Nothing is published yet — the parsed rows go to a review table where
       // the user can edit or remove lines before publishing. Photos of a rate
@@ -649,31 +654,30 @@ export default function ExchangeRatesPage() {
     for (const row of importPreview) {
       const hasForex = row.buyRate > 0 && row.sellRate > 0;
       const hasTransfer = (row.transferUsd ?? 0) > 0 || (row.transferLocal ?? 0) > 0;
-      // Allow transfer-only rows (buy/sell blank) — they update only the transfer card.
-      if (!hasForex && !hasTransfer) {
-        toast.error(`Enter We Buy / We Sell, or a transfer rate — check ${row.currencyCode}`);
+      if (importMode === "forex" && !hasForex && !hasTransfer) {
+        toast.error(`Enter We Buy / We Sell for ${row.currencyCode}`);
         return;
       }
-      if ((row.buyRate > 0) !== (row.sellRate > 0)) {
-        toast.error(`Enter BOTH We Buy and We Sell (or leave both blank) — check ${row.currencyCode}`);
+      if (importMode === "transfer" && !hasTransfer) {
+        toast.error(`Enter a transfer rate for ${row.currencyCode}`);
+        return;
+      }
+      if (importMode === "all-in-one" && !hasForex && !hasTransfer) {
+        toast.error(`Enter We Buy / We Sell or a transfer rate for ${row.currencyCode}`);
         return;
       }
     }
     setUploading(true);
     try {
       const rows = importPreview;
-      // FOREX rows go to THIS branch. TRANSFER values are CENTRALIZED (head
-      // office, same for all branches): admins publish them to the shared set;
-      // branch staff imports simply skip them.
-      let forexRows = rows.filter((r) => r.buyRate > 0 && r.sellRate > 0);
-      const transferRows = rows.filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0);
+      let forexRows = importMode === "transfer" ? [] : rows.filter((r) => r.buyRate > 0 && r.sellRate > 0);
+      const transferRows = importMode === "forex" ? [] : rows.filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0);
       const canEditCentralTransfer = isSuperAdmin || isAdmin;
 
-      // Branch users can ONLY update currencies the admin has already added to
-      // this branch — they may never introduce brand-new currencies via an
-      // upload (per client). Any code not already on the branch is rejected
-      // (not saved) and named back to them; the known ones still publish.
-      if (isBranchUser) {
+      // Staff without "Add new currencies" may ONLY update codes already on
+      // this branch — they may never introduce brand-new currencies via upload.
+      // Unknown codes are rejected (not saved) and named back; known ones still publish.
+      if (!canAddNewCurrencies) {
         const known = new Set(rates.map((r) => r.currencyCode.toUpperCase()));
         const rejected = [
           ...new Set(
@@ -684,13 +688,13 @@ export default function ExchangeRatesPage() {
         ];
         if (rejected.length > 0) {
           toast.error(
-            `Not added — ${rejected.join(", ")} ${rejected.length === 1 ? "is" : "are"} not set up on this branch. Only currencies your admin has added can be updated; ask your admin to add ${rejected.length === 1 ? "it" : "them"} first.`,
+            `Not added — ${rejected.join(", ")} ${rejected.length === 1 ? "is" : "are"} not set up on this branch. Only currencies already on this branch can be updated; ask an admin to add ${rejected.length === 1 ? "it" : "them"} or grant Add new currencies.`,
             { duration: 11000 },
           );
         }
         forexRows = forexRows.filter((r) => known.has(r.currencyCode.toUpperCase()));
         if (forexRows.length === 0) {
-          // Nothing a branch user is allowed to publish (transfer is admin-only).
+          // Nothing this user is allowed to publish (transfer is admin-only here).
           setUploading(false);
           setImportPreview(null);
           return;
@@ -731,6 +735,7 @@ export default function ExchangeRatesPage() {
               autoCreateCurrencies: canCreateCatalog,
               requireApproval,
               actorRole: profile.role,
+              allowCreateRates: canAddNewCurrencies,
             },
           );
           result.processed += r.processed;
@@ -770,7 +775,7 @@ export default function ExchangeRatesPage() {
       }
       if (result.skippedNeedApproval > 0) {
         toast.warning(
-          `${result.skippedNeedApproval} new currenc${result.skippedNeedApproval === 1 ? "y" : "ies"} skipped — ask your branch manager to add new currencies.`,
+          `${result.skippedNeedApproval} new currenc${result.skippedNeedApproval === 1 ? "y" : "ies"} skipped — ask an admin to add them or grant Add new currencies.`,
           { duration: 9000 },
         );
       }
@@ -798,14 +803,14 @@ export default function ExchangeRatesPage() {
     }
   }
 
-  // What the publish confirm pop-up will actually publish. Branch users can
-  // only UPDATE currencies already on their branch — new codes are rejected
-  // (shown in the pop-up) and never added.
+  // What the publish confirm pop-up will actually publish. Users without
+  // "Add new currencies" can only UPDATE codes already on their branch —
+  // new codes are rejected (shown in the pop-up) and never added.
   const knownBranchCodes = new Set(rates.map((r) => r.currencyCode.toUpperCase()));
   const importAllowedRows = (importPreview ?? []).filter(
-    (r) => !isBranchUser || knownBranchCodes.has(r.currencyCode.toUpperCase()),
+    (r) => canAddNewCurrencies || knownBranchCodes.has(r.currencyCode.toUpperCase()),
   );
-  const importRejectedCodes = isBranchUser
+  const importRejectedCodes = !canAddNewCurrencies
     ? [
         ...new Set(
           (importPreview ?? [])
@@ -868,7 +873,7 @@ export default function ExchangeRatesPage() {
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) void handleBulkUpload(file);
+                    if (file) void handleBulkUpload(file, "forex");
                   }}
                 />
                 <button
@@ -884,20 +889,20 @@ export default function ExchangeRatesPage() {
                     e.preventDefault();
                     setDragOver(false);
                     const file = e.dataTransfer.files?.[0];
-                    if (file) void handleBulkUpload(file);
+                    if (file) void handleBulkUpload(file, "forex");
                   }}
-                  className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                  className={`flex min-h-[110px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-5 text-center transition-colors ${
                     dragOver
                       ? "border-primary bg-primary/10"
                       : "border-border bg-background/60 hover:border-primary/60 hover:bg-primary/5"
                   } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
                 >
-                  <Upload className="h-8 w-8 text-primary" />
-                  <span className="text-sm font-medium">
-                    {uploading ? "Working… photos take up to a minute — please wait" : "Drop Excel file OR a photo of your rate board"}
+                  <Upload className="h-7 w-7 text-primary" />
+                  <span className="text-sm font-semibold">
+                    {uploading ? "Reading file..." : "Upload Forex Rates (Buy & Sell)"}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    .xlsx, .xls, .csv — or a .jpg/.png photo (AI reads the rates)
+                    Excel (.xlsx, .csv) or Photo — shows Forex Buy/Sell rates only
                   </span>
                 </button>
               </div>
@@ -905,8 +910,8 @@ export default function ExchangeRatesPage() {
           </div>
         ) : null}
 
-        {/* Pop-up card (same style as the Money Transfer upload): review, EDIT,
-            choose scope and publish — all in one place. */}
+        {/* Pop-up card (Forex Rate Upload Review): review, EDIT,
+            choose branch scope and publish — all in one place. */}
         {importPreview ? (
           <Dialog
             open
@@ -916,43 +921,90 @@ export default function ExchangeRatesPage() {
           >
             <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl sm:max-w-4xl">
               <DialogHeader>
-                <DialogTitle>Foreign Exchange Rate — review &amp; publish</DialogTitle>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-3">
+                  <DialogTitle>
+                    {importMode === "forex"
+                      ? "Foreign Exchange Rates — review & publish"
+                      : importMode === "transfer"
+                        ? "Money Transfer Rates — review & publish"
+                        : "All-in-One Exchange & Transfer Rates — review & publish"}
+                  </DialogTitle>
+                  <div className="flex items-center gap-1 rounded-xl border border-border/50 bg-muted/40 p-1 text-xs shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setImportMode("forex")}
+                      className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${
+                        importMode === "forex"
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      💱 Forex Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportMode("transfer")}
+                      className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${
+                        importMode === "transfer"
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      💸 Transfer Only
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImportMode("all-in-one")}
+                      className={`rounded-lg px-2.5 py-1 font-semibold transition-colors ${
+                        importMode === "all-in-one"
+                          ? "bg-primary text-primary-foreground shadow-sm"
+                          : "text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      📊 All-in-One
+                    </button>
+                  </div>
+                </div>
               </DialogHeader>
               <p className="text-sm text-muted-foreground">
-                Nothing is live yet — edit or remove rows below; the rates go LIVE on the TV
-                immediately after you publish.
-                {isSuperAdmin || isAdmin
-                  ? " Transfer-rate columns always apply to every branch (centralized)."
+                Nothing is live yet — edit or remove rows below; rates go LIVE on the TV immediately after you publish.
+                {importMode === "forex"
+                  ? " Displaying Forex Buy & Sell rates only."
+                  : importMode === "transfer"
+                    ? " Displaying Money Transfer rates only."
+                    : " Displaying All-in-One rates (Forex + Transfer)."}
+                {canAddNewCurrencies
+                  ? " New currencies in the file will be added to the selected branch."
                   : " You can update existing currencies only — an upload never adds new currencies to your branch."}
               </p>
             <div className="space-y-2">
-              {/* Column headers so you can tell which box is which while editing. */}
+              {/* Dynamic column headers based on importMode */}
               <div
                 className={`hidden gap-2 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground sm:grid ${
-                  isSuperAdmin || isAdmin
-                    ? "sm:grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_auto]"
-                    : "sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                  importMode === "forex"
+                    ? "sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                    : importMode === "transfer"
+                      ? "sm:grid-cols-[110px_1fr_1fr_auto]"
+                      : "sm:grid-cols-[100px_1fr_1fr_1fr_1fr_1fr_auto]"
                 }`}
               >
                 <span>Currency</span>
-                <span>Name on TV</span>
-                <span>We Buy</span>
-                <span>We Sell</span>
-                {isSuperAdmin || isAdmin ? (
-                  <>
-                    <span>Transfer USD</span>
-                    <span>Transfer ({transferLocalLabel})</span>
-                  </>
-                ) : null}
+                {importMode !== "transfer" ? <span>Name on TV</span> : null}
+                {importMode !== "transfer" ? <span>We Buy</span> : null}
+                {importMode !== "transfer" ? <span>We Sell</span> : null}
+                {importMode !== "forex" ? <span>Transfer USD</span> : null}
+                {importMode !== "forex" ? <span>Transfer ({transferLocalLabel})</span> : null}
                 <span className="text-right">Remove</span>
               </div>
               {importPreview.map((row, index) => (
                 <div
                   key={`${row.currencyCode}-${index}`}
                   className={`grid grid-cols-2 items-center gap-2 rounded-xl border border-border/40 bg-muted/10 p-3 ${
-                    isSuperAdmin || isAdmin
-                      ? "sm:grid-cols-[110px_1fr_1fr_1fr_1fr_1fr_auto]"
-                      : "sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                    importMode === "forex"
+                      ? "sm:grid-cols-[110px_1fr_1fr_1fr_auto]"
+                      : importMode === "transfer"
+                        ? "sm:grid-cols-[110px_1fr_1fr_auto]"
+                        : "sm:grid-cols-[100px_1fr_1fr_1fr_1fr_1fr_auto]"
                   }`}
                 >
                   {(() => {
@@ -988,87 +1040,94 @@ export default function ExchangeRatesPage() {
                                   : prev,
                               )
                             }
-                            className="h-7 w-[110px] rounded-md text-center"
+                            className="h-7 w-[100px] rounded-md text-center"
                           />
                         ) : null}
                       </span>
                     );
                   })()}
-                  <Input
-                    value={row.displayName}
-                    aria-label="Name shown on TV"
-                    placeholder="Name on TV"
-                    onChange={(e) =>
-                      setImportPreview((prev) =>
-                        prev ? prev.map((r, i) => (i === index ? { ...r, displayName: e.target.value } : r)) : prev,
-                      )
-                    }
-                    className="rounded-lg"
-                  />
-                  <Input
-                    type="number"
-                    value={Number.isFinite(row.buyRate) ? row.buyRate : ""}
-                    aria-label="We buy"
-                    placeholder="We buy"
-                    onChange={(e) =>
-                      setImportPreview((prev) =>
-                        prev ? prev.map((r, i) => (i === index ? { ...r, buyRate: Number(e.target.value) } : r)) : prev,
-                      )
-                    }
-                    className="rounded-lg tabular-nums"
-                  />
-                  <Input
-                    type="number"
-                    value={Number.isFinite(row.sellRate) ? row.sellRate : ""}
-                    aria-label="We sell"
-                    placeholder="We sell"
-                    onChange={(e) =>
-                      setImportPreview((prev) =>
-                        prev ? prev.map((r, i) => (i === index ? { ...r, sellRate: Number(e.target.value) } : r)) : prev,
-                      )
-                    }
-                    className="rounded-lg tabular-nums"
-                  />
-                  {/* Transfer values are centralized (all branches) — admin-only. */}
-                  {isSuperAdmin || isAdmin ? (
-                    <>
-                      <Input
-                        type="number"
-                        value={row.transferUsd ?? ""}
-                        aria-label="Transfer rate in USD — all branches (optional)"
-                        placeholder="$ transfer"
-                        onChange={(e) =>
-                          setImportPreview((prev) =>
-                            prev
-                              ? prev.map((r, i) =>
-                                  i === index
-                                    ? { ...r, transferUsd: e.target.value === "" ? null : Number(e.target.value) }
-                                    : r,
-                                )
-                              : prev,
-                          )
-                        }
-                        className="rounded-lg tabular-nums"
-                      />
-                      <Input
-                        type="number"
-                        value={row.transferLocal ?? ""}
-                        aria-label="Transfer rate in local currency — all branches (optional)"
-                        placeholder="UGX transfer"
-                        onChange={(e) =>
-                          setImportPreview((prev) =>
-                            prev
-                              ? prev.map((r, i) =>
-                                  i === index
-                                    ? { ...r, transferLocal: e.target.value === "" ? null : Number(e.target.value) }
-                                    : r,
-                                )
-                              : prev,
-                          )
-                        }
-                        className="rounded-lg tabular-nums"
-                      />
-                    </>
+                  {importMode !== "transfer" ? (
+                    <Input
+                      value={row.displayName}
+                      aria-label="Name shown on TV"
+                      placeholder="Name on TV"
+                      onChange={(e) =>
+                        setImportPreview((prev) =>
+                          prev ? prev.map((r, i) => (i === index ? { ...r, displayName: e.target.value } : r)) : prev,
+                        )
+                      }
+                      className="rounded-lg"
+                    />
+                  ) : null}
+                  {importMode !== "transfer" ? (
+                    <Input
+                      type="number"
+                      value={Number.isFinite(row.buyRate) ? row.buyRate : ""}
+                      aria-label="We buy"
+                      placeholder="We buy"
+                      onChange={(e) =>
+                        setImportPreview((prev) =>
+                          prev ? prev.map((r, i) => (i === index ? { ...r, buyRate: Number(e.target.value) } : r)) : prev,
+                        )
+                      }
+                      className="rounded-lg tabular-nums"
+                    />
+                  ) : null}
+                  {importMode !== "transfer" ? (
+                    <Input
+                      type="number"
+                      value={Number.isFinite(row.sellRate) ? row.sellRate : ""}
+                      aria-label="We sell"
+                      placeholder="We sell"
+                      onChange={(e) =>
+                        setImportPreview((prev) =>
+                          prev ? prev.map((r, i) => (i === index ? { ...r, sellRate: Number(e.target.value) } : r)) : prev,
+                        )
+                      }
+                      className="rounded-lg tabular-nums"
+                    />
+                  ) : null}
+                  {importMode !== "forex" ? (
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={row.transferUsd ?? ""}
+                      aria-label="Transfer USD"
+                      placeholder="Transfer USD"
+                      onChange={(e) =>
+                        setImportPreview((prev) =>
+                          prev
+                            ? prev.map((r, i) =>
+                                i === index
+                                  ? { ...r, transferUsd: e.target.value === "" ? null : Number(e.target.value) }
+                                  : r,
+                              )
+                            : prev,
+                        )
+                      }
+                      className="rounded-lg tabular-nums"
+                    />
+                  ) : null}
+                  {importMode !== "forex" ? (
+                    <Input
+                      type="number"
+                      step="0.0001"
+                      value={row.transferLocal ?? ""}
+                      aria-label={`Transfer ${transferLocalLabel}`}
+                      placeholder={`Transfer ${transferLocalLabel}`}
+                      onChange={(e) =>
+                        setImportPreview((prev) =>
+                          prev
+                            ? prev.map((r, i) =>
+                                i === index
+                                  ? { ...r, transferLocal: e.target.value === "" ? null : Number(e.target.value) }
+                                  : r,
+                              )
+                            : prev,
+                        )
+                      }
+                      className="rounded-lg tabular-nums"
+                    />
                   ) : null}
                   <Button
                     variant="outline"
@@ -1084,22 +1143,21 @@ export default function ExchangeRatesPage() {
               ))}
             </div>
 
-            {/* Branch users: currencies not on the branch are named and NEVER added. */}
+            {/* Users without add permission: currencies not on the branch are named and NEVER added. */}
             {importRejectedCodes.length > 0 ? (
               <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
                 <p className="font-semibold text-amber-600 dark:text-amber-400">
                   Not on your branch — will NOT be published: {importRejectedCodes.join(", ")}
                 </p>
                 <p className="mt-1 text-muted-foreground">
-                  You can only edit or update the currencies your admin has added. Ask your
-                  admin to add new currencies first.
+                  You can only edit or update currencies already on this branch. Ask an admin to
+                  add new ones, or grant you the &quot;Add new currencies&quot; permission.
                 </p>
               </div>
             ) : null}
 
-            {/* OPTIONAL all-branches checkbox — admins and users granted the
-                "Forex rates — ALL branches" module. Unchecked (default)
-                publishes to the selected branch only. */}
+            {/* OPTIONAL branch target selector — admins and users granted the
+                "Forex rates — ALL branches" module. */}
             {isSuperAdmin || isAdmin || hasModule("forexRatesAllBranches") ? (
               <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
                 <Checkbox
@@ -1235,7 +1293,7 @@ export default function ExchangeRatesPage() {
           </ContentPanel>
         ) : null}
 
-        {canManageRates && !isBranchUser && effectiveBranchId ? (
+        {canManageRates && canAddNewCurrencies && effectiveBranchId ? (
           <ContentPanel
             title="Add New Currency"
             description="Two ways: create one manually here, or upload the Excel file above and review before publishing"
@@ -1253,7 +1311,7 @@ export default function ExchangeRatesPage() {
           </ContentPanel>
         ) : null}
 
-        {canManageRates && !isBranchUser && effectiveBranchId ? (
+        {canManageRates && canAddNewCurrencies && effectiveBranchId ? (
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogContent className="rounded-2xl sm:max-w-md">
                   <DialogHeader>
@@ -1699,15 +1757,15 @@ export default function ExchangeRatesPage() {
           </DialogContent>
         </Dialog>
 
-        {canManageRates && !isBranchUser && rates.length === 0 && effectiveBranchId ? (
+        {canManageRates && canAddNewCurrencies && rates.length === 0 && effectiveBranchId ? (
           <Button onClick={() => void initRates()} disabled={loadingInit || currencies.length === 0} className="rounded-xl">
             <RefreshCw className={`mr-2 h-4 w-4 ${loadingInit ? "animate-spin" : ""}`} />
             Initialize rates from catalog
           </Button>
         ) : null}
 
-        {/* Adding currencies curates the branch list — not for branch users. */}
-        {canManageRates && !isBranchUser && effectiveBranchId ? (
+        {/* Adding currencies curates the branch list — requires add permission. */}
+        {canManageRates && canAddNewCurrencies && effectiveBranchId ? (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger
               render={
@@ -1760,8 +1818,12 @@ export default function ExchangeRatesPage() {
             title="No rates for this branch yet"
             description={
               currencies.length === 0
-                ? "Add currencies using New Currency above, then set buy/sell values and click Publish."
-                : "Upload your Excel file above, or click Initialize from catalog."
+                ? canAddNewCurrencies
+                  ? "Add currencies using New Currency above, then set buy/sell values and click Publish."
+                  : "Ask an admin to add currencies to this branch, then set buy/sell values and click Publish."
+                : canAddNewCurrencies
+                  ? "Upload your Excel file above, or click Initialize from catalog."
+                  : "Upload your Excel file above to update rates (existing currencies only)."
             }
           />
         ) : (

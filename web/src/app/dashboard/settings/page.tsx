@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
-import { ExternalLink, RefreshCw } from "lucide-react";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
+import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { ContentPanel, FormSection, PageShell, PageLoader } from "@/components/shared/page-elements";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
@@ -23,7 +23,19 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
 import { createDocument } from "@/lib/firebase/firestore";
-import { COLLECTIONS, DEFAULT_BRANCH_SETTINGS, DEFAULT_SYSTEM_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS, messageFontCss } from "@/lib/constants";
+import {
+  DisplayAnimationSelect,
+  SecondsPresetField,
+  SlideTransitionRow,
+} from "@/components/shared/animation-controls";
+import {
+  COLLECTIONS,
+  DEFAULT_SYSTEM_SETTINGS,
+  MESSAGE_FONTS,
+  RATE_ANIM_PAUSE_PRESETS,
+  RATE_ANIM_SPEED_PRESETS,
+  messageFontCss,
+} from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { checkPromoMediaFit } from "@/lib/promo-fit";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
@@ -40,13 +52,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
-import {
-  AdvancedDetails,
-  GettingStartedCard,
-  SettingsViewToggle,
-  StepLabel,
-  useSettingsViewMode,
-} from "@/components/dashboard/settings-ux";
 
 const SETTINGS_ID = "global";
 
@@ -57,14 +62,14 @@ const MAX_EXTRA_HEADER_LOGOS = 8;
 const EXTRA_HEADER_LOGOS_CHAR_BUDGET = 400_000;
 
 /** Jump-nav for the branch display settings — one chip per section below. */
-const SETTINGS_NAV: Array<{ id: string; label: string; advanced?: boolean }> = [
-  { id: "sec-logos", label: "Logos" },
+const SETTINGS_NAV: Array<{ id: string; label: string }> = [
+  { id: "sec-logos", label: "Logos & branding" },
   { id: "sec-font", label: "Font" },
-  { id: "sec-video", label: "Video" },
+  { id: "sec-video", label: "Video & sound" },
   { id: "sec-ratecard", label: "Rate card" },
-  { id: "sec-promo", label: "Promotions" },
-  { id: "sec-announcement", label: "Announcement", advanced: true },
-  { id: "sec-sizing", label: "Sizing", advanced: true },
+  { id: "sec-promo", label: "Promotion slide" },
+  { id: "sec-announcement", label: "Announcement" },
+  { id: "sec-sizing", label: "Sizing" },
 ];
 
 /** One titled, boxed settings section — keeps related controls together so the
@@ -144,16 +149,11 @@ function BranchSettingsForm({
   // plus whether to also copy the promotion images/videos to them.
   const [applyMode, setApplyMode] = useState<"this" | "all" | "some">("this");
   const [pickedBranchIds, setPickedBranchIds] = useState<string[]>([]);
-  const [includePromo, setIncludePromo] = useState(true);
+  const [includePromo, setIncludePromo] = useState(false);
   const [promoLinkInput, setPromoLinkInput] = useState("");
   // Find-an-option search: hides sections without a match and glows the
   // matching fields, so nobody has to hunt (or ask) where a setting lives.
   const [searchQuery, setSearchQuery] = useState("");
-  // Simple = everyday controls; All = every fine-tune option. Searching always
-  // reveals advanced sections so people can still find anything by word.
-  const [viewMode, setViewMode] = useSettingsViewMode();
-  const showAdvanced = viewMode === "all" || searchQuery.trim().length > 0;
-  const visibleNav = SETTINGS_NAV.filter((item) => showAdvanced || !item.advanced);
   useEffect(() => {
     const q = searchQuery.trim().toLowerCase();
     const sections = document.querySelectorAll<HTMLElement>('section[id^="sec-"]');
@@ -244,7 +244,7 @@ function BranchSettingsForm({
       {navSlot
         ? createPortal(
             <nav className="flex flex-wrap gap-1.5 rounded-2xl border border-border/40 bg-background/95 p-2 shadow-sm">
-              {visibleNav.map((item) => (
+              {SETTINGS_NAV.map((item) => (
                 <a
                   key={item.id}
                   href={`#${item.id}`}
@@ -259,47 +259,21 @@ function BranchSettingsForm({
         : null}
       {/* Type what you're looking for — in plain words — and only the matching
           sections stay, with the exact fields highlighted. */}
-      <div className="sticky top-2 z-30 space-y-2 rounded-2xl border border-primary/30 bg-background/95 p-2 shadow-sm backdrop-blur">
+      <div className="sticky top-2 z-30 rounded-2xl border border-primary/30 bg-background/95 p-2 shadow-sm backdrop-blur">
         <Input
           value={searchQuery}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Search… e.g. logo, sound, flip timer, font"
+          placeholder="🔍 Find a setting… e.g. logo size, sound, animation, font, hide rate card"
           className="rounded-xl"
         />
-        <p id="settings-search-empty" style={{ display: "none" }} className="px-1 text-xs text-muted-foreground">
-          Nothing found — try “logo”, “flip”, “sound”, “font”, or “promotion”.
+        <p id="settings-search-empty" style={{ display: "none" }} className="px-1 pt-2 text-xs text-muted-foreground">
+          Nothing found for this word — try another word like “logo”, “size”, “sound”, “animation”, “font”, “video”, “promotion”.
         </p>
       </div>
-
-      <GettingStartedCard
-        steps={[
-          {
-            label: "Pick the branch",
-            hint: "Use the branch selector above — each TV is separate.",
-          },
-          {
-            label: "Add logos & colours",
-            href: "#sec-logos",
-            hint: "Upload your brand logo for the rate card header.",
-          },
-          {
-            label: "Set promotions",
-            href: "#sec-promo",
-            hint: "Upload images/videos, then pick flip timer & animation.",
-          },
-          {
-            label: "Save",
-            hint: "Click Save Branch Settings — the live preview updates in seconds.",
-          },
-        ]}
-      />
-
-      <SettingsViewToggle mode={viewMode} onChange={setViewMode} />
-
       <nav
         className={`${navSlot ? "xl:hidden " : ""}sticky top-2 z-20 flex flex-wrap gap-1.5 rounded-2xl border border-border/40 bg-background/95 p-2 shadow-sm backdrop-blur`}
       >
-        {visibleNav.map((item) => (
+        {SETTINGS_NAV.map((item) => (
           <a
             key={item.id}
             href={`#${item.id}`}
@@ -636,28 +610,12 @@ function BranchSettingsForm({
       </div>
       <div className="space-y-2">
         <Label>Rate-card logo animation</Label>
-        <Select
+        <DisplayAnimationSelect
           value={settings.headerLogoAnimation ?? "none"}
-          onValueChange={(value) =>
-            setSettings({
-              ...settings,
-              headerLogoAnimation: (value ?? "none") as NonNullable<
-                BranchSettings["headerLogoAnimation"]
-              >,
-            })
+          onChange={(value) =>
+            setSettings({ ...settings, headerLogoAnimation: value ?? "none" })
           }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-                {DISPLAY_ANIMATIONS.map((a) => (
-                  <SelectItem key={a.key} value={a.key}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-        </Select>
+        />
         <p className="text-xs text-muted-foreground">
           Movement effect for the logo at the top of the rate card (unimoni or your uploaded logo).
         </p>
@@ -805,29 +763,21 @@ function BranchSettingsForm({
             visible). Increase this until everything fits — 3 to 5 works for most TVs. 0 = off.
           </p>
         </div>
-        <div className="space-y-2">
-          <Label>Image / video change animation</Label>
-          <Select
-            value={settings.videoImageTransition ?? "fade"}
-            onValueChange={(value) =>
-              setSettings({ ...settings, videoImageTransition: value ?? "fade" })
-            }
-          >
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SLIDE_TRANSITIONS.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            How the advert image/video enters when it changes in the video area.
-          </p>
-        </div>
+      </div>
+      <div className="mt-4">
+        <SlideTransitionRow
+          transitionValue={settings.videoImageTransition ?? "fade"}
+          onTransitionChange={(value) =>
+            setSettings({ ...settings, videoImageTransition: value })
+          }
+          durationValue={settings.slideTransitionSeconds ?? 0.6}
+          onDurationChange={(value) =>
+            setSettings({ ...settings, slideTransitionSeconds: value })
+          }
+          transitionLabel="Image / video change animation"
+          transitionHint="How the advert image/video enters when it changes in the video area. Same effect list as the rate card."
+          durationHint="Shared with the rate card — length of the flip/fade. Try 1.2s if cube/flip was invisible before."
+        />
       </div>
       </SettingsGroup>
 
@@ -884,258 +834,118 @@ function BranchSettingsForm({
           card returns — repeating. Needs &quot;visible for&quot; above to be set too.
         </p>
       </div>
-      <div className="space-y-2">
-        <Label>Slide change animation</Label>
-        <Select
-          value={settings.rateCardTransition ?? "fade"}
-          onValueChange={(value) => setSettings({ ...settings, rateCardTransition: value ?? "fade" })}
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SLIDE_TRANSITIONS.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground">
-          How forex, transfer and promotion pages enter when the card changes.
-        </p>
+      <div className="space-y-2 sm:col-span-2">
+        <SlideTransitionRow
+          transitionValue={settings.rateCardTransition ?? "fade"}
+          onTransitionChange={(value) => setSettings({ ...settings, rateCardTransition: value })}
+          durationValue={settings.slideTransitionSeconds ?? 0.6}
+          onDurationChange={(value) =>
+            setSettings({ ...settings, slideTransitionSeconds: value })
+          }
+          transitionLabel="Slide change animation"
+          transitionHint="How forex, transfer and promotion pages enter when the card changes. Same full list as Video & sound — including 3D flip / flip-up."
+        />
       </div>
-      </div>
-
-      <AdvancedDetails
-        title="Spin & movement effects (optional)"
-        description="Make numbers, flags or headings gently move. Leave these alone if you only want a clean static rate card."
-      >
-      <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
         <Label>Rate numbers movement (WE BUY / WE SELL)</Label>
-        <Select
+        <DisplayAnimationSelect
           value={settings.rateTextAnimation ?? "none"}
-          onValueChange={(value) =>
+          onChange={(value) =>
             setSettings({ ...settings, rateTextAnimation: value === "none" ? null : value })
           }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DISPLAY_ANIMATIONS.map((a) => (
-              <SelectItem key={a.key} value={a.key}>
-                {a.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <p className="text-xs text-muted-foreground">
-          Moves every rate NUMBER inside the table, all the time. Gentle pulse or Breathe read
-          best — strong effects can make numbers hard to read.
+          Moves every rate NUMBER inside the table, all the time. Includes Rotating flip (Y),
+          Flip (X), Rotate and 3D tilt — same list as promotion message animation.
         </p>
       </div>
       <div className="space-y-2">
         <Label>Currency letters movement (USD, EUR, GBP…)</Label>
-        <Select
+        <DisplayAnimationSelect
           value={settings.rateCurrencyAnimation ?? "none"}
-          onValueChange={(value) =>
+          onChange={(value) =>
             setSettings({ ...settings, rateCurrencyAnimation: value === "none" ? null : value })
           }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DISPLAY_ANIMATIONS.map((a) => (
-              <SelectItem key={a.key} value={a.key}>
-                {a.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <p className="text-xs text-muted-foreground">
-          Moves every currency CODE (the letters like USD, EUR) in the table. Try Flip or Rotate.
+          Moves every currency CODE (the letters like USD, EUR) in the table. Try Flip (X) or
+          Rotating flip (Y).
         </p>
       </div>
       <div className="space-y-2">
         <Label>Flags movement</Label>
-        <Select
+        <DisplayAnimationSelect
           value={settings.rateFlagAnimation ?? "none"}
-          onValueChange={(value) =>
+          onChange={(value) =>
             setSettings({ ...settings, rateFlagAnimation: value === "none" ? null : value })
           }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DISPLAY_ANIMATIONS.map((a) => (
-              <SelectItem key={a.key} value={a.key}>
-                {a.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <p className="text-xs text-muted-foreground">
-          Moves every country FLAG in the table. Flip and Rotate look great on the flags.
+          Moves every country FLAG in the table. Flip (X), Rotating flip (Y) and Rotate look
+          great on the flags.
         </p>
       </div>
       <div className="space-y-2">
         <Label>Card heading movement (EXCHANGE RATES / TRANSFER RATES)</Label>
-        <Select
+        <DisplayAnimationSelect
           value={settings.rateHeadingAnimation ?? "none"}
-          onValueChange={(value) =>
+          onChange={(value) =>
             setSettings({ ...settings, rateHeadingAnimation: value === "none" ? null : value })
           }
-        >
-          <SelectTrigger className="rounded-xl">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {DISPLAY_ANIMATIONS.map((a) => (
-              <SelectItem key={a.key} value={a.key}>
-                {a.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
         <p className="text-xs text-muted-foreground">
           Moves the card title — the &quot;EXCHANGE RATES&quot; and &quot;TRANSFER RATES&quot;
-          heading at the top of the rate card.
+          heading at the top of the rate card. Same flip options as message animation.
         </p>
       </div>
-      <div className="space-y-2">
-        <Label>Spin / flip speed (seconds per turn)</Label>
-        <Input
-          type="number"
-          min={1}
-          max={30}
-          step={1}
-          key={`anim-speed-${settings.rateAnimationSpeedSeconds ?? 3}`}
-          defaultValue={settings.rateAnimationSpeedSeconds ?? 3}
-          onBlur={(event) => {
-            const value = Math.max(1, Math.min(30, Number(event.target.value) || 3));
-            event.target.value = String(value);
-            setSettings({ ...settings, rateAnimationSpeedSeconds: value });
-          }}
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          How long ONE full spin or flip takes for the flags, currency letters and headings
-          above. Bigger number = slower, calmer movement. 3 is the default.
-        </p>
-      </div>
-      <div className="space-y-2">
-        <Label>Pause between spins (seconds)</Label>
-        <Input
-          type="number"
-          min={0}
-          max={30}
-          step={1}
-          key={`anim-pause-${settings.rateAnimationPauseSeconds ?? 1}`}
-          defaultValue={settings.rateAnimationPauseSeconds ?? 1}
-          onBlur={(event) => {
-            const value = Math.max(0, Math.min(30, Number(event.target.value) || 0));
-            event.target.value = String(value);
-            setSettings({ ...settings, rateAnimationPauseSeconds: value });
-          }}
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          The currencies, rates and flags STAND STILL this long between turns, so they stay
-          readable while each slide is on screen. 0 = keep turning non-stop. 1 is the default.
-        </p>
-      </div>
-      <div className="space-y-2">
-        <Label>TRANSFER card: spin speed (seconds per turn)</Label>
-        <Input
-          type="number"
-          min={1}
-          max={30}
-          step={1}
-          placeholder="Same as forex"
-          key={`tr-speed-${settings.rateAnimationSpeedSecondsTransfer ?? "same"}`}
-          defaultValue={settings.rateAnimationSpeedSecondsTransfer ?? ""}
-          onBlur={(event) => {
-            const raw = event.target.value.trim();
-            const value = raw === "" ? null : Math.max(1, Math.min(30, Number(raw) || 3));
-            event.target.value = value === null ? "" : String(value);
-            setSettings({ ...settings, rateAnimationSpeedSecondsTransfer: value });
-          }}
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          The TRANSFER RATES slide can turn at its own speed. Leave empty to match the
-          forex slides.
-        </p>
-      </div>
-      <div className="space-y-2">
-        <Label>TRANSFER card: pause between spins (seconds)</Label>
-        <Input
-          type="number"
-          min={0}
-          max={30}
-          step={1}
-          placeholder="Same as forex"
-          key={`tr-pause-${settings.rateAnimationPauseSecondsTransfer ?? "same"}`}
-          defaultValue={settings.rateAnimationPauseSecondsTransfer ?? ""}
-          onBlur={(event) => {
-            const raw = event.target.value.trim();
-            const value = raw === "" ? null : Math.max(0, Math.min(30, Number(raw) || 0));
-            event.target.value = value === null ? "" : String(value);
-            setSettings({ ...settings, rateAnimationPauseSecondsTransfer: value });
-          }}
-          className="rounded-xl"
-        />
-        <p className="text-xs text-muted-foreground">
-          Stand-still time between turns on the TRANSFER RATES slide only. Leave empty to
-          match the forex slides.
-        </p>
-      </div>
-      </div>
-      </AdvancedDetails>
-
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Show Foreign Exchange card on Display</Label>
-          <p className="text-xs text-muted-foreground">
-            The We Buy / We Sell forex card. Turn off to hide the whole forex card from the display.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showForexCard !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showForexCard: checked })}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <Label>Show Buy Rate on Display</Label>
-        <Switch
-          checked={settings.showBuyRate}
-          onCheckedChange={(checked) => setSettings({ ...settings, showBuyRate: checked })}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <Label>Show Sell Rate on Display</Label>
-        <Switch
-          checked={settings.showSellRate}
-          onCheckedChange={(checked) => setSettings({ ...settings, showSellRate: checked })}
-        />
-      </div>
-      <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
-        <div>
-          <Label>Separate TRANSFER card on Display</Label>
-          <p className="text-xs text-muted-foreground">
-            Rotates in its own &quot;TRANSFER EXCHANGE RATES&quot; card with two columns — USD and
-            the local currency — for currencies that have transfer rates set.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showTransferCard !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showTransferCard: checked })}
-        />
-      </div>
+      <SecondsPresetField
+        label="Spin / flip speed (seconds per turn)"
+        value={settings.rateAnimationSpeedSeconds ?? 3}
+        onChange={(value) =>
+          setSettings({ ...settings, rateAnimationSpeedSeconds: value ?? 3 })
+        }
+        presets={RATE_ANIM_SPEED_PRESETS}
+        min={1}
+        max={30}
+        hint="How long ONE full spin or flip takes for the flags, currency letters and headings above. Bigger number = slower, calmer movement. 3 is the default."
+      />
+      <SecondsPresetField
+        label="Pause between spins (seconds)"
+        value={settings.rateAnimationPauseSeconds ?? 1}
+        onChange={(value) =>
+          setSettings({ ...settings, rateAnimationPauseSeconds: value ?? 0 })
+        }
+        presets={RATE_ANIM_PAUSE_PRESETS}
+        min={0}
+        max={30}
+        hint="How long the flags / letters / numbers stand still BEFORE each spin or flip. Gives viewers time to read. 1 second is the default; 0 = continuous spinning."
+      />
+      <SecondsPresetField
+        label="TRANSFER card: spin speed (seconds per turn)"
+        value={settings.rateAnimationSpeedSecondsTransfer ?? null}
+        onChange={(value) =>
+          setSettings({ ...settings, rateAnimationSpeedSecondsTransfer: value })
+        }
+        presets={RATE_ANIM_SPEED_PRESETS}
+        min={1}
+        max={30}
+        allowEmpty
+        placeholder="Same as forex"
+        hint="The TRANSFER RATES slide can turn at its own speed. Leave empty to match the forex slides."
+      />
+      <SecondsPresetField
+        label="TRANSFER card: pause between spins (seconds)"
+        value={settings.rateAnimationPauseSecondsTransfer ?? null}
+        onChange={(value) =>
+          setSettings({ ...settings, rateAnimationPauseSecondsTransfer: value })
+        }
+        presets={RATE_ANIM_PAUSE_PRESETS}
+        min={0}
+        max={30}
+        allowEmpty
+        placeholder="Same as forex"
+        hint="Stand-still time on the TRANSFER slide only. Leave empty to match the forex slides."
+      />
       <div className="space-y-2">
         <Label>Transfer card — local currency label</Label>
         <Input
@@ -1159,71 +969,51 @@ function BranchSettingsForm({
           placeholder="WE BUY US $ SMALL BILLS 20,10,5,2 & 1 @3300"
           className="rounded-xl"
         />
-        <div className="pt-1">
-          <Label className="mb-1 block text-xs">Show the note on</Label>
-          <Select
-            value={settings.rateNotePlacement ?? "first"}
-            onValueChange={(value) =>
-              setSettings({ ...settings, rateNotePlacement: (value as "first" | "all") ?? "first" })
-            }
-          >
-            <SelectTrigger className="rounded-xl">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="first">The first forex rate page only</SelectItem>
-              <SelectItem value="all">Every forex rate page</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label>WE BUY note size (%)</Label>
+        <div className="grid gap-3 pt-1 sm:grid-cols-2">
+          <div>
+            <Label className="mb-1 block text-xs">Note text size (%)</Label>
             <Input
               type="number"
-              min={40}
-              max={160}
-              step={5}
-              value={Math.round((settings.rateNoteScale ?? 0.85) * 100)}
+              min={50}
+              max={300}
+              step={10}
+              value={Math.round((settings.rateCardNoteFontScale ?? 1) * 100)}
               onChange={(event) =>
                 setSettings({
                   ...settings,
-                  rateNoteScale: Math.min(1.6, Math.max(0.4, Number(event.target.value) / 100 || 0.85)),
+                  rateCardNoteFontScale: Math.min(
+                    3,
+                    Math.max(0.5, Number(event.target.value) / 100 || 1),
+                  ),
                 })
               }
               className="rounded-xl"
             />
-            <p className="text-xs text-muted-foreground">Default 85% — smaller than before so it doesn&apos;t dominate.</p>
           </div>
-          <div className="space-y-2">
-            <Label>WE BUY note font</Label>
+          <div>
+            <Label className="mb-1 block text-xs">Show the note on</Label>
             <Select
-              value={settings.rateNoteFont ?? "__master"}
+              value={settings.rateNotePlacement ?? "first"}
               onValueChange={(value) =>
-                setSettings({ ...settings, rateNoteFont: value === "__master" ? null : value })
+                setSettings({ ...settings, rateNotePlacement: (value as "first" | "all") ?? "first" })
               }
             >
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="__master">Same as rate-card / display font</SelectItem>
-                {MESSAGE_FONTS.map((f) => (
-                  <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
-                    {f.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="first">The first forex rate page only</SelectItem>
+                <SelectItem value="all">Every forex rate page</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              Use Save → All branches to apply size &amp; font everywhere.
-            </p>
           </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Bold text at the bottom of the forex rates. It follows the forex page wherever you put it in
           the slide order — so it appears even when transfer or promo is first. Leave blank to hide it.
+          Size 100% = normal; raise or lower to enlarge or shrink the note on the TV.
         </p>
+      </div>
       </div>
 
       {/* ---- Rate-screen sequence timing: THREE separate manual timers (per the
@@ -1273,14 +1063,14 @@ function BranchSettingsForm({
             type="number"
             min={2}
             max={120}
-            value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4}
+            value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 5}
             onChange={(event) =>
               setSettings({ ...settings, ratePromoDurationSeconds: Number(event.target.value) })
             }
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            Also editable at the top of Promotion slide — lower = faster flips between promos.
+            The promotion slide&apos;s own manual seconds — longer or shorter than the others.
           </p>
         </div>
       </div>
@@ -1319,182 +1109,44 @@ function BranchSettingsForm({
         id="sec-promo"
         icon="🎁"
         title="Promotion slide"
-        description="Upload images or videos that rotate on the rate card. Start with steps 1–3 below — everything else is optional."
+        description="Its own screen in the rate-card rotation: message above and/or below, with images and videos. With no text the image fills the whole card; leave everything empty to hide it."
       >
-        <div className="space-y-4 rounded-xl border border-primary/25 bg-primary/[0.04] p-4">
-          <StepLabel
-            step={1}
-            title="Rotation & between-pass timing"
-            hint="Rotation = how long each promo stays. Between pass = how long the flip animation lasts."
-          />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Rotation (seconds)</Label>
-              <Input
-                type="number"
-                min={2}
-                max={120}
-                step={1}
-                value={settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    ratePromoDurationSeconds: Math.max(2, Number(event.target.value) || 4),
-                  })
-                }
-                className="rounded-xl"
-              />
-              <div className="flex flex-wrap gap-1.5">
-                {(
-                  [
-                    { label: "3s", value: 3 },
-                    { label: "4s", value: 4 },
-                    { label: "6s", value: 6 },
-                    { label: "8s", value: 8 },
-                    { label: "10s", value: 10 },
-                  ] as const
-                ).map((preset) => {
-                  const current =
-                    settings.ratePromoDurationSeconds ?? settings.rateSheetIntervalSeconds ?? 4;
-                  return (
-                    <Button
-                      key={preset.value}
-                      type="button"
-                      size="sm"
-                      variant={current === preset.value ? "default" : "outline"}
-                      className="h-7 rounded-md px-2 text-xs"
-                      onClick={() =>
-                        setSettings({ ...settings, ratePromoDurationSeconds: preset.value })
-                      }
-                    >
-                      {preset.label}
-                    </Button>
-                  );
-                })}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                How long each promotion image/video stays on screen before the next one.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Between pass (seconds)</Label>
-              <Input
-                type="number"
-                min={0.2}
-                max={3}
-                step={0.1}
-                value={
-                  settings.ratePromoTransitionSeconds ??
-                  (settings.ratePromoTransitionSpeed === "fast"
-                    ? 0.3
-                    : settings.ratePromoTransitionSpeed === "slow"
-                      ? 0.75
-                      : 0.8)
-                }
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    ratePromoTransitionSeconds: Math.min(
-                      3,
-                      Math.max(0.2, Number(event.target.value) || 0.8),
-                    ),
-                  })
-                }
-                className="rounded-xl"
-              />
-              <div className="flex flex-wrap gap-1.5">
-                {(
-                  [
-                    { label: "0.4s", value: 0.4 },
-                    { label: "0.8s", value: 0.8 },
-                    { label: "1.2s", value: 1.2 },
-                    { label: "1.5s", value: 1.5 },
-                    { label: "2s", value: 2 },
-                  ] as const
-                ).map((preset) => {
-                  const current =
-                    settings.ratePromoTransitionSeconds ??
-                    (settings.ratePromoTransitionSpeed === "fast"
-                      ? 0.3
-                      : settings.ratePromoTransitionSpeed === "slow"
-                        ? 0.75
-                        : 0.8);
-                  return (
-                    <Button
-                      key={preset.value}
-                      type="button"
-                      size="sm"
-                      variant={Math.abs(current - preset.value) < 0.05 ? "default" : "outline"}
-                      className="h-7 rounded-md px-2 text-xs"
-                      onClick={() =>
-                        setSettings({ ...settings, ratePromoTransitionSeconds: preset.value })
-                      }
-                    >
-                      {preset.label}
-                    </Button>
-                  );
-                })}
-              </div>
+        <div className="space-y-2">
+          <Label>Image / video fit on the promo card</Label>
+          <Select
+            value={settings.ratePromoMediaFit ?? "fill"}
+            onValueChange={(value) =>
+              setSettings({ ...settings, ratePromoMediaFit: (value as "fill" | "cover" | "contain") ?? "fill" })
+            }
+          >
+            <SelectTrigger className="rounded-xl">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fill">Stretch to fill — no gaps, nothing cut (default)</SelectItem>
+              <SelectItem value="cover">Zoom to fill — no gaps, edges may be cut</SelectItem>
+              <SelectItem value="contain">Show the whole picture — may leave blue bands</SelectItem>
+            </SelectContent>
+          </Select>
           <p className="text-xs text-muted-foreground">
-            Length of the flip/fade when the rate card or main media changes. Try{" "}
-            <strong>1.2s</strong> if cube/flip was invisible before.{" "}
-            <strong>Save Branch Settings</strong> to push this to the real TV.
+            How every promotion image and video sits in the card. Upload at 1080 × 1800 (3:5)
+            and all three look identical.
           </p>
-            </div>
-          </div>
-          <StepLabel
-            step={2}
-            title="Flip animation style"
-            hint="Pick Instant only if you want no motion between promos."
-          />
-          <div className="space-y-2">
-            <Label>Animation</Label>
-            <Select
-              value={settings.ratePromoTransition ?? settings.rateCardTransition ?? "flip"}
-              onValueChange={(value) =>
-                setSettings({
-                  ...settings,
-                  ratePromoTransition: value ?? "flip",
-                  // Keep the whole rate-card flip style in sync so forex→promo→transfer
-                  // all use the animation the admin just picked.
-                  rateCardTransition: value ?? "flip",
-                  videoImageTransition: value ?? "flip",
-                })
-              }
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SLIDE_TRANSITIONS.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
         </div>
-
-        <div className="rounded-xl border border-border/40 p-4">
-          <StepLabel
-            step={3}
-            title="Turn the promotion on & add images/videos"
-            hint="Upload at least one image or video, then Save."
-          />
-          <div className="mb-4 flex items-center justify-between rounded-xl border border-border/30 p-3">
-            <div>
-              <Label>Show on the TV</Label>
-              <p className="text-xs text-muted-foreground">
-                Off hides promotions without deleting your uploads.
-              </p>
-            </div>
-            <Switch
-              checked={settings.ratePromoEnabled !== false}
-              onCheckedChange={(checked) => setSettings({ ...settings, ratePromoEnabled: checked })}
-            />
+        <div className="flex items-center justify-between rounded-xl border border-border/30 p-4">
+          <div>
+            <Label>Show the promotion slide on the TV</Label>
+            <p className="text-xs text-muted-foreground">
+              Turn off to remove the promotion from the rotation WITHOUT deleting your images,
+              videos or text — switch it back on anytime.
+            </p>
           </div>
-          <div className="space-y-3">
+          <Switch
+            checked={settings.ratePromoEnabled !== false}
+            onCheckedChange={(checked) => setSettings({ ...settings, ratePromoEnabled: checked })}
+          />
+        </div>
+        <div className="space-y-3">
           <div className="space-y-2">
             <Label>Message ABOVE the image (optional)</Label>
             <Input
@@ -1668,64 +1320,8 @@ function BranchSettingsForm({
               className="rounded-xl"
             />
           </div>
-          </div>
-        </div>
-
-        <AdvancedDetails
-          title="More promotion options (optional)"
-          description="Sound, logo bar, image fit, sync across branches, and message styling — skip these until you need them."
-        >
-          <div className="flex items-center justify-between rounded-xl border border-border/30 p-3">
-            <div>
-              <Label>Sync the same page across branches</Label>
-              <p className="text-xs text-muted-foreground">
-                Every TV with the same timings shows the same promotion at the same time.
-              </p>
-            </div>
-            <Switch
-              checked={settings.syncRateCardPlayback === true}
-              onCheckedChange={(checked) =>
-                setSettings({ ...settings, syncRateCardPlayback: checked })
-              }
-            />
-          </div>
           <div className="space-y-2">
-            <Label>Image / video fit</Label>
-            <Select
-              value={settings.ratePromoMediaFit ?? "fill"}
-              onValueChange={(value) =>
-                setSettings({
-                  ...settings,
-                  ratePromoMediaFit: (value as "fill" | "cover" | "contain") ?? "fill",
-                })
-              }
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fill">Stretch to fill (default)</SelectItem>
-                <SelectItem value="cover">Zoom to fill (may crop)</SelectItem>
-                <SelectItem value="contain">Show whole picture (may leave gaps)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between rounded-xl border border-border/30 p-3">
-            <div>
-              <Label>Hide dots on promotions</Label>
-              <p className="text-xs text-muted-foreground">
-                Hides pagination dots while a promo plays (forex/transfer keep theirs).
-              </p>
-            </div>
-            <Switch
-              checked={settings.hideDotsOnPromo !== false}
-              onCheckedChange={(checked) =>
-                setSettings({ ...settings, hideDotsOnPromo: checked })
-              }
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Promotion video sound</Label>
+            <Label>Promotion video sound (rate card)</Label>
             <Select
               value={
                 settings.ratePromoSoundOn == null
@@ -1750,29 +1346,42 @@ function BranchSettingsForm({
                 <SelectItem value="off">Always muted</SelectItem>
               </SelectContent>
             </Select>
+            <p className="text-xs text-muted-foreground">
+              Audio for videos playing on the promotion slide of the rate card. Browsers keep
+              sound off until the screen has been tapped or made fullscreen once — then it plays
+              automatically.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Logo on the promotion slide</Label>
+            <p className="text-xs text-muted-foreground">
+              The rate-card header (logos + clock) is hidden on the promo slide by default so the
+              media fills the panel. Turn the logo bar on to keep a logo visible during the promo.
+            </p>
             <Select
               value={settings.promoLogoMode === "second" ? "second" : "hide"}
               onValueChange={(value) =>
-                setSettings({
-                  ...settings,
-                  promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide",
-                })
+                setSettings({ ...settings, promoLogoMode: (value as "keep" | "hide" | "second") ?? "hide" })
               }
             >
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="hide">No logo — promo fills the card (default)</SelectItem>
-                <SelectItem value="second">Show a logo bar during the promo</SelectItem>
+                <SelectItem value="hide">No logo — the promotion fills the whole card (default)</SelectItem>
+                <SelectItem value="second">
+                  Show a logo bar (promo logo below → alternate → main → unimoni)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Promotion-slide logo (optional)</Label>
+            <Label>Promotion-slide logo (optional — a DIFFERENT logo during the promo)</Label>
+            <p className="text-xs text-muted-foreground">
+              Shown in the logo bar only while the promotion image/video plays — so the promo can
+              carry its own branding. A white/solid background is removed automatically on upload.
+              Leave empty to fall back to the alternate/main logo.
+            </p>
             <div className="flex items-center gap-3">
               <Input
                 type="file"
@@ -1812,126 +1421,113 @@ function BranchSettingsForm({
               ) : null}
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Promo logo size (%)</Label>
-              <Input
-                type="number"
-                min={50}
-                max={300}
-                step={10}
-                value={Math.round((settings.promoSlideLogoScale ?? 1) * 100)}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    promoSlideLogoScale: Math.min(
-                      3,
-                      Math.max(0.5, Number(event.target.value) / 100 || 1),
-                    ),
-                  })
-                }
-                className="rounded-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Promo logo animation</Label>
-              <Select
-                value={settings.promoSlideLogoAnimation ?? "__inherit"}
-                onValueChange={(value) =>
-                  setSettings({
-                    ...settings,
-                    promoSlideLogoAnimation: value === "__inherit" ? null : value,
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__inherit">Same as rate-card logo animation</SelectItem>
-                  {DISPLAY_ANIMATIONS.map((a) => (
-                    <SelectItem key={a.key} value={a.key}>
-                      {a.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Message size (%)</Label>
-              <Input
-                type="number"
-                min={50}
-                max={300}
-                step={10}
-                value={Math.round((settings.ratePromoTextScale ?? 1) * 100)}
-                onChange={(event) =>
-                  setSettings({
-                    ...settings,
-                    ratePromoTextScale: Math.min(
-                      3,
-                      Math.max(0.5, Number(event.target.value) / 100 || 1),
-                    ),
-                  })
-                }
-                className="rounded-xl"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Message animation</Label>
-              <Select
-                value={settings.ratePromoTextAnimation ?? "none"}
-                onValueChange={(value) =>
-                  setSettings({
-                    ...settings,
-                    ratePromoTextAnimation: value === "none" ? null : value,
-                  })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DISPLAY_ANIMATIONS.map((a) => (
-                    <SelectItem key={a.key} value={a.key}>
-                      {a.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Message font</Label>
-              <Select
-                value={settings.ratePromoFont ?? "__master"}
-                onValueChange={(value) =>
-                  setSettings({ ...settings, ratePromoFont: value === "__master" ? null : value })
-                }
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__master">Use display font</SelectItem>
-                  {MESSAGE_FONTS.map((f) => (
-                    <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
-                      {f.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <Label>Promotion-slide logo size (%)</Label>
+            <Input
+              type="number"
+              min={50}
+              max={300}
+              step={10}
+              value={Math.round((settings.promoSlideLogoScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  promoSlideLogoScale: Math.min(3, Math.max(0.5, Number(event.target.value) / 100 || 1)),
+                })
+              }
+              className="max-w-[10rem] rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Make the logo on the promotion slide bigger or smaller (100% = normal).
+            </p>
           </div>
-        </AdvancedDetails>
+          <div className="space-y-2">
+            <Label>Promotion-slide logo animation</Label>
+            <DisplayAnimationSelect
+              value={settings.promoSlideLogoAnimation ?? "__inherit"}
+              onChange={(value) =>
+                setSettings({
+                  ...settings,
+                  promoSlideLogoAnimation: value === "__inherit" ? null : value,
+                })
+              }
+              allowInherit
+            />
+            <p className="text-xs text-muted-foreground">
+              Movement effect for the logo while the promotion plays — includes Rotating flip (Y),
+              Flip (X), Rotate and 3D tilt; same full list everywhere.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2 sm:col-span-2">
+          <div className="space-y-2">
+            <Label>Promotion message size (%)</Label>
+            <Input
+              type="number"
+              min={50}
+              max={300}
+              step={10}
+              value={Math.round((settings.ratePromoTextScale ?? 1) * 100)}
+              onChange={(event) =>
+                setSettings({
+                  ...settings,
+                  ratePromoTextScale: Math.min(3, Math.max(0.5, Number(event.target.value) / 100 || 1)),
+                })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Size of the messages above/below the promotion image (100% = normal).
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Promotion text movement / Message animation</Label>
+            <DisplayAnimationSelect
+              value={settings.ratePromoTextAnimation ?? "none"}
+              onChange={(value) =>
+                setSettings({
+                  ...settings,
+                  ratePromoTextAnimation: value === "none" ? null : value,
+                })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Same flip options as forex / rate card: Rotating flip (Y), Flip (X), Rotate, 3D tilt,
+              and the rest of the shared list.
+            </p>
+          </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Promotion message font</Label>
+            <Select
+              value={settings.ratePromoFont ?? "__master"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, ratePromoFont: value === "__master" ? null : value })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__master">Use display font (whole-screen font)</SelectItem>
+                {MESSAGE_FONTS.map((f) => (
+                  <SelectItem key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                    {f.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              A font just for the promotion messages — overrides the whole-screen font here only.
+            </p>
+          </div>
+        </div>
       </SettingsGroup>
 
-      {showAdvanced ? (
-      <>
       <SettingsGroup
         id="sec-announcement"
         icon="📢"
         title="Announcement / display message"
-        description="Optional full-screen message for a set time, then the screen returns to normal. Leave empty to turn it off."
+        description="Play an announcement (text, image or video) for a set time, then it animates away and the screen returns to normal — repeating on the interval you choose. Leave empty to turn it off."
       >
         <div className="mb-4 flex items-center justify-between rounded-xl border border-border/30 p-3">
           <div>
@@ -2144,7 +1740,7 @@ function BranchSettingsForm({
                 <SelectItem value="slide">Slide in / out</SelectItem>
                 <SelectItem value="fade">Fade in / out</SelectItem>
                 <SelectItem value="zoom">Zoom in / out</SelectItem>
-                <SelectItem value="flip">Flip</SelectItem>
+                <SelectItem value="flip">Flip (3D card turn)</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
@@ -2153,26 +1749,15 @@ function BranchSettingsForm({
           </div>
           <div className="space-y-2">
             <Label>Text movement (while visible)</Label>
-            <Select
+            <DisplayAnimationSelect
               value={settings.announcementTextAnimation ?? "none"}
-              onValueChange={(value) =>
+              onChange={(value) =>
                 setSettings({
                   ...settings,
                   announcementTextAnimation: value === "none" ? null : value,
                 })
               }
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DISPLAY_ANIMATIONS.map((a) => (
-                  <SelectItem key={a.key} value={a.key}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
             <p className="text-xs text-muted-foreground">
               Keeps the announcement TEXT moving the whole time it is on screen — separate from
               how it enters and leaves.
@@ -2411,31 +1996,15 @@ function BranchSettingsForm({
           </div>
           <div className="space-y-2">
             <Label>Logo animation</Label>
-            <Select
+            <DisplayAnimationSelect
               value={settings.tickerLogoAnimation ?? "spin"}
-              onValueChange={(value) =>
-                setSettings({
-                  ...settings,
-                  tickerLogoAnimation: value ?? "spin",
-                })
+              onChange={(value) =>
+                setSettings({ ...settings, tickerLogoAnimation: value ?? "spin" })
               }
-            >
-              <SelectTrigger className="rounded-xl">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DISPLAY_ANIMATIONS.map((a) => (
-                  <SelectItem key={a.key} value={a.key}>
-                    {a.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
         </div>
       </SettingsGroup>
-      </>
-      ) : null}
 
       {/* Save bar: on large screens it lives in the RIGHT column, right below
           the live TV preview (via portal); smaller screens keep a sticky
@@ -2445,7 +2014,22 @@ function BranchSettingsForm({
             <div className="space-y-2 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg">
               <p className="text-xs text-muted-foreground">
                 Changes go live on the <strong>{branchName}</strong> TV only after you save.
+                Animations (including flip) travel with look &amp; behaviour when you apply to all.
               </p>
+              {branchCount > 1 ? (
+                <ApplyToAllCheckbox
+                  id="settings-apply-all-portal"
+                  scope={applyMode === "all" ? "all" : applyMode === "some" ? "specific" : "current"}
+                  selectedBranchIds={pickedBranchIds}
+                  branches={otherBranches.map((b) => ({ ...b, status: "active" } as any))}
+                  currentBranchId={branchId}
+                  onScopeChange={(sel) => {
+                    setApplyMode(sel.scope === "all" ? "all" : sel.scope === "specific" ? "some" : "this");
+                    setPickedBranchIds(sel.selectedBranchIds);
+                  }}
+                  description="Copies fonts, colours, sizes, animations, timers and layout to selected target branches."
+                />
+              ) : null}
               <Button
                 disabled={saving}
                 className="w-full rounded-xl"
@@ -2458,12 +2042,29 @@ function BranchSettingsForm({
           )
         : null}
       <div
-        className={`${saveSlot ? "xl:hidden " : ""}sticky bottom-3 z-20 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg backdrop-blur`}
+        className={`${saveSlot ? "xl:hidden " : ""}sticky bottom-3 z-20 flex flex-col gap-3 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between`}
       >
-        <p className="text-xs text-muted-foreground">
-          Changes go live on the <strong>{branchName}</strong> TV only after you save.
-        </p>
-        <Button disabled={saving} className="rounded-xl" onClick={() => setConfirmOpen(true)}>
+        <div className="min-w-0 flex-1 space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Changes go live on the <strong>{branchName}</strong> TV only after you save.
+            Animations (including flip) travel with look &amp; behaviour when you apply to all.
+          </p>
+          {branchCount > 1 ? (
+            <ApplyToAllCheckbox
+              id="settings-apply-all-sticky"
+              scope={applyMode === "all" ? "all" : applyMode === "some" ? "specific" : "current"}
+              selectedBranchIds={pickedBranchIds}
+              branches={otherBranches.map((b) => ({ ...b, status: "active" } as any))}
+              currentBranchId={branchId}
+              onScopeChange={(sel) => {
+                setApplyMode(sel.scope === "all" ? "all" : sel.scope === "specific" ? "some" : "this");
+                setPickedBranchIds(sel.selectedBranchIds);
+              }}
+              description="Copies fonts, colours, sizes, animations, timers and layout to selected target branches."
+            />
+          ) : null}
+        </div>
+        <Button disabled={saving} className="shrink-0 rounded-xl" onClick={() => setConfirmOpen(true)}>
           {saving ? "Saving..." : "Save Branch Settings"}
         </Button>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
@@ -2530,10 +2131,10 @@ function BranchSettingsForm({
                 <>
                   <p className="rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
                     Copies the look &amp; behaviour (fonts, colours, sizes, <strong>animations</strong>,
-                    timers, layout, ticker style, WE BUY note style, sync setting) to the chosen
-                    branches. Their main videos, logos and rates are never changed.
+                    timers, layout, ticker style) to the chosen branches. Their videos, logos and
+                    rates are never changed.
                   </p>
-                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
                     <input
                       type="checkbox"
                       checked={includePromo}
@@ -2541,13 +2142,11 @@ function BranchSettingsForm({
                       className="mt-0.5 h-4 w-4"
                     />
                     <span className="text-sm">
-                      <span className="font-medium">
-                        Also copy the promotion images &amp; videos (play the same promotions)
-                      </span>
+                      <span className="font-medium">Also copy the promotion images &amp; videos</span>
                       <span className="mt-0.5 block text-xs text-muted-foreground">
-                        Puts THIS branch&apos;s promotion pictures/videos on the chosen branches so
-                        they all play the same promotions. Turn on &quot;Sync playback across
-                        branches&quot; in Promotion slide so every TV flips at the same time.
+                        Puts THIS branch&apos;s promotion slide pictures/videos on the chosen branches
+                        too, so they all play the same promotions. This replaces whatever promotions
+                        those branches currently have.
                       </span>
                     </span>
                   </label>
@@ -2571,7 +2170,7 @@ function BranchSettingsForm({
                 setConfirmOpen(false);
                 setApplyMode("this");
                 setPickedBranchIds([]);
-                setIncludePromo(true);
+                setIncludePromo(false);
                 void (async () => {
                   const prepared = await migratePromoMediaForSave(settings);
                   if (prepared !== settings) setSettings(prepared);
@@ -2606,8 +2205,6 @@ export default function SettingsPage() {
   // Slots under the live TV preview: save bar, then the section jump-nav.
   const [saveSlot, setSaveSlot] = useState<HTMLElement | null>(null);
   const [navSlot, setNavSlot] = useState<HTMLElement | null>(null);
-  // Bump after save (or Refresh) so the iframe reloads the real display.
-  const [previewSavedAt, setPreviewSavedAt] = useState(0);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
 
@@ -2712,7 +2309,6 @@ export default function SettingsPage() {
         { logoUrl: data.logoUrl || null, brandingColor: data.brandingColor, settings: data.settings },
         actor,
       );
-      setPreviewSavedAt(Date.now());
 
       const targets = branches.filter(
         (b) => b.id !== effectiveBranchId && (opts?.targetBranchIds ?? []).includes(b.id),
@@ -2761,7 +2357,7 @@ export default function SettingsPage() {
   if (!isSuperAdmin && !isAdmin) {
     return (
       <>
-        <DashboardHeader title="Settings" description="Simple mode for everyday edits — switch to All settings when you need more." accent="default" />
+        <DashboardHeader title="Settings" description="System and branch display configuration." accent="default" />
         <PageShell>
           <ContentPanel title="Admins only" description="Display settings are managed centrally by the admins.">
             <p className="text-sm text-muted-foreground">
@@ -2777,7 +2373,7 @@ export default function SettingsPage() {
   if (globalLoading) {
     return (
       <>
-        <DashboardHeader title="Settings" description="Simple mode for everyday edits — switch to All settings when you need more." accent="default" />
+        <DashboardHeader title="Settings" description="System and branch display configuration." accent="default" />
         <PageLoader count={1} />
       </>
     );
@@ -2785,7 +2381,7 @@ export default function SettingsPage() {
 
   return (
     <>
-      <DashboardHeader title="Settings" description="Simple mode for everyday edits — switch to All settings when you need more." accent="default" />
+      <DashboardHeader title="Settings" description="System and branch display configuration." accent="default" />
       <PageShell>
         {isSuperAdmin && settings ? (
           <ContentPanel title="System Settings" description="Company-wide defaults for super admins">
@@ -2926,7 +2522,7 @@ export default function SettingsPage() {
                 branchName={branch.name}
                 initialLogoUrl={branch.logoUrl ?? ""}
                 initialColor={branch.brandingColor ?? "#0066B3"}
-                initialSettings={{ ...DEFAULT_BRANCH_SETTINGS, ...(branch.settings ?? {}) }}
+                initialSettings={branch.settings}
                 saving={saving}
                 saveSlot={saveSlot}
                 navSlot={navSlot}
@@ -2937,48 +2533,18 @@ export default function SettingsPage() {
                   .filter((b) => b.id !== effectiveBranchId)
                   .map((b) => ({ id: b.id, name: b.name, code: b.code }))}
               />
-              {/*
-                Side column (original layout). Keep aspect-ratio on a WRAPPER —
-                bare <iframe className="aspect-video"> collapses to 0 height.
-              */}
-              <div>
-                <div className="space-y-2 xl:sticky xl:top-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <Label>Live TV preview — {branch.name}</Label>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 rounded-lg"
-                        onClick={() => setPreviewSavedAt(Date.now())}
-                      >
-                        <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                        Refresh
-                      </Button>
-                      <a
-                        href={`/display/?branch=${encodeURIComponent(branch.code)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-8 items-center rounded-lg border border-input bg-background px-3 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground"
-                      >
-                        <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
-                        Open
-                      </a>
-                    </div>
-                  </div>
-                  <div className="relative aspect-video min-h-[180px] w-full overflow-hidden rounded-xl border border-border/60 bg-black shadow-lg">
+              <div className="hidden xl:block">
+                <div className="sticky top-3 space-y-2">
+                  <Label>Live TV preview — {branch.name}</Label>
+                  <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
                     <iframe
-                      key={`${branch.id}-${previewSavedAt}`}
-                      src={`/display/?branch=${encodeURIComponent(branch.code)}&preview=1&t=${previewSavedAt || "0"}`}
+                      src={`/display/?branch=${encodeURIComponent(branch.code)}`}
                       title={`Live display preview for ${branch.name}`}
-                      className="absolute inset-0 h-full w-full border-0 bg-black"
-                      allow="autoplay; fullscreen"
+                      className="aspect-video w-full border-0"
                     />
                   </div>
-                  <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-                    This is the real branch display. Click <strong>Save Branch Settings</strong>, then{" "}
-                    <strong>Refresh</strong> if the preview looks stale.
+                  <p className="text-xs text-muted-foreground">
+                    This is the real branch display, live. Saved changes appear here within seconds.
                   </p>
                   <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
                   <div id="branch-nav-slot" ref={setNavSlot} />

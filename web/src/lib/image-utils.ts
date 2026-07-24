@@ -43,6 +43,57 @@ function encode(canvas: HTMLCanvasElement, type: string, quality: number): strin
   return canvas.toDataURL(type, quality);
 }
 
+/** Trim surrounding solid white/light border padding from a canvas to crop tight logo bounds. */
+export function trimCanvasWhiteBorders(canvas: HTMLCanvasElement, tolerance: number = 15): HTMLCanvasElement {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const { width, height } = canvas;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  let minX = width;
+  let minY = height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const alpha = data[i + 3];
+      if (alpha < 30) continue; // Transparent pixel
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      // Check if pixel is NOT plain white or near-white padding
+      const isWhite = r >= 255 - tolerance && g >= 255 - tolerance && b >= 255 - tolerance;
+      if (!isWhite) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  // If no non-white bounds found or crop would be tiny, return original
+  if (maxX < minX || maxY < minY) return canvas;
+  const croppedWidth = maxX - minX + 1;
+  const croppedHeight = maxY - minY + 1;
+
+  // Don't crop if bounds are already full canvas
+  if (minX === 0 && minY === 0 && croppedWidth === width && croppedHeight === height) {
+    return canvas;
+  }
+
+  const cropped = document.createElement("canvas");
+  cropped.width = croppedWidth;
+  cropped.height = croppedHeight;
+  const croppedCtx = cropped.getContext("2d");
+  if (!croppedCtx) return canvas;
+  croppedCtx.drawImage(canvas, minX, minY, croppedWidth, croppedHeight, 0, 0, croppedWidth, croppedHeight);
+  return cropped;
+}
+
 /**
  * Compress a raster image to a data URL under the target size. Tries WebP at
  * decreasing quality, then shrinks dimensions. Throws when even the smallest
@@ -58,12 +109,15 @@ export async function compressImageToDataUrl(
   for (let attempt = 0; attempt < 4; attempt++) {
     const width = Math.max(1, Math.round(img.width * scale));
     const height = Math.max(1, Math.round(img.height * scale));
-    const canvas = document.createElement("canvas");
+    let canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Image processing is not supported in this browser.");
     ctx.drawImage(img, 0, 0, width, height);
+
+    // Auto-trim surrounding white margins if present
+    canvas = trimCanvasWhiteBorders(canvas);
 
     for (const quality of [0.82, 0.68, 0.55]) {
       const dataUrl = encode(canvas, "image/webp", quality);
@@ -251,12 +305,13 @@ export async function compressLogoTransparent(
   for (let attempt = 0; attempt < 4; attempt++) {
     const width = Math.max(1, Math.round(img.width * scale));
     const height = Math.max(1, Math.round(img.height * scale));
-    const canvas = document.createElement("canvas");
+    let canvas = document.createElement("canvas");
     canvas.width = width;
     canvas.height = height;
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("Image processing is not supported in this browser.");
     ctx.drawImage(img, 0, 0, width, height);
+    canvas = trimCanvasWhiteBorders(canvas);
 
     const imageData = ctx.getImageData(0, 0, width, height);
     const removed = floodClearBackground(imageData, 34);

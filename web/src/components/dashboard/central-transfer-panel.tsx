@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, EyeOff, Plus, Save, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, FileSpreadsheet, Plus, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,8 @@ type PendingUpload = {
     /** Manual flag for a NEW currency the catalog can't auto-flag (set in the review pop-up). */
     flag?: string;
   }>;
-  parsedTotal: number;
+  /** Non-USD rows that lacked a readable transfer rate (USD / forex-only rows are not counted). */
+  skippedNoTransfer: number;
 };
 
 /**
@@ -83,9 +84,11 @@ export function CentralTransferPanel({
     setUploading(true);
     try {
       const parsed = await parseRateFile(file);
-      const transferRows = parsed
-        // USD is the base currency the card quotes against — skip its row.
-        .filter((r) => (normalizeCurrencyCode(r.currencyCode) || r.currencyCode.toUpperCase()) !== "USD")
+      // USD is the base currency the card quotes against — never a transfer row.
+      const nonUsd = parsed.filter(
+        (r) => (normalizeCurrencyCode(r.currencyCode) || r.currencyCode.toUpperCase()) !== "USD",
+      );
+      const transferRows = nonUsd
         .filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0)
         .map((r) => ({
           currencyCode: r.currencyCode,
@@ -100,7 +103,10 @@ export function CentralTransferPanel({
         return;
       }
       // Confirm before anything goes live on the TVs.
-      setPending({ rows: transferRows, parsedTotal: parsed.length });
+      setPending({
+        rows: transferRows,
+        skippedNoTransfer: nonUsd.length - transferRows.length,
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read the transfer file");
     } finally {
@@ -111,7 +117,7 @@ export function CentralTransferPanel({
 
   async function publishPending() {
     if (!pending) return;
-    const { rows: transferRows, parsedTotal } = pending;
+    const { rows: transferRows, skippedNoTransfer } = pending;
     setPending(null);
     setUploading(true);
     try {
@@ -139,10 +145,11 @@ export function CentralTransferPanel({
           { duration: 10000 },
         );
       }
-      const skipped = parsedTotal - transferRows.length;
-      if (skipped > 0) {
+      // Only warn for non-USD rows that looked like currencies but had no
+      // usable transfer values — never count the USD base row or forex-only noise.
+      if (skippedNoTransfer > 0) {
         toast.warning(
-          `${skipped} row(s) in the file had no readable transfer rate and were skipped.`,
+          `${skippedNoTransfer} row(s) had no readable transfer rate and were skipped.`,
           { duration: 10000 },
         );
       }
@@ -240,54 +247,66 @@ export function CentralTransferPanel({
   }
 
   return (
-    <ContentPanel
-      title="Money Transfer Rates"
-      description={`One set for ALL branches — upload an Excel or edit below. T.T rate against USD/${localLabel}.`}
-    >
-      {/* SAME layout as the forex uploader: helper text on the left, one
-          compact dashed drop box on the right of the SAME row. */}
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <input
-          ref={fileRef}
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          aria-label="Upload transfer rates Excel for all branches"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void handleTransferUpload(f);
-          }}
-        />
-        <button
-          type="button"
-          disabled={uploading}
-          onClick={() => fileRef.current?.click()}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            const f = e.dataTransfer.files?.[0];
-            if (f) void handleTransferUpload(f);
-          }}
-          className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors sm:max-w-xs ${
-            dragOver
-              ? "border-primary bg-primary/10"
-              : "border-border bg-background/60 hover:border-primary/60 hover:bg-primary/5"
-          } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
-        >
-          <Upload className="h-8 w-8 text-primary" />
-          <span className="text-sm font-medium">
-            {uploading ? "Uploading…" : "Drop the transfer Excel/CSV here"}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            .xlsx, .xls, .csv — CURRENCY | $ (USD) | {localLabel}
-          </span>
-        </button>
+    <>
+      {/* Same layout as Forex upload: title left, dashed drop box right. */}
+      <div className="mb-4 overflow-hidden rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-xl">
+            <div className="flex items-center gap-2 text-foreground">
+              <FileSpreadsheet className="h-5 w-5" />
+              <p className="text-base font-semibold tracking-tight">Money Transfer Rates</p>
+            </div>
+            <p className="mt-3 text-xs font-medium text-muted-foreground">
+              One set for ALL branches — upload an Excel or edit below. T.T rate against USD/
+              {localLabel}.
+            </p>
+          </div>
+          <div className="flex w-full shrink-0 flex-col gap-3 lg:max-w-sm">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              aria-label="Upload transfer rates Excel for all branches"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleTransferUpload(f);
+              }}
+            />
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                const f = e.dataTransfer.files?.[0];
+                if (f) void handleTransferUpload(f);
+              }}
+              className={`flex min-h-[120px] flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                dragOver
+                  ? "border-primary bg-primary/10"
+                  : "border-border bg-background/60 hover:border-primary/60 hover:bg-primary/5"
+              } ${uploading ? "pointer-events-none opacity-60" : "cursor-pointer"}`}
+            >
+              <Upload className="h-8 w-8 text-primary" />
+              <span className="text-sm font-medium">
+                {uploading ? "Uploading…" : "Drop the transfer Excel/CSV here"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                .xlsx, .xls, .csv — CURRENCY | $ (USD) | {localLabel}
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
+
+      <ContentPanel>
       <div className="space-y-2">
         {rows.map((row) => {
           const draft = drafts[row.id] ?? { transferUsd: "", transferLocal: "" };
@@ -460,13 +479,14 @@ export function CentralTransferPanel({
           </Button>
         </div>
       </div>
+      </ContentPanel>
 
       {/* Confirm BEFORE the uploaded file goes live — transfer rates are
           centralized, so this always applies to every branch at once. */}
       <AlertDialog open={Boolean(pending)} onOpenChange={(open) => !open && setPending(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Publish transfer rates to ALL branches?</AlertDialogTitle>
+            <AlertDialogTitle>Money Transfer Rates — review &amp; publish to ALL branches</AlertDialogTitle>
             <AlertDialogDescription>
               {pending
                 ? `These ${pending.rows.length} transfer rate(s) will go LIVE on every branch's TV immediately. Transfer rates are centralized: the same rate shows on all branches.`
@@ -602,6 +622,6 @@ export function CentralTransferPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </ContentPanel>
+    </>
   );
 }

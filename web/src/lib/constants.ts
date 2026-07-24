@@ -77,16 +77,19 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerLogoAnimation: "spin" as string,
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
+  showTickerLogo: true,
   tickerHeadlineAnimation: null as string | null,
   tickerMessageAnimation: null as string | null,
   tickerScrollLogoAnimation: null as string | null,
   tickerScrollLogoScale: 1,
-  tickerScrollLogoBg: "white" as "white" | "transparent" | "auto",
+  tickerScrollLogoBg: "transparent" as "white" | "transparent" | "auto",
   tickerScrollLogosEnabled: true,
   tickerScrollLogoPosition: "start" as "start" | "end" | "both",
   scrollingLogoItems: [] as Array<{ url: string; pos: "start" | "end" }>,
   tickerLogoFit: "contain" as "contain" | "cover" | "fill",
   rateCardTransition: "fade" as string,
+  /** Seconds the slide/page entrance animation lasts (rate card + video media). */
+  slideTransitionSeconds: 0.6,
   rateTextAnimation: null as string | null,
   rateCurrencyAnimation: null as string | null,
   rateFlagAnimation: null as string | null,
@@ -108,11 +111,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   videoSoundOn: false,
   scrollingLogos: [] as string[],
   rateCardNote: null as string | null,
+  rateCardNoteFontScale: 1,
   rateNotePlacement: "first" as "first" | "all",
-  rateNoteScale: 0.85,
-  rateNoteFont: null as string | null,
-  syncRateCardPlayback: false,
-  hideDotsOnPromo: true,
   rateSheetIntervalSeconds: 5,
   // Order the rotating rate-card slides appear in (client can pick which shows
   // first). Only the slides that actually exist are shown, in this order.
@@ -127,22 +127,14 @@ export const DEFAULT_BRANCH_SETTINGS = {
   ratePromoTextAnimation: null as string | null,
   ratePromoFont: null as string | null,
   headerLogoScale: 1,
-  headerLogoAnimation: "none" as
-    | "none" | "spin" | "flip" | "bounce" | "float" | "swing" | "pulse"
-    | "wave" | "heartbeat" | "tilt" | "shine" | "drift",
+  /** Continuous logo movement — any DISPLAY_ANIMATIONS key (incl. spin/flip/rotate/tilt). */
+  headerLogoAnimation: "none" as string,
   announcementTextScale: 1,
   announcementTextAnimation: null as string | null,
   ratePromoEnabled: true,
   ratePromoTextTop: null as string | null,
   ratePromoText: null as string | null,
-  // Default 4s — promotions used to feel slow at 6s; admins can raise it.
-  ratePromoDurationSeconds: 4,
-  /** Entrance animation for promotion sheets (independent of forex/transfer). */
-  ratePromoTransition: "flip" as string,
-  /** How long the flip/pass animation lasts when changing promo (seconds). */
-  ratePromoTransitionSeconds: 0.8,
-  /** @deprecated Prefer ratePromoTransitionSeconds. Kept for older saved settings. */
-  ratePromoTransitionSpeed: "normal" as "fast" | "normal" | "slow",
+  ratePromoDurationSeconds: 6,
   /** How promo media fits its card: fill=stretch (no gaps, nothing cut),
       cover=zoom to fill (edges crop), contain=show whole (may leave bands). */
   ratePromoMediaFit: "fill" as "fill" | "cover" | "contain",
@@ -217,11 +209,15 @@ export const RECOMMENDED_VIDEO_FORMATS = [
   "MOV (QuickTime)",
 ];
 
-/** Transition styles for slide changes (rate-card sheets, video-area media). */
+/**
+ * Transition styles for slide/page changes — ONE list for rate-card sheets,
+ * video-area media, and any other place that offers a "slide change" effect.
+ * Keep keys stable; labels can be clarified without breaking saved settings.
+ */
 export const SLIDE_TRANSITIONS: Array<{ key: string; label: string }> = [
   { key: "fade", label: "Fade (default)" },
   { key: "flip", label: "3D flip (card turn)" },
-  { key: "flip-x", label: "Flip up (horizontal hinge)" },
+  { key: "flip-up", label: "Flip up (horizontal hinge)" },
   { key: "cube", label: "Cube turn" },
   { key: "slide-left", label: "Swipe from the right" },
   { key: "slide-right", label: "Swipe from the left" },
@@ -229,66 +225,43 @@ export const SLIDE_TRANSITIONS: Array<{ key: string; label: string }> = [
   { key: "drop", label: "Drop in from the top" },
   { key: "zoom", label: "Zoom in" },
   { key: "zoom-out", label: "Zoom out (pull back)" },
-  { key: "rotate", label: "Spin in" },
-  { key: "bounce", label: "Bounce in" },
+  { key: "spin-in", label: "Spin in" },
+  { key: "bounce-in", label: "Bounce in" },
   { key: "wipe", label: "Wipe reveal" },
   { key: "blur", label: "Blur in" },
   { key: "snap", label: "Snap (quick punch)" },
   { key: "none", label: "Instant (no animation)" },
 ];
 
-/** How fast the one-shot slide entrance plays. */
-export const SLIDE_TRANSITION_SPEEDS: Array<{
-  key: "fast" | "normal" | "slow";
-  label: string;
-  ms: number;
-}> = [
-  { key: "fast", label: "Fast — snappy flip", ms: 280 },
-  { key: "normal", label: "Normal", ms: 450 },
-  { key: "slow", label: "Slow — dramatic", ms: 750 },
-];
+/** Circular preset chips for slide transition length ("Between pass"). */
+export const SLIDE_TRANSITION_DURATION_PRESETS = [0.4, 0.8, 1.2, 1.5, 2] as const;
 
-/** CSS class for a SLIDE_TRANSITIONS key. */
+/** Presets for forex spin/flip turn length (seconds per turn). */
+export const RATE_ANIM_SPEED_PRESETS = [2, 3, 4, 5, 6] as const;
+
+/** Presets for stand-still pause between spins (seconds). */
+export const RATE_ANIM_PAUSE_PRESETS = [0, 1, 2, 3, 5] as const;
+
+/** CSS class for a SLIDE_TRANSITIONS key. Unknown keys fall back to fade. */
 export function slideTransitionClass(name: string | null | undefined): string {
   switch (name) {
+    case "flip": return "sheet-anim-flip";
+    case "flip-up": return "sheet-anim-flip-up";
+    case "cube": return "sheet-anim-cube";
     case "slide-left": return "sheet-anim-slide-left";
     case "slide-right": return "sheet-anim-slide-right";
     case "slide-up": return "sheet-anim-slide-up";
     case "drop": return "sheet-anim-drop";
     case "zoom": return "sheet-anim-zoom";
     case "zoom-out": return "sheet-anim-zoom-out";
-    case "flip": return "sheet-anim-flip";
-    case "flip-x": return "sheet-anim-flip-x";
-    case "cube": return "sheet-anim-cube";
-    case "rotate": return "sheet-anim-rotate";
-    case "bounce": return "sheet-anim-bounce";
+    case "spin-in": return "sheet-anim-spin-in";
+    case "bounce-in": return "sheet-anim-bounce-in";
     case "wipe": return "sheet-anim-wipe";
     case "blur": return "sheet-anim-blur";
     case "snap": return "sheet-anim-snap";
     case "none": return "";
     default: return "sheet-anim-fade";
   }
-}
-
-/** Milliseconds for a SLIDE_TRANSITION_SPEEDS key. */
-export function slideTransitionMs(speed: string | null | undefined): number {
-  const found = SLIDE_TRANSITION_SPEEDS.find((s) => s.key === speed);
-  return found?.ms ?? 450;
-}
-
-/**
- * Resolve promotion between-pass duration in ms.
- * Prefers explicit seconds; falls back to legacy fast/normal/slow.
- */
-export function promoTransitionDurationMs(
-  seconds: number | null | undefined,
-  legacySpeed: string | null | undefined,
-): number {
-  if (typeof seconds === "number" && Number.isFinite(seconds)) {
-    // 0.2s floor so the flip is still visible; 3s cap so it can't eat the hold.
-    return Math.round(Math.min(3, Math.max(0.2, seconds)) * 1000);
-  }
-  return slideTransitionMs(legacySpeed ?? "normal");
 }
 
 /** Every movement effect available across the display — logos, badge, texts.
@@ -519,6 +492,7 @@ export const ACCESS_MODULES = [
   { key: "forexRates", label: "Foreign exchange rates" },
   { key: "forexRatesAllBranches", label: "Forex rates — ALL branches" },
   { key: "transferRates", label: "Transfer rates (all branches)" },
+  { key: "addBranchCurrencies", label: "Add new currencies (Excel & UI)" },
   { key: "media", label: "Media Manager (videos & images)" },
   { key: "displayMessages", label: "Display messages" },
   { key: "promotions", label: "Promotions" },

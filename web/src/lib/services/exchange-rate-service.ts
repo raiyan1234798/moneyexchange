@@ -333,15 +333,21 @@ export async function bulkUpdateRates(
     transferLocal?: number | null;
   }>,
   actor: { userId: string; userName: string; branchName: string },
-  options?: { autoCreateCurrencies?: boolean; requireApproval?: boolean; actorRole?: UserRole },
+  options?: {
+    autoCreateCurrencies?: boolean;
+    requireApproval?: boolean;
+    actorRole?: UserRole;
+    /** When false, never create brand-new rate docs (update existing only). */
+    allowCreateRates?: boolean;
+  },
 ): Promise<{ processed: number; created: number; skippedNeedApproval: number }> {
   const scopedBranchId = assertBranchId(branchId, "bulkUpdateRates");
   const autoCreate = options?.autoCreateCurrencies !== false;
-  // Branch users under the approval workflow may only PROPOSE changes to
-  // existing rates — creating brand-new published rates would silently bypass
-  // manager review (the TV shows published rates instantly).
+  // Block creating new branch rates when the caller forbids it, or when a
+  // branch user is under the approval workflow (proposing would bypass review).
   const blockNewRates =
-    options?.requireApproval === true && options?.actorRole === "branchUser";
+    options?.allowCreateRates === false ||
+    (options?.requireApproval === true && options?.actorRole === "branchUser");
   // Duplicate codes in one file must not create duplicate rate docs — last row wins.
   const byCode = new Map<string, (typeof updates)[number]>();
   for (const update of updates) {

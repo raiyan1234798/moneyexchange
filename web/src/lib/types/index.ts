@@ -141,12 +141,8 @@ export interface BranchSettings {
   tickerLogoFit?: "contain" | "cover" | "fill";
   /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
   rateCardTransition?: string;
-  /** Entrance animation for promotion sheets only. null = use rateCardTransition. */
-  ratePromoTransition?: string | null;
-  /** Seconds the promotion entrance animation lasts (between-pass). e.g. 0.8. */
-  ratePromoTransitionSeconds?: number;
-  /** @deprecated Prefer ratePromoTransitionSeconds. */
-  ratePromoTransitionSpeed?: "fast" | "normal" | "slow";
+  /** Seconds the slide/page entrance animation lasts (rate card + video media). Default 0.6. */
+  slideTransitionSeconds?: number;
   /** Continuous movement of the WE BUY / WE SELL numbers. null = still. */
   rateTextAnimation?: string | null;
   /** Continuous movement for the currency CODE letters (USD, EUR, …). */
@@ -172,6 +168,8 @@ export interface BranchSettings {
   rateAnimationPauseSecondsTransfer?: number | null;
   /** Auto-remove logo backgrounds on upload (default true). Off = upload as-is. */
   logoAutoRemoveBg?: boolean;
+  /** Whether the corner logo badge is visible on the ticker. Default true. */
+  showTickerLogo?: boolean;
   /** Transition when the video-area image/video changes. */
   videoImageTransition?: string;
   /** Gap between announcement shows in SECONDS (overrides the legacy minutes). */
@@ -205,18 +203,10 @@ export interface BranchSettings {
   scrollingLogos?: string[];
   /** A note line shown under the forex rate screen (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  /** Size multiplier for the rate-card note text (1 = normal). */
+  rateCardNoteFontScale?: number;
   /** Which forex page(s) show the note: the first forex page, or every forex page. */
   rateNotePlacement?: "first" | "all";
-  /** Size multiplier for the WE BUY note under the forex card (1 = normal). Default 0.85. */
-  rateNoteScale?: number;
-  /** Font key for the WE BUY note — null = use the rate-card / display font. */
-  rateNoteFont?: string | null;
-  /** When true, every TV with the same slide timings stays on the same rate-card
-      sheet at the same wall-clock time (synchronized playback across branches). */
-  syncRateCardPlayback?: boolean;
-  /** When true (default), hide the rate-card pagination dots while a promotion
-      image/video is on screen. Forex/transfer pages still show the dots. */
-  hideDotsOnPromo?: boolean;
   /** Seconds each rotating rate screen stays visible (forex/transfer pages). Default 5. */
   rateSheetIntervalSeconds?: number;
   /** Order the rotating rate-card slides appear in. Missing slides are skipped. */
@@ -257,7 +247,7 @@ export interface BranchSettings {
   ratePromoTextTop?: string | null;
   /** Promotional card: text message below the image (shown alone or under the image). */
   ratePromoText?: string | null;
-  /** Seconds each promotional image/video stays visible. Defaults to rateSheetIntervalSeconds. */
+  /** Seconds the promotional card stays visible. Defaults to rateSheetIntervalSeconds. */
   ratePromoDurationSeconds?: number;
   /** ONE font for the whole TV screen — rate card, messages, announcements, logo.
    *  When set it overrides every individual font below. See MESSAGE_FONTS. */

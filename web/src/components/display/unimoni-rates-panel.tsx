@@ -7,7 +7,7 @@ import {
   getRateFlag,
   resolveSignageRates,
 } from "@/lib/unimoni-signage";
-import { displayAnimationClass, slideTransitionClass, promoTransitionDurationMs } from "@/lib/constants";
+import { displayAnimationClass, slideTransitionClass } from "@/lib/constants";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
@@ -79,16 +79,10 @@ interface UnimoniRatesPanelProps {
   headerLogoUrls?: string[] | null;
   /** Note shown at the bottom of the FIRST rate screen only (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
+  /** Size multiplier for the rate-card note (1 = normal). */
+  rateCardNoteFontScale?: number;
   /** Which forex page(s) show the note: first forex page ("first") or all forex pages. */
   rateNotePlacement?: "first" | "all";
-  /** Size multiplier for the WE BUY note (1 = normal). */
-  rateNoteScale?: number;
-  /** CSS font-family for the WE BUY note (falls back to rate-card font). */
-  rateNoteFontCss?: string;
-  /** Align rate-card sheets to wall-clock so multiple TVs stay in sync. */
-  syncPlayback?: boolean;
-  /** Hide pagination dots while a promotion image/video is showing. Default true. */
-  hideDotsOnPromo?: boolean;
   /** CSS font-family for the whole rate card (header + table). */
   fontCss?: string;
   /** Seconds each rotating rate screen stays visible. Default 5. */
@@ -113,12 +107,6 @@ interface UnimoniRatesPanelProps {
   videoSoundOn?: boolean;
   /** Transition when the rotating sheet changes. Default fade. */
   sheetTransition?: string;
-  /** Entrance for promotion sheets only — falls back to sheetTransition. */
-  promoTransition?: string | null;
-  /** How long the promo flip lasts, in seconds (between-pass). */
-  promoTransitionSeconds?: number | null;
-  /** Legacy: fast / normal / slow — used when promoTransitionSeconds is unset. */
-  promoTransitionSpeed?: "fast" | "normal" | "slow" | null;
   /** Continuous movement applied to every WE BUY / WE SELL value. */
   valueTextAnimation?: string | null;
   /** Continuous movement applied to every currency CODE (USD, EUR, …). */
@@ -231,11 +219,8 @@ export function UnimoniRatesPanel({
   headerLogoRotationIntervalSeconds = 10,
   headerLogoUrls = null,
   rateCardNote,
+  rateCardNoteFontScale = 1,
   rateNotePlacement = "first",
-  rateNoteScale = 0.85,
-  rateNoteFontCss,
-  syncPlayback = false,
-  hideDotsOnPromo = true,
   fontCss,
   sheetIntervalSeconds,
   promoImageUrl,
@@ -248,9 +233,6 @@ export function UnimoniRatesPanel({
   rateCardOrder,
   videoSoundOn = false,
   sheetTransition = "fade",
-  promoTransition = null,
-  promoTransitionSeconds = null,
-  promoTransitionSpeed = "normal",
   valueTextAnimation = null,
   currencyTextAnimation = null,
   flagAnimation = null,
@@ -371,54 +353,15 @@ export function UnimoniRatesPanel({
 
   // Manually adjustable sequence timing (per the client: "3 seconds, 6 seconds,
   // 10 seconds — set manually"). The promo card can hold its own duration.
-  // Between-pass animation must finish inside the hold, or the flip is cut off
-  // and looks like "no animation".
   const rateMs = Math.max(2, sheetIntervalSeconds ?? 5) * 1000;
-  const promoPassMs = promoTransitionDurationMs(promoTransitionSeconds, promoTransitionSpeed);
-  const promoMs = Math.max(
-    2 * 1000,
-    (promoDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000,
-    promoPassMs + 800,
-  );
+  const promoMs = Math.max(2, promoDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
   // The transfer card can hold its own seconds too (three independent timers:
   // forex / transfer / promotion). Unset = same as the forex slides.
   const transferMs = Math.max(2, transferDurationSeconds ?? sheetIntervalSeconds ?? 5) * 1000;
   const activeKind = (sheets[sheetIndex % sheetCount] ?? { kind: "rates" }).kind;
 
-  // Sheet durations in order — used for both free-running and wall-clock sync.
-  const sheetDurationsMs = sheets.map((s) =>
-    s.kind === "promo" ? promoMs : s.kind === "transfer" ? transferMs : rateMs,
-  );
-  const cycleMs = sheetDurationsMs.reduce((sum, ms) => sum + ms, 0);
-
-  function sheetIndexAtWallClock(nowMs: number): number {
-    if (sheetCount <= 1 || cycleMs <= 0) return 0;
-    let t = nowMs % cycleMs;
-    for (let i = 0; i < sheetDurationsMs.length; i++) {
-      if (t < sheetDurationsMs[i]) return i;
-      t -= sheetDurationsMs[i];
-    }
-    return 0;
-  }
-
   useEffect(() => {
     if (sheetCount <= 1) return;
-
-    // Synchronized mode: all TVs with the same timings land on the same sheet
-    // from wall-clock time — useful when promotions are copied to every branch.
-    if (syncPlayback) {
-      const tick = () => {
-        const next = sheetIndexAtWallClock(Date.now());
-        setSheetIndex((prev) => {
-          if (prev !== next && next === 0) onRotationComplete?.();
-          return next;
-        });
-      };
-      tick();
-      const timer = window.setInterval(tick, 250);
-      return () => window.clearInterval(timer);
-    }
-
     const timer = window.setTimeout(
       () => {
         setSheetIndex((i) => {
@@ -431,9 +374,7 @@ export function UnimoniRatesPanel({
       activeKind === "promo" ? promoMs : activeKind === "transfer" ? transferMs : rateMs,
     );
     return () => window.clearTimeout(timer);
-    // sheetDurationsMs / cycleMs are derived from the timing deps below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sheetCount, sheetIndex, activeKind, promoMs, transferMs, rateMs, onRotationComplete, syncPlayback, cycleMs]);
+  }, [sheetCount, sheetIndex, activeKind, promoMs, transferMs, rateMs, onRotationComplete]);
 
   const activeSheet: Sheet = sheets[sheetIndex % sheetCount] ?? { kind: "rates", rows: [] };
   // No padding: every page's rows share the full card height, so each rotating
@@ -442,17 +383,6 @@ export function UnimoniRatesPanel({
   const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
   const isTransferSheet = activeSheet.kind === "transfer";
   const isPromoSheet = activeSheet.kind === "promo";
-  // Promotion slide controls drive the whole rate-card flip (forex/transfer/promo)
-  // so Rotation / Between pass / Animation in Settings actually show on the TV.
-  const activeSheetTransition =
-    (promoTransition?.trim() || sheetTransition?.trim() || (isPromoSheet ? "flip" : "fade"));
-  const activeSheetAnimMs = promoTransitionDurationMs(
-    promoTransitionSeconds,
-    promoTransitionSpeed ?? "normal",
-  );
-  const sheetAnimStyle = {
-    animationDuration: `${activeSheetAnimMs}ms`,
-  } as CSSProperties;
   // The note ("WE BUY US$ small bills @ …") belongs to the FOREX rates. It shows
   // on the first forex page WHEREVER it lands in the chosen slide order (so it
   // still appears even when transfer/promo is set first), or on every forex page
@@ -653,12 +583,11 @@ export function UnimoniRatesPanel({
         {isPromoSheet ? (
           <div
             key={`promo-${sheetIndex}`}
-            className={`${slideTransitionClass(activeSheetTransition)} flex min-h-0 flex-1 flex-col ${
+            className={`${slideTransitionClass(sheetTransition)} flex min-h-0 flex-1 flex-col ${
               activeSheet.promoMedia && !promoTop && !promoMessage
                 ? "overflow-hidden"
                 : `items-center justify-center ${promoTop || promoMessage ? "gap-[1vh] p-[0.8vw]" : ""}`
             }`}
-            style={sheetAnimStyle}
           >
             {promoTop ? (
               <p
@@ -749,8 +678,7 @@ export function UnimoniRatesPanel({
 
         <div
           key={`${activeSheet.kind}-${sheetIndex}`}
-          className={`display-rates-body ${slideTransitionClass(activeSheetTransition)} min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]`}
-          style={sheetAnimStyle}
+          className={`display-rates-body ${slideTransitionClass(sheetTransition)} min-h-0 gap-[0.35vh] overflow-hidden px-[0.35vw] py-[0.4vh]`}
         >
           {/* Empty-state for THIS slide's rows — checking the forex list here
               wrongly printed "being updated" on top of a full TRANSFER slide
@@ -810,12 +738,11 @@ export function UnimoniRatesPanel({
         </>
         )}
 
-        {/* Pagination dots: forex/transfer only. Hidden on promotion slides so
-            the image/video is uninterrupted (toggle: hideDotsOnPromo). */}
-        {sheetCount > 1 && !(hideDotsOnPromo && isPromoSheet) ? (
+        {sheetCount > 1 ? (
           <div
-            className="flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] pt-[0.35vh]"
-            aria-hidden
+            className={`flex shrink-0 items-center justify-center gap-[0.5vw] pb-[0.6vh] ${
+              hidePromoHeader ? "pt-[0.4vh]" : ""
+            }`}
           >
             {sheets.map((sheet, i) => (
               <span
@@ -824,8 +751,12 @@ export function UnimoniRatesPanel({
                 style={{
                   backgroundColor:
                     i === sheetIndex % sheetCount
-                      ? UNIMONI_COLORS.headerBlue
-                      : "#C9D8E8",
+                      ? hidePromoHeader
+                        ? "#FFFFFF"
+                        : UNIMONI_COLORS.headerBlue
+                      : hidePromoHeader
+                        ? "rgba(255,255,255,0.35)"
+                        : "#C9D8E8",
                 }}
               />
             ))}
@@ -840,8 +771,7 @@ export function UnimoniRatesPanel({
         <div
           className="shrink-0 px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold uppercase leading-tight text-white"
           style={{
-            fontSize: `calc(clamp(0.55rem, 0.85vw, 0.9rem) * ${rateNoteScale})`,
-            fontFamily: rateNoteFontCss ?? fontCss ?? "Arial, Helvetica, sans-serif",
+            fontSize: `clamp(${0.7 * rateCardNoteFontScale}rem, ${1.05 * rateCardNoteFontScale}vw, ${1.05 * rateCardNoteFontScale}rem)`,
           }}
         >
           {noteText}

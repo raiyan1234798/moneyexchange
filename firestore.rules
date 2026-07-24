@@ -318,12 +318,19 @@ service cloud.firestore {
         return isActiveUser() && 'moduleAccess' in userDoc() &&
           userDoc().moduleAccess.hasAny(['forexRatesAllBranches']);
       }
+      // Opt-in module: add NEW currency rows to a branch (Excel & UI). Admins
+      // always can; branch staff need this checkbox in Users.
+      function hasAddBranchCurrencies() {
+        return isActiveUser() && 'moduleAccess' in userDoc() &&
+          userDoc().moduleAccess.hasAny(['addBranchCurrencies']);
+      }
       // Admins manage rates across ALL branches; managers their own branch.
       // Branch users may ONLY edit + republish the forex VALUES of existing
       // rows in their branch — never rename, reorder, hide, transfer fields,
-      // or create/delete rows (per client, 2026-07-11).
+      // or create/delete rows unless granted addBranchCurrencies.
       allow create: if isSuperAdmin() || isAdmin() || hasAllBranchForex() ||
-        belongsToManagerBranch(request.resource.data.branchId);
+        (belongsToManagerBranch(request.resource.data.branchId) && hasAddBranchCurrencies()) ||
+        (belongsToBranchUserBranch(request.resource.data.branchId) && hasAddBranchCurrencies());
       allow update: if isSuperAdmin() || isAdmin() || hasAllBranchForex() ||
         belongsToManagerBranch(request.resource.data.branchId) ||
         (belongsToBranchUserBranch(resource.data.branchId) &&

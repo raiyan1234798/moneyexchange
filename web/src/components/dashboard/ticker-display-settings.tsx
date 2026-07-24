@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
+import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DisplayAnimationSelect } from "@/components/shared/animation-controls";
 import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS } from "@/lib/constants";
 import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent, stripLogoBackground } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
@@ -29,10 +31,13 @@ import type { Branch, BranchSettings } from "@/lib/types";
  */
 export function TickerDisplaySettings({
   branch,
+  branches = [],
   actor,
   saveSlot,
 }: {
   branch: Branch;
+  /** All branches — enables “apply to all” for headline + ticker look. */
+  branches?: Branch[];
   actor: { userId: string; userName: string };
   /** Element under the live TV preview that hosts the save bar on xl screens. */
   saveSlot?: HTMLElement | null;
@@ -40,16 +45,23 @@ export function TickerDisplaySettings({
   const seed = (): BranchSettings => ({ ...DEFAULT_BRANCH_SETTINGS, ...(branch.settings ?? {}) });
   const [settings, setSettings] = useState<BranchSettings>(seed);
   const [saving, setSaving] = useState(false);
+  const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([branch.id]);
+  const [allowMultipleFiles, setAllowMultipleFiles] = useState(true);
 
   // Reseed when the selected branch changes (render-time adjust, no effect).
   const [loadedBranch, setLoadedBranch] = useState(branch.id);
   if (loadedBranch !== branch.id) {
     setLoadedBranch(branch.id);
     setSettings(seed());
+    setTargetScope("current");
+    setSelectedBranchIds([branch.id]);
   }
 
   const s = settings;
   const set = (patch: Partial<BranchSettings>) => setSettings((prev) => ({ ...prev, ...patch }));
+  const activeBranches = branches.filter((b) => b.status === "active");
+  const canApplyToAll = activeBranches.length > 1;
 
   // Corner-badge logo GALLERY: several logos take turns. The legacy single
   // tickerLogoUrl folds into the list on any edit so old branches keep working.
@@ -92,12 +104,51 @@ export function TickerDisplaySettings({
   async function save() {
     setSaving(true);
     try {
-      await updateBranch(
-        branch.id,
-        { logoUrl: branch.logoUrl ?? "", brandingColor: branch.brandingColor ?? "#0D2680", settings },
-        actor,
+      const targets =
+        targetScope === "all"
+          ? activeBranches
+          : targetScope === "specific"
+          ? activeBranches.filter((b) => selectedBranchIds.includes(b.id) || b.id === branch.id)
+          : activeBranches.filter((b) => b.id === branch.id);
+      const list = targets.length > 0 ? targets : [branch];
+
+      await Promise.all(
+        list.map((b) => {
+          let nextSettings: BranchSettings = settings;
+          if (b.id !== branch.id) {
+            // Copy bar look + yellow headline; keep each branch's own logos.
+            nextSettings = {
+              ...(b.settings ?? {}),
+              ...settings,
+              tickerLogoUrl: b.settings?.tickerLogoUrl ?? null,
+              tickerLogoUrls: b.settings?.tickerLogoUrls ?? [],
+              tickerLogoText: b.settings?.tickerLogoText ?? null,
+              scrollingLogos: b.settings?.scrollingLogos ?? [],
+              scrollingLogoItems: b.settings?.scrollingLogoItems ?? [],
+              tickerHeadline: settings.tickerHeadline,
+              tickerHeadlineAnimation: settings.tickerHeadlineAnimation,
+              showTickerHeadline: settings.showTickerHeadline,
+              showTickerLogo: settings.showTickerLogo,
+            };
+          }
+          return updateBranch(
+            b.id,
+            {
+              logoUrl: b.logoUrl ?? "",
+              brandingColor: b.brandingColor ?? "#0D2680",
+              settings: nextSettings,
+            },
+            actor,
+          );
+        }),
       );
-      toast.success("Ticker settings saved — live on the branch TV");
+
+      toast.success(
+        list.length > 1
+          ? `Ticker settings (incl. yellow headline) saved on ${list.length} branches`
+          : "Ticker settings saved — live on the branch TV",
+      );
+      setTargetScope("current");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save ticker settings");
     } finally {
@@ -111,6 +162,20 @@ export function TickerDisplaySettings({
       description="Everything about the bottom bar in one place — corner logo, scrolling logos, the yellow headline box, and the bar itself. Changes apply after Save."
     >
       <div className="space-y-4">
+        {/* Option to select multiple files at once or one file at a time */}
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-muted/20 p-3">
+          <div>
+            <Label className="text-sm">Allow selecting multiple files from PC</Label>
+            <p className="text-xs text-muted-foreground">
+              On: select multiple logo files at once in your PC file picker window. Off: pick one file at a time.
+            </p>
+          </div>
+          <Switch
+            checked={allowMultipleFiles}
+            onCheckedChange={(checked) => setAllowMultipleFiles(checked)}
+          />
+        </div>
+
         {/* Some brand logos NEED their background — this switch turns the
             automatic removal off entirely (uploads are kept exactly as-is). */}
         <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-muted/20 p-3">
@@ -128,13 +193,17 @@ export function TickerDisplaySettings({
         </div>
         {/* ---- Corner logo (bottom-left badge) ---- */}
         <div className="space-y-3 rounded-xl border border-border/40 bg-muted/20 p-4">
-          <div>
-            <Label className="text-sm">Corner logo — the badge at the bottom-left of the TV</Label>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Shows the <strong>unimoni logo</strong> by default. Type text to show text instead,
-              or upload an image (white/solid backgrounds are removed automatically). Text wins
-              over the image; clear both to get the unimoni logo back.
-            </p>
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <Label className="text-sm">Corner logo — the badge at the bottom-left of the TV</Label>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Shows the <strong>unimoni logo</strong> by default. Turn off to hide/disappear the logo badge completely from the TV screen.
+              </p>
+            </div>
+            <Switch
+              checked={s.showTickerLogo !== false}
+              onCheckedChange={(checked) => set({ showTickerLogo: checked })}
+            />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -150,11 +219,11 @@ export function TickerDisplaySettings({
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Badge image(s) — add SEVERAL and they take turns
+                Badge image(s) — {allowMultipleFiles ? "add SEVERAL at once or one by one" : "add one at a time"}
               </Label>
               <Input
                 type="file"
-                multiple
+                multiple={allowMultipleFiles}
                 accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
                 aria-label="Upload ticker corner logo images"
                 onChange={async (e) => {
@@ -372,7 +441,7 @@ export function TickerDisplaySettings({
 
           <Input
             type="file"
-            multiple
+            multiple={allowMultipleFiles}
             accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
             aria-label="Upload scrolling ticker logos"
             onChange={async (e) => {
@@ -491,18 +560,18 @@ export function TickerDisplaySettings({
               Logo background chip
             </Label>
             <Select
-              value={s.tickerScrollLogoBg ?? "white"}
+              value={s.tickerScrollLogoBg ?? "transparent"}
               onValueChange={(value) =>
-                set({ tickerScrollLogoBg: (value as "white" | "transparent" | "auto") ?? "white" })
+                set({ tickerScrollLogoBg: (value as "white" | "transparent" | "auto") ?? "transparent" })
               }
             >
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="auto">Auto — dark chip for light logos, white for dark (recommended)</SelectItem>
-                <SelectItem value="white">White chip behind each logo</SelectItem>
-                <SelectItem value="transparent">No chip — logo directly on the black bar</SelectItem>
+                <SelectItem value="transparent">Transparent — logo sits directly on black bar (No white box)</SelectItem>
+                <SelectItem value="auto">Auto — contrast chip depending on logo tone</SelectItem>
+                <SelectItem value="white">White box chip behind each logo</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -676,7 +745,22 @@ export function TickerDisplaySettings({
               <div className="space-y-2 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg">
                 <p className="text-xs text-muted-foreground">
                   Ticker changes go live on the <strong>{branch.name}</strong> TV only after you save.
+                  Check below to also push the yellow headline and bar look to every branch.
                 </p>
+                {canApplyToAll ? (
+                  <ApplyToAllCheckbox
+                    id="ticker-settings-apply-all-portal"
+                    scope={targetScope}
+                    selectedBranchIds={selectedBranchIds}
+                    branches={branches}
+                    currentBranchId={branch.id}
+                    onScopeChange={(sel) => {
+                      setTargetScope(sel.scope);
+                      setSelectedBranchIds(sel.selectedBranchIds);
+                    }}
+                    description="Copies the yellow headline text and ticker bar look to the selected target branches."
+                  />
+                ) : null}
                 <Button
                   disabled={saving}
                   className="w-full rounded-xl"
@@ -688,10 +772,26 @@ export function TickerDisplaySettings({
               saveSlot,
             )
           : null}
-        <div className={`${saveSlot ? "xl:hidden " : ""}flex justify-start`}>
-          <Button className="rounded-xl" disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save ticker settings"}
-          </Button>
+        <div className={`${saveSlot ? "xl:hidden " : ""}space-y-3`}>
+          {canApplyToAll ? (
+            <ApplyToAllCheckbox
+              id="ticker-settings-apply-all"
+              scope={targetScope}
+              selectedBranchIds={selectedBranchIds}
+              branches={branches}
+              currentBranchId={branch.id}
+              onScopeChange={(sel) => {
+                setTargetScope(sel.scope);
+                setSelectedBranchIds(sel.selectedBranchIds);
+              }}
+              description="Copies the yellow headline text and ticker bar look to the selected target branches."
+            />
+          ) : null}
+          <div className="flex justify-start">
+            <Button className="rounded-xl" disabled={saving} onClick={() => void save()}>
+              {saving ? "Saving…" : "Save ticker settings"}
+            </Button>
+          </div>
         </div>
       </div>
     </ContentPanel>

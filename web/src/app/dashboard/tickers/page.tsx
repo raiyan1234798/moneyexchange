@@ -45,7 +45,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { syncTickerToBranches } from "@/lib/services/branch-sync";
+import { syncTickerToBranches, upsertTickerContentToBranches } from "@/lib/services/branch-sync";
 import { TickerDisplaySettings } from "@/components/dashboard/ticker-display-settings";
 import type { TickerMessage } from "@/lib/types";
 
@@ -64,6 +64,8 @@ export default function TickersPage() {
   const [messageFont, setMessageFont] = useState(MESSAGE_FONTS[0].key);
   const [fontColor, setFontColor] = useState("#FFFFFF");
   const [applyToAll, setApplyToAll] = useState(false);
+  const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([effectiveBranchId]);
   const [editTarget, setEditTarget] = useState<TickerMessage | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TickerMessage | null>(null);
   // Slot under the live TV preview that hosts the panel's save bar (xl screens).
@@ -139,61 +141,57 @@ export default function TickersPage() {
       return;
     }
 
-    if (editTarget) {
-      try {
+    const sharedFields = {
+      messages: lines,
+      scrollSpeed,
+      fontSize: branch?.settings?.tickerFontSize ?? 18,
+      fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
+      logoUrl: logoMode === "text" ? null : logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
+      logoText: logoMode === "text" ? logoText.trim() || null : null,
+      logoFont: logoMode === "text" ? logoFont : null,
+      messageFont,
+      language: "en" as const,
+      status: "active" as const,
+    };
+
+    try {
+      if (editTarget && !(applyToAll && canApplyToAll)) {
         await updateTicker(
           editTarget.id,
-          {
-            messages: lines,
-            scrollSpeed,
-            fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
-            logoUrl: logoMode === "text" ? null : logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
-            logoText: logoMode === "text" ? logoText.trim() || null : null,
-            logoFont: logoMode === "text" ? logoFont : null,
-            messageFont,
-            branchId: editTarget.branchId,
-          },
+          { ...sharedFields, branchId: editTarget.branchId },
           { userId: user.uid, userName: profile.displayName || profile.email },
         );
         toast.success("Scrolling messages updated on display");
         closeDialog();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to update messages");
+        return;
       }
-      return;
-    }
 
-    try {
-      const tickerData = {
-        messages: lines,
-        scrollSpeed,
-        fontSize: branch?.settings?.tickerFontSize ?? 18,
-        fontColor: fontColor || (branch?.settings?.tickerFontColor ?? "#FFFFFF"),
-        logoUrl: logoMode === "text" ? null : logoUrl.trim() || branch?.settings?.tickerLogoUrl || branch?.logoUrl || null,
-        logoText: logoMode === "text" ? logoText.trim() || null : null,
-        logoFont: logoMode === "text" ? logoFont : null,
-        messageFont,
-        language: "en" as const,
-        status: "active" as const,
-        createdBy: user.uid,
-      };
-
-      const count = await syncTickerToBranches(
-        branches,
-        effectiveBranchId,
-        applyToAll && canApplyToAll,
-        tickerData,
-        { userId: user.uid, userName: profile.displayName || profile.email },
-      );
+      // Create, or edit with apply-to-all: upsert the same messages on each target.
+      const count = editTarget
+        ? await upsertTickerContentToBranches(
+            branches,
+            effectiveBranchId,
+            applyToAll && canApplyToAll,
+            { ...sharedFields, createdBy: user.uid },
+            { userId: user.uid, userName: profile.displayName || profile.email },
+            editTarget.id,
+          )
+        : await syncTickerToBranches(
+            branches,
+            effectiveBranchId,
+            applyToAll && canApplyToAll,
+            { ...sharedFields, createdBy: user.uid },
+            { userId: user.uid, userName: profile.displayName || profile.email },
+          );
 
       toast.success(
         count > 1
           ? `Scrolling messages published to ${count} branches`
-          : "Scrolling messages published to displays",
+          : editTarget
+            ? "Scrolling messages updated on display"
+            : "Scrolling messages published to displays",
       );
-      setOpen(false);
-      setMessages("");
-      setApplyToAll(false);
+      closeDialog();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to publish messages");
     }
@@ -430,21 +428,40 @@ export default function TickersPage() {
                       className="rounded-xl"
                     />
                   </div>
-                  {canApplyToAll && !editTarget ? (
-                    <ApplyToAllCheckbox
-                      checked={applyToAll}
-                      onChange={setApplyToAll}
-                      branchCount={branches.filter((b) => b.status === "active").length}
-                    />
-                  ) : null}
                 </div>
+                {canApplyToAll ? (
+                  <ApplyToAllCheckbox
+                    id="ticker-message-apply-all"
+                    scope={targetScope}
+                    selectedBranchIds={selectedBranchIds}
+                    branches={branches}
+                    currentBranchId={effectiveBranchId}
+                    onScopeChange={(sel) => {
+                      setTargetScope(sel.scope);
+                      setSelectedBranchIds(sel.selectedBranchIds);
+                      setApplyToAll(sel.scope === "all");
+                    }}
+                    className="mt-2"
+                    description={
+                      editTarget
+                        ? `Publishes these scrolling text changes to the selected target branches.`
+                        : `Publishes these scrolling messages to the selected target branches.`
+                    }
+                  />
+                ) : null}
                 <DialogFooter>
                   <Button
                     onClick={() => void handleCreateTicker()}
                     disabled={!messages.trim()}
                     className="rounded-xl"
                   >
-                    {editTarget ? "Save changes" : "Publish to Displays"}
+                    {editTarget
+                      ? applyToAll && canApplyToAll
+                        ? "Save to all branches"
+                        : "Save changes"
+                      : applyToAll && canApplyToAll
+                        ? "Publish to all branches"
+                        : "Publish to Displays"}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -541,6 +558,7 @@ export default function TickersPage() {
         {branch && user && profile ? (
           <TickerDisplaySettings
             branch={branch}
+            branches={branches}
             actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
             saveSlot={tickerSaveSlot}
           />

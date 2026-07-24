@@ -63,6 +63,8 @@ interface BreakingNewsTickerProps {
   headlineFontCss?: string;
   /** Movement effect for the headline text (bounce/flip/...). Default none. */
   headlineAnimation?: string | null;
+  /** Whether the corner logo badge is visible. Default true. */
+  showLogo?: boolean;
 }
 
 const PAUSE_BETWEEN_CYCLES_MS = 2500;
@@ -137,7 +139,7 @@ function ScrollingLogoImg({
     <img
       src={src}
       alt=""
-      className={`${side === "start" ? "mr-[1.6vw]" : "ml-[1.6vw]"} inline-block w-auto rounded-[3px] px-[0.3em] py-[0.15em] align-middle object-contain ${chip} ${animClass}`}
+      className={`${side === "start" ? "mr-[1.6vw]" : "ml-[1.6vw]"} inline-block w-auto align-middle object-contain ${chip ? `rounded-[3px] px-[0.3em] py-[0.15em] ${chip}` : ""} ${animClass}`}
       style={{ height: heightEm }}
     />
   );
@@ -173,6 +175,7 @@ function BreakingNewsTickerInner({
   headlineMaxWidthPercent,
   headlineFontCss,
   headlineAnimation = null,
+  showLogo = true,
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
   const resolvedText = logoText?.trim() || null;
@@ -240,8 +243,8 @@ function BreakingNewsTickerInner({
   // logos (the real wordmark) sit on a horizontal white card. The scrolling
   // strip and headline tab shift right to clear the badge; the whole badge and
   // the inset scale together with logoScale.
-  const baseBadgeWidth = isTextLogo ? "clamp(8rem,19vw,15rem)" : "clamp(8.5rem,18vw,13rem)";
-  const badgeWidth = `calc(${baseBadgeWidth} * ${logoScale})`;
+  const baseBadgeWidth = !showLogo ? "0px" : isTextLogo ? "clamp(8rem,19vw,15rem)" : "clamp(8.5rem,18vw,13rem)";
+  const badgeWidth = !showLogo ? "0px" : `calc(${baseBadgeWidth} * ${logoScale})`;
   const textLen = resolvedText?.length ?? 0;
   const textLogoSize =
     textLen <= 6 ? "clamp(1.1rem,2.4vw,2.5rem)" : textLen <= 10 ? "clamp(0.85rem,1.8vw,1.9rem)" : "clamp(0.6rem,1.3vw,1.35rem)";
@@ -292,56 +295,60 @@ function BreakingNewsTickerInner({
           bigger than the bar, overlapping it from the left, visually separate
           from the scrolling strip. Text slides behind it and disappears.
           Image logos sit on a white card so the navy+gold wordmark reads. */}
-      <div
-        // bottom-0 keeps the badge's gold bottom border flush with the ticker's
-        // gold underline — one continuous straight line, no double line.
-        // The RIGHT end is fully rounded (a clean, complete shape — not a hard
-        // rectangle); the left sits flush at the screen edge. More padding + a
-        // slightly smaller logo below keep the wordmark clear of the rounded
-        // corners so it never looks cut.
-        className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
-          // Stretch/zoom fits fill the WHOLE rectangular box edge-to-edge — no
-          // side padding; the normal fit keeps breathing room round the logo.
-          isTextLogo || logoFit === "contain" ? "px-[1vw]" : "px-0"
-        } ${pulse ? "ticker-logo-pulse" : ""}`}
-        style={{
-          width: badgeWidth,
-          height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,
-          backgroundColor: isTextLogo
-            ? UNIMONI_COLORS.tickerBlack
-            : logoBgColor?.trim() || "#FFFFFF",
-          borderColor: UNIMONI_COLORS.gold,
-        }}
-      >
-        {isTextLogo ? (
-          <span
-            className="whitespace-nowrap text-center font-extrabold uppercase leading-none tracking-tight text-white drop-shadow-md"
-            style={{
-              fontFamily: logoFontCss ?? "'Arial Black', Arial, sans-serif",
-              fontSize: textLogoSize,
-            }}
-          >
-            {resolvedText}
-          </span>
-        ) : (
-          <Image
-            src={imageLogoSrc!}
-            alt={`${BRAND.name} logo`}
-            width={260}
-            height={84}
-            className={`drop-shadow-sm ${
-              logoFit === "fill"
-                ? "h-full w-full object-fill"
-                : logoFit === "cover"
-                  ? "h-full w-full object-cover"
-                  : "h-[80%] w-[90%] object-contain"
-            } ${logoAnimClass}`}
-            unoptimized
-            priority
-            onError={() => (galleryLen > 1 ? setLogoIdx((i) => i + 1) : setLogoFailed(true))}
-          />
-        )}
-      </div>
+      {showLogo ? (
+        <div
+          // bottom-0 keeps the badge's gold bottom border flush with the ticker's
+          // gold underline — one continuous straight line, no double line.
+          // The RIGHT end is fully rounded (a clean, complete shape — not a hard
+          // rectangle); the left sits flush at the screen edge. More padding + a
+          // slightly smaller logo below keep the wordmark clear of the rounded
+          // corners so it never looks cut.
+          className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+            // Stretch/zoom fits fill the WHOLE rectangular box edge-to-edge — no
+            // side padding; the normal fit keeps breathing room round the logo.
+            isTextLogo || logoFit === "contain" ? "px-[1vw]" : "px-0"
+          } ${pulse ? "ticker-logo-pulse" : ""}`}
+          style={{
+            width: badgeWidth,
+            height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,
+            backgroundColor: isTextLogo
+              ? UNIMONI_COLORS.tickerBlack
+              : logoBgColor?.trim() === "transparent"
+                ? "transparent"
+                : logoBgColor?.trim() || "#FFFFFF",
+            borderColor: UNIMONI_COLORS.gold,
+          }}
+        >
+          {isTextLogo ? (
+            <span
+              className="whitespace-nowrap text-center font-extrabold uppercase leading-none tracking-tight text-white drop-shadow-md"
+              style={{
+                fontFamily: logoFontCss ?? "'Arial Black', Arial, sans-serif",
+                fontSize: textLogoSize,
+              }}
+            >
+              {resolvedText}
+            </span>
+          ) : (
+            <Image
+              src={imageLogoSrc!}
+              alt={`${BRAND.name} logo`}
+              width={260}
+              height={84}
+              className={`drop-shadow-sm ${
+                logoFit === "fill"
+                  ? "h-full w-full object-fill"
+                  : logoFit === "cover"
+                    ? "h-full w-full object-cover"
+                    : "h-[80%] w-[90%] object-contain"
+              } ${logoAnimClass}`}
+              unoptimized
+              priority
+              onError={() => (galleryLen > 1 ? setLogoIdx((i) => i + 1) : setLogoFailed(true))}
+            />
+          )}
+        </div>
+      ) : null}
 
       <div
         className="relative flex overflow-hidden"

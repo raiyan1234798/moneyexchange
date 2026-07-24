@@ -59,6 +59,7 @@ interface TimedRatesPanelProps {
   headerLogoRotationEnabled: boolean;
   headerLogoRotationIntervalSeconds: number;
   rateCardNote: string | null;
+  rateCardNoteFontScale: number;
   rateNotePlacement: "first" | "all";
   rateNoteScale: number;
   rateNoteFontCss?: string;
@@ -117,6 +118,7 @@ function TimedRatesPanel({
   headerLogoRotationEnabled,
   headerLogoRotationIntervalSeconds,
   rateCardNote,
+  rateCardNoteFontScale,
   rateNotePlacement,
   rateNoteScale,
   rateNoteFontCss,
@@ -187,6 +189,7 @@ function TimedRatesPanel({
       headerLogoRotationEnabled={headerLogoRotationEnabled}
       headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
+      rateCardNoteFontScale={rateCardNoteFontScale}
       rateNotePlacement={rateNotePlacement}
       rateNoteScale={rateNoteScale}
       rateNoteFontCss={rateNoteFontCss}
@@ -415,6 +418,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
     };
   }, [videoSoundOn]);
   const rateCardNote = branchSettings.rateCardNote?.trim() || null;
+  const rateCardNoteFontScale = branchSettings.rateCardNoteFontScale ?? 1;
   const rateNotePlacement = (branchSettings.rateNotePlacement ?? "first") as "first" | "all";
   const rateNoteScale = branchSettings.rateNoteScale ?? 0.85;
   const rateNoteFontCss = messageFontCss(
@@ -903,6 +907,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       headerLogoRotationEnabled={headerLogoRotationEnabled}
       headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
+      rateCardNoteFontScale={rateCardNoteFontScale}
       rateNotePlacement={rateNotePlacement}
       rateNoteScale={rateNoteScale}
       rateNoteFontCss={rateNoteFontCss}
@@ -978,6 +983,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
           ? { transform: `scale(${(100 - 2 * safeAreaPercent) / 100})`, transformOrigin: "50% 50%" }
           : {}),
         ["--rate-anim-secs" as string]: `${rateAnimCycleSecs}s`,
+        ["--sheet-anim-secs" as string]: `${Math.max(0.2, Math.min(5, branchSettings.slideTransitionSeconds ?? 0.6))}s`,
       }}
     >
       {/* Dynamic spin/flip keyframes as a RAW style tag — styled-jsx strips
@@ -1061,6 +1067,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
         scrollLogoBg={branchSettings.tickerScrollLogoBg ?? "white"}
         scrollLogosEnabled={branchSettings.tickerScrollLogosEnabled !== false}
         logoFit={branchSettings.tickerLogoFit ?? "contain"}
+        showLogo={branchSettings.showTickerLogo !== false}
       />
 
       {/* Animated announcement strip: "band" takes over the bottom message area,

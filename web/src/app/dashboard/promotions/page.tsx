@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { checkPromoMediaFit, PROMO_IDEAL_TEXT } from "@/lib/promo-fit";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
+import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
+import { DisplayAnimationSelect } from "@/components/shared/animation-controls";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import { ContentPanel, PageShell } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
@@ -19,20 +21,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
+import { canApplyToAllBranches } from "@/lib/branch-isolation";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { updateBranch } from "@/lib/services/branch-service";
-import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS, MESSAGE_FONTS, SLIDE_TRANSITIONS } from "@/lib/constants";
+import { DEFAULT_BRANCH_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
 import type { BranchSettings } from "@/lib/types";
-import { AdvancedDetails, GettingStartedCard, StepLabel } from "@/components/dashboard/settings-ux";
 
 export default function PromotionsPage() {
   const { user, profile, isSuperAdmin, isAdmin } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId } = useBranchScope();
   const isPlatformAdmin = isSuperAdmin || isAdmin;
+  const canApplyToAll = canApplyToAllBranches(profile?.role);
   const branch = branches.find((b) => b.id === effectiveBranchId);
+  const activeBranchCount = branches.filter((b) => b.status === "active").length;
 
   const initial = useMemo<BranchSettings>(
     () => ({ ...DEFAULT_BRANCH_SETTINGS, ...(branch?.settings ?? {}) }),
@@ -40,13 +44,19 @@ export default function PromotionsPage() {
   );
   const [settings, setSettings] = useState<BranchSettings>(initial);
   const [saving, setSaving] = useState(false);
+  const [applyToAll, setApplyToAll] = useState(false);
 
   // Reseed the form when the selected branch changes — the React-recommended
+  const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
+  const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([effectiveBranchId]);
+
   // "adjust state during render" pattern (no effect, no cascading render).
   const [loadedBranch, setLoadedBranch] = useState(effectiveBranchId);
   if (loadedBranch !== effectiveBranchId) {
     setLoadedBranch(effectiveBranchId);
     setSettings(initial);
+    setTargetScope("current");
+    setSelectedBranchIds([effectiveBranchId]);
   }
 
   const s = settings;
@@ -55,13 +65,73 @@ export default function PromotionsPage() {
   async function save() {
     if (!user || !profile || !effectiveBranchId || !branch) return;
     setSaving(true);
+    const actor = { userId: user.uid, userName: profile.displayName || profile.email || "Admin" };
     try {
       await updateBranch(
         effectiveBranchId,
         { logoUrl: branch.logoUrl ?? "", brandingColor: branch.brandingColor ?? "#0D2680", settings },
-        { userId: user.uid, userName: profile.displayName || profile.email || "Admin" },
+        actor,
       );
-      toast.success("Promotions saved — live on the branch TV");
+
+      // Apply promotion look + flip/message animations (+ promo media) to target branches
+      if (targetScope !== "current" && canApplyToAll) {
+        const targets =
+          targetScope === "all"
+            ? branches.filter((b) => b.id !== effectiveBranchId && b.status === "active")
+            : branches.filter(
+                (b) =>
+                  b.id !== effectiveBranchId &&
+                  b.status === "active" &&
+                  selectedBranchIds.includes(b.id),
+              );
+        // Keep each branch's own logos / announcement / ticker media; copy the
+        // promotion slide fields and continuous animation choices.
+        const PROMO_SYNC_KEYS: Array<keyof BranchSettings> = [
+          "ratePromoEnabled",
+          "ratePromoMedia",
+          "ratePromoImageUrl",
+          "ratePromoText",
+          "ratePromoTextTop",
+          "ratePromoDurationSeconds",
+          "ratePromoMediaFit",
+          "ratePromoSoundOn",
+          "ratePromoTextScale",
+          "ratePromoTextAnimation",
+          "ratePromoFont",
+          "promoLogoMode",
+          "promoSlideLogoUrl",
+          "promoSlideLogoScale",
+          "promoSlideLogoAnimation",
+          "rateCardTransition",
+          "slideTransitionSeconds",
+          "videoImageTransition",
+          "rateTextAnimation",
+          "rateCurrencyAnimation",
+          "rateFlagAnimation",
+          "rateHeadingAnimation",
+          "rateAnimationSpeedSeconds",
+          "rateAnimationPauseSeconds",
+          "headerLogoAnimation",
+        ];
+        await Promise.all(
+          targets.map((b) => {
+            const shared: Partial<BranchSettings> = {};
+            for (const key of PROMO_SYNC_KEYS) {
+              const value = settings[key];
+              if (value !== undefined) {
+                (shared as Record<string, unknown>)[key] = value;
+              }
+            }
+            return updateBranch(b.id, { settings: { ...b.settings, ...shared } }, actor);
+          }),
+        );
+        toast.success(
+          `Promotions + flip/animations applied to ${targets.length + 1} branches`,
+          { duration: 8000 },
+        );
+      } else {
+        toast.success("Promotions saved — live on the branch TV");
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save");
     } finally {
@@ -86,7 +156,7 @@ export default function PromotionsPage() {
     <>
       <DashboardHeader
         title="Promotions"
-        description="Add offer images for the rate card — timer and flip style are at the top."
+        description="Per-branch announcements (prize winners, offers) and the rotating promotion card."
         accent="amber"
       />
       <PageShell>
@@ -100,20 +170,10 @@ export default function PromotionsPage() {
           </ContentPanel>
         ) : (
           <div className="space-y-6">
-            <GettingStartedCard
-              title="Quick start"
-              steps={[
-                { label: "Upload promo images/videos", hint: "Best size: tall 3:5 portrait (1080×1800)." },
-                { label: "Set flip timer", hint: "Try Fast 3s or Normal 4s." },
-                { label: "Pick an animation", hint: "3D flip or Snap look great." },
-                { label: "Save", hint: "Changes go live on this branch’s TV." },
-              ]}
-            />
-
             {/* ---- Announcement ---- */}
-            <AdvancedDetails
-              title="Announcement banner (optional)"
-              description="Full-screen text/image/video that appears for a while, then goes away. Most branches leave this empty."
+            <ContentPanel
+              title="Announcement / display message"
+              description="Play text, an image or a video for a set time, then it animates away and the screen returns to normal."
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 p-3">
@@ -282,29 +342,18 @@ export default function PromotionsPage() {
                         <SelectItem value="slide">Slide</SelectItem>
                         <SelectItem value="fade">Fade</SelectItem>
                         <SelectItem value="zoom">Zoom</SelectItem>
-                        <SelectItem value="flip">Flip</SelectItem>
+                        <SelectItem value="flip">Flip (3D card turn)</SelectItem>
                       </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Text movement (while visible)</Label>
-                  <Select
+                  <DisplayAnimationSelect
                     value={s.announcementTextAnimation ?? "none"}
-                    onValueChange={(value) =>
+                    onChange={(value) =>
                       set({ announcementTextAnimation: value === "none" ? null : value })
                     }
-                  >
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DISPLAY_ANIMATIONS.map((a) => (
-                        <SelectItem key={a.key} value={a.key}>
-                          {a.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>                  </div>
+                  />                  </div>
                   <div className="space-y-2">
                     <Label>Text colour</Label>
                     <Select
@@ -397,38 +446,24 @@ export default function PromotionsPage() {
                   ) : null}
                 </div>
               </div>
-            </AdvancedDetails>
+            </ContentPanel>
 
             {/* ---- Promotion card in the rate rotation ---- */}
             <ContentPanel
-              title="Promotion card"
-              description="Images/videos that rotate on the rate card. Follow the numbered steps."
+              title="Promotion card (rate rotation)"
+              description="An image and/or message that appears as its own screen in the rate-card rotation. Leave empty to hide."
             >
               <div className="space-y-4">
-                <StepLabel step={1} title="Show on the TV" hint="Turn off to hide without deleting uploads." />
                 <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 p-3">
                   <div>
-                    <p className="text-sm font-semibold">Show the promotion slide</p>
+                    <p className="text-sm font-semibold">Show the promotion slide on the TV</p>
                     <p className="text-xs text-muted-foreground">
-                      Off hides it from the rotation without deleting your content.
+                      Turn off to hide it from the rotation without deleting your images/videos/text.
                     </p>
                   </div>
                   <Switch
                     checked={s.ratePromoEnabled !== false}
                     onCheckedChange={(v) => set({ ratePromoEnabled: v })}
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 p-3">
-                  <div>
-                    <p className="text-sm font-semibold">Hide dots on promotion slides</p>
-                    <p className="text-xs text-muted-foreground">
-                      Removes the pagination dots under the rate card while a promo image/video
-                      plays. Forex and transfer pages keep their dots.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={s.hideDotsOnPromo !== false}
-                    onCheckedChange={(v) => set({ hideDotsOnPromo: v })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -500,121 +535,16 @@ export default function PromotionsPage() {
                     className="rounded-xl"
                   />
                 </div>
-                <div className="space-y-2 rounded-xl border border-primary/20 bg-primary/[0.03] p-3">
-                  <StepLabel
-                    step={2}
-                    title="Rotation & between-pass timing"
-                    hint="Rotation = how long each stays. Between pass = flip animation length."
+                <div className="space-y-2">
+                  <Label>Promotion card duration (seconds)</Label>
+                  <Input
+                    type="number"
+                    min={2}
+                    max={60}
+                    value={s.ratePromoDurationSeconds ?? 6}
+                    onChange={(e) => set({ ratePromoDurationSeconds: Number(e.target.value) })}
+                    className="rounded-xl sm:max-w-[200px]"
                   />
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Rotation (seconds)</Label>
-                      <Input
-                        type="number"
-                        min={2}
-                        max={60}
-                        step={1}
-                        value={s.ratePromoDurationSeconds ?? 4}
-                        onChange={(e) =>
-                          set({ ratePromoDurationSeconds: Math.max(2, Number(e.target.value) || 4) })
-                        }
-                        className="rounded-xl"
-                      />
-                      <div className="flex flex-wrap gap-1.5">
-                        {([3, 4, 6, 8, 10] as const).map((value) => (
-                          <Button
-                            key={value}
-                            type="button"
-                            size="sm"
-                            variant={(s.ratePromoDurationSeconds ?? 4) === value ? "default" : "outline"}
-                            className="h-7 rounded-md px-2 text-xs"
-                            onClick={() => set({ ratePromoDurationSeconds: value })}
-                          >
-                            {value}s
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Between pass (seconds)</Label>
-                      <Input
-                        type="number"
-                        min={0.2}
-                        max={3}
-                        step={0.1}
-                        value={
-                          s.ratePromoTransitionSeconds ??
-                          (s.ratePromoTransitionSpeed === "fast"
-                            ? 0.3
-                            : s.ratePromoTransitionSpeed === "slow"
-                              ? 0.75
-                              : 0.8)
-                        }
-                        onChange={(e) =>
-                          set({
-                            ratePromoTransitionSeconds: Math.min(
-                              3,
-                              Math.max(0.2, Number(e.target.value) || 0.8),
-                            ),
-                          })
-                        }
-                        className="rounded-xl"
-                      />
-                      <div className="flex flex-wrap gap-1.5">
-                        {([0.4, 0.8, 1.2, 1.5, 2] as const).map((value) => {
-                          const current =
-                            s.ratePromoTransitionSeconds ??
-                            (s.ratePromoTransitionSpeed === "fast"
-                              ? 0.3
-                              : s.ratePromoTransitionSpeed === "slow"
-                                ? 0.75
-                                : 0.8);
-                          return (
-                            <Button
-                              key={value}
-                              type="button"
-                              size="sm"
-                              variant={Math.abs(current - value) < 0.05 ? "default" : "outline"}
-                              className="h-7 rounded-md px-2 text-xs"
-                              onClick={() => set({ ratePromoTransitionSeconds: value })}
-                            >
-                              {value}s
-                            </Button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        If you couldn&apos;t see the flip, try 1.2s. Need 2+ promos to see it between them.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="grid gap-4 rounded-xl border border-primary/20 bg-primary/[0.03] p-3 sm:grid-cols-1">
-                  <div className="space-y-2">
-                    <StepLabel step={3} title="Flip animation style" />
-                    <Label>Animation</Label>
-                    <Select
-                      value={s.ratePromoTransition ?? s.rateCardTransition ?? "flip"}
-                      onValueChange={(v) =>
-                        set({
-                          ratePromoTransition: v ?? "flip",
-                          rateCardTransition: v ?? "flip",
-                          videoImageTransition: v ?? "flip",
-                        })
-                      }
-                    >
-                      <SelectTrigger className="rounded-xl">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SLIDE_TRANSITIONS.map((t) => (
-                          <SelectItem key={t.key} value={t.key}>
-                            {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion video sound (rate card)</Label>
@@ -724,24 +654,13 @@ export default function PromotionsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion-slide logo animation</Label>
-                  <Select
+                  <DisplayAnimationSelect
                     value={s.promoSlideLogoAnimation ?? "__inherit"}
-                    onValueChange={(value) =>
+                    onChange={(value) =>
                       set({ promoSlideLogoAnimation: value === "__inherit" ? null : value })
                     }
-                  >
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__inherit">Same as rate-card logo animation (default)</SelectItem>
-                      {DISPLAY_ANIMATIONS.map((a) => (
-                        <SelectItem key={a.key} value={a.key}>
-                          {a.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    allowInherit
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion message font</Label>
@@ -780,33 +699,38 @@ export default function PromotionsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>Promotion text movement</Label>
-                  <Select
+                  <DisplayAnimationSelect
                     value={s.ratePromoTextAnimation ?? "none"}
-                    onValueChange={(value) =>
+                    onChange={(value) =>
                       set({ ratePromoTextAnimation: value === "none" ? null : value })
                     }
-                  >
-                    <SelectTrigger className="rounded-xl">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DISPLAY_ANIMATIONS.map((a) => (
-                      <SelectItem key={a.key} value={a.key}>
-                        {a.label}
-                      </SelectItem>
-                    ))}
-                    </SelectContent>
-                  </Select>
+                  />
                 </div>
               </div>
             </ContentPanel>
 
             <PreviewDisplayLink branchCode={branch.code} />
 
-            <div className="flex justify-end">
-              <Button className="rounded-xl" disabled={saving} onClick={() => void save()}>
-                {saving ? "Saving…" : "Save promotions"}
-              </Button>
+            <div className="space-y-3">
+              {canApplyToAll ? (
+                <ApplyToAllCheckbox
+                  id="promotions-apply-all"
+                  scope={targetScope}
+                  selectedBranchIds={selectedBranchIds}
+                  branches={branches}
+                  currentBranchId={effectiveBranchId}
+                  onScopeChange={(sel) => {
+                    setTargetScope(sel.scope);
+                    setSelectedBranchIds(sel.selectedBranchIds);
+                  }}
+                  description="Copies this promotion slide, message movement, and related animation timings to the selected target branches."
+                />
+              ) : null}
+              <div className="flex justify-end">
+                <Button className="rounded-xl" disabled={saving} onClick={() => void save()}>
+                  {saving ? "Saving…" : applyToAll ? "Save to all branches" : "Save promotions"}
+                </Button>
+              </div>
             </div>
           </div>
         )}
