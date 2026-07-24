@@ -960,15 +960,18 @@ function BranchSettingsForm({
         </p>
       </div>
       <div className="space-y-2">
-        <Label>Rate card note (WE BUY @ …)</Label>
+        <Label>Rate card note (We buy @ …)</Label>
         <Input
           value={settings.rateCardNote ?? ""}
           onChange={(event) =>
-            setSettings({ ...settings, rateCardNote: event.target.value.toUpperCase() || null })
+            setSettings({ ...settings, rateCardNote: event.target.value.trim() ? event.target.value : null })
           }
-          placeholder="WE BUY US $ SMALL BILLS 20,10,5,2 & 1 @3300"
+          placeholder="We buy USD small bills $20, $10, $5, $2, $1 @ 3300"
           className="rounded-xl"
         />
+        <p className="text-xs text-muted-foreground">
+          One line under the rate card. Same font as the board; only size is adjustable below.
+        </p>
         <div className="grid gap-3 pt-1 sm:grid-cols-2">
           <div>
             <Label className="mb-1 block text-xs">Note text size (%)</Label>

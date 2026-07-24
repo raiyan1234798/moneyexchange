@@ -13,6 +13,30 @@ import { FlagChip } from "@/components/display/flag-chip";
 import { LiveClock, formatSignageDate, formatSignageTime, useNow } from "@/components/display/live-clock";
 import type { ExchangeRate, TransferRate } from "@/lib/types";
 
+/** Soften all-caps rate notes into readable single-line copy (keeps USD codes). */
+function naturalRateCardNote(raw: string): string {
+  let text = raw.trim().replace(/\s+/g, " ");
+  if (!text) return "";
+  const starred = text.startsWith("*");
+  if (starred) text = text.replace(/^\*\s*/, "");
+
+  // "$20,$10,$5" → "$20, $10, $5"
+  text = text.replace(/\$(\d+)\s*,\s*(?=\$?\d)/g, "$$$1, ");
+  text = text.replace(/@\s*/g, "@ ");
+
+  const lettersOnly = text.replace(/[^A-Za-z]/g, "");
+  if (lettersOnly.length > 0 && lettersOnly === lettersOnly.toUpperCase()) {
+    text = text
+      .toLowerCase()
+      .replace(/\b(usd|ugx|eur|gbp|kes|tzs|rwf|cad|aud|chf|jpy|cny|aed|sar|zar)\b/gi, (code) =>
+        code.toUpperCase(),
+      )
+      .replace(/^./, (c) => c.toUpperCase());
+  }
+
+  return `${starred ? "*" : ""}${text}`;
+}
+
 interface UnimoniRatesPanelProps {
   rates: ExchangeRate[];
   showBuyRate?: boolean;
@@ -396,7 +420,7 @@ export function UnimoniRatesPanel({
   // when rateNotePlacement === "all".
   const activeIndex = sheetIndex % sheetCount;
   const firstForexIndex = sheets.findIndex((sheet) => sheet.kind === "rates");
-  const noteText = rateCardNote?.trim() || "";
+  const noteText = naturalRateCardNote(rateCardNote ?? "");
   const showNote =
     Boolean(noteText) &&
     activeSheet.kind === "rates" &&
@@ -771,15 +795,16 @@ export function UnimoniRatesPanel({
         ) : null}
       </div>
 
-      {/* Per-branch note BELOW the white card, on the blue panel — bold white
-          text like the client's reference board ("WE BUY US $ SMALL BILLS …
-          @3300"). FIRST rate screen only; editable in Settings per branch. */}
+      {/* Per-branch note BELOW the white card — same panel font, size-only scale.
+          Renders as one natural-reading line (editable in Settings). */}
       {showNote ? (
         <div
-          className="shrink-0 px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold uppercase leading-tight text-white"
+          className="shrink-0 truncate whitespace-nowrap px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold leading-none text-white"
           style={{
+            fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
             fontSize: `clamp(${0.7 * rateCardNoteFontScale}rem, ${1.05 * rateCardNoteFontScale}vw, ${1.05 * rateCardNoteFontScale}rem)`,
           }}
+          title={noteText}
         >
           {noteText}
         </div>
