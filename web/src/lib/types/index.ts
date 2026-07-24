@@ -201,6 +201,14 @@ export interface BranchSettings {
   videoSoundOn?: boolean;
   /** Logo images that scroll right-to-left in the ticker alongside the messages. */
   scrollingLogos?: string[];
+  /**
+   * How each scrolling logo fits inside the ticker bar.
+   * "contain" (default) = aspect-ratio preserved with side padding.
+   * "fill" / "stretch"  = logo stretches to the FULL bar height × auto width (no white margins).
+   */
+  scrollLogoFitMode?: "contain" | "fill" | "stretch";
+  /** When true, automatically strip white/solid backgrounds from scrolling logos. Default true. */
+  scrollLogoRemoveBg?: boolean;
   /** A note line shown under the forex rate screen (e.g. "USD Small Bill BUY @ 3600"). */
   rateCardNote?: string | null;
   rateNoteScale?: number;

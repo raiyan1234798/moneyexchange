@@ -33,6 +33,14 @@ interface BreakingNewsTickerProps {
   scrollLogosEnabled?: boolean;
   /** Badge logo fit: contain (default), cover, or fill (stretch to the box). */
   logoFit?: "contain" | "cover" | "fill";
+  /**
+   * How each SCROLLING logo fits inside the ticker bar.
+   * - "contain" (default): logo kept at aspect ratio, centred with side padding.
+   * - "fill"  / "stretch": logo is stretched to fill the FULL bar height × auto width with no white margins.
+   */
+  scrollLogoFitMode?: "contain" | "fill" | "stretch";
+  /** When true, automatically strip the white/solid background from scrolling logos. Default true. */
+  scrollLogoRemoveBg?: boolean;
   /** Text logo shown in the badge instead of an image. */
   logoText?: string | null;
   /** CSS font-family for the text logo. */
@@ -142,32 +150,59 @@ function useCleanLogoSrc(src: string, enabled: boolean): string {
   return enabled ? cleaned : src;
 }
 
-/** One scrolling logo with a contrast-aware chip. */
+/** One scrolling logo — supports contain (inline, aspect-preserved) or fill/stretch (full bar height). */
 function ScrollingLogoImg({
   src,
   bgMode,
   animClass,
   heightEm,
   side,
+  fitMode = "contain",
+  removeBg = true,
 }: {
   src: string;
   bgMode: "white" | "transparent" | "auto";
   animClass: string;
   heightEm: string;
   side: "start" | "end";
+  fitMode?: "contain" | "fill" | "stretch";
+  removeBg?: boolean;
 }) {
   const tone = useLogoTone(src);
-  const showChip = bgMode === "white" || (bgMode === "auto" && tone === "dark");
-  const effectiveSrc = useCleanLogoSrc(src, !showChip);
-  const chipClass = showChip ? "rounded-[3px] px-[0.3em] py-[0.15em] bg-white/95" : "";
+  const isStretch = fitMode === "fill" || fitMode === "stretch";
+  // In stretch mode we always strip the bg; in contain mode follow bgMode.
+  const showChip = !isStretch && (bgMode === "white" || (bgMode === "auto" && tone === "dark"));
+  const shouldStrip = removeBg && (isStretch || !showChip);
+  const effectiveSrc = useCleanLogoSrc(src, shouldStrip);
+  const chipClass = showChip ? "rounded-[3px] px-[0.4em] py-[0.15em] bg-white/95" : "";
+  const margin = side === "start" ? "mr-[1.2vw]" : "ml-[1.2vw]";
+
+  if (isStretch) {
+    // Fill the full height of the ticker bar. The parent bar is `position:relative`,
+    // so we use a flex-shrink-0 container that matches the bar height and stretches the img.
+    return (
+      <span
+        className={`${margin} inline-flex shrink-0 items-stretch self-stretch overflow-hidden ${animClass}`}
+        style={{ height: "100%", maxHeight: "100%" }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={effectiveSrc}
+          alt=""
+          className="block h-full w-auto object-fill"
+          style={{ maxHeight: "100%" }}
+        />
+      </span>
+    );
+  }
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={effectiveSrc}
       alt=""
-      className={`${side === "start" ? "mr-[1.6vw]" : "ml-[1.6vw]"} inline-block w-auto align-middle object-contain ${chipClass} ${animClass}`}
-      style={{ height: heightEm, maxHeight: "2.5em" }}
+      className={`${margin} inline-block w-auto align-middle object-contain ${chipClass} ${animClass}`}
+      style={{ height: heightEm }}
     />
   );
 }
@@ -185,6 +220,8 @@ function BreakingNewsTickerInner({
   scrollLogoBg = "white",
   scrollLogosEnabled = true,
   logoFit = "contain",
+  scrollLogoFitMode = "contain",
+  scrollLogoRemoveBg = true,
   logoText,
   logoFontCss,
   messageFontCss,
@@ -392,7 +429,7 @@ function BreakingNewsTickerInner({
           {scrolling && activeText ? (
             <div key={`${messageIndex}-${cycle}`} className="absolute inset-y-0 flex w-full items-center">
               <span
-                className="breaking-ticker-text inline-block whitespace-nowrap pl-[100%] font-bold uppercase tracking-[0.08em] will-change-transform"
+                className="breaking-ticker-text inline-flex h-full w-auto items-center whitespace-nowrap pl-[100%] font-bold uppercase tracking-[0.08em] will-change-transform"
                 style={{
                   color: fontColor,
                   fontSize: scrollFontSize,
@@ -401,10 +438,11 @@ function BreakingNewsTickerInner({
                 }}
                 onAnimationEnd={handleAnimationEnd}
               >
-                <span className={`inline-block ${messageAnimClass}`}>
+                <span className={`inline-flex h-full items-center ${messageAnimClass}`}>
                 {/* Optional logo images ride with the message — at the FRONT,
-                    the END, or both (admin choice); sized to the ticker font so
-                    the bar height never changes. */}
+                    the END, or both (admin choice). In fill/stretch mode they
+                    expand to the full bar height; in contain mode they respect
+                    scrollLogoScale. */}
                 {scrollLogosEnabled
                   ? scrollingLogos.map((src, i) => (
                       <ScrollingLogoImg
@@ -414,6 +452,8 @@ function BreakingNewsTickerInner({
                         animClass={scrollLogoAnimClass}
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="start"
+                        fitMode={scrollLogoFitMode}
+                        removeBg={scrollLogoRemoveBg}
                       />
                     ))
                   : null}
@@ -427,6 +467,8 @@ function BreakingNewsTickerInner({
                         animClass={scrollLogoAnimClass}
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="end"
+                        fitMode={scrollLogoFitMode}
+                        removeBg={scrollLogoRemoveBg}
                       />
                     ))
                   : null}
