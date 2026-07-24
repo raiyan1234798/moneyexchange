@@ -159,63 +159,59 @@ function useCleanLogoSrc(
   return enabled ? cleaned : src;
 }
 
-/** One scrolling logo — supports contain (inline, aspect-preserved) or fill/stretch (full bar height). */
+/** One scrolling logo — displayed exactly as uploaded (original background preserved).
+ *  fill/stretch mode: logo expands to fill the full ticker bar height.
+ *  contain mode: logo is kept at a fixed em height inline with the text.
+ *  NO chip wrapper and NO background stripping are applied — what you upload is what shows. */
 function ScrollingLogoImg({
   src,
-  bgMode,
   animClass,
   heightEm,
   side,
-  fitMode = "contain",
-  removeBg = true,
+  fitMode = "fill",
 }: {
   src: string;
-  bgMode: "white" | "transparent" | "auto";
+  bgMode: "white" | "transparent" | "auto"; // kept for API compat, not used
   animClass: string;
   heightEm: string;
   side: "start" | "end";
   fitMode?: "contain" | "fill" | "stretch";
-  removeBg?: boolean;
+  removeBg?: boolean; // kept for API compat, not used
 }) {
-  const tone = useLogoTone(src);
   const isStretch = fitMode === "fill" || fitMode === "stretch";
-  // In stretch/fill mode: always strip bg with surface="any" (no readability guard —
-  // the ticker bar is always black so any artwork colour will be visible).
-  // In contain mode: only strip when not showing a chip.
-  const showChip = !isStretch && (bgMode === "white" || (bgMode === "auto" && tone === "dark"));
-  const shouldStrip = removeBg && (isStretch || !showChip);
-  const stripSurface = isStretch ? "any" : "dark";
-  const effectiveSrc = useCleanLogoSrc(src, shouldStrip, stripSurface);
-  const chipClass = showChip ? "rounded-[3px] px-[0.4em] py-[0.15em] bg-white/95" : "";
   const margin = side === "start" ? "mr-[1.2vw]" : "ml-[1.2vw]";
 
   if (isStretch) {
+    // Fills the full height of the black ticker bar.
+    // object-contain keeps the logo's original proportions and background — no clipping.
     return (
       <span
-        className={`${margin} inline-flex shrink-0 items-stretch self-stretch overflow-hidden ${animClass}`}
-        style={{ height: "100%", maxHeight: "100%", background: "transparent" }}
+        className={`${margin} inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
+        style={{ height: "100%", maxHeight: "100%" }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={effectiveSrc}
+          src={src}
           alt=""
           className="block h-full w-auto"
-          style={{ maxHeight: "100%", objectFit: "fill", background: "transparent" }}
+          style={{ maxHeight: "100%", objectFit: "contain" }}
         />
       </span>
     );
   }
 
+  // Contain mode — inline with scrolling text, fixed em height.
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src={effectiveSrc}
+      src={src}
       alt=""
-      className={`${margin} inline-block w-auto align-middle object-contain ${chipClass} ${animClass}`}
+      className={`${margin} inline-block w-auto align-middle object-contain ${animClass}`}
       style={{ height: heightEm }}
     />
   );
 }
+
 
 function BreakingNewsTickerInner({
   text,

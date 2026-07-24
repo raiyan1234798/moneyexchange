@@ -118,7 +118,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   videoSoundOn: false,
   scrollingLogos: [] as string[],
   scrollLogoFitMode: "fill" as "contain" | "fill" | "stretch",
-  scrollLogoRemoveBg: true,
+  scrollLogoRemoveBg: false,
   rateCardNote: null as string | null,
   rateCardNoteFontScale: 1,
   rateNotePlacement: "first" as "first" | "all",
