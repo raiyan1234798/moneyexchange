@@ -353,13 +353,13 @@ export function DataTable<T>({
             {data.map((row) => (
               <tr
                 key={keyExtractor(row)}
-                className="h-11 border-b border-border/25 transition-colors hover:bg-muted/30"
+                className="min-h-11 border-b border-border/25 transition-colors hover:bg-muted/30"
               >
                 {columns.map((col) => (
                   <td
                     key={col.key}
                     className={cn(
-                      "overflow-hidden px-3 py-2 align-middle text-sm",
+                      "px-3 py-2 align-middle text-sm",
                       col.width,
                       col.className,
                     )}
