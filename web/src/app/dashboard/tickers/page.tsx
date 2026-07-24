@@ -489,35 +489,45 @@ export default function TickersPage() {
               data={tickers}
               keyExtractor={(t) => t.id}
               mobileTitle={(t) => t.messages[0]?.text ?? "Ticker"}
+              tableClassName="min-w-[720px]"
               columns={[
                 {
                   key: "messages",
                   header: "Messages",
-                  className: "align-top",
-                  cell: (t) => (
-                    <span className="max-w-md truncate">{t.messages.map((m) => m.text).join(" · ")}</span>
-                  ),
+                  // table-fixed + overflow-hidden keeps long copy in this column
+                  className: "min-w-0 overflow-hidden align-middle",
+                  cell: (t) => {
+                    const text = t.messages.map((m) => m.text).join(" · ");
+                    return (
+                      <span className="block min-w-0 truncate" title={text}>
+                        {text}
+                      </span>
+                    );
+                  },
                 },
                 {
                   key: "speed",
                   header: "Speed",
-                  className: "align-top",
+                  width: "w-[72px]",
+                  className: "whitespace-nowrap align-middle",
                   cell: (t) => `${t.scrollSpeed}s`,
                   hideOnMobile: true,
                 },
                 {
                   key: "status",
                   header: "Status",
-                  className: "align-top",
+                  width: "w-[100px]",
+                  className: "align-middle",
                   cell: (t) => <StatusBadge status={t.status} />,
                 },
                 {
                   key: "paused",
                   header: "Scrolling",
-                  className: "align-top",
+                  width: "w-[130px]",
+                  className: "align-middle",
                   cell: (t) =>
                     canManageTickers ? (
-                      <div className="flex h-8 items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <Switch
                           checked={!t.paused}
                           onCheckedChange={(checked) => {
@@ -543,10 +553,10 @@ export default function TickersPage() {
                   key: "actions",
                   header: "Actions",
                   width: "w-[110px]",
-                  className: "align-top text-right",
+                  className: "align-middle text-right",
                   cell: (t) =>
                     canManageTickers ? (
-                      <div className="flex flex-col items-end gap-1.5">
+                      <div className="inline-flex flex-col items-end gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
