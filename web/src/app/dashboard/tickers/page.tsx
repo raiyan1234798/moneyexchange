@@ -493,18 +493,31 @@ export default function TickersPage() {
                 {
                   key: "messages",
                   header: "Messages",
+                  className: "align-top",
                   cell: (t) => (
                     <span className="max-w-md truncate">{t.messages.map((m) => m.text).join(" · ")}</span>
                   ),
                 },
-                { key: "speed", header: "Speed", cell: (t) => `${t.scrollSpeed}s`, hideOnMobile: true },
-                { key: "status", header: "Status", cell: (t) => <StatusBadge status={t.status} /> },
+                {
+                  key: "speed",
+                  header: "Speed",
+                  className: "align-top",
+                  cell: (t) => `${t.scrollSpeed}s`,
+                  hideOnMobile: true,
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  className: "align-top",
+                  cell: (t) => <StatusBadge status={t.status} />,
+                },
                 {
                   key: "paused",
                   header: "Scrolling",
+                  className: "align-top",
                   cell: (t) =>
                     canManageTickers ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex h-8 items-center gap-2">
                         <Switch
                           checked={!t.paused}
                           onCheckedChange={(checked) => {
@@ -529,7 +542,8 @@ export default function TickersPage() {
                 {
                   key: "actions",
                   header: "Actions",
-                  className: "text-right",
+                  width: "w-[110px]",
+                  className: "align-top text-right",
                   cell: (t) =>
                     canManageTickers ? (
                       <div className="flex flex-col items-end gap-1.5">
