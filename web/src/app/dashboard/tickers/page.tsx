@@ -493,18 +493,31 @@ export default function TickersPage() {
                 {
                   key: "messages",
                   header: "Messages",
+                  className: "align-top",
                   cell: (t) => (
                     <span className="max-w-md truncate">{t.messages.map((m) => m.text).join(" · ")}</span>
                   ),
                 },
-                { key: "speed", header: "Speed", cell: (t) => `${t.scrollSpeed}s`, hideOnMobile: true },
-                { key: "status", header: "Status", cell: (t) => <StatusBadge status={t.status} /> },
+                {
+                  key: "speed",
+                  header: "Speed",
+                  className: "align-top",
+                  cell: (t) => `${t.scrollSpeed}s`,
+                  hideOnMobile: true,
+                },
+                {
+                  key: "status",
+                  header: "Status",
+                  className: "align-top",
+                  cell: (t) => <StatusBadge status={t.status} />,
+                },
                 {
                   key: "paused",
                   header: "Scrolling",
+                  className: "align-top",
                   cell: (t) =>
                     canManageTickers ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex h-8 items-center gap-2">
                         <Switch
                           checked={!t.paused}
                           onCheckedChange={(checked) => {
@@ -534,8 +547,8 @@ export default function TickersPage() {
                   cell: (t) =>
                     canManageTickers ? (
                       <div className="flex flex-col items-end gap-1.5">
-                        {/* First line stays empty so Status / Scrolling keep the top row alone. */}
-                        <div className="h-8" aria-hidden="true" />
+                        {/* Line 1 matches Status/Scrolling height — Edit starts on line 2. */}
+                        <div className="h-8 shrink-0" aria-hidden="true" />
                         <Button variant="outline" size="sm" className="rounded-lg" onClick={() => openEdit(t)}>
                           <Pencil className="mr-1 h-3 w-3" />
                           Edit
