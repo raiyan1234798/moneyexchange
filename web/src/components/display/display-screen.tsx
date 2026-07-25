@@ -85,6 +85,8 @@ interface TimedRatesPanelProps {
   flagAnimation: string | null;
   headingAnimation: string | null;
   currencyOverrides: Record<string, { flag?: string; name?: string }> | null;
+  rateCardBgColor: string | null;
+  rateCurrencyColor: string | null;
   onRotationComplete?: () => void;
 }
 
@@ -144,6 +146,8 @@ function TimedRatesPanel({
   flagAnimation,
   headingAnimation,
   currencyOverrides,
+  rateCardBgColor,
+  rateCurrencyColor,
   onRotationComplete,
 }: TimedRatesPanelProps) {
   const [visible, setVisible] = useState(true);
@@ -212,6 +216,8 @@ function TimedRatesPanel({
       promoTransitionSpeed={promoTransitionSpeed}
       valueTextAnimation={valueTextAnimation}
       currencyTextAnimation={currencyTextAnimation}
+      rateCardBgColor={rateCardBgColor}
+      rateCurrencyColor={rateCurrencyColor}
       flagAnimation={flagAnimation}
       headingAnimation={headingAnimation}
       currencyOverrides={currencyOverrides}
@@ -941,6 +947,8 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       promoTransitionSpeed={typeof branchSettings.ratePromoTransitionSpeed === "string" ? branchSettings.ratePromoTransitionSpeed : "normal"}
       valueTextAnimation={branchSettings.rateTextAnimation ?? null}
       currencyTextAnimation={branchSettings.rateCurrencyAnimation ?? null}
+      rateCardBgColor={branchSettings.rateCardBgColor ?? null}
+      rateCurrencyColor={branchSettings.rateCurrencyColor ?? null}
       flagAnimation={branchSettings.rateFlagAnimation ?? null}
       headingAnimation={branchSettings.rateHeadingAnimation ?? null}
       currencyOverrides={currencyOverrides}

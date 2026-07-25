@@ -94,6 +94,8 @@ export const DEFAULT_BRANCH_SETTINGS = {
   rateCurrencyAnimation: null as string | null,
   rateFlagAnimation: null as string | null,
   rateHeadingAnimation: null as string | null,
+  rateCardBgColor: null as string | null,
+  rateCurrencyColor: null as string | null,
   logoAutoRemoveBg: true,
   videoImageTransition: "fade" as string,
   tickerLogoUrls: [] as string[],

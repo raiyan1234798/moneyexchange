@@ -148,6 +148,11 @@ interface UnimoniRatesPanelProps {
   headingAnimation?: string | null;
   /** Admin edits to how currencies look (flag emoji by code) — beats the catalog. */
   currencyOverrides?: Record<string, { flag?: string; name?: string }> | null;
+  /** Rate-card background colour. null → the default deep-blue gradient. */
+  rateCardBgColor?: string | null;
+  /** Colour of the currency code, values and column headers on the light panel.
+      null → the default deep blue (#0D2680). */
+  rateCurrencyColor?: string | null;
   /** Fires each time a FULL rotation (all sheets, incl. promo) completes. */
   onRotationComplete?: () => void;
 }
@@ -269,9 +274,16 @@ export function UnimoniRatesPanel({
   flagAnimation = null,
   headingAnimation = null,
   currencyOverrides = null,
+  rateCardBgColor = null,
+  rateCurrencyColor = null,
   onRotationComplete,
 }: UnimoniRatesPanelProps) {
   const rows = resolveSignageRates(rates);
+  // Admin colour overrides — null keeps the exact default look so "Reset to
+  // default" is free (see settings). currencyColor drives every code/value/header
+  // on the light panel; bgColor drives the deep-blue aside behind the card.
+  const currencyColor = rateCurrencyColor ?? NAVY_TEXT;
+  const bgColor = rateCardBgColor ?? null;
   // Hooks must run unconditionally (before the board early-return).
   const now = useNow();
   // Transfer is its OWN card (separate rotating screen), never mixed into the
@@ -521,7 +533,9 @@ export function UnimoniRatesPanel({
   const headerSizeScale = isPromoSheet ? promoSlideLogoScale : headerLogoScale;
 
   const asideStyle = {
-    background: `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
+    background: bgColor
+      ? bgColor
+      : `linear-gradient(180deg, ${UNIMONI_COLORS.navy} 0%, ${UNIMONI_COLORS.headerBlue} 100%)`,
     fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
     width: widthPercent ? `${widthPercent}%` : undefined,
     "--rate-scale": scale,
@@ -624,7 +638,7 @@ export function UnimoniRatesPanel({
               <p
                 className={`display-text-anim shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
                 style={{
-                  color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
+                  color: hidePromoHeader ? "#FFFFFF" : currencyColor,
                   fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: `calc(${activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)"} * ${promoTextScale})`,
                 }}
@@ -684,7 +698,7 @@ export function UnimoniRatesPanel({
               <p
                 className={`display-text-anim shrink-0 px-2 text-center font-extrabold uppercase leading-tight ${displayAnimationClass(promoTextAnimation)}`}
                 style={{
-                  color: hidePromoHeader ? "#FFFFFF" : NAVY_TEXT,
+                  color: hidePromoHeader ? "#FFFFFF" : currencyColor,
                   fontFamily: promoFontCss ?? fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                   fontSize: `calc(${activeSheet.promoMedia ? "clamp(0.8rem,1.3vw,1.3rem)" : "clamp(1.2rem,2.2vw,2.4rem)"} * ${promoTextScale})`,
                 }}
@@ -697,7 +711,7 @@ export function UnimoniRatesPanel({
         <>
         <div
           className="grid shrink-0 items-stretch px-2 py-[0.8vh] text-[clamp(0.75rem,1.25vw,1.15rem)] font-extrabold uppercase tracking-wide"
-          style={{ color: NAVY_TEXT, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}
+          style={{ color: currencyColor, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}
         >
           <span className="flex items-center justify-center">Currency</span>
           {valueColumns.map((col) => (
@@ -715,7 +729,7 @@ export function UnimoniRatesPanel({
               wrongly printed "being updated" on top of a full TRANSFER slide
               whenever a branch had no forex rates yet. */}
           {activeSheet.rows.length === 0 ? (
-            <div className="flex flex-col items-center gap-1 px-4 py-[4vh] text-center" style={{ color: NAVY_TEXT }}>
+            <div className="flex flex-col items-center gap-1 px-4 py-[4vh] text-center" style={{ color: currencyColor }}>
               <p className="text-[clamp(0.8rem,1.2vw,1.1rem)] font-bold">Rates are being updated</p>
               <p className="text-[clamp(0.65rem,0.95vw,0.9rem)] opacity-70">Please ask our staff for today&apos;s rates.</p>
             </div>
@@ -729,7 +743,7 @@ export function UnimoniRatesPanel({
               className="display-rate-row grid min-h-0 items-stretch rounded-[6px]"
               style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT, gridTemplateColumns: gridColumns }}
             >
-              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.25vh] pl-[0.5vw] font-bold uppercase" style={{ color: NAVY_TEXT }}>
+              <span className="display-rate-currency flex min-h-0 min-w-0 items-center gap-[0.6vw] py-[0.25vh] pl-[0.5vw] font-bold uppercase" style={{ color: currencyColor }}>
                 {/* Flag shown bigger and bare (no box) — a thin ring keeps
                     white flags visible on the light row. Globe fallback for
                     custom currencies. */}
@@ -756,7 +770,7 @@ export function UnimoniRatesPanel({
                   <span
                     key={col.key}
                     className={`display-rate-value flex w-full items-center justify-center px-1 text-center font-bold tabular-nums ${displayAnimationClass(valueTextAnimation)}`}
-                    style={{ color: NAVY_TEXT, ...columnSeparator }}
+                    style={{ color: currencyColor, ...columnSeparator }}
                   >
                     {display}
                   </span>

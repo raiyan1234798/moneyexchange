@@ -960,6 +960,65 @@ function BranchSettingsForm({
           always USD.
         </p>
       </div>
+      <div className="space-y-2" data-setting="rate card colors background currency color">
+        <div className="flex items-center justify-between gap-3">
+          <Label>Rate card colours</Label>
+          {(settings.rateCardBgColor || settings.rateCurrencyColor) ? (
+            <button
+              type="button"
+              onClick={() => setSettings({ ...settings, rateCardBgColor: null, rateCurrencyColor: null })}
+              className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/50"
+            >
+              Reset to default
+            </button>
+          ) : null}
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Background colour</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={settings.rateCardBgColor ?? "#0D2680"}
+                onChange={(e) => setSettings({ ...settings, rateCardBgColor: e.target.value })}
+                className="h-10 w-12 cursor-pointer rounded-lg border border-border bg-transparent"
+              />
+              <Input
+                value={settings.rateCardBgColor ?? ""}
+                placeholder="Default deep blue"
+                onChange={(e) =>
+                  setSettings({ ...settings, rateCardBgColor: e.target.value.trim() ? e.target.value : null })
+                }
+                className="flex-1 rounded-lg font-mono text-sm"
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Currency &amp; numbers colour</Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={settings.rateCurrencyColor ?? "#0D2680"}
+                onChange={(e) => setSettings({ ...settings, rateCurrencyColor: e.target.value })}
+                className="h-10 w-12 cursor-pointer rounded-lg border border-border bg-transparent"
+              />
+              <Input
+                value={settings.rateCurrencyColor ?? ""}
+                placeholder="Default deep blue"
+                onChange={(e) =>
+                  setSettings({ ...settings, rateCurrencyColor: e.target.value.trim() ? e.target.value : null })
+                }
+                className="flex-1 rounded-lg font-mono text-sm"
+              />
+            </div>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Colour of the blue rate-card background and the currency codes/numbers on it. Leave blank
+          (or hit Reset) for the standard Unimoni deep blue. Use &quot;Apply to all branches&quot; when saving
+          to push these colours to every TV.
+        </p>
+      </div>
       <div className="space-y-2">
         <Label>Rate card note (We buy @ …)</Label>
         <Input

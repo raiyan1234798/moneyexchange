@@ -151,6 +151,10 @@ export interface BranchSettings {
   rateFlagAnimation?: string | null;
   /** Continuous movement for the card heading (EXCHANGE RATES / TRANSFER RATES). */
   rateHeadingAnimation?: string | null;
+  /** Rate-card background colour (hex). null → the default deep-blue gradient. */
+  rateCardBgColor?: string | null;
+  /** Currency code/value/header text colour (hex) on the rate card. null → deep blue. */
+  rateCurrencyColor?: string | null;
   /** How promo media fits its card: fill (stretch), cover (crop), contain (whole). */
   ratePromoMediaFit?: "fill" | "cover" | "contain";
   /** Seconds the TRANSFER card stays visible — null/unset = same as forex slides. */
