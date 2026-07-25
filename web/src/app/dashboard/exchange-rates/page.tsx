@@ -1444,10 +1444,10 @@ export default function ExchangeRatesPage() {
               <DataTable
                 data={catalogRows}
                 keyExtractor={(c) => c.id}
-                // Wide enough that every column (incl. the action buttons on the
-                // right) keeps its full size — the panel then scrolls sideways.
-                // Name is capped so it sits close to Country (not a huge empty stretch).
-                tableClassName="min-w-[980px]"
+                // Compact enough to fit the screen: name capped, branch names
+                // wrap, and the action buttons stack downward instead of forcing
+                // sideways scroll.
+                tableClassName="min-w-[880px]"
                 mobileTitle={(c) => {
                   const row = getCatalogCurrency(c);
                   return `${row.flag} ${row.code}`;
@@ -1492,7 +1492,7 @@ export default function ExchangeRatesPage() {
                   {
                     key: "branches",
                     header: "On branches",
-                    width: "w-[180px]",
+                    width: "w-[200px]",
                     hideOnMobile: true,
                     cell: (c) => {
                       const code = getCatalogCurrency(c).code;
@@ -1500,14 +1500,17 @@ export default function ExchangeRatesPage() {
                         ...new Set(
                           allRates
                             .filter((r) => r.currencyCode.toUpperCase() === code && !r.isHidden)
-                            .map((r) => branches.find((b) => b.id === r.branchId)?.code ?? null)
+                            .map((r) => branches.find((b) => b.id === r.branchId)?.name ?? null)
                             .filter(Boolean) as string[],
                         ),
                       ];
                       return names.length === 0 ? (
                         <span className="text-xs text-muted-foreground">—</span>
                       ) : (
-                        <span className="block truncate text-xs text-muted-foreground" title={names.join(", ")}>
+                        <span
+                          className="block break-words text-xs leading-tight text-muted-foreground"
+                          title={names.join(", ")}
+                        >
                           {names.join(", ")}
                         </span>
                       );
@@ -1522,11 +1525,11 @@ export default function ExchangeRatesPage() {
                   {
                     key: "actions",
                     header: "Actions",
-                    width: "w-[300px]",
+                    width: "w-[132px]",
                     headerClassName: "text-right",
                     className: "text-right",
                     cell: (c) => (
-                      <span className="inline-flex items-center gap-2">
+                      <span className="flex flex-col items-stretch gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"

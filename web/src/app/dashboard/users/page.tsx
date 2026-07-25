@@ -971,13 +971,18 @@ export default function UsersPage() {
             <DataTable
               data={memberRows}
               keyExtractor={(row) => row.rowKey}
+              // Fixed column widths + word-wrapping so the long email/role text
+              // stays inside its own column (no overlap) and the whole table
+              // fits the screen instead of scrolling sideways.
+              tableClassName="min-w-[880px]"
               mobileTitle={(row) => (row.kind === "user" ? row.user.displayName : row.invite.displayName)}
               columns={[
                 {
                   key: "name",
                   header: "Name",
+                  width: "w-[160px]",
                   cell: (row) => (
-                    <span className="font-medium">
+                    <span className="block break-words font-medium">
                       {row.kind === "user" ? row.user.displayName : row.invite.displayName}
                     </span>
                   ),
@@ -985,28 +990,36 @@ export default function UsersPage() {
                 {
                   key: "email",
                   header: "Email",
-                  cell: (row) => (row.kind === "user" ? row.user.email : row.invite.email),
+                  width: "w-[220px]",
+                  cell: (row) => (
+                    <span className="block break-words text-muted-foreground">
+                      {row.kind === "user" ? row.user.email : row.invite.email}
+                    </span>
+                  ),
                   hideOnMobile: true,
                 },
                 {
                   key: "role",
                   header: "Role",
+                  width: "w-[150px]",
                   cell: (row) => {
                     const role = row.kind === "user" ? row.user.role : row.invite.role;
-                    return ROLE_LABELS[role] ?? role;
+                    return <span className="block break-words">{ROLE_LABELS[role] ?? role}</span>;
                   },
                 },
                 {
                   key: "branch",
                   header: "Branch",
+                  width: "w-[150px]",
                   cell: (row) => {
                     const b = row.kind === "user" ? row.user.branchId : row.invite.branchId;
-                    return b ? branchMap[b] ?? b : "All branches";
+                    return <span className="block break-words">{b ? branchMap[b] ?? b : "All branches"}</span>;
                   },
                 },
                 {
                   key: "status",
                   header: "Status",
+                  width: "w-[110px]",
                   cell: (row) =>
                     row.kind === "user" ? (
                       <StatusBadge status={row.user.isActive ? "active" : "inactive"} />
@@ -1019,6 +1032,7 @@ export default function UsersPage() {
                 {
                   key: "actions",
                   header: "Actions",
+                  width: "w-[132px]",
                   className: "text-right",
                   cell: (row) => {
                     if (row.kind === "invite") {
@@ -1028,7 +1042,7 @@ export default function UsersPage() {
                         return <span className="text-xs text-muted-foreground">Managed by admin</span>;
                       }
                       return (
-                        <div className="flex flex-wrap justify-end gap-1.5">
+                        <div className="flex flex-col items-stretch gap-1.5">
                           <Button
                             variant="outline"
                             size="sm"
@@ -1074,7 +1088,7 @@ export default function UsersPage() {
                       (m.role !== "superAdmin" || isSuperAdmin);
                     if (!canAct) return null;
                     return (
-                      <div className="flex flex-wrap justify-end gap-1.5">
+                      <div className="flex flex-col items-stretch gap-1.5">
                         <Button
                           variant="outline"
                           size="sm"
