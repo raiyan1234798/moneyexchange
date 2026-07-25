@@ -489,7 +489,10 @@ export default function TickersPage() {
               data={tickers}
               keyExtractor={(t) => t.id}
               mobileTitle={(t) => t.messages[0]?.text ?? "Ticker"}
-              tableClassName="min-w-[720px]"
+              // This table sits in the ~560px LEFT column of the xl two-column
+              // layout, so keep the floor low enough to fit there without the
+              // sideways scroll (messages truncates; hover shows the full text).
+              tableClassName="min-w-[480px]"
               columns={[
                 {
                   key: "messages",
