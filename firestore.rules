@@ -454,7 +454,10 @@ service cloud.firestore {
           && request.auth.token.email.lower() == 'admin@unimoni-signage.com';
       }
       allow read: if isActiveUser();
-      allow create, update: if isSuperAdmin() || isUploadOwner();
+      // The org-wide dashboard THEME doc is editable by any admin; the upload
+      // lock and other config docs stay owner/super-admin only.
+      allow create, update: if isSuperAdmin() || isUploadOwner()
+        || (isAdmin() && configId == 'theme');
       allow delete: if false;
     }
 

@@ -51,6 +51,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { updateBranch } from "@/lib/services/branch-service";
+import { OrgThemePanel } from "@/components/dashboard/org-theme-panel";
 import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
 
 const SETTINGS_ID = "global";
@@ -2625,6 +2626,10 @@ export default function SettingsPage() {
               {saving ? "Saving..." : "Save System Settings"}
             </Button>
           </ContentPanel>
+        ) : null}
+
+        {(isSuperAdmin || isAdmin) && user && profile ? (
+          <OrgThemePanel actor={{ userId: user.uid, userName: profile.displayName || profile.email }} />
         ) : null}
 
         <ContentPanel

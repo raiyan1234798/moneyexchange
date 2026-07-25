@@ -9,11 +9,13 @@ import {
 } from "@/components/layout/dashboard-sidebar";
 import { PolymorphicBackground } from "@/components/layout/polymorphic-background";
 import { UpdateBanner } from "@/components/layout/update-banner";
+import { OrgThemeProvider } from "@/components/layout/org-theme-provider";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       <DashboardRouteGuard>
+        <OrgThemeProvider />
         <div className="flex h-screen overflow-hidden bg-background mesh-background">
           <DashboardSidebarDesktop />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
