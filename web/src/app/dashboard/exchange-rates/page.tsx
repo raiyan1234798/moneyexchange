@@ -1475,10 +1475,10 @@ export default function ExchangeRatesPage() {
               <DataTable
                 data={catalogRows}
                 keyExtractor={(c) => c.id}
-                // Compact enough to fit the screen: name capped, branch names
-                // wrap, and the action buttons stack downward instead of forcing
-                // sideways scroll.
-                tableClassName="min-w-[880px]"
+                // Compact enough to fit the screen: name capped, branches shown
+                // as a count (hover/click to expand), and the action buttons stack
+                // downward instead of forcing sideways scroll.
+                tableClassName="min-w-[780px]"
                 mobileTitle={(c) => {
                   const row = getCatalogCurrency(c);
                   return `${row.flag} ${row.code}`;
@@ -1523,7 +1523,7 @@ export default function ExchangeRatesPage() {
                   {
                     key: "branches",
                     header: "On branches",
-                    width: "w-[200px]",
+                    width: "w-[120px]",
                     hideOnMobile: true,
                     cell: (c) => {
                       const code = getCatalogCurrency(c).code;
@@ -1535,15 +1535,21 @@ export default function ExchangeRatesPage() {
                             .filter(Boolean) as string[],
                         ),
                       ];
-                      return names.length === 0 ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
-                        <span
-                          className="block break-words text-xs leading-tight text-muted-foreground"
+                      if (names.length === 0) {
+                        return <span className="text-xs text-muted-foreground">—</span>;
+                      }
+                      // Compact count — hover shows the full list, click opens the
+                      // per-branch dialog ("elaborate"). Keeps the table narrow so
+                      // it fits every screen without sideways scrolling.
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setManageBranchesFor(c)}
                           title={names.join(", ")}
+                          className="rounded-md px-2 py-0.5 text-xs font-medium text-primary underline-offset-2 hover:bg-primary/10 hover:underline"
                         >
-                          {names.join(", ")}
-                        </span>
+                          {names.length} {names.length === 1 ? "branch" : "branches"}
+                        </button>
                       );
                     },
                   },

@@ -349,7 +349,11 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const showForexCard = branchSettings.showForexCard ?? true;
   const transferLocalLabel = branchSettings.transferLocalLabel?.trim() || "UGX";
   const tickerLogoAnimation = branchSettings.tickerLogoAnimation ?? "spin";
-  const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || null;
+  // Primary rate-card header logo: an uploaded header logo wins, but a plain
+  // "Logo URL" (branch.logoUrl) now also drives the header — previously it only
+  // showed on the ticker corner badge, so pasting a Logo URL "did nothing" to
+  // the big header. Falling back here makes that field behave as expected.
+  const headerLogoUrl = branchSettings.headerLogoUrl?.trim() || branch?.logoUrl?.trim() || null;
   const headerLogoUrl2 = branchSettings.headerLogoUrl2?.trim() || null;
   const headerLogoUrls = Array.isArray(branchSettings.headerLogoUrls)
     ? branchSettings.headerLogoUrls.filter(

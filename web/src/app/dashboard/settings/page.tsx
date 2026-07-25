@@ -132,7 +132,7 @@ function BranchSettingsForm({
   navSlot?: HTMLElement | null;
   onSave: (
     data: { logoUrl: string; brandingColor: string; settings: BranchSettings },
-    opts?: { targetBranchIds?: string[]; includePromo?: boolean },
+    opts?: { targetBranchIds?: string[]; includePromo?: boolean; includeLogos?: boolean },
   ) => Promise<void>;
   /** Copy THIS form's font choices to every branch (admin convenience). */
   onCopyFontsToAll?: (settings: BranchSettings) => Promise<void>;
@@ -150,6 +150,7 @@ function BranchSettingsForm({
   const [applyMode, setApplyMode] = useState<"this" | "all" | "some">("this");
   const [pickedBranchIds, setPickedBranchIds] = useState<string[]>([]);
   const [includePromo, setIncludePromo] = useState(false);
+  const [includeLogos, setIncludeLogos] = useState(false);
   const [promoLinkInput, setPromoLinkInput] = useState("");
   // Find-an-option search: hides sections without a match and glows the
   // matching fields, so nobody has to hunt (or ask) where a setting lives.
@@ -2153,6 +2154,22 @@ function BranchSettingsForm({
                       </span>
                     </span>
                   </label>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+                    <input
+                      type="checkbox"
+                      checked={includeLogos}
+                      onChange={(e) => setIncludeLogos(e.target.checked)}
+                      className="mt-0.5 h-4 w-4"
+                    />
+                    <span className="text-sm">
+                      <span className="font-medium">Also copy the logos &amp; branding</span>
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        Puts THIS branch&apos;s Logo URL, rate-card header logos and ticker logo on the
+                        chosen branches too, so every TV shows the same logo. This replaces whatever
+                        logos those branches currently have.
+                      </span>
+                    </span>
+                  </label>
                 </>
               ) : null}
             </div>
@@ -2170,16 +2187,18 @@ function BranchSettingsForm({
                       ? pickedBranchIds
                       : [];
                 const alsoPromo = applyMode !== "this" && includePromo;
+                const alsoLogos = applyMode !== "this" && includeLogos;
                 setConfirmOpen(false);
                 setApplyMode("this");
                 setPickedBranchIds([]);
                 setIncludePromo(false);
+                setIncludeLogos(false);
                 void (async () => {
                   const prepared = await migratePromoMediaForSave(settings);
                   if (prepared !== settings) setSettings(prepared);
                   await onSave(
                     { logoUrl, brandingColor: color, settings: prepared },
-                    { targetBranchIds, includePromo: alsoPromo },
+                    { targetBranchIds, includePromo: alsoPromo, includeLogos: alsoLogos },
                   );
                 })();
               }}
@@ -2300,7 +2319,7 @@ export default function SettingsPage() {
 
   async function saveBranchSettings(
     data: { logoUrl: string; brandingColor: string; settings: BranchSettings },
-    opts?: { targetBranchIds?: string[]; includePromo?: boolean },
+    opts?: { targetBranchIds?: string[]; includePromo?: boolean; includeLogos?: boolean },
   ) {
     if (!user || !profile || !effectiveBranchId) return;
     setSaving(true);
@@ -2323,25 +2342,43 @@ export default function SettingsPage() {
         // The PROMOTION images/videos are preserved too UNLESS the admin ticked
         // "also copy promotions", in which case those branches get THIS branch's
         // promotions so they all play the same ones.
-        const CONTENT_KEYS: Array<keyof BranchSettings> = [
+        // Logo keys are a subset of content — copied only when the admin ticks
+        // "also copy logos & branding".
+        const LOGO_KEYS: Array<keyof BranchSettings> = [
           "headerLogoUrl", "headerLogoUrl2", "headerLogoUrls", "promoSlideLogoUrl",
-          "tickerLogoUrl", "tickerLogoUrls", "tickerLogoText", "tickerHeadline",
-          "announcementText", "announcementImageUrl", "announcementVideoUrl",
+          "tickerLogoUrl", "tickerLogoUrls", "tickerLogoText",
+        ];
+        const OTHER_CONTENT_KEYS: Array<keyof BranchSettings> = [
+          "tickerHeadline", "announcementText", "announcementImageUrl", "announcementVideoUrl",
           "scrollingLogos", "scrollingLogoItems", "slogan",
         ];
         const PROMO_KEYS: Array<keyof BranchSettings> = [
           "ratePromoMedia", "ratePromoImageUrl", "ratePromoText", "ratePromoTextTop",
         ];
-        const skip = opts?.includePromo ? CONTENT_KEYS : [...CONTENT_KEYS, ...PROMO_KEYS];
+        const skip = [
+          ...OTHER_CONTENT_KEYS,
+          ...(opts?.includeLogos ? [] : LOGO_KEYS),
+          ...(opts?.includePromo ? [] : PROMO_KEYS),
+        ];
         const shared: Partial<BranchSettings> = { ...data.settings };
         for (const k of skip) delete shared[k];
 
+        // The Logo URL + brand colour are top-level Branch fields — carry them to
+        // targets only when copying logos, so a single pasted URL reaches every TV.
+        const topLevel = opts?.includeLogos
+          ? { logoUrl: data.logoUrl || null, brandingColor: data.brandingColor }
+          : {};
         await Promise.all(
-          targets.map((b) => updateBranch(b.id, { settings: { ...b.settings, ...shared } }, actor)),
+          targets.map((b) =>
+            updateBranch(b.id, { ...topLevel, settings: { ...b.settings, ...shared } }, actor),
+          ),
         );
+        const extras = [opts?.includePromo ? "promotions" : null, opts?.includeLogos ? "logos" : null]
+          .filter(Boolean)
+          .join(" + ");
         toast.success(
-          opts?.includePromo
-            ? `Settings + promotions applied to ${targets.length + 1} branches — they now play the same look and promotions.`
+          extras
+            ? `Settings + ${extras} applied to ${targets.length + 1} branches.`
             : `Settings applied to ${targets.length + 1} branches — each keeps its own videos, promotions and logos.`,
           { duration: 8000 },
         );
