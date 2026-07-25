@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { deleteTicker, subscribeTickers, updateTicker } from "@/lib/services/ticker-service";
+import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { LOGO_IMAGE_OPTIONS, compressLogoTransparent } from "@/lib/image-utils";
 import { LOGO_FONTS, MESSAGE_FONTS, logoFontCss, messageFontCss } from "@/lib/constants";
 import {
@@ -476,13 +477,52 @@ export default function TickersPage() {
         {!effectiveBranchId ? (
           <EmptyState title="Select a branch" description="Choose a branch to manage its display messages." icon={TextCursorInput} />
         ) : tickers.length === 0 ? (
-          <EmptyState
-            title="No scrolling messages"
-            description="Add lines of text — they scroll right-to-left on the branch display footer."
-            icon={TextCursorInput}
-            actionLabel={canManageTickers ? "Add Messages" : undefined}
-            onAction={canManageTickers ? () => setOpen(true) : undefined}
-          />
+          <>
+            {/* The TV never scrolls nothing: with no messages saved it falls back
+                to the branch slogan (or the default line). Show that HERE too —
+                otherwise the dashboard says "No scrolling messages" while the TV
+                is clearly scrolling one, which looks broken. */}
+            <ContentPanel
+              title="Currently scrolling on this TV"
+              description="No messages are saved for this branch, so the display scrolls this automatic text instead."
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/20 p-4">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold uppercase">
+                    {branch?.settings?.slogan?.trim() ? branch.settings.slogan : UNIMONI_DEFAULT_TICKER}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {branch?.settings?.slogan?.trim()
+                      ? "Source: this branch's slogan (Settings). Add a real message below to replace it."
+                      : "Source: built-in default line. Add a real message below to replace it."}
+                  </p>
+                </div>
+                {canManageTickers ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-lg"
+                    onClick={() => {
+                      // Pre-fill the editor with what's on screen so the admin can
+                      // keep it, tweak it, or replace it — one click.
+                      setMessages(branch?.settings?.slogan?.trim() ?? "");
+                      setOpen(true);
+                    }}
+                  >
+                    <Pencil className="mr-1 h-3 w-3" />
+                    Make it editable
+                  </Button>
+                ) : null}
+              </div>
+            </ContentPanel>
+            <EmptyState
+              title="No scrolling messages"
+              description="Add lines of text — they scroll right-to-left on the branch display footer."
+              icon={TextCursorInput}
+              actionLabel={canManageTickers ? "Add Messages" : undefined}
+              onAction={canManageTickers ? () => setOpen(true) : undefined}
+            />
+          </>
         ) : (
           <ContentPanel title="Active Messages">
             <DataTable
