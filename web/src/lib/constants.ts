@@ -184,6 +184,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   // Font + colour treatment for the announcement text.
   announcementFont: null as string | null,
   announcementColorStyle: "white" as "white" | "logo" | "gold" | "navy",
+  announcementTextColor: null as string | null,
   announcementSeconds: 5,
   announcementRepeatMinutes: 3,
   announcementRepeatSeconds: null as number | null,

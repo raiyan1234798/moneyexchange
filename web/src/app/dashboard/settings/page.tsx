@@ -1848,6 +1848,36 @@ function BranchSettingsForm({
                   <SelectItem value="navy">Navy blue</SelectItem>
                 </SelectContent>
               </Select>
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="color"
+                  aria-label="Custom announcement text colour"
+                  value={settings.announcementTextColor ?? "#FFFFFF"}
+                  onChange={(e) => setSettings({ ...settings, announcementTextColor: e.target.value })}
+                  className="h-9 w-11 cursor-pointer rounded-lg border border-border bg-transparent"
+                />
+                <Input
+                  value={settings.announcementTextColor ?? ""}
+                  placeholder="Custom colour (optional)"
+                  onChange={(e) =>
+                    setSettings({ ...settings, announcementTextColor: e.target.value.trim() ? e.target.value : null })
+                  }
+                  className="flex-1 rounded-lg font-mono text-sm"
+                />
+                {settings.announcementTextColor ? (
+                  <button
+                    type="button"
+                    onClick={() => setSettings({ ...settings, announcementTextColor: null })}
+                    className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/50"
+                  >
+                    Reset
+                  </button>
+                ) : null}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                A custom colour overrides the preset above (the video-player announcement text). Reset
+                to use the preset.
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Announcement font</Label>

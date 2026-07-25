@@ -295,6 +295,8 @@ export interface BranchSettings {
   announcementFont?: string | null;
   /** Colour treatment for the announcement text. */
   announcementColorStyle?: "white" | "logo" | "gold" | "navy";
+  /** Explicit announcement text colour (hex) — overrides the style above. null → use the style. */
+  announcementTextColor?: string | null;
   /** Seconds the announcement stays visible each time (default 5). */
   announcementSeconds?: number;
   /** Minutes between announcement repeats (default 3). */

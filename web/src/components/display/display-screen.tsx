@@ -472,6 +472,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
     | "logo"
     | "gold"
     | "navy";
+  const announcementTextColor = branchSettings.announcementTextColor ?? null;
   // "times" mode plays a fixed number of times then stops; "repeat" (0) loops.
   const announcementMaxTimes =
     branchSettings.announcementPlayMode === "times"
@@ -876,6 +877,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
           maxTimes={announcementMaxTimes}
           fontCss={announcementFontCss}
           colorStyle={announcementColorStyle}
+          colorOverride={announcementTextColor}
           textAnimation={branchSettings.announcementTextAnimation ?? null}
           animation={announcementAnimation}
           anchor={announcementPosition}
@@ -1098,6 +1100,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
           anchor={announcementStyle === "video-top" ? "top" : "bottom"}
           fontCss={announcementFontCss}
           colorStyle={announcementColorStyle}
+          colorOverride={announcementTextColor}
           textAnimation={branchSettings.announcementTextAnimation ?? null}
           textScale={announcementTextScale}
         />
@@ -1122,6 +1125,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
             maxTimes={announcementMaxTimes}
             fontCss={announcementFontCss}
             colorStyle={announcementColorStyle}
+          colorOverride={announcementTextColor}
             textAnimation={branchSettings.announcementTextAnimation ?? null}
             animation={announcementAnimation}
             textScale={announcementTextScale}

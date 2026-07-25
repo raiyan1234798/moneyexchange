@@ -30,6 +30,8 @@ interface AnnouncementBannerProps {
   fontCss?: string;
   /** Colour treatment for the text. */
   colorStyle?: "white" | "logo" | "gold" | "navy";
+  /** Explicit admin text colour — overrides colorStyle when set. */
+  colorOverride?: string | null;
   /** Entrance/exit motion. "none" = instant (no animation). */
   animation?: "none" | "slide" | "fade" | "zoom" | "flip";
   /** Top or bottom of the video for the over-video caption. Default "bottom". */
@@ -103,7 +105,12 @@ export function useAnnouncementCycle(
 /** Resolve a colour treatment for announcement text. "logo" = brand gradient. */
 export function announcementTextStyle(
   colorStyle: "white" | "logo" | "gold" | "navy" | undefined,
+  freeColor?: string | null,
 ): CSSProperties {
+  // An explicit admin colour beats the preset styles (and drops the gradient).
+  if (freeColor && freeColor.trim()) {
+    return { color: freeColor, WebkitTextFillColor: freeColor };
+  }
   switch (colorStyle) {
     case "logo":
       // "Extended version of the logo" — unimoni blue→gold gradient text.
@@ -140,6 +147,7 @@ export function TickerAnnouncementBand({
   textScale = 1,
   fontCss,
   colorStyle = "white",
+  colorOverride = null,
   textAnimation = null,
 }: {
   text?: string | null;
@@ -149,6 +157,7 @@ export function TickerAnnouncementBand({
   textScale?: number;
   fontCss?: string;
   colorStyle?: "white" | "logo" | "gold" | "navy";
+  colorOverride?: string | null;
   /** Continuous movement of the text while visible (none by default). */
   textAnimation?: string | null;
 }) {
@@ -177,7 +186,7 @@ export function TickerAnnouncementBand({
           fontSize: `calc(clamp(1.4rem,3vh,2.6rem) * ${heightScale} * ${textScale})`,
           textShadow: colorStyle === "logo" ? "none" : "0 2px 4px rgba(0,0,0,0.35)",
           letterSpacing: "0.04em",
-          ...announcementTextStyle(colorStyle),
+          ...announcementTextStyle(colorStyle, colorOverride),
         }}
       >
         {message}
@@ -214,6 +223,7 @@ export function MessageAreaAnnouncement({
   anchor = "bottom",
   fontCss,
   colorStyle = "white",
+  colorOverride = null,
 }: {
   text?: string | null;
   imageUrl?: string | null;
@@ -229,6 +239,7 @@ export function MessageAreaAnnouncement({
   anchor?: "bottom" | "top";
   fontCss?: string;
   colorStyle?: "white" | "logo" | "gold" | "navy";
+  colorOverride?: string | null;
 }) {
   const message = text?.trim() || "";
   const image = imageUrl?.trim() || "";
@@ -305,6 +316,7 @@ export function MessageAreaAnnouncement({
                 textScale={textScale}
                 fontCss={fontCss}
                 colorStyle={colorStyle}
+                colorOverride={colorOverride}
                 textAnimation={textAnimation}
               />
             ) : null}
@@ -334,6 +346,7 @@ export function AnnouncementBanner({
   maxTimes = 0,
   fontCss,
   colorStyle = "white",
+  colorOverride = null,
   animation = "slide",
   anchor = "bottom",
   textScale = 1,
@@ -441,7 +454,7 @@ export function AnnouncementBanner({
                     fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
                     fontSize: `calc(clamp(1.2rem,2.8vw,3rem) * ${textScale})`,
                     textShadow: colorStyle === "logo" ? "none" : "0 2px 10px rgba(0,0,0,0.5)",
-                    ...announcementTextStyle(colorStyle),
+                    ...announcementTextStyle(colorStyle, colorOverride),
                   }}
                 >
                   {message}
@@ -496,7 +509,7 @@ export function AnnouncementBanner({
               background: hasMedia
                 ? undefined
                 : "linear-gradient(to top, rgba(13,38,128,0.94), rgba(13,38,128,0.5))",
-              ...announcementTextStyle(colorStyle),
+              ...announcementTextStyle(colorStyle, colorOverride),
             }}
           >
             {message}
@@ -554,7 +567,9 @@ export function AnnouncementBanner({
               color: "#0D2680",
               fontFamily: fontCss ?? "var(--font-brand), 'Trebuchet MS', sans-serif",
               fontSize: `calc(${video || image ? "clamp(1rem,1.9vw,2rem)" : "clamp(1.4rem,3vw,3.2rem)"} * ${textScale})`,
-              ...(colorStyle && colorStyle !== "white" ? announcementTextStyle(colorStyle) : {}),
+              ...(colorOverride || (colorStyle && colorStyle !== "white")
+                ? announcementTextStyle(colorStyle, colorOverride)
+                : {}),
             }}
           >
             {message}
