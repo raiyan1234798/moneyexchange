@@ -93,27 +93,35 @@ export default function DashboardOverviewPage() {
         ? [where("status", "==", "pending"), where("branchId", "==", effectiveBranchId)]
         : [where("status", "==", "pending")];
 
-    const unsubRates = subscribeCollection<{ id: string }>(
-      COLLECTIONS.pendingApprovals,
-      rateConstraints,
-      (items) => {
-        setStats((prev) =>
-          prev
-            ? { ...prev, pendingRateApprovals: items.length }
-            : {
-                totalBranches: branches.length,
-                activeTvs: 0,
-                offlineTvs: 0,
-                totalCurrencies: currencies,
-                pendingRateApprovals: items.length,
-                recentAuditEvents: 0,
-              },
-        );
-        setLoading(false);
-        clearNotice();
-      },
-      onError,
-    );
+    // Only admins and branch managers may read pending_approvals (Firestore
+    // rules). Branch users must skip it — otherwise the query is rejected and
+    // they get a "Missing or insufficient permissions" toast on their own
+    // landing page every sign-in. They can't act on approvals anyway, so the
+    // "Pending Rates" stat simply stays 0 for them.
+    const canReadApprovals = isPlatformAdmin || isBranchManager;
+    const unsubRates = canReadApprovals
+      ? subscribeCollection<{ id: string }>(
+          COLLECTIONS.pendingApprovals,
+          rateConstraints,
+          (items) => {
+            setStats((prev) =>
+              prev
+                ? { ...prev, pendingRateApprovals: items.length }
+                : {
+                    totalBranches: branches.length,
+                    activeTvs: 0,
+                    offlineTvs: 0,
+                    totalCurrencies: currencies,
+                    pendingRateApprovals: items.length,
+                    recentAuditEvents: 0,
+                  },
+            );
+            setLoading(false);
+            clearNotice();
+          },
+          onError,
+        )
+      : () => undefined;
 
     // Only admins and branch managers may read audit_logs (Firestore rules).
     // Branch users skip this — otherwise the query is rejected and they see a
@@ -267,8 +275,12 @@ export default function DashboardOverviewPage() {
   return (
     <>
       <DashboardHeader
-        title="Overview"
-        description="Your simple control panel — set up branches, import rates, add videos, and open your TV display."
+        title={isPlatformAdmin ? "Overview" : (scopedBranch?.name ?? "Overview")}
+        description={
+          isPlatformAdmin
+            ? "Your simple control panel — set up branches, import rates, add videos, and open your TV display."
+            : `${scopedBranch?.code ? `${scopedBranch.code} · ` : ""}Your branch control panel — rates, media, and your TV display.`
+        }
         accent="violet"
       />
       <PageShell accent="violet">
@@ -279,16 +291,7 @@ export default function DashboardOverviewPage() {
         <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-5">
           {isPlatformAdmin ? (
             <StatCard title="Branches" value={stats?.totalBranches ?? 0} loading={loading} accent="violet" icon={Building2} />
-          ) : (
-            <StatCard
-              title="Your Branch"
-              value={scopedBranch?.name ?? "—"}
-              hint={scopedBranch?.code}
-              loading={loading}
-              accent="violet"
-              icon={Building2}
-            />
-          )}
+          ) : null}
           <StatCard
             title={isPlatformAdmin ? "Active Branches" : "Published Rates"}
             value={isPlatformAdmin ? (stats?.totalBranches ?? 0) : branchRatesCount}

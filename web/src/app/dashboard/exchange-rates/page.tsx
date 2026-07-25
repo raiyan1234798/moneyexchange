@@ -10,6 +10,7 @@ import {
   Eye,
   EyeOff,
   FileSpreadsheet,
+  GripVertical,
   Pencil,
   Plus,
   Trash2,
@@ -555,7 +556,11 @@ export default function ExchangeRatesPage() {
     return [
       ...currencies,
       ...[...extras.values()].sort((a, b) => a.currencyCode.localeCompare(b.currencyCode)),
-    ];
+    ].filter(
+      // Hide any legacy "ghost" doc that was saved with a blank code (it renders
+      // as a broken spinner/— row). Display-only — the doc is left in the DB.
+      (c) => ((normalizeCurrencyCode(c.currencyCode) || c.currencyCode) ?? "").trim() !== "",
+    );
   }, [currencies, allRates]);
   const isBranchOnlyRow = (c: Currency) => c.id.startsWith("branch-only-");
   // "Manage branches" dialog: remove ONE currency from chosen branches.
@@ -566,6 +571,32 @@ export default function ExchangeRatesPage() {
     label: string;
     warnings: string[];
   } | null>(null);
+  // Confirm before removing a currency from the branch (avoid accidental delete).
+  const [removeConfirm, setRemoveConfirm] = useState<{ rateId: string; label: string } | null>(null);
+  // Drag-to-reorder state for the "Edit rates" list.
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  async function handleReorderDrop(from: number, to: number) {
+    if (!user || !profile || !effectiveBranchId) return;
+    if (from === to || from < 0 || to < 0 || from >= rates.length || to >= rates.length) return;
+    const next = [...rates];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setRates(next); // optimistic — snaps to server order after the write
+    try {
+      await reorderRates(
+        effectiveBranchId,
+        next.map((r) => r.id),
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success("Order updated");
+      setRates(await listExchangeRates(effectiveBranchId));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to reorder");
+      setRates(await listExchangeRates(effectiveBranchId));
+    }
+  }
 
   async function handleRemove(rateId: string) {
     if (!user || !profile || !effectiveBranchId) return;
@@ -1612,6 +1643,33 @@ export default function ExchangeRatesPage() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Guard against accidental deletes — a clear yes/no before a currency
+            is pulled from this branch's rate card. */}
+        <AlertDialog open={removeConfirm !== null} onOpenChange={(o) => !o && setRemoveConfirm(null)}>
+          <AlertDialogContent className="rounded-2xl sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove {removeConfirm?.label} from this branch?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This takes {removeConfirm?.label} off this branch&apos;s rate card on the TV. You can add
+                it back later from the currency catalog. Rates on other branches are not affected.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Keep it</AlertDialogCancel>
+              <AlertDialogAction
+                className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  const id = removeConfirm?.rateId;
+                  setRemoveConfirm(null);
+                  if (id) void handleRemove(id);
+                }}
+              >
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Per-branch presence: see every branch carrying this currency and
             remove it from chosen branches (deletes that branch's rate row). */}
         <Dialog open={manageBranchesFor !== null} onOpenChange={(o) => !o && setManageBranchesFor(null)}>
@@ -1856,12 +1914,54 @@ export default function ExchangeRatesPage() {
                   return (
                     <div
                       key={rate.id}
-                      className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
+                      onDragOver={(e) => {
+                        if (dragIndex === null) return;
+                        e.preventDefault();
+                        setOverIndex(index);
+                      }}
+                      onDrop={(e) => {
+                        if (dragIndex === null) return;
+                        e.preventDefault();
+                        void handleReorderDrop(dragIndex, index);
+                      }}
+                      onDragEnd={() => {
+                        setDragIndex(null);
+                        setOverIndex(null);
+                      }}
+                      className={`grid grid-cols-1 items-end gap-3 rounded-xl border p-3 transition-colors sm:gap-4 ${
+                        canManageRates && !isBranchUser
+                          ? "sm:grid-cols-[auto_minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                          : "sm:grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                      } ${
                         rate.isHidden
                           ? "border-dashed border-border/50 bg-muted/25 opacity-60"
                           : "border-border/60 bg-card"
+                      } ${dragIndex === index ? "opacity-50" : ""} ${
+                        overIndex === index && dragIndex !== null && dragIndex !== index
+                          ? "ring-2 ring-primary/50"
+                          : ""
                       }`}
                     >
+                      {canManageRates && !isBranchUser ? (
+                        <button
+                          type="button"
+                          draggable
+                          aria-label="Drag to reorder"
+                          title="Drag to reorder how this shows on the TV"
+                          onDragStart={(e) => {
+                            setDragIndex(index);
+                            e.dataTransfer.effectAllowed = "move";
+                            e.dataTransfer.setData("text/plain", String(index));
+                          }}
+                          onDragEnd={() => {
+                            setDragIndex(null);
+                            setOverIndex(null);
+                          }}
+                          className="hidden shrink-0 cursor-grab touch-none self-center rounded-md p-1 text-muted-foreground hover:bg-muted/60 active:cursor-grabbing sm:flex sm:items-center"
+                        >
+                          <GripVertical className="h-4 w-4" />
+                        </button>
+                      ) : null}
                       <div className="flex min-w-0 items-start gap-2">
                         <span className="shrink-0 text-xl leading-none">{resolved.flag}</span>
                         <div className="min-w-0 flex-1">
@@ -1957,7 +2057,7 @@ export default function ExchangeRatesPage() {
                         />
                       </div>
                       {canManageRates ? (
-                        <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                           <Button
                             size="sm"
                             onClick={() => void saveRate(rate)}
@@ -2020,7 +2120,7 @@ export default function ExchangeRatesPage() {
                               variant="outline"
                               size="sm"
                               className="rounded-lg px-2 text-destructive hover:text-destructive"
-                              onClick={() => void handleRemove(rate.id)}
+                              onClick={() => setRemoveConfirm({ rateId: rate.id, label: primary })}
                               title="Remove from branch rates"
                             >
                               <Trash2 className="mr-1 h-3 w-3" />

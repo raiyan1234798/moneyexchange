@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, EyeOff, FileSpreadsheet, Plus, Save, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, FileSpreadsheet, GripVertical, Plus, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,11 @@ export function CentralTransferPanel({
   localLabel: string;
 }) {
   const [rows, setRows] = useState<TransferRate[]>([]);
+  // Confirm before removing a transfer currency (avoid accidental delete).
+  const [removeConfirm, setRemoveConfirm] = useState<{ code: string } | null>(null);
+  // Drag-to-reorder state.
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
 
   /** Move a currency up/down on the TRANSFER card only (forex order untouched). */
   function moveTransferRow(row: TransferRate, dir: -1 | 1) {
@@ -67,6 +72,18 @@ export function CentralTransferPanel({
     [codes[i], codes[j]] = [codes[j], codes[i]];
     void reorderTransferRates(codes, actor)
       .then(() => toast.success(`${row.currencyCode} moved ${dir < 0 ? "up" : "down"} on the transfer card`))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reorder"));
+  }
+
+  /** Drag a row onto another to set the new transfer-card order. */
+  function dropTransferRow(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) return;
+    const next = [...rows];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setRows(next); // optimistic — the subscription re-syncs after the write
+    void reorderTransferRates(next.map((r) => r.currencyCode), actor)
+      .then(() => toast.success("Transfer card order updated"))
       .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reorder"));
   }
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -308,7 +325,7 @@ export function CentralTransferPanel({
 
       <ContentPanel>
       <div className="space-y-2">
-        {rows.map((row) => {
+        {rows.map((row, index) => {
           const draft = drafts[row.id] ?? { transferUsd: "", transferLocal: "" };
           const meta = getCurrencyMeta(row.currencyCode);
           // Auto-pick by country code when the built-in catalog doesn't know the
@@ -320,10 +337,47 @@ export function CentralTransferPanel({
           return (
             <div
               key={row.id}
-              className={`grid grid-cols-1 items-center gap-3 rounded-xl border p-3 sm:grid-cols-[minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
+              onDragOver={(e) => {
+                if (dragIndex === null) return;
+                e.preventDefault();
+                setOverIndex(index);
+              }}
+              onDrop={(e) => {
+                if (dragIndex === null) return;
+                e.preventDefault();
+                dropTransferRow(dragIndex, index);
+                setDragIndex(null);
+                setOverIndex(null);
+              }}
+              onDragEnd={() => {
+                setDragIndex(null);
+                setOverIndex(null);
+              }}
+              className={`grid grid-cols-1 items-end gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[auto_minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
                 row.isHidden ? "border-dashed border-border/50 bg-muted/25 opacity-60" : "border-border/60 bg-card"
+              } ${dragIndex === index ? "opacity-50" : ""} ${
+                overIndex === index && dragIndex !== null && dragIndex !== index ? "ring-2 ring-primary/50" : ""
               }`}
             >
+              <button
+                type="button"
+                draggable
+                aria-label={`Drag ${row.currencyCode} to reorder`}
+                title="Drag to reorder on the transfer card"
+                disabled={busy}
+                onDragStart={(e) => {
+                  setDragIndex(index);
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", String(index));
+                }}
+                onDragEnd={() => {
+                  setDragIndex(null);
+                  setOverIndex(null);
+                }}
+                className="hidden shrink-0 cursor-grab touch-none self-center rounded-md p-1 text-muted-foreground hover:bg-muted/60 active:cursor-grabbing sm:flex sm:items-center"
+              >
+                <GripVertical className="h-4 w-4" />
+              </button>
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-xl leading-none">{derivedFlag ?? "🌍"}</span>
                 <div className="min-w-0">
@@ -363,7 +417,7 @@ export function CentralTransferPanel({
                   className="h-10 rounded-lg tabular-nums"
                 />
               </div>
-              <div className="flex items-center gap-1.5 sm:justify-end">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                 <Button
                   disabled={busy || !changed}
                   onClick={() => void saveRow(row)}
@@ -420,13 +474,9 @@ export function CentralTransferPanel({
                   variant="outline"
                   size="sm"
                   disabled={busy}
-                  className="rounded-lg px-2"
+                  className="rounded-lg px-2 text-destructive hover:text-destructive"
                   title="Remove from the transfer card on all branches"
-                  onClick={() =>
-                    void deleteTransferRate(row.currencyCode, actor)
-                      .then(() => toast.success(`${row.currencyCode} removed from the transfer card`))
-                      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to remove"))
-                  }
+                  onClick={() => setRemoveConfirm({ code: row.currencyCode })}
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
@@ -618,6 +668,35 @@ export function CentralTransferPanel({
               onClick={() => void publishPending()}
             >
               Yes, publish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Guard against accidental deletes on the transfer card. */}
+      <AlertDialog open={removeConfirm !== null} onOpenChange={(o) => !o && setRemoveConfirm(null)}>
+        <AlertDialogContent className="rounded-2xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {removeConfirm?.code} from the transfer card?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This takes {removeConfirm?.code} off the money-transfer card on <strong>every</strong> branch&apos;s
+              TV. You can add it back later. Forex (exchange) rates are not affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                const code = removeConfirm?.code;
+                setRemoveConfirm(null);
+                if (!code) return;
+                void deleteTransferRate(code, actor)
+                  .then(() => toast.success(`${code} removed from the transfer card`))
+                  .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to remove"));
+              }}
+            >
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

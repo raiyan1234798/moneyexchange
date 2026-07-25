@@ -135,7 +135,11 @@ export function buildCurrencyPayload(input: {
   country?: string;
   flag?: string;
 }): { currencyCode: string; currencyName: string; country: string; flag: string } {
-  const code = normalizeCurrencyCode(input.currencyCode);
+  // Keep the raw code when it isn't a known ISO code (e.g. USDT) — otherwise
+  // normalize() returns "" and we'd write a ghost catalog doc with a blank
+  // code/name/country and the 💱 fallback glyph (looks like a broken spinner
+  // row). Mirrors resolveCurrencyFields so both paths agree.
+  const code = normalizeCurrencyCode(input.currencyCode) || input.currencyCode.trim().toUpperCase();
   const meta = getCurrencyMeta(code);
 
   const rawName = input.currencyName?.trim() ?? "";
