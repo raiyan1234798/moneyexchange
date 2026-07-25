@@ -3,18 +3,12 @@
 import { useState } from "react";
 
 /**
- * Rectangular country-flag chip (like airport/exchange signage boards).
- * The ISO country code is derived from the catalog's flag emoji (regional
- * indicator pairs), served as a small PNG; falls back to the emoji itself
- * for multi-region currencies (🌍) or if the image fails to load.
+ * Country-flag chip. Ordinary country flags render as their EMOJI — every row
+ * looks the same (client 2026-07-25: a lone flagcdn PNG next to emoji rows
+ * looked "different"). Only subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿 etc.), which many
+ * TVs cannot draw as emoji at all, still use the small PNG image.
  */
 function flagEmojiToCountryCode(flag: string): string | null {
-  const letters = [...flag]
-    .map((ch) => ch.codePointAt(0) ?? 0)
-    .filter((cp) => cp >= 0x1f1e6 && cp <= 0x1f1ff)
-    .map((cp) => String.fromCharCode(cp - 0x1f1e6 + 65));
-  if (letters.length === 2) return letters.join("").toLowerCase();
-
   // Subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿, Wales, England) are a black flag +
   // "tag letter" sequence, not regional-indicator pairs. Decode the tags to
   // flagcdn's "gb-sct" style code — many TVs can't draw these emoji at all,
@@ -26,6 +20,7 @@ function flagEmojiToCountryCode(flag: string): string | null {
   if (flag.includes("\u{1F3F4}") && tags.length >= 4) {
     return `${tags.slice(0, 2).join("")}-${tags.slice(2).join("")}`;
   }
+  // Regional-indicator pairs (🇿🇲 etc.) intentionally return null → emoji.
   return null;
 }
 

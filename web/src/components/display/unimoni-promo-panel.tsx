@@ -108,7 +108,12 @@ export function UnimoniPromoPanel({
           <video
             key={`${videoUrl}-${mediaKey ?? ""}`}
             src={videoUrl ?? undefined}
-            className={`absolute inset-0 z-[1] h-full w-full ${objectClass} ${mediaAnimClass}`}
+            // The entrance animation must start when the navy swap cover lifts
+            // (playingUrl === videoUrl), not at mount — otherwise it finishes
+            // invisibly UNDER the still-opaque cover while the clip buffers.
+            className={`absolute inset-0 z-[1] h-full w-full ${objectClass} ${
+              playingUrl === videoUrl ? mediaAnimClass : ""
+            }`}
             style={mediaAnimStyle}
             autoPlay
             muted={!soundOn}

@@ -50,9 +50,8 @@ export async function upsertTransferRate(
   },
   actor: { userId: string; userName: string },
 ): Promise<void> {
-  if (input.currencyCode?.trim().toUpperCase() === "USD") {
-    throw new Error("USD is the base currency — the transfer card quotes against it, so it can't be added as a row.");
-  }
+  // USD is allowed as a row again (client 2026-07-25) — e.g. "USD | 1 | 3785"
+  // shows the base dollar rate on the transfer card.
   const code = normalizeCurrencyCode(input.currencyCode) || input.currencyCode.trim().toUpperCase();
   if (!/^[A-Z]{2,5}$/.test(code)) throw new Error(`Invalid currency code: ${input.currencyCode}`);
 
@@ -100,9 +99,6 @@ export async function bulkUpsertTransferRates(
   let count = 0;
   for (const row of rows) {
     if (!row.transferUsd && !row.transferLocal) continue;
-    // USD is the BASE currency the transfer card quotes against — a USD/USD
-    // row is meaningless and must never appear on the card (client 2026-07-22).
-    if (row.currencyCode?.trim().toUpperCase() === "USD") continue;
     try {
       await upsertTransferRate({ ...row, displayOrder: count + 1 }, actor);
       count += 1;

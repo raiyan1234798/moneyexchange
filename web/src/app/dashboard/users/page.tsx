@@ -69,6 +69,7 @@ import {
   subscribeUserCredentials,
   type StoredCredential,
 } from "@/lib/services/credential-service";
+import { updateBranch } from "@/lib/services/branch-service";
 import type { AppUser, UserInvite, UserRole } from "@/lib/types";
 
 // Derive from the domain the admin is actually on, so the invite link/message
@@ -129,6 +130,9 @@ export default function UsersPage() {
   // "Set password" / "Change email or user ID" dialog for a vault entry.
   const [credEdit, setCredEdit] = useState<{ mode: "password" | "email"; cred: StoredCredential } | null>(null);
   const [credEditValue, setCredEditValue] = useState("");
+  // Rename a BRANCH (its real name, shown everywhere) right from the users list.
+  const [renameBranch, setRenameBranch] = useState<{ id: string; name: string } | null>(null);
+  const [renamingBranch, setRenamingBranch] = useState(false);
   const { notice, onError, clearNotice } = useFirestoreNotice("users");
 
   useEffect(() => {
@@ -1013,7 +1017,24 @@ export default function UsersPage() {
                   width: "w-[150px]",
                   cell: (row) => {
                     const b = row.kind === "user" ? row.user.branchId : row.invite.branchId;
-                    return <span className="block break-words">{b ? branchMap[b] ?? b : "All branches"}</span>;
+                    if (!b) return <span className="block break-words">All branches</span>;
+                    return (
+                      <span className="flex items-start gap-1">
+                        <span className="min-w-0 break-words">{branchMap[b] ?? b}</span>
+                        {/* Rename the BRANCH itself (fix typos) right from here. */}
+                        {hasPermission("manageUsers") ? (
+                          <button
+                            type="button"
+                            title="Rename this branch (changes it everywhere)"
+                            aria-label={`Rename branch ${branchMap[b] ?? b}`}
+                            onClick={() => setRenameBranch({ id: b, name: branchMap[b] ?? "" })}
+                            className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        ) : null}
+                      </span>
+                    );
                   },
                 },
                 {
@@ -1202,6 +1223,51 @@ export default function UsersPage() {
                 }}
               >
                 {credBusy !== null ? "Working…" : credEdit?.mode === "password" ? "Set password" : "Change sign-in"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Rename a branch — its name everywhere (TVs, selectors, this list). */}
+        <Dialog open={renameBranch !== null} onOpenChange={(o) => !o && setRenameBranch(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Rename branch</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2 py-2">
+              <Label htmlFor="branch-rename">Branch name</Label>
+              <Input
+                id="branch-rename"
+                value={renameBranch?.name ?? ""}
+                onChange={(e) => setRenameBranch((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
+                className="rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground">
+                Changes the branch&apos;s name everywhere — this list, branch selectors, and the TV.
+                The branch code stays the same.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                className="rounded-xl"
+                disabled={renamingBranch || !renameBranch?.name.trim()}
+                onClick={() => {
+                  if (!renameBranch || !user || !profile) return;
+                  setRenamingBranch(true);
+                  void updateBranch(
+                    renameBranch.id,
+                    { name: renameBranch.name.trim() },
+                    { userId: user.uid, userName: profile.displayName || profile.email },
+                  )
+                    .then(() => {
+                      toast.success("Branch renamed");
+                      setRenameBranch(null);
+                    })
+                    .catch((e) => toast.error(e instanceof Error ? e.message : "Could not rename the branch"))
+                    .finally(() => setRenamingBranch(false));
+                }}
+              >
+                {renamingBranch ? "Renaming…" : "Rename branch"}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -846,19 +846,13 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
         videoProgressAtRef.current = Date.now();
       }}
       onVideoEnded={handleVideoEnded}
-      mediaTransition={
-        branchSettings.ratePromoTransition ??
-        branchSettings.videoImageTransition ??
-        "fade"
-      }
-      mediaTransitionSeconds={
-        branchSettings.ratePromoTransitionSeconds ??
-        (branchSettings.ratePromoTransitionSpeed === "fast"
-          ? 0.3
-          : branchSettings.ratePromoTransitionSpeed === "slow"
-            ? 0.75
-            : 0.8)
-      }
+      // The "Image / video change animation" setting. It MUST read
+      // videoImageTransition (what the Settings select writes) — the old
+      // ratePromoTransition-first chain never reached it because
+      // DEFAULT_BRANCH_SETTINGS always defines ratePromoTransition ("fade"),
+      // so the admin's chosen effect silently never played.
+      mediaTransition={branchSettings.videoImageTransition ?? "fade"}
+      mediaTransitionSeconds={branchSettings.slideTransitionSeconds ?? 0.6}
     >
       {/* Admin-controlled announcement over the video area (pop-up / full screen).
           band / video-top render in the message strip, rate-card over the rate

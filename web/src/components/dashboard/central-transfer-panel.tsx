@@ -101,11 +101,8 @@ export function CentralTransferPanel({
     setUploading(true);
     try {
       const parsed = await parseRateFile(file);
-      // USD is the base currency the card quotes against — never a transfer row.
-      const nonUsd = parsed.filter(
-        (r) => (normalizeCurrencyCode(r.currencyCode) || r.currencyCode.toUpperCase()) !== "USD",
-      );
-      const transferRows = nonUsd
+      // USD rows are allowed (client 2026-07-25) — e.g. "USD | 1 | 3785".
+      const transferRows = parsed
         .filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0)
         .map((r) => ({
           currencyCode: r.currencyCode,
@@ -122,7 +119,7 @@ export function CentralTransferPanel({
       // Confirm before anything goes live on the TVs.
       setPending({
         rows: transferRows,
-        skippedNoTransfer: nonUsd.length - transferRows.length,
+        skippedNoTransfer: parsed.length - transferRows.length,
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read the transfer file");
@@ -180,8 +177,8 @@ export function CentralTransferPanel({
   useEffect(() => {
     return subscribeTransferRates(
       (items) => {
-        // USD is the base currency — never listed on the transfer card.
-        setRows(items.filter((t) => t.currencyCode?.toUpperCase() !== "USD"));
+        // USD rows are allowed on the transfer card (client 2026-07-25).
+        setRows(items);
         // Merge, keeping in-progress edits.
         setDrafts((prev) => {
           const next: Record<string, Draft> = {};
@@ -421,7 +418,7 @@ export function CentralTransferPanel({
                 <Button
                   disabled={busy || !changed}
                   onClick={() => void saveRow(row)}
-                  className={`h-10 rounded-lg bg-sky-500 px-5 text-sm font-semibold text-white hover:bg-sky-400 ${
+                  className={`h-9 rounded-lg bg-sky-500 px-4 text-sm font-semibold text-white hover:bg-sky-400 ${
                     changed ? "" : "opacity-50"
                   }`}
                 >
@@ -432,7 +429,7 @@ export function CentralTransferPanel({
                   variant="outline"
                   size="sm"
                   disabled={busy || rows[0]?.id === row.id}
-                  className="rounded-lg px-2"
+                  className="h-9 w-9 rounded-lg px-0"
                   title="Move up on the transfer card"
                   aria-label={`Move ${row.currencyCode} up`}
                   onClick={() => moveTransferRow(row, -1)}
@@ -443,7 +440,7 @@ export function CentralTransferPanel({
                   variant="outline"
                   size="sm"
                   disabled={busy || rows[rows.length - 1]?.id === row.id}
-                  className="rounded-lg px-2"
+                  className="h-9 w-9 rounded-lg px-0"
                   title="Move down on the transfer card"
                   aria-label={`Move ${row.currencyCode} down`}
                   onClick={() => moveTransferRow(row, 1)}
@@ -454,7 +451,7 @@ export function CentralTransferPanel({
                   variant="outline"
                   size="sm"
                   disabled={busy}
-                  className="rounded-lg px-2"
+                  className="h-9 w-9 rounded-lg px-0"
                   title={row.isHidden ? "Show on the transfer card" : "Hide from the transfer card"}
                   onClick={() =>
                     void setTransferRateHidden(row.currencyCode, !row.isHidden, actor)
@@ -474,7 +471,7 @@ export function CentralTransferPanel({
                   variant="outline"
                   size="sm"
                   disabled={busy}
-                  className="rounded-lg px-2 text-destructive hover:text-destructive"
+                  className="h-9 w-9 rounded-lg px-0 text-destructive hover:text-destructive"
                   title="Remove from the transfer card on all branches"
                   onClick={() => setRemoveConfirm({ code: row.currencyCode })}
                 >

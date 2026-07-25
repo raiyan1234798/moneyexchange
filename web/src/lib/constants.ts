@@ -271,6 +271,11 @@ export function slideTransitionClass(name: string | null | undefined): string {
     case "wipe": return "sheet-anim-wipe";
     case "blur": return "sheet-anim-blur";
     case "snap": return "sheet-anim-snap";
+    // Legacy keys saved by older versions — keep them animating instead of
+    // silently degrading to fade (client 2026-07-25: "old effects missing").
+    case "flip-x": return "sheet-anim-flip-up";
+    case "rotate": return "sheet-anim-spin-in";
+    case "bounce": return "sheet-anim-bounce-in";
     case "none": return "";
     default: return "sheet-anim-fade";
   }

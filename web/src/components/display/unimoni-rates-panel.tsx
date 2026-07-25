@@ -24,16 +24,8 @@ function naturalRateCardNote(raw: string): string {
   text = text.replace(/\$(\d+)\s*,\s*(?=\$?\d)/g, "$$$1, ");
   text = text.replace(/@\s*/g, "@ ");
 
-  const lettersOnly = text.replace(/[^A-Za-z]/g, "");
-  if (lettersOnly.length > 0 && lettersOnly === lettersOnly.toUpperCase()) {
-    text = text
-      .toLowerCase()
-      .replace(/\b(usd|ugx|eur|gbp|kes|tzs|rwf|cad|aud|chf|jpy|cny|aed|sar|zar)\b/gi, (code) =>
-        code.toUpperCase(),
-      )
-      .replace(/^./, (c) => c.toUpperCase());
-  }
-
+  // Case is preserved exactly as the admin typed it — capitals AND small
+  // letters both show (per client, 2026-07-25). Only spacing is normalised.
   return `${starred ? "*" : ""}${text}`;
 }
 
@@ -290,8 +282,7 @@ export function UnimoniRatesPanel({
   // forex table. Rates come from the CENTRALIZED head-office set (same for all
   // branches) when provided; legacy branch-level values are the fallback.
   const centralTransferRows: ExchangeRate[] = (transferRates ?? [])
-    // USD is the base currency the card quotes against — never a row itself.
-    .filter((t) => t.currencyCode?.toUpperCase() !== "USD")
+    // USD rows are allowed on the card (client 2026-07-25) — e.g. USD 1 | 3785.
     .filter((t) => !t.isHidden && ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0))
     .map(
       (t) =>

@@ -1587,26 +1587,53 @@ export default function ExchangeRatesPage() {
                         >
                           Branches
                         </Button>
-                        {isBranchOnlyRow(c) ? null : (
                         <Button
                           variant="outline"
                           size="sm"
                           className="rounded-lg"
-                          onClick={() =>
-                            void toggleCurrencyStatus(
-                              c.id,
-                              c.status === "active" ? "inactive" : "active",
-                              { userId: user!.uid, userName: profile!.displayName || profile!.email },
-                            )
+                          onClick={() => {
+                            const actor = { userId: user!.uid, userName: profile!.displayName || profile!.email };
+                            const nextStatus = c.status === "active" ? ("inactive" as const) : ("active" as const);
+                            void (async () => {
+                              if (isBranchOnlyRow(c)) {
+                                // Branch-only rows (e.g. SCP) have no catalog doc, so
+                                // there is nothing to toggle yet. Materialize a real
+                                // catalog entry with the desired status — the row then
+                                // becomes a normal catalog row with a working toggle.
+                                const resolved = getCatalogCurrency(c);
+                                const existing = currencies.find(
+                                  (x) => x.currencyCode.toUpperCase() === c.currencyCode.toUpperCase(),
+                                );
+                                if (existing) {
+                                  await toggleCurrencyStatus(existing.id, nextStatus, actor);
+                                } else {
+                                  await createCurrency(
+                                    {
+                                      ...buildCurrencyPayload({
+                                        currencyCode: c.currencyCode,
+                                        currencyName: resolved.name,
+                                        country: resolved.country,
+                                        flag: resolved.flag,
+                                      }),
+                                      sortOrder: currencies.length + 1,
+                                      status: nextStatus,
+                                      isHidden: false,
+                                    },
+                                    actor,
+                                  );
+                                }
+                              } else {
+                                await toggleCurrencyStatus(c.id, nextStatus, actor);
+                              }
+                            })()
                               .then(() => toast.success(`${c.currencyCode} status updated`))
                               .catch((e) =>
                                 toast.error(e instanceof Error ? e.message : "Failed to update status"),
-                              )
-                          }
+                              );
+                          }}
                         >
                           {c.status === "active" ? "Turn off" : "Turn on"}
                         </Button>
-                        )}
                       </span>
                     ),
                   },
@@ -2063,13 +2090,15 @@ export default function ExchangeRatesPage() {
                         />
                       </div>
                       {canManageRates ? (
-                        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        // Fixed mini-grid: buttons line up in tidy columns instead
+                        // of a ragged wrap (client: "UI looks congested").
+                        <div className={`grid gap-1.5 ${isBranchUser ? "grid-cols-2 sm:w-[180px]" : "grid-cols-3 sm:w-[250px]"}`}>
                           <Button
                             size="sm"
                             onClick={() => void saveRate(rate)}
                             disabled={!isChanged}
                             title="Save changes to TV displays"
-                            className={`rounded-lg ${isChanged ? "" : "opacity-50"}`}
+                            className={`h-8 w-full rounded-lg ${isChanged ? "" : "opacity-50"}`}
                           >
                             <TrendingUp className="mr-1 h-3 w-3" />
                             Publish
@@ -2081,7 +2110,7 @@ export default function ExchangeRatesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="rounded-lg px-2"
+                                className="h-8 w-full rounded-lg px-2"
                                 onClick={() => void handleMove(rate, "up")}
                                 disabled={index === 0}
                                 title="Move up on display"
@@ -2092,7 +2121,7 @@ export default function ExchangeRatesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="rounded-lg px-2"
+                                className="h-8 w-full rounded-lg px-2"
                                 onClick={() => void handleMove(rate, "down")}
                                 disabled={index === rates.length - 1}
                                 title="Move down on display"
@@ -2103,7 +2132,7 @@ export default function ExchangeRatesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="rounded-lg px-2"
+                                className="h-8 w-full rounded-lg px-2"
                                 onClick={() => void handleToggleVisibility(rate)}
                                 title={rate.isHidden ? "Show on TV display" : "Hide from TV display"}
                               >
@@ -2125,7 +2154,7 @@ export default function ExchangeRatesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="rounded-lg px-2 text-destructive hover:text-destructive"
+                              className="h-8 w-full rounded-lg px-2 text-destructive hover:text-destructive"
                               onClick={() => setRemoveConfirm({ rateId: rate.id, label: primary })}
                               title="Remove from branch rates"
                             >
