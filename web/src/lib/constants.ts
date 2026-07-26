@@ -78,6 +78,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
   showTickerLogo: true,
+  showVideoCoverLogo: true,
   tickerHeadlineAnimation: null as string | null,
   tickerMessageAnimation: null as string | null,
   tickerScrollLogoAnimation: null as string | null,

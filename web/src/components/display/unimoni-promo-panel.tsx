@@ -31,6 +31,10 @@ interface UnimoniPromoPanelProps {
   /** Changes on every play-order STEP — remounts the media element so the SAME
       video repeated back-to-back restarts instead of freezing on its last frame. */
   mediaKey?: string | number;
+  /** Show the unimoni logo chip on the navy cover between clips. OFF = plain
+      navy panel — the cover itself ALWAYS stays, so the TV's play button is
+      never visible either way (per client, 2026-07-26). */
+  showCoverLogo?: boolean;
   /** Overlays scoped to the promo area (e.g. the drop-down announcement). */
   children?: React.ReactNode;
 }
@@ -52,6 +56,7 @@ export function UnimoniPromoPanel({
   mediaTransition = "fade",
   mediaTransitionSeconds = null,
   mediaKey,
+  showCoverLogo = true,
   children,
 }: UnimoniPromoPanelProps) {
   // A broken advert image URL must fall back to the branded placeholder, not
@@ -209,16 +214,21 @@ export function UnimoniPromoPanel({
             videoLoaded && playingUrl === videoUrl ? "opacity-0" : "opacity-100"
           }`}
         >
-          <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
-            <Image
-              src="/unimoni-logo-full.png"
-              alt=""
-              width={300}
-              height={97}
-              className="h-[clamp(2rem,6vh,4rem)] w-auto object-contain"
-              unoptimized
-            />
-          </div>
+          {/* The logo chip is optional (admin switch); the navy COVER itself is
+              not — it is what keeps the TV's giant play button hidden while the
+              next clip loads, so it stays even with the logo turned off. */}
+          {showCoverLogo ? (
+            <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
+              <Image
+                src="/unimoni-logo-full.png"
+                alt=""
+                width={300}
+                height={97}
+                className="h-[clamp(2rem,6vh,4rem)] w-auto object-contain"
+                unoptimized
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
 

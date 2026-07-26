@@ -174,6 +174,9 @@ export interface BranchSettings {
   logoAutoRemoveBg?: boolean;
   /** Whether the corner logo badge is visible on the ticker. Default true. */
   showTickerLogo?: boolean;
+  /** unimoni logo on the navy cover between video clips. Default true. OFF =
+      plain navy cover (the cover always stays so the play button never shows). */
+  showVideoCoverLogo?: boolean;
   /** Transition when the video-area image/video changes. */
   videoImageTransition?: string;
   /** Gap between announcement shows in SECONDS (overrides the legacy minutes). */
