@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getAggregateFromServer,
+  getCountFromServer,
   getDoc,
   getDocs,
   limit,
@@ -13,8 +14,10 @@ import {
   serverTimestamp,
   setDoc,
   sum,
+  Timestamp,
   updateDoc,
   where,
+  writeBatch,
   type DocumentData,
   type QueryConstraint,
   type Unsubscribe,
@@ -129,4 +132,45 @@ export async function sumField(
   } catch {
     return 0;
   }
+}
+
+/** Server-side COUNT of matching documents — nothing is downloaded. */
+export async function countDocuments(
+  collectionName: string,
+  constraints: QueryConstraint[] = [],
+): Promise<number> {
+  const snapshot = await getCountFromServer(query(collection(db, collectionName), ...constraints));
+  return snapshot.data().count;
+}
+
+/**
+ * Delete audit_logs entries OLDER than `cutoff`, in batches of 400 (Firestore
+ * caps a batch at 500 writes). Newer entries are untouched — the where() clause
+ * is the guarantee. Admin-only by Firestore rules. Returns how many were
+ * deleted; `onProgress` fires after each committed batch so the UI can count up.
+ */
+export async function deleteAuditLogsBefore(
+  cutoff: Date,
+  onProgress?: (deletedSoFar: number) => void,
+): Promise<number> {
+  const cutoffTs = Timestamp.fromDate(cutoff);
+  let total = 0;
+  for (;;) {
+    const snapshot = await getDocs(
+      query(
+        collection(db, "audit_logs"),
+        where("timestamp", "<", cutoffTs),
+        orderBy("timestamp", "asc"),
+        limit(400),
+      ),
+    );
+    if (snapshot.empty) break;
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    total += snapshot.size;
+    onProgress?.(total);
+    if (snapshot.size < 400) break;
+  }
+  return total;
 }
