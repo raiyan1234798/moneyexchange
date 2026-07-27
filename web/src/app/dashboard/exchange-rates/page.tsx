@@ -355,15 +355,51 @@ export default function ExchangeRatesPage() {
     }
   }
 
+  /** Newest REAL rates for a code on any branch — so a newly-added branch copy
+      starts with live values instead of the 1/1 placeholder. Without this,
+      "Add to branch" created rows at 1/1 that went straight to the TV
+      (client found SCP/ZMW showing 1/1, 2026-07-27). */
+  function seedRatesFor(code: string) {
+    const ms = (t: unknown): number => {
+      if (!t) return 0;
+      const withMillis = t as { toMillis?: () => number };
+      if (typeof withMillis.toMillis === "function") return withMillis.toMillis();
+      const d = new Date(t as string | number | Date).getTime();
+      return Number.isFinite(d) ? d : 0;
+    };
+    const donor = allRates
+      .filter((r) => (r.currencyCode ?? "").toUpperCase() === code.toUpperCase())
+      .filter((r) => !(Number(r.buyRate) === 1 && Number(r.sellRate) === 1))
+      .sort((a, b) => ms(b.updatedAt) - ms(a.updatedAt))[0];
+    return donor
+      ? {
+          buyRate: donor.buyRate,
+          sellRate: donor.sellRate,
+          transferUsd: donor.transferUsd ?? null,
+          transferLocal: donor.transferLocal ?? null,
+        }
+      : undefined;
+  }
+
   async function handleAddCurrency(currency: Currency) {
     if (!user || !profile || !effectiveBranchId || !canAddNewCurrencies) return;
     try {
-      await addBranchRate(effectiveBranchId, currency, {
-        userId: user.uid,
-        userName: profile.displayName || profile.email,
-        branchName: branch?.name || effectiveBranchId,
-      });
-      toast.success(`${currency.currencyCode} added to branch rates`);
+      const seed = seedRatesFor(currency.currencyCode);
+      await addBranchRate(
+        effectiveBranchId,
+        currency,
+        {
+          userId: user.uid,
+          userName: profile.displayName || profile.email,
+          branchName: branch?.name || effectiveBranchId,
+        },
+        seed,
+      );
+      toast.success(
+        seed
+          ? `${currency.currencyCode} added with rates ${seed.buyRate}/${seed.sellRate} (copied from another branch) — adjust if needed`
+          : `${currency.currencyCode} added to branch rates`,
+      );
       setRates(await listExchangeRates(effectiveBranchId));
       setAddOpen(false);
     } catch (e) {
@@ -1767,12 +1803,24 @@ export default function ExchangeRatesPage() {
                           className="rounded-lg"
                           onClick={() => {
                             if (!user || !profile) return;
-                            void addBranchRate(b.id, manageBranchesFor, {
-                              userId: user.uid,
-                              userName: profile.displayName || profile.email,
-                              branchName: b.name,
-                            })
-                              .then(() => toast.success(`${code} added to ${b.name} — set its rates on that branch`))
+                            const seed = seedRatesFor(code);
+                            void addBranchRate(
+                              b.id,
+                              manageBranchesFor,
+                              {
+                                userId: user.uid,
+                                userName: profile.displayName || profile.email,
+                                branchName: b.name,
+                              },
+                              seed,
+                            )
+                              .then(() =>
+                                toast.success(
+                                  seed
+                                    ? `${code} added to ${b.name} with rates ${seed.buyRate}/${seed.sellRate} — adjust on that branch if needed`
+                                    : `${code} added to ${b.name} — set its rates on that branch`,
+                                ),
+                              )
                               .catch((e) =>
                                 toast.error(e instanceof Error ? e.message : "Failed to add"),
                               );
