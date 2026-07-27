@@ -27,7 +27,7 @@ import { updateBranch } from "@/lib/services/branch-service";
 import { DEFAULT_BRANCH_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
-import { isR2UploadConfigured, uploadVideoToR2 } from "@/lib/r2-upload";
+import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
 import type { BranchSettings } from "@/lib/types";
 
 export default function PromotionsPage() {
@@ -62,14 +62,91 @@ export default function PromotionsPage() {
   const s = settings;
   const set = (patch: Partial<BranchSettings>) => setSettings((prev) => ({ ...prev, ...patch }));
 
+  // Promo GALLERY (several images/videos take turns). The legacy single image
+  // folds into the list on any edit. Multi-file upload is built in (no toggle).
+  type PromoItem = { type: "image" | "video"; url: string };
+  const legacyPromo = (from: BranchSettings): PromoItem[] =>
+    from.ratePromoImageUrl ? [{ type: "image", url: from.ratePromoImageUrl }] : [];
+  const promoList: PromoItem[] = [...legacyPromo(s), ...(s.ratePromoMedia ?? [])];
+  const setPromoList = (list: PromoItem[]) =>
+    setSettings((prev) => ({ ...prev, ratePromoImageUrl: null, ratePromoMedia: list }));
+  const [promoUploading, setPromoUploading] = useState(false);
+
+  async function addPromoFiles(files: File[]) {
+    setPromoUploading(true);
+    const added: PromoItem[] = [];
+    try {
+      for (const file of files) {
+        if (file.type.startsWith("video/")) {
+          if (!isR2UploadConfigured()) {
+            toast.error(`${file.name}: video upload isn't available here`);
+            continue;
+          }
+          const res = await uploadVideoToR2(file, `promo-${Date.now()}-${file.name}`);
+          added.push({ type: "video", url: res.downloadUrl });
+        } else {
+          const fit = await checkPromoMediaFit(file);
+          if (fit) toast.warning(`${file.name}: ${fit}`, { duration: 9000 });
+          const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
+          added.push({ type: "image", url: dataUrl });
+        }
+      }
+      if (added.length) {
+        setSettings((prev) => ({
+          ...prev,
+          ratePromoImageUrl: null,
+          ratePromoMedia: [...legacyPromo(prev), ...(prev.ratePromoMedia ?? []), ...added],
+        }));
+        toast.success(
+          `${added.length} file${added.length === 1 ? "" : "s"} ready — Save to put ${added.length === 1 ? "it" : "them"} on the TV`,
+          { duration: 8000 },
+        );
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not read the files");
+    } finally {
+      setPromoUploading(false);
+    }
+  }
+
+  // Data-URL images upload to R2 at save time so the branch doc stays small
+  // (Firestore caps a doc at 1 MB). Same rescue the Settings page used.
+  async function migratePromoMediaForSave(from: BranchSettings): Promise<BranchSettings> {
+    const list = [...legacyPromo(from), ...(from.ratePromoMedia ?? [])];
+    if (!list.some((m) => m.url.startsWith("data:")) || !isR2UploadConfigured()) {
+      return { ...from, ratePromoImageUrl: null, ratePromoMedia: list };
+    }
+    toast.info("Optimizing promotion images for upload…");
+    const migrated: PromoItem[] = [];
+    for (const m of list) {
+      if (m.url.startsWith("data:")) {
+        try {
+          const res = await fetch(m.url);
+          const blob = await res.blob();
+          const ext = (blob.type.split("/")[1] || "png").replace("+xml", "");
+          const file = new File([blob], `promo-${Date.now()}.${ext}`, { type: blob.type });
+          const r2 = await uploadFileToR2(file, effectiveBranchId);
+          migrated.push({ type: m.type, url: r2.downloadUrl });
+        } catch {
+          migrated.push(m); // best-effort — keep original if the upload fails
+        }
+      } else {
+        migrated.push(m);
+      }
+    }
+    return { ...from, ratePromoImageUrl: null, ratePromoMedia: migrated };
+  }
+
   async function save() {
     if (!user || !profile || !effectiveBranchId || !branch) return;
     setSaving(true);
     const actor = { userId: user.uid, userName: profile.displayName || profile.email || "Admin" };
     try {
+      const prepared = await migratePromoMediaForSave(settings);
+      if (prepared !== settings) setSettings(prepared);
       await updateBranch(
         effectiveBranchId,
-        { logoUrl: branch.logoUrl ?? "", brandingColor: branch.brandingColor ?? "#0D2680", settings },
+        { logoUrl: branch.logoUrl ?? "", brandingColor: branch.brandingColor ?? "#0D2680", settings: prepared },
         actor,
       );
 
@@ -117,7 +194,7 @@ export default function PromotionsPage() {
           targets.map((b) => {
             const shared: Partial<BranchSettings> = {};
             for (const key of PROMO_SYNC_KEYS) {
-              const value = settings[key];
+              const value = prepared[key];
               if (value !== undefined) {
                 (shared as Record<string, unknown>)[key] = value;
               }
@@ -467,45 +544,82 @@ export default function PromotionsPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Promotion image</Label>
+                  <Label>Promotion pictures &amp; videos — add several at once</Label>
                   <p className="text-xs text-muted-foreground">
-                    Best size: <span className="font-semibold">{PROMO_IDEAL_TEXT}</span> — that
-                    shape fills the whole promo area perfectly.
+                    They take turns on the promo slide, in this order. Best size:{" "}
+                    <span className="font-semibold">{PROMO_IDEAL_TEXT}</span> — that shape fills
+                    the whole promo area perfectly.
                   </p>
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp"
-                      aria-label="Upload promotion image"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        try {
-                          // Warn (never block) when the shape won't fill the tall
-                          // promo area without stretching.
-                          const fit = await checkPromoMediaFit(file);
-                          if (fit) toast.warning(fit, { duration: 12000 });
-                          const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
-                          set({ ratePromoImageUrl: dataUrl });
-                          toast.success("Promotion image ready — Save to apply");
-                        } catch (err) {
-                          toast.error(err instanceof Error ? err.message : "Could not read image");
-                        }
-                      }}
-                      className="rounded-xl"
-                    />
-                    {s.ratePromoImageUrl ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="rounded-lg"
-                        onClick={() => set({ ratePromoImageUrl: null })}
-                      >
-                        Clear
-                      </Button>
-                    ) : null}
-                  </div>
+                  <Input
+                    type="file"
+                    multiple
+                    accept="image/png,image/jpeg,image/webp,video/mp4,video/webm,.png,.jpg,.jpeg,.webp,.mp4,.webm"
+                    aria-label="Upload promotion images or videos"
+                    disabled={promoUploading}
+                    onChange={(e) => {
+                      const files = [...(e.target.files ?? [])];
+                      e.target.value = "";
+                      if (files.length) void addPromoFiles(files);
+                    }}
+                    className="rounded-xl"
+                  />
+                  {promoUploading ? (
+                    <p className="text-xs text-muted-foreground">Preparing files…</p>
+                  ) : null}
+                  {promoList.length > 0 ? (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {promoList.map((item, i) => (
+                        <div key={`${i}-${item.url.slice(-14)}`} className="relative flex flex-col items-center gap-1">
+                          {item.type === "image" ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- tiny preview
+                            <img
+                              src={item.url}
+                              alt={`Promotion ${i + 1}`}
+                              className="h-16 w-11 rounded-md bg-slate-800 object-cover"
+                            />
+                          ) : (
+                            <video src={item.url} muted className="h-16 w-11 rounded-md bg-slate-800 object-cover" />
+                          )}
+                          <button
+                            type="button"
+                            aria-label={`Remove promotion item ${i + 1}`}
+                            onClick={() => setPromoList(promoList.filter((_, x) => x !== i))}
+                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-xs text-white"
+                          >
+                            ×
+                          </button>
+                          <div className="flex gap-0.5">
+                            <button
+                              type="button"
+                              aria-label={`Move promotion item ${i + 1} earlier`}
+                              disabled={i === 0}
+                              onClick={() => {
+                                const next = [...promoList];
+                                [next[i - 1], next[i]] = [next[i], next[i - 1]];
+                                setPromoList(next);
+                              }}
+                              className="rounded border border-border/60 px-1 text-[10px] text-muted-foreground disabled:opacity-40"
+                            >
+                              ◀
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Move promotion item ${i + 1} later`}
+                              disabled={i === promoList.length - 1}
+                              onClick={() => {
+                                const next = [...promoList];
+                                [next[i], next[i + 1]] = [next[i + 1], next[i]];
+                                setPromoList(next);
+                              }}
+                              className="rounded border border-border/60 px-1 text-[10px] text-muted-foreground disabled:opacity-40"
+                            >
+                              ▶
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="space-y-2">
                   <Label>Image / video fit on the promo card</Label>
