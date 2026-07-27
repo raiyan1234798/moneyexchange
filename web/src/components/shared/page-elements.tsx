@@ -392,7 +392,9 @@ export function QuickActions({
       {actions.map((action) => {
         const Icon = action.icon;
         return (
-          <motion.div key={action.href} {...fadeIn}>
+          // Two actions may point at the same page (e.g. Import + Update rates),
+          // so the key needs the label too or React warns about duplicates.
+          <motion.div key={`${action.href}-${action.label}`} {...fadeIn}>
             <Link
               href={action.href}
               className={cn(
