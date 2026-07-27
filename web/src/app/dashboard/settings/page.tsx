@@ -303,7 +303,7 @@ function BranchSettingsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Primary Color</Label>
+        <Label>Primary Color (dashboard label only)</Label>
         <div className="flex items-center gap-3">
           <input
             type="color"
@@ -317,6 +317,10 @@ function BranchSettingsForm({
             className="flex-1 rounded-xl font-mono text-sm"
           />
         </div>
+        <p className="text-xs text-muted-foreground">
+          Colours this branch&apos;s chip in dashboard lists only — it does NOT change anything on
+          the TV. TV colours live under &quot;Rate card colours&quot; and the announcement colour.
+        </p>
       </div>
       </div>
       {/* Rebrand: custom logo for the rate-card header (overrides the unimoni logo). */}

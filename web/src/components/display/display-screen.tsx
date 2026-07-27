@@ -682,7 +682,21 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   // "images only while no video can play".
   const branchImageUrl = activeImage?.downloadUrl ?? null;
 
-  const activeTicker = tickers[0];
+  // NEWEST message wins. tickers[0] took whatever order the query returned, so
+  // a branch with an old leftover ticker kept scrolling THAT instead of the
+  // message the admin just published to all branches (Bugolobi, 2026-07-27).
+  const activeTicker = useMemo(() => {
+    const ms = (t: unknown): number => {
+      if (!t) return 0;
+      const withMillis = t as { toMillis?: () => number };
+      if (typeof withMillis.toMillis === "function") return withMillis.toMillis();
+      const d = new Date(t as string | number | Date).getTime();
+      return Number.isFinite(d) ? d : 0;
+    };
+    return [...tickers].sort(
+      (a, b) => ms(b.updatedAt ?? b.createdAt) - ms(a.updatedAt ?? a.createdAt),
+    )[0];
+  }, [tickers]);
   const tickerMessages = useMemo(() => {
     const lines = (activeTicker?.messages ?? [])
       .map((line) => line.text?.trim())

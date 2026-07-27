@@ -73,6 +73,17 @@ export function TickerDisplaySettings({
     set({ tickerLogoUrl: null, tickerLogoUrls: [...badgeLogos, ...urls] });
   const removeBadgeLogo = (idx: number) =>
     set({ tickerLogoUrl: null, tickerLogoUrls: badgeLogos.filter((_, i) => i !== idx) });
+  // Drag a badge logo tile onto another to change the rotation order
+  // (client 2026-07-27). Order here = the order they take turns on the TV.
+  const [badgeDragIndex, setBadgeDragIndex] = useState<number | null>(null);
+  const [badgeOverIndex, setBadgeOverIndex] = useState<number | null>(null);
+  const moveBadgeLogo = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= badgeLogos.length || to >= badgeLogos.length) return;
+    const next = [...badgeLogos];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    set({ tickerLogoUrl: null, tickerLogoUrls: next });
+  };
 
   // Scrolling logos with PER-LOGO front/end placement. Legacy string list folds
   // into items (using the old whole-list position) on any edit.
@@ -254,12 +265,45 @@ export function TickerDisplaySettings({
               {badgeLogos.length > 0 ? (
                 <div className="flex flex-wrap gap-2 pt-1">
                   {badgeLogos.map((src, i) => (
-                    <div key={`${i}-${src.slice(-12)}`} className="relative flex flex-col items-center gap-1">
+                    <div
+                      key={`${i}-${src.slice(-12)}`}
+                      // Drag a tile onto another to reorder — order = the turn
+                      // order on the TV badge.
+                      draggable
+                      onDragStart={(e) => {
+                        setBadgeDragIndex(i);
+                        e.dataTransfer.effectAllowed = "move";
+                        e.dataTransfer.setData("text/plain", String(i));
+                      }}
+                      onDragOver={(e) => {
+                        if (badgeDragIndex === null) return;
+                        e.preventDefault();
+                        setBadgeOverIndex(i);
+                      }}
+                      onDrop={(e) => {
+                        if (badgeDragIndex === null) return;
+                        e.preventDefault();
+                        moveBadgeLogo(badgeDragIndex, i);
+                        setBadgeDragIndex(null);
+                        setBadgeOverIndex(null);
+                      }}
+                      onDragEnd={() => {
+                        setBadgeDragIndex(null);
+                        setBadgeOverIndex(null);
+                      }}
+                      className={`relative flex cursor-grab flex-col items-center gap-1 rounded-lg p-0.5 active:cursor-grabbing ${
+                        badgeDragIndex === i ? "opacity-50" : ""
+                      } ${
+                        badgeOverIndex === i && badgeDragIndex !== null && badgeDragIndex !== i
+                          ? "ring-2 ring-primary/60"
+                          : ""
+                      }`}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={src}
                         alt={`Corner logo ${i + 1}`}
-                        className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
+                        className="pointer-events-none h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
                       />
                       <button
                         type="button"
@@ -292,6 +336,11 @@ export function TickerDisplaySettings({
                     </div>
                   ))}
                 </div>
+              ) : null}
+              {badgeLogos.length > 1 ? (
+                <p className="pt-1 text-xs text-muted-foreground">
+                  Drag a logo onto another to change the order they take turns in — then Save.
+                </p>
               ) : null}
               {badgeLogos.length > 1 ? (
                 <div className="flex items-center gap-2 pt-1">
