@@ -3,16 +3,24 @@
 import { useState } from "react";
 
 /**
- * Country-flag chip. Ordinary country flags render as their EMOJI — every row
- * looks the same (client 2026-07-25: a lone flagcdn PNG next to emoji rows
- * looked "different"). Only subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿 etc.), which many
- * TVs cannot draw as emoji at all, still use the small PNG image.
+ * Country-flag chip. Every flag renders as a small PNG served from THIS site
+ * (/public/flags — all 252 countries + UK subdivisions), because the client's
+ * actual TVs have no colour-emoji font: emoji flags degrade to bare letter
+ * pairs ("US", "GB" — client screenshot 2026-07-27). Self-hosting also fixes
+ * the earlier mixed look, where an external flag CDN loaded for some rows and
+ * failed for others. The emoji span remains only as a last-resort fallback
+ * (custom currencies with no country, or a missing file).
  */
 function flagEmojiToCountryCode(flag: string): string | null {
-  // Subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿, Wales, England) are a black flag +
-  // "tag letter" sequence, not regional-indicator pairs. Decode the tags to
-  // flagcdn's "gb-sct" style code — many TVs can't draw these emoji at all,
-  // so the PNG is the only way the flag shows up.
+  // Regional-indicator pairs (🇿🇲 → "zm").
+  const letters = [...flag]
+    .map((ch) => ch.codePointAt(0) ?? 0)
+    .filter((cp) => cp >= 0x1f1e6 && cp <= 0x1f1ff)
+    .map((cp) => String.fromCharCode(cp - 0x1f1e6 + 65));
+  if (letters.length === 2) return letters.join("").toLowerCase();
+
+  // Subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿, Wales, England): black flag + "tag
+  // letter" sequence → "gb-sct" style code.
   const tags = [...flag]
     .map((ch) => ch.codePointAt(0) ?? 0)
     .filter((cp) => cp >= 0xe0061 && cp <= 0xe007a)
@@ -20,7 +28,6 @@ function flagEmojiToCountryCode(flag: string): string | null {
   if (flag.includes("\u{1F3F4}") && tags.length >= 4) {
     return `${tags.slice(0, 2).join("")}-${tags.slice(2).join("")}`;
   }
-  // Regional-indicator pairs (🇿🇲 etc.) intentionally return null → emoji.
   return null;
 }
 
@@ -41,7 +48,8 @@ export function FlagChip({
   const country = flagEmojiToCountryCode(flag);
 
   if (!country || failed) {
-    // Emoji flags: just the glyph, sized up — no box, no ring, no shadow.
+    // Last-resort emoji glyph (custom currencies / missing file): no box
+    // styling — a ringed empty pill next to a glyph looks broken.
     return (
       <span className={`inline-flex shrink-0 items-center justify-center text-[1.7em] leading-none ${className}`}>
         {flag}
@@ -50,9 +58,9 @@ export function FlagChip({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- tiny external flag PNG; next/image adds nothing here
+    // eslint-disable-next-line @next/next/no-img-element -- tiny same-origin flag PNG; next/image adds nothing here
     <img
-      src={`https://flagcdn.com/w80/${country}.png`}
+      src={`/flags/${country}.png`}
       alt=""
       onError={() => setFailed(true)}
       className={`h-[1.05em] w-[1.6em] shrink-0 rounded-[2px] object-cover ring-1 ring-black/15 ${chipClassName} ${className}`}

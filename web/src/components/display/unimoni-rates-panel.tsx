@@ -887,7 +887,11 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className, fo
               className="flex min-w-0 items-center gap-[1vmin] truncate font-extrabold uppercase leading-none text-white"
               style={{ fontSize: "clamp(1.1rem,3.2vmin,3.4rem)" }}
             >
-              {getRateFlag(rate) ? <span className="shrink-0">{getRateFlag(rate)}</span> : null}
+              {getRateFlag(rate) ? (
+                // Image chip, not raw emoji — the shop TVs have no emoji font
+                // (flags degraded to bare letter pairs, client 2026-07-27).
+                <FlagChip flag={getRateFlag(rate) ?? "🌍"} className="shrink-0" />
+              ) : null}
               <span className="truncate">{rate.currencyCode}</span>
             </span>
             <div className="flex shrink-0 items-stretch gap-[1.2vmin]">
