@@ -77,16 +77,9 @@ export function SortableDataTable<T>({
         {data.map((row, index) => (
           <div
             key={keyExtractor(row)}
-            draggable={!reorderDisabled}
-            onDragStart={(e) => {
-              // Dragging inside a form control (e.g. the seconds input) must
-              // edit the field, not pick up the whole row.
-              if ((e.target as HTMLElement).closest("input, textarea, select, button")) {
-                e.preventDefault();
-                return;
-              }
-              if (!reorderDisabled) setDragIndex(index);
-            }}
+            // Rows are DROP TARGETS only — dragging starts from the ⠿ handle.
+            // A draggable row hijacks mouse drags inside the title/seconds
+            // inputs, making text selection keyboard-only (client 2026-07-26).
             onDragOver={(e) => {
               if (reorderDisabled) return;
               e.preventDefault();
@@ -150,15 +143,8 @@ export function SortableDataTable<T>({
             {data.map((row, index) => (
               <tr
                 key={keyExtractor(row)}
-                draggable={!reorderDisabled}
-                onDragStart={(e) => {
-                  // Text-selection drags inside inputs must not lift the row.
-                  if ((e.target as HTMLElement).closest("input, textarea, select, button")) {
-                    e.preventDefault();
-                    return;
-                  }
-                  if (!reorderDisabled) setDragIndex(index);
-                }}
+                // Drop target only — the ⠿ handle is the sole drag source, so
+                // mouse text-selection works inside the row's inputs.
                 onDragOver={(e) => {
                   if (reorderDisabled) return;
                   e.preventDefault();

@@ -1925,7 +1925,7 @@ export default function ExchangeRatesPage() {
         ) : (
           <Card>
             <CardHeader>
-              <CardTitle>Step 3: Edit rates for {branch?.name ?? "branch"}</CardTitle>
+              <CardTitle>Step 3: Forex Rates — edit for {branch?.name ?? "branch"}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Click the pencil to rename how a currency appears on your TV (e.g. change &quot;CANADA CAD&quot; to &quot;CAD&quot;).
                 Edit buy/sell values, then click Publish.

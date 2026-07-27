@@ -1660,7 +1660,7 @@ export default function VideosPage() {
         )}
 
         {images.length > 0 ? (
-          <ContentPanel title="Active Image Adverts" description="Drag rows to set order, or use ▲ ▼ as a fallback">
+          <ContentPanel title="Active Image Adverts" description="Drag the ⠿ handle to set order, or use ▲ ▼ as a fallback">
             {canManageImages ? (
               <div className="mb-3 flex justify-end">{removeAllButton("images", images.length)}</div>
             ) : null}

@@ -744,7 +744,8 @@ export function UnimoniRatesPanel({
                     getRateFlag(rate) ||
                     "🌍"
                   }
-                  className={`!h-[1.85em] !w-[2.75em] shrink-0 rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10 ${displayAnimationClass(flagAnimation)}`}
+                  className={`shrink-0 ${displayAnimationClass(flagAnimation)}`}
+                  chipClassName="!h-[1.85em] !w-[2.75em] rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
                 />
                 <span className={`min-w-0 flex-1 truncate text-center ${displayAnimationClass(currencyTextAnimation)}`}>
                   {rate.currencyCode}

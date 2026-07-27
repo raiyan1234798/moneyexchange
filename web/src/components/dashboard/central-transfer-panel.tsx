@@ -320,7 +320,10 @@ export function CentralTransferPanel({
         </div>
       </div>
 
-      <ContentPanel>
+      <ContentPanel
+        title="Money Transfer Rates (Remittance)"
+        description="Continues from the forex rates above — ONE set shown on every branch's transfer card."
+      >
       <div className="space-y-2">
         {rows.map((row, index) => {
           const draft = drafts[row.id] ?? { transferUsd: "", transferLocal: "" };

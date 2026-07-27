@@ -24,13 +24,24 @@ function flagEmojiToCountryCode(flag: string): string | null {
   return null;
 }
 
-export function FlagChip({ flag, className = "" }: { flag: string; className?: string }) {
+export function FlagChip({
+  flag,
+  className = "",
+  chipClassName = "",
+}: {
+  flag: string;
+  /** Applied to BOTH forms (emoji span and image) — animations, margins. */
+  className?: string;
+  /** Applied ONLY when a real image renders (box size, ring, shadow). Emoji
+      must never get these — a ringed fixed-size box around a glyph paints an
+      ugly empty pill next to the flag (client 2026-07-27). */
+  chipClassName?: string;
+}) {
   const [failed, setFailed] = useState(false);
   const country = flagEmojiToCountryCode(flag);
 
   if (!country || failed) {
-    // Emoji fallback (custom currencies): size the glyph up so it matches the
-    // enlarged flag images rather than shrinking to text size.
+    // Emoji flags: just the glyph, sized up — no box, no ring, no shadow.
     return (
       <span className={`inline-flex shrink-0 items-center justify-center text-[1.7em] leading-none ${className}`}>
         {flag}
@@ -44,7 +55,7 @@ export function FlagChip({ flag, className = "" }: { flag: string; className?: s
       src={`https://flagcdn.com/w80/${country}.png`}
       alt=""
       onError={() => setFailed(true)}
-      className={`h-[1.05em] w-[1.6em] shrink-0 rounded-[2px] object-cover ring-1 ring-black/15 ${className}`}
+      className={`h-[1.05em] w-[1.6em] shrink-0 rounded-[2px] object-cover ring-1 ring-black/15 ${chipClassName} ${className}`}
     />
   );
 }
