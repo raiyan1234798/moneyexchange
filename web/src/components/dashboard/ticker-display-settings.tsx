@@ -47,7 +47,6 @@ export function TickerDisplaySettings({
   const [saving, setSaving] = useState(false);
   const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([branch.id]);
-  const [allowMultipleFiles, setAllowMultipleFiles] = useState(true);
 
   // Reseed when the selected branch changes (render-time adjust, no effect).
   const [loadedBranch, setLoadedBranch] = useState(branch.id);
@@ -173,20 +172,6 @@ export function TickerDisplaySettings({
       description="Everything about the bottom bar in one place — corner logo, scrolling logos, the yellow headline box, and the bar itself. Changes apply after Save."
     >
       <div className="space-y-4">
-        {/* Option to select multiple files at once or one file at a time */}
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-muted/20 p-3">
-          <div>
-            <Label className="text-sm">Allow selecting multiple files from PC</Label>
-            <p className="text-xs text-muted-foreground">
-              On: select multiple logo files at once in your PC file picker window. Off: pick one file at a time.
-            </p>
-          </div>
-          <Switch
-            checked={allowMultipleFiles}
-            onCheckedChange={(checked) => setAllowMultipleFiles(checked)}
-          />
-        </div>
-
         {/* Some brand logos NEED their background — this switch turns the
             automatic removal off entirely (uploads are kept exactly as-is). */}
         <div className="flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-muted/20 p-3">
@@ -230,11 +215,11 @@ export function TickerDisplaySettings({
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Badge image(s) — {allowMultipleFiles ? "add SEVERAL at once or one by one" : "add one at a time"}
+                Badge image(s) — add SEVERAL at once or one by one
               </Label>
               <Input
                 type="file"
-                multiple={allowMultipleFiles}
+                multiple
                 accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
                 aria-label="Upload ticker corner logo images"
                 onChange={async (e) => {
@@ -490,7 +475,7 @@ export function TickerDisplaySettings({
 
           <Input
             type="file"
-            multiple={allowMultipleFiles}
+            multiple
             accept="image/png,image/jpeg,image/webp,image/svg+xml,.png,.jpg,.jpeg,.webp,.svg"
             aria-label="Upload scrolling ticker logos"
             onChange={async (e) => {
