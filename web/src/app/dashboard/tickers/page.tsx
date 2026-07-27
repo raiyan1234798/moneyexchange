@@ -64,7 +64,6 @@ export default function TickersPage() {
   const [logoFont, setLogoFont] = useState(LOGO_FONTS[0].key);
   const [messageFont, setMessageFont] = useState(MESSAGE_FONTS[0].key);
   const [fontColor, setFontColor] = useState("#FFFFFF");
-  const [applyToAll, setApplyToAll] = useState(false);
   const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([effectiveBranchId]);
   const [editTarget, setEditTarget] = useState<TickerMessage | null>(null);
@@ -97,7 +96,7 @@ export default function TickersPage() {
     setMessageFont(ticker.messageFont ?? MESSAGE_FONTS[0].key);
     setLogoMode(ticker.logoText ? "text" : "image");
     setFontColor(ticker.fontColor ?? "#FFFFFF");
-    setApplyToAll(false);
+    setTargetScope("current");
     setEditTarget(ticker);
     setOpen(true);
   }
@@ -110,7 +109,7 @@ export default function TickersPage() {
     setLogoText("");
     setLogoMode("image");
     setMessageFont(MESSAGE_FONTS[0].key);
-    setApplyToAll(false);
+    setTargetScope("current");
   }
 
   async function handleDeleteTicker() {
@@ -128,6 +127,10 @@ export default function TickersPage() {
     }
   }
 
+  // Publishing state — the multi-branch save takes a few seconds; without this
+  // the button looked dead and gave no sign whether anything applied.
+  const [publishing, setPublishing] = useState(false);
+
   async function handleCreateTicker() {
     if (!user || !profile || !effectiveBranchId) return;
 
@@ -142,6 +145,16 @@ export default function TickersPage() {
       return;
     }
 
+    // The chosen target scope — "specific" passes the picked branch ids so it
+    // actually publishes there (it was silently ignored before, 2026-07-27).
+    const scopeSel: boolean | string[] = !canApplyToAll
+      ? false
+      : targetScope === "all"
+        ? true
+        : targetScope === "specific"
+          ? selectedBranchIds
+          : false;
+
     const sharedFields = {
       messages: lines,
       scrollSpeed,
@@ -155,24 +168,27 @@ export default function TickersPage() {
       status: "active" as const,
     };
 
+    setPublishing(true);
     try {
-      if (editTarget && !(applyToAll && canApplyToAll)) {
+      if (editTarget && scopeSel === false) {
         await updateTicker(
           editTarget.id,
           { ...sharedFields, branchId: editTarget.branchId },
           { userId: user.uid, userName: profile.displayName || profile.email },
         );
-        toast.success("Scrolling messages updated on display");
+        toast.success("✓ Saved — the scrolling text updates on this branch's TV within seconds", {
+          duration: 8000,
+        });
         closeDialog();
         return;
       }
 
-      // Create, or edit with apply-to-all: upsert the same messages on each target.
+      // Create, or edit with a wider scope: upsert the same messages on each target.
       const count = editTarget
         ? await upsertTickerContentToBranches(
             branches,
             effectiveBranchId,
-            applyToAll && canApplyToAll,
+            scopeSel,
             { ...sharedFields, createdBy: user.uid },
             { userId: user.uid, userName: profile.displayName || profile.email },
             editTarget.id,
@@ -180,21 +196,22 @@ export default function TickersPage() {
         : await syncTickerToBranches(
             branches,
             effectiveBranchId,
-            applyToAll && canApplyToAll,
+            scopeSel,
             { ...sharedFields, createdBy: user.uid },
             { userId: user.uid, userName: profile.displayName || profile.email },
           );
 
       toast.success(
         count > 1
-          ? `Scrolling messages published to ${count} branches`
-          : editTarget
-            ? "Scrolling messages updated on display"
-            : "Scrolling messages published to displays",
+          ? `✓ Applied to ${count} branches — the scrolling text is live on their TVs within seconds`
+          : "✓ Saved — the scrolling text updates on this branch's TV within seconds",
+        { duration: 10000 },
       );
       closeDialog();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to publish messages");
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -440,7 +457,6 @@ export default function TickersPage() {
                     onScopeChange={(sel) => {
                       setTargetScope(sel.scope);
                       setSelectedBranchIds(sel.selectedBranchIds);
-                      setApplyToAll(sel.scope === "all");
                     }}
                     className="mt-2"
                     description={
@@ -453,16 +469,22 @@ export default function TickersPage() {
                 <DialogFooter>
                   <Button
                     onClick={() => void handleCreateTicker()}
-                    disabled={!messages.trim()}
+                    disabled={!messages.trim() || publishing}
                     className="rounded-xl"
                   >
-                    {editTarget
-                      ? applyToAll && canApplyToAll
-                        ? "Save to all branches"
-                        : "Save changes"
-                      : applyToAll && canApplyToAll
-                        ? "Publish to all branches"
-                        : "Publish to Displays"}
+                    {publishing
+                      ? "Publishing…"
+                      : editTarget
+                        ? targetScope === "all" && canApplyToAll
+                          ? "Save to all branches"
+                          : targetScope === "specific" && canApplyToAll
+                            ? "Save to chosen branches"
+                            : "Save changes"
+                        : targetScope === "all" && canApplyToAll
+                          ? "Publish to all branches"
+                          : targetScope === "specific" && canApplyToAll
+                            ? "Publish to chosen branches"
+                            : "Publish to Displays"}
                   </Button>
                 </DialogFooter>
               </DialogContent>

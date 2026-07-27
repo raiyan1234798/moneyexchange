@@ -13,8 +13,14 @@ type Actor = { userId: string; userName: string };
 export function getActiveBranchTargets(
   branches: Branch[],
   sourceBranchId: string,
-  applyToAll: boolean,
+  /** true = every active branch; false = source only; string[] = these branch
+      ids (+ the source), so "Select specific branches" actually works. */
+  applyToAll: boolean | string[],
 ): Branch[] {
+  if (Array.isArray(applyToAll)) {
+    const wanted = new Set([...applyToAll, sourceBranchId]);
+    return branches.filter((b) => b.status === "active" && wanted.has(b.id));
+  }
   return resolveBranchTargets(branches, sourceBranchId, applyToAll);
 }
 
@@ -77,7 +83,7 @@ export async function syncExternalVideoToBranches(
 export async function syncTickerToBranches(
   branches: Branch[],
   sourceBranchId: string,
-  applyToAll: boolean,
+  applyToAll: boolean | string[],
   data: Omit<import("@/lib/types").TickerMessage, "id" | "createdAt" | "updatedAt" | "branchId">,
   actor: Actor,
 ): Promise<number> {
@@ -97,7 +103,7 @@ export async function syncTickerToBranches(
 export async function upsertTickerContentToBranches(
   branches: Branch[],
   sourceBranchId: string,
-  applyToAll: boolean,
+  applyToAll: boolean | string[],
   data: Omit<TickerMessage, "id" | "createdAt" | "updatedAt" | "branchId" | "createdBy"> & {
     createdBy?: string;
   },
