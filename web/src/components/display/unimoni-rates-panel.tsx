@@ -50,6 +50,8 @@ interface UnimoniRatesPanelProps {
   /** CENTRALIZED transfer rates (head office) — same for all branches. When
       provided, the transfer card uses these instead of branch-level values. */
   transferRates?: TransferRate[];
+  /** Per-branch remittance currency codes to hide on this TV. */
+  hiddenTransferCodes?: string[] | null;
   /** Label for the local-currency transfer column (default "UGX"). */
   transferLocalLabel?: string;
   /** Multiplier for the rate-card text/row size (default 1). */
@@ -192,6 +194,8 @@ function hasTransfer(r: ExchangeRate): boolean {
 export function rateCardHasContent(args: {
   rates: ExchangeRate[];
   transferRates?: TransferRate[] | null;
+  /** Per-branch remittance hides (currency codes). */
+  hiddenTransferCodes?: string[] | null;
   showForexCard: boolean;
   showTransferCard: boolean;
   promoMedia?: Array<{ type: "image" | "video"; url: string }>;
@@ -201,10 +205,25 @@ export function rateCardHasContent(args: {
 }): boolean {
   const rows = resolveSignageRates(args.rates);
   if (args.showForexCard && rows.length > 0) return true;
-  const centralTransfer = (args.transferRates ?? []).filter(
-    (t) => !t.isHidden && ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0),
+  const hasCentralTransferSource = (args.transferRates ?? []).length > 0;
+  const hiddenCodes = new Set(
+    (args.hiddenTransferCodes ?? []).map((c) => c.toUpperCase()),
   );
-  if (args.showTransferCard && (centralTransfer.length > 0 || rows.some(hasTransfer))) return true;
+  const centralTransfer = (args.transferRates ?? []).filter(
+    (t) =>
+      !t.isHidden &&
+      !hiddenCodes.has(t.currencyCode.toUpperCase()) &&
+      ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0),
+  );
+  // When a central transfer set exists, never fall back to legacy forex
+  // transfer columns — an empty filtered list means "nothing to show".
+  if (args.showTransferCard) {
+    if (hasCentralTransferSource) {
+      if (centralTransfer.length > 0) return true;
+    } else if (rows.some(hasTransfer)) {
+      return true;
+    }
+  }
   const promoItems = (args.promoMedia && args.promoMedia.length > 0
     ? args.promoMedia
     : args.promoImageUrl?.trim()
@@ -225,6 +244,7 @@ export function UnimoniRatesPanel({
   showTransferCard = false,
   showForexCard = true,
   transferRates,
+  hiddenTransferCodes = null,
   transferLocalLabel = "UGX",
   scale = 1,
   currencyScale = 1,
@@ -281,9 +301,18 @@ export function UnimoniRatesPanel({
   // Transfer is its OWN card (separate rotating screen), never mixed into the
   // forex table. Rates come from the CENTRALIZED head-office set (same for all
   // branches) when provided; legacy branch-level values are the fallback.
+  const hiddenTransferSet = new Set(
+    (hiddenTransferCodes ?? []).map((c) => c.toUpperCase()),
+  );
+  const hasCentralTransferSource = (transferRates ?? []).length > 0;
   const centralTransferRows: ExchangeRate[] = (transferRates ?? [])
     // USD rows are allowed on the card (client 2026-07-25) — e.g. USD 1 | 3785.
-    .filter((t) => !t.isHidden && ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0))
+    .filter(
+      (t) =>
+        !t.isHidden &&
+        !hiddenTransferSet.has(t.currencyCode.toUpperCase()) &&
+        ((t.transferUsd ?? 0) > 0 || (t.transferLocal ?? 0) > 0),
+    )
     .map(
       (t) =>
         ({
@@ -306,7 +335,7 @@ export function UnimoniRatesPanel({
         }) as ExchangeRate,
     );
   const transferRows = showTransferCard
-    ? centralTransferRows.length > 0
+    ? hasCentralTransferSource
       ? centralTransferRows
       : rows.filter(hasTransfer)
     : [];

@@ -75,7 +75,7 @@ import {
   listExchangeRates,
   reorderRates,
   subscribeBranchExchangeRates,
-  toggleRateVisibility,
+  setForexCurrencyVisibilityOnBranches,
   removeBranchRate,
   updateExchangeRate,
 } from "@/lib/services/exchange-rate-service";
@@ -149,11 +149,21 @@ export default function ExchangeRatesPage() {
   // selected branch only (default) or the same forex rates on ALL branches.
   const [publishScope, setPublishScope] = useState<"branch" | "all">("branch");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Hide / Show dialog: this branch · selected branches · all branches.
+  const [visibilityDialog, setVisibilityDialog] = useState<{
+    rate: ExchangeRate;
+    hide: boolean;
+  } | null>(null);
+  const [visibilityScope, setVisibilityScope] = useState<"current" | "specific" | "all">("current");
+  const [visibilityBranchIds, setVisibilityBranchIds] = useState<string[]>([]);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canCreateCatalog = hasPermission("manageCurrencies");
-  // Admins always can; branch staff need the opt-in "Add new currencies" module.
-  const canAddNewCurrencies = isSuperAdmin || isAdmin || hasModule("addBranchCurrencies");
+  // Only users with the "Add new currencies" module (Users page checkbox /
+  // feature board) may create currencies — manually or via file upload.
+  // Super admins always can. Branch staff without that module cannot.
+  const canAddNewCurrencies = isSuperAdmin || hasModule("addBranchCurrencies");
   // For the catalog's "On branches" column: every branch's rates (admins only).
   const [allRates, setAllRates] = useState<ExchangeRate[]>([]);
   const transferLocalLabel = branch?.settings?.transferLocalLabel?.trim() || "UGX";
@@ -650,18 +660,48 @@ export default function ExchangeRatesPage() {
   }
 
   async function handleToggleVisibility(rate: ExchangeRate) {
-    if (!user || !profile || !effectiveBranchId) return;
+    // Open scope picker — hide/show can target this branch, chosen ones, or all.
+    const hide = !rate.isHidden;
+    setVisibilityScope("current");
+    setVisibilityBranchIds(effectiveBranchId ? [effectiveBranchId] : []);
+    setVisibilityDialog({ rate, hide });
+  }
+
+  async function confirmVisibilityChange() {
+    if (!user || !profile || !visibilityDialog) return;
+    const active = branches.filter((b) => b.status === "active");
+    const targets =
+      visibilityScope === "all"
+        ? active.map((b) => b.id)
+        : visibilityScope === "specific"
+          ? visibilityBranchIds.filter(Boolean)
+          : effectiveBranchId
+            ? [effectiveBranchId]
+            : [];
+    if (targets.length === 0) {
+      toast.error("Pick at least one branch");
+      return;
+    }
+    setVisibilitySaving(true);
     try {
-      await toggleRateVisibility(
-        rate.id,
-        !rate.isHidden,
+      const updated = await setForexCurrencyVisibilityOnBranches(
+        visibilityDialog.rate.currencyCode,
+        visibilityDialog.hide,
+        targets,
         { userId: user.uid, userName: profile.displayName || profile.email },
-        effectiveBranchId,
       );
-      toast.success(rate.isHidden ? "Currency shown on display" : "Currency hidden from display");
-      setRates(await listExchangeRates(effectiveBranchId));
+      toast.success(
+        visibilityDialog.hide
+          ? `Hidden ${visibilityDialog.rate.currencyCode} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`
+          : `Shown ${visibilityDialog.rate.currencyCode} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`,
+        { duration: 7000 },
+      );
+      setVisibilityDialog(null);
+      if (effectiveBranchId) setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update visibility");
+    } finally {
+      setVisibilitySaving(false);
     }
   }
 
@@ -1276,6 +1316,8 @@ export default function ExchangeRatesPage() {
             <CentralTransferPanel
               actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
               localLabel={transferLocalLabel}
+              branches={branches}
+              currentBranchId={effectiveBranchId}
             />
           </div>
         ) : null}
@@ -1739,6 +1781,101 @@ export default function ExchangeRatesPage() {
           </AlertDialogContent>
         </AlertDialog>
 
+        {/* Hide / Show forex currency on this branch, chosen branches, or all. */}
+        <AlertDialog
+          open={visibilityDialog !== null}
+          onOpenChange={(o) => !o && setVisibilityDialog(null)}
+        >
+          <AlertDialogContent className="rounded-2xl sm:max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {visibilityDialog?.hide ? "Hide" : "Show"}{" "}
+                {visibilityDialog?.rate.currencyCode} on which branches?
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {visibilityDialog?.hide
+                  ? "Hidden currencies stay saved but do not appear on that branch’s TV rate card."
+                  : "Shown currencies reappear on the selected branches’ TV rate cards."}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="space-y-3 py-1">
+              <div className="flex flex-wrap gap-3">
+                {(
+                  [
+                    ["current", "This branch"],
+                    ["specific", "Selected branches"],
+                    ["all", "All branches"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      checked={visibilityScope === key}
+                      onChange={() => {
+                        setVisibilityScope(key);
+                        if (key === "specific" && visibilityBranchIds.length === 0 && effectiveBranchId) {
+                          setVisibilityBranchIds([effectiveBranchId]);
+                        }
+                      }}
+                      className="h-3.5 w-3.5"
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+              {visibilityScope === "specific" ? (
+                <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-xl border border-border/50 p-2">
+                  {branches
+                    .filter((b) => b.status === "active")
+                    .map((b) => {
+                      const on = visibilityBranchIds.includes(b.id);
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() =>
+                            setVisibilityBranchIds((prev) =>
+                              on ? prev.filter((id) => id !== b.id) : [...prev, b.id],
+                            )
+                          }
+                          className={`rounded-lg border px-2.5 py-1 text-xs ${
+                            on
+                              ? "border-primary/50 bg-primary/10 text-primary"
+                              : "border-border/50 text-muted-foreground"
+                          }`}
+                        >
+                          {b.name}
+                        </button>
+                      );
+                    })}
+                </div>
+              ) : null}
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl" disabled={visibilitySaving}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="rounded-xl"
+                disabled={
+                  visibilitySaving ||
+                  (visibilityScope === "specific" && visibilityBranchIds.length === 0)
+                }
+                onClick={(e) => {
+                  e.preventDefault();
+                  void confirmVisibilityChange();
+                }}
+              >
+                {visibilitySaving
+                  ? "Saving…"
+                  : visibilityDialog?.hide
+                    ? "Hide currency"
+                    : "Show currency"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Per-branch presence: see every branch carrying this currency and
             remove it from chosen branches (deletes that branch's rate row). */}
         <Dialog open={manageBranchesFor !== null} onOpenChange={(o) => !o && setManageBranchesFor(null)}>
@@ -2182,7 +2319,11 @@ export default function ExchangeRatesPage() {
                                 size="sm"
                                 className="h-8 w-full rounded-lg px-2"
                                 onClick={() => void handleToggleVisibility(rate)}
-                                title={rate.isHidden ? "Show on TV display" : "Hide from TV display"}
+                                title={
+                                  rate.isHidden
+                                    ? "Show on TV — this branch, selected, or all"
+                                    : "Hide from TV — this branch, selected, or all"
+                                }
                               >
                                 {rate.isHidden ? (
                                   <>

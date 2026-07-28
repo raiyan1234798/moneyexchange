@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Cloud, Link2, Pencil, Upload, Video, Trash2, ImageIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, Cloud, Link2, Pencil, RotateCcw, Share2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
@@ -21,6 +21,7 @@ import { UploadAccessPanel, UploadPasswordDialog, useUploadAccess } from "@/comp
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -54,6 +55,7 @@ import {
   proposeExternalVideo,
   rejectVideo,
   reorderVideos,
+  restoreInactiveVideosOnBranch,
   subscribePendingVideos,
   subscribeVideos,
   uploadVideo,
@@ -61,6 +63,8 @@ import {
 import {
   duplicateStorageVideoToBranch,
   getActiveBranchTargets,
+  pushBranchMediaToAllBranches,
+  restoreInactiveMediaOnAllBranches,
   syncExternalVideoToBranches,
   syncImageUrlToBranches,
 } from "@/lib/services/branch-sync";
@@ -70,6 +74,7 @@ import { COLLECTIONS } from "@/lib/constants";
 import {
   deleteImageAdvert,
   reorderImageAdverts,
+  restoreInactiveImagesOnBranch,
   subscribeImageAdverts,
   updateImageAdvertDuration,
   uploadImageAdvert,
@@ -129,6 +134,11 @@ export default function VideosPage() {
   const [bulkApplying, setBulkApplying] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
   const [applyToAll, setApplyToAll] = useState(false);
+  // Admin: copy this branch's playlist to every other branch. Replace stays OFF
+  // by default so we never wipe another branch's media without explicit consent.
+  const [pushReplaceExisting, setPushReplaceExisting] = useState(false);
+  const [pushingPlaylist, setPushingPlaylist] = useState(false);
+  const [restoringMedia, setRestoringMedia] = useState(false);
   const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([effectiveBranchId]);
   // TOTAL storage across ALL branches (R2's 10 GB free tier is shared), summed
@@ -689,9 +699,95 @@ export default function VideosPage() {
     );
   }
 
-  // Reclaim space: delete every stored file that no current (non-deleted)
-  // video/image references — across ALL branches. This is what actually frees
-  // the space of removed videos when their file delete had silently failed.
+  async function handlePushPlaylistToAll() {
+    if (!actor || !effectiveBranchId || !canApplyToAll) {
+      toast.error("Only admins can copy a playlist to all branches");
+      return;
+    }
+    const copyableVideos = videos.filter(
+      (v) => v.status === "active" && v.sourceType !== "chunked" && Boolean(v.downloadUrl?.trim()),
+    );
+    const copyableImages = images.filter(
+      (img) => img.status === "active" && Boolean(img.downloadUrl?.trim()),
+    );
+    if (copyableVideos.length + copyableImages.length === 0) {
+      toast.error("This branch has no copyable images or videos yet");
+      return;
+    }
+
+    setPushingPlaylist(true);
+    try {
+      const result = await pushBranchMediaToAllBranches(
+        branches,
+        effectiveBranchId,
+        videos,
+        images,
+        actor,
+        { replaceExisting: pushReplaceExisting },
+      );
+      if (result.targetCount === 0) {
+        toast.error("No other active branches to update");
+        return;
+      }
+      const parts = [
+        `Updated ${result.targetCount} branch${result.targetCount === 1 ? "" : "es"}`,
+        `${result.videosCopied} video copy(ies)`,
+        `${result.imagesCopied} image copy(ies)`,
+      ];
+      if (result.videosSkipped > 0) {
+        parts.push(`${result.videosSkipped} chunked video(s) skipped (branch-only)`);
+      }
+      toast.success(parts.join(" · "), { duration: 8000 });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not copy playlist to all branches");
+    } finally {
+      setPushingPlaylist(false);
+    }
+  }
+
+  async function handleRestoreMedia(scope: "branch" | "all") {
+    if (!actor || !effectiveBranchId) {
+      toast.error("Sign in to restore media");
+      return;
+    }
+    if (scope === "all" && !canApplyToAll) {
+      toast.error("Only admins can restore media on every branch");
+      return;
+    }
+    setRestoringMedia(true);
+    try {
+      if (scope === "branch") {
+        const [v, i] = await Promise.all([
+          restoreInactiveVideosOnBranch(effectiveBranchId, actor),
+          restoreInactiveImagesOnBranch(effectiveBranchId, actor),
+        ]);
+        toast.success(
+          v + i > 0
+            ? `Restored ${v} video(s) and ${i} image(s) on this branch`
+            : "Nothing to restore on this branch — no soft-deleted media with files left",
+          { duration: 8000 },
+        );
+        return;
+      }
+      const result = await restoreInactiveMediaOnAllBranches(branches, actor, {
+        branchId: effectiveBranchId,
+        videos,
+        images,
+      });
+      toast.success(
+        `Restored across ${result.branchCount} branches · ${result.videosRestored} video(s) + ${result.imagesRestored} image(s) reactivated · ${result.videosCopied} video + ${result.imagesCopied} image copies added from this branch`,
+        { duration: 10000 },
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not restore media");
+    } finally {
+      setRestoringMedia(false);
+    }
+  }
+
+  // Reclaim space: delete stored files that NO playlist/settings doc references
+  // (including soft-deleted inactive rows). Soft-deleted media stays protected
+  // so Restore can bring it back; only true orphans are removed.
   async function handleStorageCleanup() {
     setCleaningStorage(true);
     try {
@@ -704,8 +800,12 @@ export default function VideosPage() {
         listDocuments<Record<string, unknown>>(COLLECTIONS.tickerMessages, []),
       ]);
       const inUse = [
-        ...allVideos.filter((v) => v.status !== "inactive"),
-        ...allImages.filter((img) => img.status !== "inactive"),
+        // Protect files referenced by ANY playlist row — including soft-deleted
+        // (inactive) ones — so "Clean up unused files" cannot permanently erase
+        // media the admin can still Restore. True orphans (no doc at all) are
+        // still reclaimed.
+        ...allVideos,
+        ...allImages,
       ];
       // Protect BOTH reference styles: the stored key AND the key inside the
       // public download URL (cross-branch copies sometimes carry only the URL).
@@ -809,8 +909,9 @@ export default function VideosPage() {
               Remove all {count} {kind} from {branch?.name ?? "this branch"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              They stop playing on the TV immediately and their files are removed from storage.
-              This cannot be undone — you would need to upload them again.
+              They stop playing on this branch&apos;s TV immediately. Files stay in storage so you
+              can use <strong>Restore</strong> to bring them back. Only &quot;Clean up unused
+              files&quot; removes true orphans.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1407,6 +1508,158 @@ export default function VideosPage() {
                 </Button>
               </TabsContent>
             </Tabs>
+          </ContentPanel>
+        ) : null}
+
+        {canApplyToAll && effectiveBranchId ? (
+          <ContentPanel
+            title="Restore images & videos"
+            description="Bring back soft-deleted Media Manager files on every branch, then copy this branch’s active playlist onto the others (add-only — nothing is wiped)."
+          >
+            <div className="flex flex-wrap gap-3">
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      className="rounded-xl"
+                      disabled={restoringMedia || !actor}
+                    >
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      {restoringMedia ? "Restoring…" : "Restore on this branch"}
+                    </Button>
+                  }
+                />
+                <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Restore removed media on this branch?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Reactivates soft-deleted videos and images that still have their files. Nothing
+                      already playing is removed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="rounded-xl"
+                      onClick={() => void handleRestoreMedia("branch")}
+                    >
+                      Restore this branch
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button className="rounded-xl" disabled={restoringMedia || !actor}>
+                      <RotateCcw className="mr-2 h-4 w-4" />
+                      {restoringMedia ? "Restoring…" : "Restore on every branch"}
+                    </Button>
+                  }
+                />
+                <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Restore media on every branch?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      1) Reactivates soft-deleted videos/images on every active branch when the file is
+                      still there. 2) Adds this branch’s current playlist onto the other branches
+                      without replacing what they already have. Rate-card promotions are not changed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="rounded-xl"
+                      onClick={() => void handleRestoreMedia("all")}
+                    >
+                      Restore every branch
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </ContentPanel>
+        ) : null}
+
+        {canApplyToAll && effectiveBranchId && videos.length + images.length > 0 ? (
+          <ContentPanel
+            title="Push this playlist to all branches"
+            description={`Copy what “${branch?.name ?? "this branch"}” already plays onto every other active branch. Use this after you finish uploading on one branch.`}
+          >
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Ready:{" "}
+                <strong className="text-foreground">
+                  {videos.filter((v) => v.status === "active" && v.sourceType !== "chunked").length} video(s)
+                </strong>
+                {" · "}
+                <strong className="text-foreground">
+                  {images.filter((img) => img.status === "active").length} image(s)
+                </strong>
+                {" → "}
+                <strong className="text-foreground">
+                  {branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId).length} other
+                  branch(es)
+                </strong>
+                . Chunked (Firestore-only) videos stay on this branch. Rate-card promotion images are separate —
+                use Settings → Save with “copy promotions” for those.
+              </p>
+              <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
+                <Checkbox
+                  id="push-replace-existing"
+                  checked={pushReplaceExisting}
+                  onCheckedChange={(value) => setPushReplaceExisting(value === true)}
+                />
+                <div className="space-y-0.5">
+                  <Label htmlFor="push-replace-existing" className="cursor-pointer text-sm font-medium">
+                    Replace existing media on other branches
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Off by default (safe). On: clear each branch’s Media Manager playlist first, then
+                    copy. Off: add these files alongside what they already have.
+                  </p>
+                </div>
+              </div>
+              <AlertDialog>
+                <AlertDialogTrigger
+                  render={
+                    <Button className="rounded-xl" disabled={pushingPlaylist || !actor}>
+                      <Share2 className="mr-2 h-4 w-4" />
+                      {pushingPlaylist
+                        ? "Copying to all branches…"
+                        : pushReplaceExisting
+                          ? "Replace media on all branches"
+                          : "Add this media to all branches"}
+                    </Button>
+                  }
+                />
+                <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      {pushReplaceExisting
+                        ? "Replace media on all branches?"
+                        : "Add this media to all branches?"}
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {pushReplaceExisting
+                        ? `This copies the current Media Manager playlist from “${branch?.name ?? "this branch"}” to every other active branch, and removes their current videos/images first.`
+                        : `This adds the current Media Manager playlist from “${branch?.name ?? "this branch"}” onto every other active branch, keeping their existing media.`}{" "}
+                      Rate-card promotions are not changed.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="rounded-xl"
+                      onClick={() => void handlePushPlaylistToAll()}
+                    >
+                      {pushReplaceExisting ? "Replace on all branches" : "Add to all branches"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </ContentPanel>
         ) : null}
 

@@ -182,6 +182,44 @@ export async function toggleRateVisibility(
   });
 }
 
+/**
+ * Hide or show one forex currency on one branch, several branches, or every
+ * active branch that already carries that currency code.
+ */
+export async function setForexCurrencyVisibilityOnBranches(
+  currencyCode: string,
+  isHidden: boolean,
+  branchIds: string[],
+  actor: { userId: string; userName: string },
+): Promise<number> {
+  const code = currencyCode.trim().toUpperCase();
+  if (!code || branchIds.length === 0) return 0;
+  let updated = 0;
+  for (const branchId of branchIds) {
+    const rates = await listExchangeRates(branchId);
+    const matches = rates.filter((r) => r.currencyCode.toUpperCase() === code);
+    await Promise.all(
+      matches.map(async (rate) => {
+        if (rate.isHidden === isHidden) return;
+        await updateDocument(COLLECTIONS.exchangeRates, rate.id, { isHidden });
+        updated += 1;
+      }),
+    );
+  }
+  if (updated > 0) {
+    await writeAuditLog({
+      action: isHidden ? "rate_hide_scoped" : "rate_show_scoped",
+      entityType: "exchange_rate",
+      entityId: code,
+      userId: actor.userId,
+      userName: actor.userName,
+      branchId: branchIds.length === 1 ? branchIds[0] : null,
+      metadata: { currencyCode: code, isHidden, branchIds, updated },
+    });
+  }
+  return updated;
+}
+
 export async function reorderRates(
   branchId: string,
   orderedIds: string[],

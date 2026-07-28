@@ -198,12 +198,11 @@ async function deactivatePreviousBranchVideos(branchId: string, excludeVideoId?:
       // Never deactivate the video that was just uploaded/activated.
       .filter((video) => video.id !== excludeVideoId)
       .map(async (video) => {
+        // Soft-deactivate ONLY — never purge chunk bytes here. Accidental
+        // replaces used to destroy chunked videos permanently; Restore can
+        // bring inactive items back when the bytes are still present. Explicit
+        // deleteVideo() is what removes stored/chunked bytes.
         await updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" });
-        // Replaced chunked videos can't be re-activated from the UI — purge
-        // their ~1.3x-size chunk data so Firestore storage doesn't fill up.
-        if (video.sourceType === "chunked") {
-          await removeChunkedVideoData(video.id);
-        }
       }),
   );
 }
@@ -570,7 +569,10 @@ export async function uploadVideo(
 ): Promise<{ id: string; usedChunkFallback: boolean }> {
   validateVideoFile(file);
   onProgress?.(1);
-  const keepExisting = opts?.keepExisting === true;
+  // Playlist model: uploads ADD to what the branch already plays. Opt out with
+  // keepExisting: false only for an intentional replace. Default used to wipe
+  // every other active video whenever a caller forgot the flag.
+  const keepExisting = opts?.keepExisting !== false;
 
   if (isR2UploadConfigured()) {
     try {
@@ -712,7 +714,9 @@ export async function deleteVideo(
   video: VideoAsset,
   actor: { userId: string; userName: string },
 ): Promise<void> {
-  await removeStoredVideoBytes(video);
+  // Soft-delete only. Stored bytes stay so the admin can Restore; "Clean up
+  // unused files" only removes objects no document references at all. Accidental
+  // Remove / Remove-all must never permanently erase playlist media.
   await updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" });
   await writeAuditLog({
     action: "delete",
@@ -722,6 +726,45 @@ export async function deleteVideo(
     userName: actor.userName,
     branchId: video.branchId,
   });
+}
+
+/**
+ * Bring soft-deleted (inactive) videos back on a branch when their file/URL is
+ * still present. Skips chunked videos whose chunk bytes were already purged.
+ * Does NOT touch other branches' playlists.
+ */
+export async function restoreInactiveVideosOnBranch(
+  branchId: string,
+  actor: { userId: string; userName: string },
+): Promise<number> {
+  const scopedBranchId = assertBranchId(branchId, "restoreInactiveVideosOnBranch");
+  const inactive = await listDocuments<VideoAsset>(COLLECTIONS.videos, [
+    where("branchId", "==", scopedBranchId),
+    where("status", "==", "inactive"),
+  ]);
+  let restored = 0;
+  for (const video of inactive) {
+    const hasUrl = Boolean(video.downloadUrl?.trim()) && !video.downloadUrl.startsWith("chunked://");
+    const isChunkedOk =
+      video.sourceType === "chunked" &&
+      typeof video.chunkCount === "number" &&
+      video.chunkCount > 0;
+    if (!hasUrl && !isChunkedOk) continue;
+    await updateDocument(COLLECTIONS.videos, video.id, { status: "active" });
+    restored += 1;
+  }
+  if (restored > 0) {
+    await writeAuditLog({
+      action: "video_restore_inactive",
+      entityType: "video",
+      entityId: scopedBranchId,
+      userId: actor.userId,
+      userName: actor.userName,
+      branchId: scopedBranchId,
+      metadata: { restored },
+    });
+  }
+  return restored;
 }
 
 export function resolveVideoPlaybackUrl(video: VideoAsset): string {

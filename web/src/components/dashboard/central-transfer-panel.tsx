@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import {
   bulkUpsertTransferRates,
   deleteTransferRate,
-  setTransferRateHidden,
+  setTransferCurrencyVisibilityOnBranches,
   subscribeTransferRates,
   upsertTransferRate,
   reorderTransferRates,
@@ -28,7 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { TransferRate } from "@/lib/types";
+import type { Branch, TransferRate } from "@/lib/types";
 
 type Draft = { transferUsd: string; transferLocal: string };
 
@@ -52,16 +52,83 @@ type PendingUpload = {
 export function CentralTransferPanel({
   actor,
   localLabel,
+  branches = [],
+  currentBranchId = null,
 }: {
   actor: { userId: string; userName: string };
   localLabel: string;
+  /** Active branches — enables per-branch hide/show for remittance currencies. */
+  branches?: Branch[];
+  currentBranchId?: string | null;
 }) {
   const [rows, setRows] = useState<TransferRate[]>([]);
   // Confirm before removing a transfer currency (avoid accidental delete).
   const [removeConfirm, setRemoveConfirm] = useState<{ code: string } | null>(null);
+  const [visibilityDialog, setVisibilityDialog] = useState<{
+    code: string;
+    hide: boolean;
+  } | null>(null);
+  const [visibilityScope, setVisibilityScope] = useState<"current" | "specific" | "all">("all");
+  const [visibilityBranchIds, setVisibilityBranchIds] = useState<string[]>([]);
+  const [visibilitySaving, setVisibilitySaving] = useState(false);
   // Drag-to-reorder state.
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const activeBranches = branches.filter((b) => b.status === "active");
+  const currentBranch = activeBranches.find((b) => b.id === currentBranchId) ?? null;
+
+  /** Hidden on the currently selected branch TV (global flag OR per-branch list). */
+  function isHiddenOnCurrentBranch(code: string): boolean {
+    const upper = code.toUpperCase();
+    const row = rows.find((r) => r.currencyCode.toUpperCase() === upper);
+    if (row?.isHidden) return true;
+    const list = currentBranch?.settings?.hiddenTransferCodes ?? [];
+    return list.some((c) => String(c).toUpperCase() === upper);
+  }
+
+  async function confirmTransferVisibility() {
+    if (!visibilityDialog) return;
+    const targets =
+      visibilityScope === "all"
+        ? activeBranches
+        : visibilityScope === "specific"
+          ? activeBranches.filter((b) => visibilityBranchIds.includes(b.id))
+          : activeBranches.filter((b) => b.id === (currentBranchId ?? ""));
+    if (targets.length === 0) {
+      toast.error("Pick at least one branch");
+      return;
+    }
+    setVisibilitySaving(true);
+    try {
+      const updated = await setTransferCurrencyVisibilityOnBranches(
+        visibilityDialog.code,
+        visibilityDialog.hide,
+        targets,
+        actor,
+        { allActiveBranchIds: activeBranches.map((b) => b.id) },
+      );
+      if (updated === 0 && visibilityScope !== "all") {
+        toast.message(
+          visibilityDialog.hide
+            ? `${visibilityDialog.code} was already hidden on the chosen branch(es)`
+            : `${visibilityDialog.code} was already visible on the chosen branch(es)`,
+        );
+      } else {
+        toast.success(
+          visibilityDialog.hide
+            ? `Hidden ${visibilityDialog.code} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`
+            : `Shown ${visibilityDialog.code} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`,
+          { duration: 7000 },
+        );
+      }
+      setVisibilityDialog(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update visibility");
+    } finally {
+      setVisibilitySaving(false);
+    }
+  }
 
   /** Move a currency up/down on the TRANSFER card only (forex order untouched). */
   function moveTransferRow(row: TransferRate, dir: -1 | 1) {
@@ -354,7 +421,9 @@ export function CentralTransferPanel({
                 setOverIndex(null);
               }}
               className={`grid grid-cols-1 items-end gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[auto_minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
-                row.isHidden ? "border-dashed border-border/50 bg-muted/25 opacity-60" : "border-border/60 bg-card"
+                isHiddenOnCurrentBranch(row.currencyCode)
+                  ? "border-dashed border-border/50 bg-muted/25 opacity-60"
+                  : "border-border/60 bg-card"
               } ${dragIndex === index ? "opacity-50" : ""} ${
                 overIndex === index && dragIndex !== null && dragIndex !== index ? "ring-2 ring-primary/50" : ""
               }`}
@@ -455,20 +524,25 @@ export function CentralTransferPanel({
                   size="sm"
                   disabled={busy}
                   className="h-9 w-9 rounded-lg px-0"
-                  title={row.isHidden ? "Show on the transfer card" : "Hide from the transfer card"}
-                  onClick={() =>
-                    void setTransferRateHidden(row.currencyCode, !row.isHidden, actor)
-                      .then(() =>
-                        toast.success(
-                          row.isHidden
-                            ? `${row.currencyCode} shown on the transfer card`
-                            : `${row.currencyCode} hidden from the transfer card`,
-                        ),
-                      )
-                      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to update"))
+                  title={
+                    isHiddenOnCurrentBranch(row.currencyCode)
+                      ? "Show on transfer card — this branch, selected, or all"
+                      : "Hide from transfer card — this branch, selected, or all"
                   }
+                  onClick={() => {
+                    const currentlyHidden = isHiddenOnCurrentBranch(row.currencyCode);
+                    setVisibilityScope(activeBranches.length > 1 ? "all" : "current");
+                    setVisibilityBranchIds(
+                      currentBranchId ? [currentBranchId] : activeBranches[0] ? [activeBranches[0].id] : [],
+                    );
+                    setVisibilityDialog({ code: row.currencyCode, hide: !currentlyHidden });
+                  }}
                 >
-                  {row.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  {isHiddenOnCurrentBranch(row.currencyCode) ? (
+                    <EyeOff className="h-3 w-3" />
+                  ) : (
+                    <Eye className="h-3 w-3" />
+                  )}
                 </Button>
                 <Button
                   variant="outline"
@@ -697,6 +771,97 @@ export function CentralTransferPanel({
               }}
             >
               Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={visibilityDialog !== null}
+        onOpenChange={(o) => !o && setVisibilityDialog(null)}
+      >
+        <AlertDialogContent className="rounded-2xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {visibilityDialog?.hide ? "Hide" : "Show"} {visibilityDialog?.code} on which branches?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Remittance rates are shared, but each branch can hide selected currencies on its own TV.
+              Choose this branch, specific branches, or every branch.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="flex flex-wrap gap-3">
+              {(
+                [
+                  ["current", "This branch"],
+                  ["specific", "Selected branches"],
+                  ["all", "All branches"],
+                ] as const
+              ).map(([key, label]) => (
+                <label key={key} className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    checked={visibilityScope === key}
+                    onChange={() => {
+                      setVisibilityScope(key);
+                      if (key === "specific" && visibilityBranchIds.length === 0 && currentBranchId) {
+                        setVisibilityBranchIds([currentBranchId]);
+                      }
+                    }}
+                    className="h-3.5 w-3.5"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {visibilityScope === "specific" ? (
+              <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-xl border border-border/50 p-2">
+                {activeBranches.map((b) => {
+                  const on = visibilityBranchIds.includes(b.id);
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() =>
+                        setVisibilityBranchIds((prev) =>
+                          on ? prev.filter((id) => id !== b.id) : [...prev, b.id],
+                        )
+                      }
+                      className={`rounded-lg border px-2.5 py-1 text-xs ${
+                        on
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "border-border/50 text-muted-foreground"
+                      }`}
+                    >
+                      {b.name}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl" disabled={visibilitySaving}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl"
+              disabled={
+                visibilitySaving ||
+                (visibilityScope === "specific" && visibilityBranchIds.length === 0) ||
+                (visibilityScope === "current" && !currentBranchId)
+              }
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmTransferVisibility();
+              }}
+            >
+              {visibilitySaving
+                ? "Saving…"
+                : visibilityDialog?.hide
+                  ? "Hide currency"
+                  : "Show currency"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
