@@ -702,7 +702,8 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       .map((line) => line.text?.trim())
       .filter((text): text is string => Boolean(text));
     if (lines.length > 0) return lines;
-    if (branch?.settings?.slogan) return [branch.settings.slogan.toUpperCase()];
+    // Typed slogan keeps its case too — only the built-in default is fixed text.
+    if (branch?.settings?.slogan) return [branch.settings.slogan];
     return [UNIMONI_DEFAULT_TICKER];
   }, [activeTicker, branch]);
 

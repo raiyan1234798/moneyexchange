@@ -437,7 +437,9 @@ function BreakingNewsTickerInner({
           {scrolling && activeText ? (
             <div key={`${messageIndex}-${cycle}`} className="absolute inset-y-0 flex w-full items-center">
               <span
-                className="breaking-ticker-text inline-flex h-full w-auto items-center whitespace-nowrap pl-[100%] font-bold uppercase tracking-[0.08em] will-change-transform"
+                // No `uppercase`: the scrolling message shows exactly the
+                // capitals and small letters the admin typed (client 2026-07-27).
+                className="breaking-ticker-text inline-flex h-full w-auto items-center whitespace-nowrap pl-[100%] font-bold tracking-[0.08em] will-change-transform"
                 style={{
                   color: fontColor,
                   fontSize: scrollFontSize,

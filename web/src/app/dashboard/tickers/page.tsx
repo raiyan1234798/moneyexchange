@@ -308,7 +308,7 @@ export default function TickersPage() {
                     </Select>
                     <div className="flex min-w-0 items-center rounded-lg bg-slate-900 px-3 py-2">
                       <span
-                        className="min-w-0 truncate text-sm font-bold uppercase tracking-[0.08em] text-white"
+                        className="min-w-0 truncate text-sm font-bold tracking-[0.08em] text-white"
                         style={{ fontFamily: messageFontCss(messageFont) }}
                       >
                         {messages.split("\n").find((l) => l.trim()) ?? "Best rates in town"}
@@ -510,7 +510,7 @@ export default function TickersPage() {
             >
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/40 bg-muted/20 p-4">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold uppercase">
+                  <p className="truncate font-semibold">
                     {branch?.settings?.slogan?.trim() ? branch.settings.slogan : UNIMONI_DEFAULT_TICKER}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
