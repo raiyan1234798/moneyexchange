@@ -6,7 +6,7 @@ if (!pw) {
   console.error("Set CLIENT_ADMIN_PASSWORD env var (the admin@unimoni-signage.com password).");
   process.exit(1);
 }
-const BASE = "https://unimoni.pages.dev";
+const BASE = "https://unimoni-6va.pages.dev";
 const results = [];
 const IGNORE_TEXT = [/Cross-Origin-Opener-Policy/i, /favicon/i, /flagcdn/i];
 const IGNORE_URL = [/flagcdn/i, /googleusercontent|google\.com\/imgres/i, /gstatic/i];

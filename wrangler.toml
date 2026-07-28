@@ -7,7 +7,7 @@
 #
 # The repo-root functions/ dir is FIREBASE Cloud Functions, not Cloudflare
 # Pages Functions; Pages logs a harmless "No routes found … Skipping" for it.
-name = "unimoni"
+name = "unimoni-6va"
 pages_build_output_dir = "web/out"
 # Required for /api/upload: without a modern compatibility date the Workers
 # runtime parses multipart FILE parts as plain strings and uploads fail with

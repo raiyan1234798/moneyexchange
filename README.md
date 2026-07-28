@@ -282,7 +282,7 @@ Deploy from CLI:
 
 ```bash
 npm run deploy:pages
-# or: cd web && npm ci && npm run build && npx wrangler pages deploy out --project-name=unimoni --no-bundle
+# or: cd web && npm ci && npm run build && npx wrangler pages deploy out --project-name=unimoni-6va --branch=main --no-bundle
 ```
 
 See `cloudflare.json` for a machine-readable copy of these settings. Legacy project name: `moneyexchange`.

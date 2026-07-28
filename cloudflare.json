@@ -1,8 +1,9 @@
 {
   "$schema": "https://developers.cloudflare.com/pages/platform/build-configuration/",
-  "comment": "Reference config for Cloudflare Pages (unimoni). Set these in Dashboard → Workers & Pages → unimoni → Settings → Builds.",
-  "projectName": "unimoni",
-  "legacyProjectName": "moneyexchange",
+  "comment": "Reference config for Cloudflare Pages (unimoni-6va). Set these in Dashboard → Workers & Pages → unimoni-6va → Settings → Builds.",
+  "projectName": "unimoni-6va",
+  "productionUrl": "https://unimoni-6va.pages.dev",
+  "legacyProjectName": "unimoni",
   "frameworkPreset": "Next.js (Static HTML Export) or None",
   "rootDirectory": "web",
   "buildCommand": "npm ci && npm run build",
@@ -16,12 +17,14 @@
     "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "From Firebase web app config",
     "NEXT_PUBLIC_FIREBASE_APP_ID": "From Firebase web app config",
     "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID": "Optional — Google Analytics",
+    "NEXT_PUBLIC_SITE_URL": "https://unimoni-6va.pages.dev",
     "NEXT_PUBLIC_R2_UPLOAD_URL": "Optional — R2 upload worker URL after deploy (see scripts/R2-SETUP.md)"
   },
   "notes": [
-    "Rename temp-app to unimoni in the dashboard, or create a new Pages project named unimoni.",
+    "Production URL: https://unimoni-6va.pages.dev",
     "Root directory MUST be web so npm ci installs Next.js and dependencies.",
     "Do not use repo root as build root — only root package.json installs there and web/node_modules is missing.",
-    "After changing env vars, trigger a new deployment from the dashboard or push to main."
+    "After changing env vars, trigger a new deployment from the dashboard or push to main.",
+    "CLI: cd web && npm ci && npm run build && npx wrangler pages deploy out --project-name=unimoni-6va --branch=main --no-bundle"
   ]
 }
