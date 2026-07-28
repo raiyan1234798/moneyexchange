@@ -37,6 +37,7 @@ interface TimedRatesPanelProps {
   showTransferCard: boolean;
   showForexCard: boolean;
   transferRates: TransferRate[];
+  hiddenTransferCodes: string[];
   transferLocalLabel: string;
   scale: number;
   currencyScale: number;
@@ -98,6 +99,7 @@ function TimedRatesPanel({
   showTransferCard,
   showForexCard,
   transferRates,
+  hiddenTransferCodes,
   transferLocalLabel,
   scale,
   currencyScale,
@@ -171,6 +173,7 @@ function TimedRatesPanel({
       showTransferCard={showTransferCard}
       showForexCard={showForexCard}
       transferRates={transferRates}
+      hiddenTransferCodes={hiddenTransferCodes}
       transferLocalLabel={transferLocalLabel}
       scale={scale}
       currencyScale={currencyScale}
@@ -527,6 +530,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const hasAnyRateContent = rateCardHasContent({
     rates,
     transferRates,
+    hiddenTransferCodes: branchSettings.hiddenTransferCodes ?? [],
     showForexCard,
     showTransferCard,
     promoMedia: ratePromoMedia,
@@ -907,6 +911,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       showTransferCard={showTransferCard}
       showForexCard={showForexCard}
       transferRates={transferRates}
+      hiddenTransferCodes={branchSettings.hiddenTransferCodes ?? []}
       transferLocalLabel={transferLocalLabel}
       scale={rateCardScale}
       currencyScale={rateCurrencyScale}

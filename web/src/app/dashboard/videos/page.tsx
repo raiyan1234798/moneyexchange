@@ -785,9 +785,9 @@ export default function VideosPage() {
     }
   }
 
-  // Reclaim space: delete every stored file that no current (non-deleted)
-  // video/image references — across ALL branches. This is what actually frees
-  // the space of removed videos when their file delete had silently failed.
+  // Reclaim space: delete stored files that NO playlist/settings doc references
+  // (including soft-deleted inactive rows). Soft-deleted media stays protected
+  // so Restore can bring it back; only true orphans are removed.
   async function handleStorageCleanup() {
     setCleaningStorage(true);
     try {

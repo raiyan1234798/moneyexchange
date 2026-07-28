@@ -53,6 +53,12 @@ export function TickerDisplaySettings({
   const [copyLogos, setCopyLogos] = useState(true);
   const [copyHeadline, setCopyHeadline] = useState(false);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([branch.id]);
+  // Independent apply targets for the two headline colours (box/border vs letters).
+  const [borderColorScope, setBorderColorScope] = useState<"current" | "specific" | "all">("current");
+  const [borderColorBranchIds, setBorderColorBranchIds] = useState<string[]>([branch.id]);
+  const [letterColorScope, setLetterColorScope] = useState<"current" | "specific" | "all">("current");
+  const [letterColorBranchIds, setLetterColorBranchIds] = useState<string[]>([branch.id]);
+  const [applyingColor, setApplyingColor] = useState<"border" | "letter" | null>(null);
 
   // Reseed when the selected branch changes (render-time adjust, no effect).
   const [loadedBranch, setLoadedBranch] = useState(branch.id);
@@ -61,12 +67,72 @@ export function TickerDisplaySettings({
     setSettings(seed());
     setTargetScope("current");
     setSelectedBranchIds([branch.id]);
+    setBorderColorScope("current");
+    setBorderColorBranchIds([branch.id]);
+    setLetterColorScope("current");
+    setLetterColorBranchIds([branch.id]);
   }
 
   const s = settings;
   const set = (patch: Partial<BranchSettings>) => setSettings((prev) => ({ ...prev, ...patch }));
   const activeBranches = branches.filter((b) => b.status === "active");
   const canApplyToAll = activeBranches.length > 1;
+
+  function resolveTargets(
+    scope: "current" | "specific" | "all",
+    ids: string[],
+  ): Branch[] {
+    if (scope === "all") return activeBranches;
+    if (scope === "specific") {
+      const wanted = new Set(ids.length > 0 ? ids : [branch.id]);
+      return activeBranches.filter((b) => wanted.has(b.id));
+    }
+    return [branch];
+  }
+
+  /** Push ONLY one headline colour field to the chosen branches. */
+  async function applyHeadlineColor(which: "border" | "letter") {
+    const scope = which === "border" ? borderColorScope : letterColorScope;
+    const ids = which === "border" ? borderColorBranchIds : letterColorBranchIds;
+    const targets = resolveTargets(scope, ids);
+    if (targets.length === 0) {
+      toast.error("Pick at least one branch");
+      return;
+    }
+    setApplyingColor(which);
+    try {
+      const colorPatch =
+        which === "border"
+          ? { tickerHeadlineBgColor: settings.tickerHeadlineBgColor ?? null }
+          : { tickerHeadlineTextColor: settings.tickerHeadlineTextColor ?? null };
+      // Keep the form colour on the branch being edited too.
+      const nextLocal = { ...settings, ...colorPatch };
+      setSettings(nextLocal);
+      await Promise.all(
+        targets.map((b) =>
+          updateBranch(
+            b.id,
+            {
+              settings: {
+                ...(b.id === branch.id ? nextLocal : (b.settings ?? {})),
+                ...colorPatch,
+              },
+            },
+            actor,
+          ),
+        ),
+      );
+      toast.success(
+        which === "border"
+          ? `Box & border colour applied to ${targets.length} branch${targets.length === 1 ? "" : "es"}`
+          : `Letter colour applied to ${targets.length} branch${targets.length === 1 ? "" : "es"}`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not apply colour");
+    } finally {
+      setApplyingColor(null);
+    }
+  }
 
   // Corner-badge logo GALLERY: several logos take turns. The legacy single
   // tickerLogoUrl folds into the list on any edit so old branches keep working.
@@ -900,10 +966,44 @@ export function TickerDisplaySettings({
                 </div>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Colours the yellow headline box, its matching logo-badge border, and the words
-                inside it. Blank/Reset = the standard Unimoni gold on navy. Use the branch picker
-                below to apply to this branch, chosen branches, or all branches.
+                Box &amp; border colour and letter colour are independent. Blank / Reset = standard
+                Unimoni gold box with navy letters. Use the apply rows below to push each colour to
+                this branch only, chosen branches, or every branch — without touching the other colour.
               </p>
+              {canApplyToAll ? (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <ColorApplyRow
+                    label="Apply box & border colour"
+                    scope={borderColorScope}
+                    selectedIds={borderColorBranchIds}
+                    branches={activeBranches}
+                    currentBranchId={branch.id}
+                    applying={applyingColor === "border"}
+                    onScopeChange={(scope, ids) => {
+                      setBorderColorScope(scope);
+                      setBorderColorBranchIds(ids);
+                    }}
+                    onApply={() => void applyHeadlineColor("border")}
+                  />
+                  <ColorApplyRow
+                    label="Apply letter colour"
+                    scope={letterColorScope}
+                    selectedIds={letterColorBranchIds}
+                    branches={activeBranches}
+                    currentBranchId={branch.id}
+                    applying={applyingColor === "letter"}
+                    onScopeChange={(scope, ids) => {
+                      setLetterColorScope(scope);
+                      setLetterColorBranchIds(ids);
+                    }}
+                    onApply={() => void applyHeadlineColor("letter")}
+                  />
+                </div>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">
+                  Colours save with &quot;Save ticker settings&quot; on this branch.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -992,5 +1092,84 @@ export function TickerDisplaySettings({
         </div>
       </div>
     </ContentPanel>
+  );
+}
+
+/** Compact this / selected / all picker for applying one colour independently. */
+function ColorApplyRow({
+  label,
+  scope,
+  selectedIds,
+  branches,
+  currentBranchId,
+  applying,
+  onScopeChange,
+  onApply,
+}: {
+  label: string;
+  scope: "current" | "specific" | "all";
+  selectedIds: string[];
+  branches: Branch[];
+  currentBranchId: string;
+  applying: boolean;
+  onScopeChange: (scope: "current" | "specific" | "all", ids: string[]) => void;
+  onApply: () => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-xl border border-border/50 bg-background/60 p-2.5">
+      <p className="text-xs font-medium">{label}</p>
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            ["current", "This branch"],
+            ["specific", "Selected"],
+            ["all", "All branches"],
+          ] as const
+        ).map(([key, text]) => (
+          <label key={key} className="flex cursor-pointer items-center gap-1.5 text-[11px]">
+            <input
+              type="radio"
+              checked={scope === key}
+              onChange={() =>
+                onScopeChange(key, key === "specific" && selectedIds.length === 0 ? [currentBranchId] : selectedIds)
+              }
+              className="h-3 w-3"
+            />
+            {text}
+          </label>
+        ))}
+      </div>
+      {scope === "specific" ? (
+        <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
+          {branches.map((b) => {
+            const on = selectedIds.includes(b.id);
+            return (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => {
+                  const next = on ? selectedIds.filter((id) => id !== b.id) : [...selectedIds, b.id];
+                  onScopeChange("specific", next.length > 0 ? next : [currentBranchId]);
+                }}
+                className={`rounded-md border px-2 py-0.5 text-[10px] ${
+                  on ? "border-primary/50 bg-primary/10 text-primary" : "border-border/50 text-muted-foreground"
+                }`}
+              >
+                {b.name}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      <Button
+        type="button"
+        size="sm"
+        className="h-8 w-full rounded-lg text-xs"
+        disabled={applying || (scope === "specific" && selectedIds.length === 0)}
+        onClick={onApply}
+      >
+        {applying ? "Applying…" : "Apply this colour"}
+      </Button>
+    </div>
   );
 }

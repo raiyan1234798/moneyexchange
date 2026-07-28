@@ -179,6 +179,12 @@ export interface BranchSettings {
   tickerHeadlineBgColor?: string | null;
   /** Colour of the letters inside the yellow headline box. null = deep navy. */
   tickerHeadlineTextColor?: string | null;
+  /**
+   * Transfer (remittance) currency codes hidden on THIS branch's TV only.
+   * The central transfer card stays shared; this list lets each branch hide
+   * selected currencies without affecting every other branch.
+   */
+  hiddenTransferCodes?: string[] | null;
 
   /** unimoni logo on the navy cover between video clips. Default true. OFF =
       plain navy cover (the cover always stays so the play button never shows). */

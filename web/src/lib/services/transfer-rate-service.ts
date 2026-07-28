@@ -8,7 +8,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import { normalizeCurrencyCode } from "@/lib/currency-utils";
-import type { TransferRate } from "@/lib/types";
+import type { Branch, BranchSettings, TransferRate } from "@/lib/types";
 
 /**
  * CENTRALIZED money-transfer (remittance) rates — one set from head office,
@@ -140,7 +140,9 @@ export async function reorderTransferRates(
   });
 }
 
-/** Hide/show a single transfer currency on the card without deleting it. */
+/** Hide/show a single transfer currency on the card without deleting it.
+ *  When used alone this sets the GLOBAL flag (every TV). Prefer
+ *  setTransferCurrencyVisibilityOnBranches for per-branch hide/show. */
 export async function setTransferRateHidden(
   code: string,
   isHidden: boolean,
@@ -159,6 +161,61 @@ export async function setTransferRateHidden(
     userName: actor.userName,
     branchId: null,
   });
+}
+
+/**
+ * Hide or show a remittance currency on selected branches via each branch's
+ * settings.hiddenTransferCodes. When every active branch is targeted, also
+ * flips the global isHidden flag so older displays stay in sync.
+ */
+export async function setTransferCurrencyVisibilityOnBranches(
+  code: string,
+  isHidden: boolean,
+  targets: Array<Pick<Branch, "id" | "settings">>,
+  actor: { userId: string; userName: string },
+  opts?: { allActiveBranchIds?: string[] },
+): Promise<number> {
+  const normalized = normalizeCurrencyCode(code);
+  if (!normalized || targets.length === 0) return 0;
+
+  const { updateBranch } = await import("@/lib/services/branch-service");
+  let updated = 0;
+  for (const branch of targets) {
+    const prevSettings = { ...(branch.settings ?? {}) } as BranchSettings;
+    const current = (prevSettings.hiddenTransferCodes ?? [])
+      .map((c) => String(c).toUpperCase())
+      .filter(Boolean);
+    const has = current.includes(normalized);
+    let next = current;
+    if (isHidden && !has) next = [...current, normalized];
+    else if (!isHidden && has) next = current.filter((c) => c !== normalized);
+    else continue;
+    const nextSettings: BranchSettings = { ...prevSettings, hiddenTransferCodes: next };
+    await updateBranch(branch.id, { settings: nextSettings }, actor);
+    updated += 1;
+  }
+
+  const allIds = opts?.allActiveBranchIds ?? [];
+  if (allIds.length > 0 && targets.length >= allIds.length) {
+    await setTransferRateHidden(normalized, isHidden, actor);
+  } else if (!isHidden) {
+    const rows = await listTransferRates();
+    const row = rows.find((r) => r.currencyCode.toUpperCase() === normalized);
+    if (row?.isHidden) {
+      await setTransferRateHidden(normalized, false, actor);
+    }
+  }
+
+  await writeAuditLog({
+    action: isHidden ? "transfer_rate_hide_scoped" : "transfer_rate_show_scoped",
+    entityType: "transfer_rate",
+    entityId: normalized,
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: targets.length === 1 ? targets[0].id : null,
+    metadata: { isHidden, branchIds: targets.map((t) => t.id), updated },
+  });
+  return updated;
 }
 
 export async function deleteTransferRate(
