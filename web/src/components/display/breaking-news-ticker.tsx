@@ -344,7 +344,9 @@ function BreakingNewsTickerInner({
           // gold band extending FROM the logo. It sizes to the text — short text
           // = short box, long text = wider box — and is CAPPED so it can grow up
           // to but never onto the rate card (long text then ellipsizes).
-          className="absolute top-0 z-30 -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] sm:text-xs"
+          // No `uppercase` class: the headline shows EXACTLY the capitals and
+          // small letters the admin typed (client 2026-07-27).
+          className="absolute top-0 z-30 -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold tracking-[0.14em] sm:text-xs"
           style={{
             left: badgeWidth,
             // Single calc (no nested calc()) so TV WebViews resolve it. 0.5vw gap

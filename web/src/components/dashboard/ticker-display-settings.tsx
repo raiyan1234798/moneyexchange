@@ -46,6 +46,12 @@ export function TickerDisplaySettings({
   const [settings, setSettings] = useState<BranchSettings>(seed);
   const [saving, setSaving] = useState(false);
   const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
+  // What travels to the other branches. Logos + their sizes DO (one brand set on
+  // every TV). The yellow headline does NOT by default — it names the branch
+  // ("Welcome to Kisementi Branch!"), so copying it would put one branch's name
+  // on every screen. Opt in explicitly when the wording really is shared.
+  const [copyLogos, setCopyLogos] = useState(true);
+  const [copyHeadline, setCopyHeadline] = useState(false);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([branch.id]);
 
   // Reseed when the selected branch changes (render-time adjust, no effect).
@@ -123,6 +129,45 @@ export function TickerDisplaySettings({
     return mode === "white" ? "light" : mode === "transparent" ? "dark" : "any";
   };
 
+  /** What travels to other branches — shown wherever the apply picker appears. */
+  const copyOptions = (idPrefix: string) =>
+    targetScope === "current" ? null : (
+      <div className="space-y-1.5 rounded-xl border border-border/40 bg-muted/20 p-2.5">
+        <label className="flex cursor-pointer items-start gap-2">
+          <input
+            id={`${idPrefix}-logos`}
+            type="checkbox"
+            checked={copyLogos}
+            onChange={(e) => setCopyLogos(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span className="text-xs">
+            <span className="font-medium">Also copy the logos</span>
+            <span className="block text-muted-foreground">
+              Corner badge + scrolling logos (their sizes always copy). Off = each branch keeps its
+              own logos.
+            </span>
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-start gap-2">
+          <input
+            id={`${idPrefix}-headline`}
+            type="checkbox"
+            checked={copyHeadline}
+            onChange={(e) => setCopyHeadline(e.target.checked)}
+            className="mt-0.5 h-4 w-4"
+          />
+          <span className="text-xs">
+            <span className="font-medium">Also copy the yellow headline words</span>
+            <span className="block text-muted-foreground">
+              Normally OFF — the headline names the branch (&quot;Welcome to {branch.name}&quot;), so
+              each branch keeps its own. Tick only when the wording is the same everywhere.
+            </span>
+          </span>
+        </label>
+      </div>
+    );
+
   async function save() {
     setSaving(true);
     try {
@@ -138,16 +183,23 @@ export function TickerDisplaySettings({
         list.map((b) => {
           let nextSettings: BranchSettings = settings;
           if (b.id !== branch.id) {
-            // Copy bar look + yellow headline; keep each branch's own logos.
+            // Bar look + every size/scale always travels (that IS the shared
+            // styling). Logos travel unless unticked. The headline keeps the
+            // TARGET branch's own wording unless the admin opts in — it names
+            // the branch, so copying it would show one branch's name on all TVs.
             nextSettings = {
               ...(b.settings ?? {}),
               ...settings,
-              tickerLogoUrl: b.settings?.tickerLogoUrl ?? null,
-              tickerLogoUrls: b.settings?.tickerLogoUrls ?? [],
-              tickerLogoText: b.settings?.tickerLogoText ?? null,
-              scrollingLogos: b.settings?.scrollingLogos ?? [],
-              scrollingLogoItems: b.settings?.scrollingLogoItems ?? [],
-              tickerHeadline: settings.tickerHeadline,
+              ...(copyLogos
+                ? {}
+                : {
+                    tickerLogoUrl: b.settings?.tickerLogoUrl ?? null,
+                    tickerLogoUrls: b.settings?.tickerLogoUrls ?? [],
+                    tickerLogoText: b.settings?.tickerLogoText ?? null,
+                    scrollingLogos: b.settings?.scrollingLogos ?? [],
+                    scrollingLogoItems: b.settings?.scrollingLogoItems ?? [],
+                  }),
+              ...(copyHeadline ? {} : { tickerHeadline: b.settings?.tickerHeadline ?? null }),
               tickerHeadlineAnimation: settings.tickerHeadlineAnimation,
               showTickerHeadline: settings.showTickerHeadline,
               showTickerLogo: settings.showTickerLogo,
@@ -165,10 +217,16 @@ export function TickerDisplaySettings({
         }),
       );
 
+      const extras = [copyLogos ? "logos" : null, copyHeadline ? "headline text" : null]
+        .filter(Boolean)
+        .join(" + ");
       toast.success(
         list.length > 1
-          ? `Ticker settings (incl. yellow headline) saved on ${list.length} branches`
-          : "Ticker settings saved — live on the branch TV",
+          ? `✓ Applied to ${list.length} branches — bar look & sizes${extras ? ` + ${extras}` : ""}${
+              copyHeadline ? "" : "; each branch kept its own yellow headline"
+            }`
+          : "✓ Saved — live on this branch's TV within seconds",
+        { duration: 9000 },
       );
       setTargetScope("current");
     } catch (error) {
@@ -823,7 +881,7 @@ export function TickerDisplaySettings({
               <div className="space-y-2 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg">
                 <p className="text-xs text-muted-foreground">
                   Ticker changes go live on the <strong>{branch.name}</strong> TV only after you save.
-                  Check below to also push the yellow headline and bar look to every branch.
+                  Check below to also push the bar look, sizes and logos to other branches.
                 </p>
                 {canApplyToAll ? (
                   <ApplyToAllCheckbox
@@ -836,9 +894,10 @@ export function TickerDisplaySettings({
                       setTargetScope(sel.scope);
                       setSelectedBranchIds(sel.selectedBranchIds);
                     }}
-                    description="Copies the yellow headline text and ticker bar look to the selected target branches."
+                    description="Copies the ticker bar look and sizes to the selected target branches."
                   />
                 ) : null}
+                {canApplyToAll ? copyOptions("ticker-portal") : null}
                 <Button
                   disabled={saving}
                   className="w-full rounded-xl"
@@ -862,9 +921,10 @@ export function TickerDisplaySettings({
                 setTargetScope(sel.scope);
                 setSelectedBranchIds(sel.selectedBranchIds);
               }}
-              description="Copies the yellow headline text and ticker bar look to the selected target branches."
+              description="Copies the ticker bar look and sizes to the selected target branches."
             />
           ) : null}
+          {canApplyToAll ? copyOptions("ticker-inline") : null}
           <div className="flex justify-start">
             <Button className="rounded-xl" disabled={saving} onClick={() => void save()}>
               {saving ? "Saving…" : "Save ticker settings"}

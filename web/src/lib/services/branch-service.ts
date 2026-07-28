@@ -181,6 +181,29 @@ export async function createBranch(
   return id;
 }
 
+/**
+ * Audit metadata WITHOUT the inline media blobs. Branch settings embed logos and
+ * announcement images as base64 data URLs, so the old "snapshot everything"
+ * metadata wrote up to ~744 KB per branch on every save — applying to 8 branches
+ * uploaded megabytes of duplicated image data (slow saves, client 2026-07-27)
+ * and made audit_logs ~95% of the whole database. Every ordinary setting value
+ * is still recorded for recovery; only the base64 payloads become a short note.
+ */
+function stripInlineMedia(value: unknown, depth = 0): unknown {
+  if (typeof value === "string") {
+    return value.startsWith("data:")
+      ? `[inline media ~${Math.round(value.length / 1024)} KB — not stored in the log]`
+      : value;
+  }
+  if (depth > 5 || value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map((item) => stripInlineMedia(item, depth + 1));
+  const out: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+    out[key] = stripInlineMedia(val, depth + 1);
+  }
+  return out;
+}
+
 export async function updateBranch(
   id: string,
   data: Partial<Branch>,
@@ -194,7 +217,7 @@ export async function updateBranch(
     entityId: id,
     userId: actor.userId,
     userName: actor.userName,
-    metadata: data as Record<string, unknown>,
+    metadata: stripInlineMedia(data) as Record<string, unknown>,
   });
 }
 
