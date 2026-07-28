@@ -63,7 +63,11 @@ export function FlagChip({
       src={`/flags/${country}.png`}
       alt=""
       onError={() => setFailed(true)}
-      className={`h-[1.05em] w-[1.6em] shrink-0 rounded-[2px] object-cover ring-1 ring-black/15 ${chipClassName} ${className}`}
+      // Natural aspect + object-contain: fixed 1.6×1.05 + object-cover was
+      // clipping ~24% of 2:1 flags (AED, GBP, …), ~34% of square ones (CHF),
+      // and nearly half of Nepal. Height stays matched to the rate-row type;
+      // width follows each flag's real ratio so nothing is cropped.
+      className={`h-[1.05em] w-auto max-w-[1.85em] shrink-0 rounded-[2px] object-contain ring-1 ring-black/15 ${chipClassName} ${className}`}
     />
   );
 }
