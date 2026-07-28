@@ -735,9 +735,9 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const customHeadline = branchSettings.tickerHeadline?.trim();
   const tickerHeadline = !showTickerHeadline
     ? "" // empty string overrides the component default → tab not rendered
-    : customHeadline
-      ? customHeadline.toUpperCase()
-      : branch?.name?.toUpperCase() || UNIMONI_DEFAULT_TICKER;
+    : // The admin's typed capitals AND small letters show exactly as entered
+      // (client 2026-07-27). Only the auto fallback (branch name) is capitalised.
+      customHeadline || branch?.name?.toUpperCase() || UNIMONI_DEFAULT_TICKER;
   const tickerFontColor = activeTicker?.fontColor || branchSettings.tickerFontColor || "#FFFFFF";
   const tickerFontSize = activeTicker?.fontSize || branchSettings.tickerFontSize;
 
