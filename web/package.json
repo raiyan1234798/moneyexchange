@@ -12,7 +12,7 @@
     "lint": "eslint",
     "test": "npx --yes tsx --test src/lib/branch-isolation.test.mjs",
     "export": "node scripts/gen-build-id.mjs && next build --webpack",
-    "deploy:pages": "wrangler pages deploy out --project-name=unimoni --no-bundle --commit-dirty=true"
+    "deploy:pages": "wrangler pages deploy out --project-name=unimoni-6va --branch=main --no-bundle --commit-dirty=true"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

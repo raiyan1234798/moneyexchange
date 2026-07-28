@@ -117,7 +117,7 @@ async function main() {
   if (branch) {
     console.log(`Branch: ${branchName ?? resolvedBranchId} (id=${resolvedBranchId}, code=${branch.data?.code ?? "?"}, status=${branch.data?.status ?? "?"})`);
   }
-  console.log("\nUser should sign in at https://unimoni.pages.dev/login with Google using this exact Gmail address.");
+  console.log("\nUser should sign in at https://unimoni-6va.pages.dev/login with Google using this exact Gmail address.");
 }
 
 main().catch((error) => {

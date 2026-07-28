@@ -381,7 +381,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     provider.setCustomParameters({ prompt: "select_account" });
 
     // Popup FIRST: signInWithRedirect silently loses the result on custom
-    // domains (unimoni.pages.dev != firebaseapp.com authDomain) in browsers
+    // domains (unimoni-6va.pages.dev != firebaseapp.com authDomain) in browsers
     // with storage partitioning, leaving users stuck on "Finishing sign-in…".
     // Popups complete in-page and are immune. Redirect stays as the fallback
     // for browsers that block popups (some TV/embedded browsers).

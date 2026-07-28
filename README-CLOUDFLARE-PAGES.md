@@ -8,7 +8,7 @@ In the dashboard: **Workers & Pages** → **Create** → **Pages** → **Connect
 
 | Field | Value |
 |-------|-------|
-| Project name | `unimoni` |
+| Project name | `unimoni-6va` |
 | Production branch | `main` |
 | **Root directory** | `web` |
 | **Build command** | `npm ci && npm run build` |
@@ -49,13 +49,13 @@ From `web/` after a successful build:
 ```bash
 cd web
 npm ci && npm run build
-npx wrangler pages deploy out --project-name=unimoni --branch=main --no-bundle
+npx wrangler pages deploy out --project-name=unimoni-6va --branch=main --no-bundle
 ```
 
 Create the Pages project if it does not exist:
 
 ```bash
-npx wrangler pages project create unimoni --production-branch main
+npx wrangler pages project create unimoni-6va --production-branch main
 ```
 
 From repo root:
@@ -64,7 +64,7 @@ From repo root:
 npm run deploy:pages
 ```
 
-Legacy Pages project name (if `unimoni` is unavailable): `moneyexchange`.
+Legacy Pages project names (if needed): `unimoni`, `moneyexchange`.
 
 ---
 
@@ -72,9 +72,9 @@ Legacy Pages project name (if `unimoni` is unavailable): `moneyexchange`.
 
 | Path | Purpose |
 |------|---------|
-| `web/wrangler.toml` | Pages hint only (`pages_build_output_dir = "out"`) — **not** a Worker entry |
+| `wrangler.toml` (repo root) | Pages Git build: `name = "unimoni-6va"`, `pages_build_output_dir = "web/out"`, R2/AI bindings |
+| `web/wrangler.toml` | Pages hint when root directory = `web` (`pages_build_output_dir = "out"`) |
 | `workers/upload-video/wrangler.toml` | Separate R2 upload **Worker** — deploy only via `npm run deploy:r2-worker` |
-| No `wrangler.toml` at repo root | Intentional — avoids treating the monorepo as a single Worker |
 
 ---
 
@@ -85,4 +85,4 @@ cd web && npm ci && npm run build
 test -f out/index.html && echo "OK"
 ```
 
-Production URL after deploy: **https://unimoni.pages.dev** (preview URLs look like `https://<hash>.unimoni.pages.dev`).
+Production URL after deploy: **https://unimoni-6va.pages.dev** (preview URLs look like `https://<hash>.unimoni-6va.pages.dev`).
