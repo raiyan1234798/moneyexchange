@@ -846,6 +846,65 @@ export function TickerDisplaySettings({
                 className="rounded-xl"
               />
             </div>
+            <div className="space-y-2 sm:col-span-2">
+              <div className="flex items-center justify-between gap-3">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Yellow headline box colours
+                </Label>
+                {s.tickerHeadlineBgColor || s.tickerHeadlineTextColor ? (
+                  <button
+                    type="button"
+                    onClick={() => set({ tickerHeadlineBgColor: null, tickerHeadlineTextColor: null })}
+                    className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted/50"
+                  >
+                    Reset to default
+                  </button>
+                ) : null}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Box &amp; border colour</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      aria-label="Headline box colour"
+                      value={s.tickerHeadlineBgColor ?? "#FFA300"}
+                      onChange={(e) => set({ tickerHeadlineBgColor: e.target.value })}
+                      className="h-9 w-11 cursor-pointer rounded-lg border border-border bg-transparent"
+                    />
+                    <Input
+                      value={s.tickerHeadlineBgColor ?? ""}
+                      placeholder="Default gold"
+                      onChange={(e) => set({ tickerHeadlineBgColor: e.target.value.trim() || null })}
+                      className="flex-1 rounded-lg font-mono text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Letter colour</Label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="color"
+                      aria-label="Headline letter colour"
+                      value={s.tickerHeadlineTextColor ?? "#0D2680"}
+                      onChange={(e) => set({ tickerHeadlineTextColor: e.target.value })}
+                      className="h-9 w-11 cursor-pointer rounded-lg border border-border bg-transparent"
+                    />
+                    <Input
+                      value={s.tickerHeadlineTextColor ?? ""}
+                      placeholder="Default navy"
+                      onChange={(e) => set({ tickerHeadlineTextColor: e.target.value.trim() || null })}
+                      className="flex-1 rounded-lg font-mono text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Colours the yellow headline box, its matching logo-badge border, and the words
+                inside it. Blank/Reset = the standard Unimoni gold on navy. Use the branch picker
+                below to apply to this branch, chosen branches, or all branches.
+              </p>
+            </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                 Message movement effect

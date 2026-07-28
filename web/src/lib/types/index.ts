@@ -174,6 +174,12 @@ export interface BranchSettings {
   logoAutoRemoveBg?: boolean;
   /** Whether the corner logo badge is visible on the ticker. Default true. */
   showTickerLogo?: boolean;
+  /** Colour of the yellow headline box AND the logo badge's border (one gold
+      trim). null = the standard Unimoni gold. */
+  tickerHeadlineBgColor?: string | null;
+  /** Colour of the letters inside the yellow headline box. null = deep navy. */
+  tickerHeadlineTextColor?: string | null;
+
   /** unimoni logo on the navy cover between video clips. Default true. OFF =
       plain navy cover (the cover always stays so the play button never shows). */
   showVideoCoverLogo?: boolean;

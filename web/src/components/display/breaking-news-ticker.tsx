@@ -72,6 +72,11 @@ interface BreakingNewsTickerProps {
   headlineFontCss?: string;
   /** Movement effect for the headline text (bounce/flip/...). Default none. */
   headlineAnimation?: string | null;
+  /** Colour of the yellow headline box + the badge border. null = Unimoni gold. */
+  headlineBgColor?: string | null;
+  /** Colour of the headline letters. null = deep navy. */
+  headlineTextColor?: string | null;
+
   /** Whether the corner logo badge is visible. Default true. */
   showLogo?: boolean;
 }
@@ -245,6 +250,8 @@ function BreakingNewsTickerInner({
   headlineMaxWidthPercent,
   headlineFontCss,
   headlineAnimation = null,
+  headlineBgColor = null,
+  headlineTextColor = null,
   showLogo = true,
 }: BreakingNewsTickerProps) {
   const duration = Math.max(scrollSpeedSeconds, 8);
@@ -330,6 +337,10 @@ function BreakingNewsTickerInner({
   const messageAnimClass = displayAnimationClass(messageAnimation);
 
   const headlineAnimClass = displayAnimationClass(headlineAnimation);
+  // Admin colours for the gold trim; null keeps today's exact look so "Reset to
+  // default" is free (client 2026-07-27).
+  const goldTrim = headlineBgColor?.trim() || UNIMONI_COLORS.gold;
+  const headlineInk = headlineTextColor?.trim() || UNIMONI_COLORS.navy;
 
   const pulse = logoAnimation === "pulse";
   // Animation class applied to the logo image itself (pulse animates the whole
@@ -354,8 +365,8 @@ function BreakingNewsTickerInner({
             maxWidth: headlineMaxWidthPercent
               ? `calc(${headlineMaxWidthPercent}vw - (${baseBadgeWidth}) * ${logoScale} - 0.5vw)`
               : "60vw",
-            backgroundColor: UNIMONI_COLORS.gold,
-            color: UNIMONI_COLORS.navy,
+            backgroundColor: goldTrim,
+            color: headlineInk,
             fontFamily: headlineFontCss,
           }}
         >
@@ -388,7 +399,7 @@ function BreakingNewsTickerInner({
               : logoBgColor?.trim() === "transparent"
                 ? "transparent"
                 : logoBgColor?.trim() || "#FFFFFF",
-            borderColor: UNIMONI_COLORS.gold,
+            borderColor: goldTrim,
           }}
         >
           {isTextLogo ? (
