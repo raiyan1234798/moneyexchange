@@ -909,8 +909,9 @@ export default function VideosPage() {
               Remove all {count} {kind} from {branch?.name ?? "this branch"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              They stop playing on the TV immediately and their files are removed from storage.
-              This cannot be undone — you would need to upload them again.
+              They stop playing on this branch&apos;s TV immediately. Files stay in storage so you
+              can use <strong>Restore</strong> to bring them back. Only &quot;Clean up unused
+              files&quot; removes true orphans.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

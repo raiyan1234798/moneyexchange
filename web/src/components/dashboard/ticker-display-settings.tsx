@@ -16,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DisplayAnimationSelect } from "@/components/shared/animation-controls";
 import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS } from "@/lib/constants";
 import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent, stripLogoBackground } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
@@ -105,22 +104,20 @@ export function TickerDisplaySettings({
         which === "border"
           ? { tickerHeadlineBgColor: settings.tickerHeadlineBgColor ?? null }
           : { tickerHeadlineTextColor: settings.tickerHeadlineTextColor ?? null };
-      // Keep the form colour on the branch being edited too.
-      const nextLocal = { ...settings, ...colorPatch };
-      setSettings(nextLocal);
+      setSettings((prev) => ({ ...prev, ...colorPatch }));
+      const { getDocument } = await import("@/lib/firebase/firestore");
+      const { COLLECTIONS } = await import("@/lib/constants");
       await Promise.all(
-        targets.map((b) =>
-          updateBranch(
-            b.id,
-            {
-              settings: {
-                ...(b.id === branch.id ? nextLocal : (b.settings ?? {})),
-                ...colorPatch,
-              },
-            },
-            actor,
-          ),
-        ),
+        targets.map(async (b) => {
+          // Read-modify-write so we only change the colour field and keep the
+          // latest logos/headline/bar settings already on the server.
+          const latest = await getDocument<Branch>(COLLECTIONS.branches, b.id);
+          const base = {
+            ...DEFAULT_BRANCH_SETTINGS,
+            ...(latest?.settings ?? b.settings ?? {}),
+          };
+          return updateBranch(b.id, { settings: { ...base, ...colorPatch } }, actor);
+        }),
       );
       toast.success(
         which === "border"

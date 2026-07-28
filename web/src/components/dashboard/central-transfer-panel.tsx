@@ -76,6 +76,16 @@ export function CentralTransferPanel({
   const [overIndex, setOverIndex] = useState<number | null>(null);
 
   const activeBranches = branches.filter((b) => b.status === "active");
+  const currentBranch = activeBranches.find((b) => b.id === currentBranchId) ?? null;
+
+  /** Hidden on the currently selected branch TV (global flag OR per-branch list). */
+  function isHiddenOnCurrentBranch(code: string): boolean {
+    const upper = code.toUpperCase();
+    const row = rows.find((r) => r.currencyCode.toUpperCase() === upper);
+    if (row?.isHidden) return true;
+    const list = currentBranch?.settings?.hiddenTransferCodes ?? [];
+    return list.some((c) => String(c).toUpperCase() === upper);
+  }
 
   async function confirmTransferVisibility() {
     if (!visibilityDialog) return;
@@ -98,14 +108,20 @@ export function CentralTransferPanel({
         actor,
         { allActiveBranchIds: activeBranches.map((b) => b.id) },
       );
-      toast.success(
-        visibilityDialog.hide
-          ? `Hidden ${visibilityDialog.code} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`
-          : `Shown ${visibilityDialog.code} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`,
-        { duration: 7000 },
-      );
-      // Touch updated count so empty no-ops still feel responsive when global flag flipped.
-      void updated;
+      if (updated === 0 && visibilityScope !== "all") {
+        toast.message(
+          visibilityDialog.hide
+            ? `${visibilityDialog.code} was already hidden on the chosen branch(es)`
+            : `${visibilityDialog.code} was already visible on the chosen branch(es)`,
+        );
+      } else {
+        toast.success(
+          visibilityDialog.hide
+            ? `Hidden ${visibilityDialog.code} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`
+            : `Shown ${visibilityDialog.code} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`,
+          { duration: 7000 },
+        );
+      }
       setVisibilityDialog(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update visibility");
@@ -405,7 +421,9 @@ export function CentralTransferPanel({
                 setOverIndex(null);
               }}
               className={`grid grid-cols-1 items-end gap-3 rounded-xl border p-3 transition-colors sm:grid-cols-[auto_minmax(120px,160px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4 ${
-                row.isHidden ? "border-dashed border-border/50 bg-muted/25 opacity-60" : "border-border/60 bg-card"
+                isHiddenOnCurrentBranch(row.currencyCode)
+                  ? "border-dashed border-border/50 bg-muted/25 opacity-60"
+                  : "border-border/60 bg-card"
               } ${dragIndex === index ? "opacity-50" : ""} ${
                 overIndex === index && dragIndex !== null && dragIndex !== index ? "ring-2 ring-primary/50" : ""
               }`}
@@ -507,19 +525,24 @@ export function CentralTransferPanel({
                   disabled={busy}
                   className="h-9 w-9 rounded-lg px-0"
                   title={
-                    row.isHidden
+                    isHiddenOnCurrentBranch(row.currencyCode)
                       ? "Show on transfer card — this branch, selected, or all"
                       : "Hide from transfer card — this branch, selected, or all"
                   }
                   onClick={() => {
+                    const currentlyHidden = isHiddenOnCurrentBranch(row.currencyCode);
                     setVisibilityScope(activeBranches.length > 1 ? "all" : "current");
                     setVisibilityBranchIds(
                       currentBranchId ? [currentBranchId] : activeBranches[0] ? [activeBranches[0].id] : [],
                     );
-                    setVisibilityDialog({ code: row.currencyCode, hide: !row.isHidden });
+                    setVisibilityDialog({ code: row.currencyCode, hide: !currentlyHidden });
                   }}
                 >
-                  {row.isHidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  {isHiddenOnCurrentBranch(row.currencyCode) ? (
+                    <EyeOff className="h-3 w-3" />
+                  ) : (
+                    <Eye className="h-3 w-3" />
+                  )}
                 </Button>
                 <Button
                   variant="outline"

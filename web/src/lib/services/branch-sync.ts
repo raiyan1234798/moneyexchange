@@ -14,6 +14,8 @@ import {
 import { createDocument, writeAuditLog } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import type { TickerMessage } from "@/lib/types";
+import { listVideos } from "@/lib/services/video-service";
+import { listImageAdverts } from "@/lib/services/image-advert-service";
 
 type Actor = { userId: string; userName: string };
 
@@ -171,12 +173,36 @@ export async function pushBranchMediaToAllBranches(
         deactivateBranchImageAdverts(branch.id),
       ]);
     }
+    // Skip files this branch already plays (same URL or storage path) so
+    // Restore / Push can be re-run without duplicating the playlist.
+    const [existingVideos, existingImages] = opts?.replaceExisting
+      ? [[], []]
+      : await Promise.all([listVideos(branch.id), listImageAdverts(branch.id)]);
+    const knownVideoKeys = new Set(
+      existingVideos
+        .filter((v) => v.status === "active")
+        .flatMap((v) => [v.downloadUrl?.trim(), v.storagePath?.trim()].filter(Boolean) as string[]),
+    );
+    const knownImageKeys = new Set(
+      existingImages
+        .filter((img) => img.status === "active")
+        .flatMap((img) =>
+          [img.downloadUrl?.trim(), img.storagePath?.trim()].filter(Boolean) as string[],
+        ),
+    );
+
     for (const video of copyableVideos) {
+      const keys = [video.downloadUrl?.trim(), video.storagePath?.trim()].filter(Boolean) as string[];
+      if (keys.some((k) => knownVideoKeys.has(k))) continue;
       await duplicateStorageVideoToBranch(video, branch.id, actor.userId, actor);
+      for (const k of keys) knownVideoKeys.add(k);
       videosCopied += 1;
     }
     for (const image of copyableImages) {
+      const keys = [image.downloadUrl?.trim(), image.storagePath?.trim()].filter(Boolean) as string[];
+      if (keys.some((k) => knownImageKeys.has(k))) continue;
       await duplicateImageAdvertToBranch(image, branch.id, actor.userId, actor);
+      for (const k of keys) knownImageKeys.add(k);
       imagesCopied += 1;
     }
   }
