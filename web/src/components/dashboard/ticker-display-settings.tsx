@@ -93,6 +93,18 @@ export function TickerDisplaySettings({
   ];
   const setScrollItems = (items: Array<{ url: string; pos: "start" | "end" }>) =>
     set({ scrollingLogoItems: items, scrollingLogos: [] });
+  // Drag a scrolling-logo tile onto another to change the order they ride in
+  // (client 2026-07-27). The TV builds its Front/End groups by filtering this
+  // list in order, so this list order IS the on-screen order.
+  const [scrollDragIndex, setScrollDragIndex] = useState<number | null>(null);
+  const [scrollOverIndex, setScrollOverIndex] = useState<number | null>(null);
+  const moveScrollItem = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0 || from >= scrollItems.length || to >= scrollItems.length) return;
+    const next = [...scrollItems];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    setScrollItems(next);
+  };
 
   // Where each logo will sit — so background removal can protect readability
   // (e.g. white lettering is kept on its dark box when the badge is white).
@@ -464,7 +476,8 @@ export function TickerDisplaySettings({
               <Label className="text-sm">Scrolling ticker logos</Label>
               <p className="text-xs text-muted-foreground">
                 Logos that ride along with the ticker text. Add as many as you like; click × to
-                remove one. Backgrounds are removed automatically on upload.
+                remove one. <strong>Drag a logo onto another to change the order they appear in</strong>{" "}
+                (then Save). Backgrounds are removed automatically on upload.
               </p>
             </div>
             <Switch
@@ -509,12 +522,43 @@ export function TickerDisplaySettings({
           {scrollItems.length > 0 ? (
             <div className="flex flex-wrap gap-3 pt-1">
               {scrollItems.map((item, i) => (
-                <div key={`${i}-${item.url.slice(-12)}`} className="relative flex flex-col items-center gap-1">
+                <div
+                  key={`${i}-${item.url.slice(-12)}`}
+                  draggable
+                  onDragStart={(e) => {
+                    setScrollDragIndex(i);
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", String(i));
+                  }}
+                  onDragOver={(e) => {
+                    if (scrollDragIndex === null) return;
+                    e.preventDefault();
+                    setScrollOverIndex(i);
+                  }}
+                  onDrop={(e) => {
+                    if (scrollDragIndex === null) return;
+                    e.preventDefault();
+                    moveScrollItem(scrollDragIndex, i);
+                    setScrollDragIndex(null);
+                    setScrollOverIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setScrollDragIndex(null);
+                    setScrollOverIndex(null);
+                  }}
+                  className={`relative flex cursor-grab flex-col items-center gap-1 rounded-lg p-0.5 active:cursor-grabbing ${
+                    scrollDragIndex === i ? "opacity-50" : ""
+                  } ${
+                    scrollOverIndex === i && scrollDragIndex !== null && scrollDragIndex !== i
+                      ? "ring-2 ring-primary/60"
+                      : ""
+                  }`}
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={item.url}
                     alt={`Scrolling logo ${i + 1}`}
-                    className="h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
+                    className="pointer-events-none h-9 w-14 rounded-md bg-slate-800 object-contain p-1"
                   />
                   <button
                     type="button"
