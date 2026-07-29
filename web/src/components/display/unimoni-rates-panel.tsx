@@ -771,8 +771,10 @@ export function UnimoniRatesPanel({
                   flag={
                     currencyOverrides?.[rate.currencyCode?.toUpperCase() ?? ""]?.flag?.trim() ||
                     getRateFlag(rate) ||
+                    rate.currencyCode ||
                     "🌍"
                   }
+                  currencyCode={rate.currencyCode}
                   className={`shrink-0 ${displayAnimationClass(flagAnimation)}`}
                   chipClassName="!h-[1.85em] !w-[2.75em] rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
                 />
@@ -916,10 +918,15 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className, fo
               className="flex min-w-0 items-center gap-[1vmin] truncate font-extrabold uppercase leading-none text-white"
               style={{ fontSize: "clamp(1.1rem,3.2vmin,3.4rem)" }}
             >
-              {getRateFlag(rate) ? (
+              {getRateFlag(rate) || rate.currencyCode ? (
                 // Image chip, not raw emoji — the shop TVs have no emoji font
                 // (flags degraded to bare letter pairs, client 2026-07-27).
-                <FlagChip flag={getRateFlag(rate) ?? "🌍"} className="shrink-0" />
+                <FlagChip
+                  flag={getRateFlag(rate) || rate.currencyCode || "🌍"}
+                  currencyCode={rate.currencyCode}
+                  className="shrink-0"
+                  chipClassName="!h-[1.15em] !w-[1.75em]"
+                />
               ) : null}
               <span className="truncate">{rate.currencyCode}</span>
             </span>
