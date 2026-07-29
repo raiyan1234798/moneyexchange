@@ -123,7 +123,6 @@ export default function VideosPage() {
   // TRUE bucket usage from Cloudflare (worker /api/storage-usage) — what R2
   // actually bills, including files the database lost track of.
   const [realStorage, setRealStorage] = useState<{ bytes: number; objects: number } | null>(null);
-  const [cleaningStorage, setCleaningStorage] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
@@ -785,75 +784,6 @@ export default function VideosPage() {
     }
   }
 
-  // Reclaim space: delete stored files that NO playlist/settings doc references
-  // (including soft-deleted inactive rows). Soft-deleted media stays protected
-  // so Restore can bring it back; only true orphans are removed.
-  async function handleStorageCleanup() {
-    setCleaningStorage(true);
-    try {
-      const [allVideos, allImages, allBranchDocs, allTickerDocs] = await Promise.all([
-        listDocuments<VideoAsset>(COLLECTIONS.videos, []),
-        listDocuments<ImageAdvert>(COLLECTIONS.imageAdverts, []),
-        // Branch settings + tickers reference stored files DIRECTLY by URL
-        // (promo gallery, logos, announcement media) — those must be kept too.
-        listDocuments<Record<string, unknown>>(COLLECTIONS.branches, []),
-        listDocuments<Record<string, unknown>>(COLLECTIONS.tickerMessages, []),
-      ]);
-      const inUse = [
-        // Protect files referenced by ANY playlist row — including soft-deleted
-        // (inactive) ones — so "Clean up unused files" cannot permanently erase
-        // media the admin can still Restore. True orphans (no doc at all) are
-        // still reclaimed.
-        ...allVideos,
-        ...allImages,
-      ];
-      // Protect BOTH reference styles: the stored key AND the key inside the
-      // public download URL (cross-branch copies sometimes carry only the URL).
-      const keep = new Set<string>();
-      for (const m of inUse) {
-        if (typeof m.storagePath === "string" && m.storagePath) keep.add(m.storagePath);
-        const u = m.downloadUrl ?? "";
-        const match = u.match(/\/((?:videos|images)\/[^?#]+)/);
-        if (match) keep.add(decodeURIComponent(match[1]));
-      }
-      // EVERY file URL that appears anywhere in branch settings or tickers.
-      for (const docObj of [...allBranchDocs, ...allTickerDocs]) {
-        const json = JSON.stringify(docObj);
-        for (const m of json.matchAll(/\/((?:videos|images)\/[^"?#\\\s]+)/g)) {
-          keep.add(decodeURIComponent(m[1]));
-        }
-      }
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not signed in");
-      const res = await fetch("/api/storage-cleanup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ keep: [...keep] }),
-      });
-      const data = (await res.json()) as { deleted?: number; freedBytes?: number; error?: string };
-      if (!res.ok) throw new Error(data.error || "Cleanup failed");
-      toast.success(
-        data.deleted
-          ? `Removed ${data.deleted} unused file${data.deleted === 1 ? "" : "s"} — freed ${gb(data.freedBytes ?? 0)} GB`
-          : "Nothing to clean — every stored file is in use",
-        { duration: 8000 },
-      );
-      setRealStorage(null); // re-measure below
-      const usage = await fetch("/api/storage-usage", {
-        cache: "no-store",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (usage.ok) {
-        const u = (await usage.json()) as { bytes: number; objects: number };
-        setRealStorage({ bytes: u.bytes, objects: u.objects });
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Cleanup failed");
-    } finally {
-      setCleaningStorage(false);
-    }
-  }
-
   function removeAllMedia(kind: "videos" | "images") {
     const a = actor;
     if (!a) return;
@@ -910,8 +840,7 @@ export default function VideosPage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               They stop playing on this branch&apos;s TV immediately. Files stay in storage so you
-              can use <strong>Restore</strong> to bring them back. Only &quot;Clean up unused
-              files&quot; removes true orphans.
+              can use <strong>Restore</strong> to bring them back.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1033,35 +962,6 @@ export default function VideosPage() {
                     </span>
                   </div>
                   <Progress value={pct} className="mt-3" />
-                  {canManageVideos ? (
-                    <div className="mt-3 flex justify-end">
-                      <AlertDialog>
-                        <AlertDialogTrigger
-                          render={
-                            <Button variant="outline" size="sm" className="rounded-lg" disabled={cleaningStorage}>
-                              {cleaningStorage ? "Cleaning…" : "Clean up unused files"}
-                            </Button>
-                          }
-                        />
-                        <AlertDialogContent className="rounded-2xl sm:max-w-md">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Free up storage space?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This deletes stored files that no current video or image uses — including
-                              files left behind by videos you removed earlier. Everything still in any
-                              branch&apos;s lists stays untouched.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                            <AlertDialogAction className="rounded-xl" onClick={() => void handleStorageCleanup()}>
-                              Yes, clean up
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  ) : null}
                   {full ? (
                     <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400">
                       Storage is full. New uploads will be billed by Cloudflare (or may fail) — remove

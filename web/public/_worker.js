@@ -412,62 +412,21 @@ async function handleStorageUsage(request, env) {
   return json({ bytes, objects, source: "r2-live" });
 }
 
-// Reconcile the bucket with the app: delete every videos/ images/ object that
-// is NOT in the caller-supplied keep list (built from the live Firestore docs).
-// This is how space from deleted videos/images is actually reclaimed — the
-// per-item delete is best-effort and has historically leaked objects.
-async function handleStorageCleanup(request, env) {
-  if (request.method !== "POST") return json({ error: "POST only" }, 405);
-  const apiKey = env.FIREBASE_API_KEY || FIREBASE_API_KEY_FALLBACK;
-  const token = bearer(request);
-  if (!token) return json({ error: "Missing Authorization Bearer token" }, 401);
-  const user = await verifyToken(token, apiKey);
-  if (!user) return json({ error: "Invalid or expired sign-in token" }, 401);
-  if (!(await isMediaManager(user, token, env))) {
-    return json({ error: "Only admins can clean up storage" }, 403);
-  }
-  const bucket = env.R2_BUCKET;
-  if (!bucket) {
-    return json({ error: "R2 bucket is not bound (add the R2_BUCKET binding in Pages settings)." }, 503);
-  }
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return json({ error: "Body must be JSON: { keep: string[] }" }, 400);
-  }
-  const keep = new Set(Array.isArray(body && body.keep) ? body.keep.filter((k) => typeof k === "string") : []);
-
-  const toDelete = [];
-  let freedBytes = 0;
-  let cursor = undefined;
-  do {
-    const page = await bucket.list({ cursor, limit: 1000 });
-    for (const obj of page.objects) {
-      const inScope = obj.key.startsWith("videos/") || obj.key.startsWith("images/");
-      if (inScope && !keep.has(obj.key)) {
-        toDelete.push(obj.key);
-        freedBytes += obj.size || 0;
-      }
-    }
-    cursor = page.truncated ? page.cursor : undefined;
-  } while (cursor);
-
-  for (let i = 0; i < toDelete.length; i += 500) {
-    await bucket.delete(toDelete.slice(i, i + 500));
-  }
-  return json({ deleted: toDelete.length, freedBytes });
+// Storage bulk-cleanup is intentionally disabled — a one-click orphan purge
+// was too easy to trigger by mistake and could wipe media. Soft-deleted files
+// stay in R2 so Restore can bring them back.
+async function handleStorageCleanup() {
+  return json(
+    { error: "Storage cleanup is disabled. Soft-deleted media stays in R2 so it can be restored." },
+    410,
+  );
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/storage-cleanup") {
-      try {
-        return await handleStorageCleanup(request, env);
-      } catch (err) {
-        return json({ error: err && err.message ? err.message : "Cleanup failed" }, 500);
-      }
+      return handleStorageCleanup();
     }
     if (url.pathname === "/api/storage-usage") {
       try {
