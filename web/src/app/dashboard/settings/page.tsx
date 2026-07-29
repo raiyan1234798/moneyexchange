@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
+import { ColorApplyRow, type ColorApplyScope } from "@/components/shared/color-apply-row";
 import { ContentPanel, FormSection, PageShell, PageLoader } from "@/components/shared/page-elements";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { db } from "@/lib/firebase/client";
-import { createDocument } from "@/lib/firebase/firestore";
+import { createDocument, getDocument } from "@/lib/firebase/firestore";
 import {
   DisplayAnimationSelect,
   SecondsPresetField,
@@ -30,6 +31,7 @@ import {
 } from "@/components/shared/animation-controls";
 import {
   COLLECTIONS,
+  DEFAULT_BRANCH_SETTINGS,
   DEFAULT_SYSTEM_SETTINGS,
   MESSAGE_FONTS,
   RATE_ANIM_PAUSE_PRESETS,
@@ -52,7 +54,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { updateBranch } from "@/lib/services/branch-service";
 import { OrgThemePanel } from "@/components/dashboard/org-theme-panel";
-import type { BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
+import type { Branch, BranchSettings, RateCardPosition, SystemSettings } from "@/lib/types";
 
 const SETTINGS_ID = "global";
 
@@ -153,6 +155,61 @@ function BranchSettingsForm({
   const [includePromo, setIncludePromo] = useState(false);
   const [includeLogos, setIncludeLogos] = useState(false);
   const [promoLinkInput, setPromoLinkInput] = useState("");
+  // Immediate colour apply (this / selected / all) — pushes only the colour
+  // fields so TVs update without a full settings save.
+  const [rateColorScope, setRateColorScope] = useState<ColorApplyScope>("current");
+  const [rateColorBranchIds, setRateColorBranchIds] = useState<string[]>([branchId]);
+  const [announceColorScope, setAnnounceColorScope] = useState<ColorApplyScope>("current");
+  const [announceColorBranchIds, setAnnounceColorBranchIds] = useState<string[]>([branchId]);
+  const [applyingColors, setApplyingColors] = useState<"rate" | "announce" | null>(null);
+  const { user, profile } = useAuth();
+  const applyBranches = [
+    { id: branchId, name: branchName },
+    ...otherBranches.map((b) => ({ id: b.id, name: b.name })),
+  ];
+
+  async function applyColorPatch(
+    kind: "rate" | "announce",
+    scope: ColorApplyScope,
+    selectedIds: string[],
+    patch: Partial<BranchSettings>,
+    successLabel: string,
+  ) {
+    if (!user || !profile) return;
+    const actor = { userId: user.uid, userName: profile.displayName || profile.email };
+    const targets =
+      scope === "all"
+        ? applyBranches
+        : scope === "specific"
+          ? applyBranches.filter((b) => selectedIds.includes(b.id))
+          : applyBranches.filter((b) => b.id === branchId);
+    if (targets.length === 0) {
+      toast.error("Pick at least one branch");
+      return;
+    }
+    setApplyingColors(kind);
+    try {
+      setSettings((prev) => ({ ...prev, ...patch }));
+      await Promise.all(
+        targets.map(async (b) => {
+          const latest = await getDocument<Branch>(COLLECTIONS.branches, b.id);
+          const base = {
+            ...DEFAULT_BRANCH_SETTINGS,
+            ...(latest?.settings ?? (b.id === branchId ? settings : {})),
+          };
+          return updateBranch(b.id, { settings: { ...base, ...patch } }, actor);
+        }),
+      );
+      toast.success(
+        `${successLabel} applied to ${targets.length} branch${targets.length === 1 ? "" : "es"}`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not apply colour");
+    } finally {
+      setApplyingColors(null);
+    }
+  }
+
   // Find-an-option search: hides sections without a match and glows the
   // matching fields, so nobody has to hunt (or ask) where a setting lives.
   const [searchQuery, setSearchQuery] = useState("");
@@ -303,7 +360,7 @@ function BranchSettingsForm({
         />
       </div>
       <div className="space-y-2">
-        <Label>Primary Color (dashboard label only)</Label>
+        <Label>Branch list colour (dashboard chip only)</Label>
         <div className="flex items-center gap-3">
           <input
             type="color"
@@ -318,8 +375,9 @@ function BranchSettingsForm({
           />
         </div>
         <p className="text-xs text-muted-foreground">
-          Colours this branch&apos;s chip in dashboard lists only — it does NOT change anything on
-          the TV. TV colours live under &quot;Rate card colours&quot; and the announcement colour.
+          Tints this branch&apos;s chip in dashboard lists only — not the whole dashboard and not
+          the TV. Org-wide dashboard colours are above under &quot;Dashboard colours (all users)&quot;.
+          TV colours are under Rate card / Announcement below.
         </p>
       </div>
       </div>
@@ -1034,9 +1092,40 @@ function BranchSettingsForm({
         </div>
         <p className="text-xs text-muted-foreground">
           Colour of the blue rate-card background and the currency codes/numbers on it. Leave blank
-          (or hit Reset) for the standard Unimoni deep blue. Use &quot;Apply to all branches&quot; when saving
-          to push these colours to every TV.
+          (or hit Reset) for the standard Unimoni deep blue. Use &quot;Apply rate card colours&quot;
+          below to push them live to this branch, selected branches, or every TV immediately.
         </p>
+        {branchCount > 1 ? (
+          <ColorApplyRow
+            label="Apply rate card colours"
+            applyLabel="Apply rate card colours"
+            scope={rateColorScope}
+            selectedIds={rateColorBranchIds}
+            branches={applyBranches}
+            currentBranchId={branchId}
+            applying={applyingColors === "rate"}
+            onScopeChange={(scope, ids) => {
+              setRateColorScope(scope);
+              setRateColorBranchIds(ids);
+            }}
+            onApply={() =>
+              void applyColorPatch(
+                "rate",
+                rateColorScope,
+                rateColorBranchIds,
+                {
+                  rateCardBgColor: settings.rateCardBgColor ?? null,
+                  rateCurrencyColor: settings.rateCurrencyColor ?? null,
+                },
+                "Rate card colours",
+              )
+            }
+          />
+        ) : (
+          <p className="text-[11px] text-muted-foreground">
+            Colours save with &quot;Save Branch Settings&quot; on this branch.
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label>Rate card note (We buy @ …)</Label>
@@ -1500,6 +1589,33 @@ function BranchSettingsForm({
                 A custom colour overrides the preset above (the video-player announcement text). Reset
                 to use the preset.
               </p>
+              {branchCount > 1 ? (
+                <ColorApplyRow
+                  label="Apply announcement colours"
+                  applyLabel="Apply announcement colours"
+                  scope={announceColorScope}
+                  selectedIds={announceColorBranchIds}
+                  branches={applyBranches}
+                  currentBranchId={branchId}
+                  applying={applyingColors === "announce"}
+                  onScopeChange={(scope, ids) => {
+                    setAnnounceColorScope(scope);
+                    setAnnounceColorBranchIds(ids);
+                  }}
+                  onApply={() =>
+                    void applyColorPatch(
+                      "announce",
+                      announceColorScope,
+                      announceColorBranchIds,
+                      {
+                        announcementColorStyle: settings.announcementColorStyle ?? "white",
+                        announcementTextColor: settings.announcementTextColor ?? null,
+                      },
+                      "Announcement colours",
+                    )
+                  }
+                />
+              ) : null}
             </div>
             <div className="space-y-2">
               <Label>Announcement font</Label>

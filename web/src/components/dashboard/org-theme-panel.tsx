@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { setThemeConfig, subscribeThemeConfig } from "@/lib/services/theme-service";
+import { applyThemeCssVars } from "@/lib/theme-css";
 
 /** Built-in defaults from globals.css — shown in the pickers when no override. */
 const DEFAULTS = {
@@ -49,8 +50,11 @@ export function OrgThemePanel({ actor }: { actor: { userId: string; userName: st
   async function save(next: typeof colors) {
     setSaving(true);
     try {
+      // Paint this browser immediately; other users pick it up via the live
+      // OrgThemeProvider subscribe as soon as Firestore writes.
+      applyThemeCssVars(document.documentElement.style, next);
       await setThemeConfig(next, actor);
-      toast.success("Dashboard colours updated for everyone");
+      toast.success("Dashboard colours updated for every user");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save the theme");
     } finally {
@@ -63,7 +67,7 @@ export function OrgThemePanel({ actor }: { actor: { userId: string; userName: st
   return (
     <ContentPanel
       title="Dashboard colours (all users)"
-      description="Change the dashboard's colours for EVERY user who signs in. Reset returns to the standard Unimoni look."
+      description="Saving here recolours EVERY signed-in user's dashboard immediately (buttons, nav, accents, page backgrounds). This is org-wide — not per branch."
     >
       <div className="grid gap-4 sm:grid-cols-3">
         {FIELDS.map(({ key, label, hint }) => (

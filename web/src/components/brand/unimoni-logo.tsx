@@ -53,7 +53,7 @@ export function UnimoniMark({
   return (
     <div
       className={cn(
-        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[#1a4d8f] to-[#00a3e0] shadow-md ring-1 ring-[var(--brand-primary-light)]/40 transition-transform duration-200 group-hover:scale-105",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-[var(--brand-surface)] to-[var(--brand-accent)] shadow-md ring-1 ring-[var(--brand-primary-light)]/40 transition-transform duration-200 group-hover:scale-105",
         className,
       )}
       style={{ width: size, height: size }}
