@@ -1,4 +1,4 @@
-import { addDoc, collection } from "firebase/firestore";
+import { addDoc, collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import {
   createDocument,
   listDocuments,
@@ -16,6 +16,9 @@ import { assertBranchId } from "@/lib/branch-isolation";
 import { createCurrency, listCurrencies } from "@/lib/services/currency-service";
 import { createRatePendingApproval } from "@/lib/services/pending-approval-service";
 import type { Currency, ExchangeRate, RateHistoryEntry, UserRole } from "@/lib/types";
+
+/** Firestore writeBatch cap is 500 — stay under it. */
+const BATCH_WRITE_LIMIT = 450;
 
 function sortRates(rates: ExchangeRate[]): ExchangeRate[] {
   return [...rates].sort(
@@ -196,9 +199,11 @@ export async function setForexCurrencyVisibilityOnBranches(
 }
 
 /**
- * Hide or show MANY forex currencies in one pass. Lists each branch once and
- * updates all matching rate rows in parallel — much faster than calling
- * setForexCurrencyVisibilityOnBranches per currency.
+ * Hide or show MANY forex currencies in one pass.
+ *
+ * Fast path: query by currencyCode (one read for all branches), then commit
+ * isHidden updates in Firestore write batches. Avoids listing every branch's
+ * full rate list when applying to "all branches".
  */
 export async function setForexCurrenciesVisibilityOnBranches(
   currencyCodes: string[],
@@ -215,35 +220,51 @@ export async function setForexCurrenciesVisibilityOnBranches(
   ];
   const uniqueBranches = [...new Set(branchIds.filter(Boolean))];
   if (codes.length === 0 || uniqueBranches.length === 0) return 0;
-  const codeSet = new Set(codes);
+  const branchSet = new Set(uniqueBranches);
 
-  const perBranch = await Promise.all(
-    uniqueBranches.map(async (branchId) => {
-      const rates = await listExchangeRates(branchId);
-      const matches = rates.filter(
-        (r) => codeSet.has(r.currencyCode.toUpperCase()) && r.isHidden !== isHidden,
-      );
-      if (matches.length === 0) return 0;
-      await Promise.all(
-        matches.map((rate) => updateDocument(COLLECTIONS.exchangeRates, rate.id, { isHidden })),
-      );
-      return matches.length;
-    }),
+  // One equality query per code (parallel) — returns that currency on EVERY
+  // branch, then we keep only the target branchIds. Far cheaper than
+  // listExchangeRates(branch) × N branches.
+  const perCode = await Promise.all(
+    codes.map((code) =>
+      listDocuments<ExchangeRate>(COLLECTIONS.exchangeRates, [where("currencyCode", "==", code)]),
+    ),
   );
-  const updated = perBranch.reduce((sum, n) => sum + n, 0);
+  const toUpdate = perCode
+    .flat()
+    .filter((rate) => branchSet.has(rate.branchId) && rate.isHidden !== isHidden);
 
-  if (updated > 0) {
-    await writeAuditLog({
-      action: isHidden ? "rate_hide_scoped" : "rate_show_scoped",
-      entityType: "exchange_rate",
-      entityId: codes.length === 1 ? codes[0] : codes.join(","),
-      userId: actor.userId,
-      userName: actor.userName,
-      branchId: uniqueBranches.length === 1 ? uniqueBranches[0] : null,
-      metadata: { currencyCodes: codes, isHidden, branchIds: uniqueBranches, updated },
-    });
+  if (toUpdate.length === 0) return 0;
+
+  for (let i = 0; i < toUpdate.length; i += BATCH_WRITE_LIMIT) {
+    const slice = toUpdate.slice(i, i + BATCH_WRITE_LIMIT);
+    const batch = writeBatch(db);
+    for (const rate of slice) {
+      batch.update(doc(db, COLLECTIONS.exchangeRates, rate.id), {
+        isHidden,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    await batch.commit();
   }
-  return updated;
+
+  // Audit is best-effort — don't hold the UI on the log write.
+  void writeAuditLog({
+    action: isHidden ? "rate_hide_scoped" : "rate_show_scoped",
+    entityType: "exchange_rate",
+    entityId: codes.length === 1 ? codes[0] : codes.join(","),
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: uniqueBranches.length === 1 ? uniqueBranches[0] : null,
+    metadata: {
+      currencyCodes: codes,
+      isHidden,
+      branchIds: uniqueBranches,
+      updated: toUpdate.length,
+    },
+  }).catch(() => undefined);
+
+  return toUpdate.length;
 }
 
 export async function reorderRates(
