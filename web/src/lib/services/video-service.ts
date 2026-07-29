@@ -232,8 +232,7 @@ async function storedFileStillReferenced(video: VideoAsset): Promise<boolean> {
     ]);
     return sharers.some((v) => v.id !== video.id && v.status !== "inactive");
   } catch {
-    // If the check itself fails, err on the side of KEEPING the file — the
-    // "Clean up unused files" button reclaims true orphans later.
+    // If the check itself fails, err on the side of KEEPING the file.
     return true;
   }
 }
@@ -714,8 +713,7 @@ export async function deleteVideo(
   video: VideoAsset,
   actor: { userId: string; userName: string },
 ): Promise<void> {
-  // Soft-delete only. Stored bytes stay so the admin can Restore; "Clean up
-  // unused files" only removes objects no document references at all. Accidental
+  // Soft-delete only. Stored bytes stay so the admin can Restore. Accidental
   // Remove / Remove-all must never permanently erase playlist media.
   await updateDocument(COLLECTIONS.videos, video.id, { status: "inactive" });
   await writeAuditLog({

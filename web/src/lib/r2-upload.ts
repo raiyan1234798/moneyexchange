@@ -259,11 +259,10 @@ export async function deleteR2Object(storagePath: string): Promise<void> {
     });
     if (!res.ok) {
       // Still best-effort (the doc removal must not fail), but LOUD: leaked
-      // objects were silently eating the storage quota. The "Clean up unused
-      // files" button reconciles any leftovers.
+      // objects can eat the storage quota until cleaned manually in R2.
       console.warn(`[r2] delete failed for ${storagePath}: HTTP ${res.status}`);
     }
   } catch {
-    // Best-effort cleanup — the storage cleanup button reconciles leftovers.
+    // Best-effort cleanup — soft-deleted media is intentionally kept for Restore.
   }
 }
