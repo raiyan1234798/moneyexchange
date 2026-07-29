@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import {
+  countryCodeFromCurrencyCode,
+  countryCodeFromFlagEmoji,
+} from "@/lib/currency-utils";
 
 /**
  * Country-flag chip. Every flag renders as a small PNG served from THIS site
@@ -10,34 +14,44 @@ import { useState } from "react";
  * the earlier mixed look, where an external flag CDN loaded for some rows and
  * failed for others. The emoji span remains only as a last-resort fallback
  * (custom currencies with no country, or a missing file).
+ *
+ * Slot is a fixed box filled with object-cover so every flag (2:1, square,
+ * Nepal, …) occupies the full chip — no letterboxing empty bands.
  */
-function flagEmojiToCountryCode(flag: string): string | null {
-  // Regional-indicator pairs (🇿🇲 → "zm").
-  const letters = [...flag]
-    .map((ch) => ch.codePointAt(0) ?? 0)
-    .filter((cp) => cp >= 0x1f1e6 && cp <= 0x1f1ff)
-    .map((cp) => String.fromCharCode(cp - 0x1f1e6 + 65));
-  if (letters.length === 2) return letters.join("").toLowerCase();
+function resolveFlagCountry(
+  flag: string,
+  currencyCode?: string | null,
+): string | null {
+  const fromEmoji = countryCodeFromFlagEmoji(flag);
+  if (fromEmoji) return fromEmoji;
 
-  // Subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿, Wales, England): black flag + "tag
-  // letter" sequence → "gb-sct" style code.
-  const tags = [...flag]
-    .map((ch) => ch.codePointAt(0) ?? 0)
-    .filter((cp) => cp >= 0xe0061 && cp <= 0xe007a)
-    .map((cp) => String.fromCharCode(cp - 0xe0000));
-  if (flag.includes("\u{1F3F4}") && tags.length >= 4) {
-    return `${tags.slice(0, 2).join("")}-${tags.slice(2).join("")}`;
+  const codeHint = currencyCode?.trim() || "";
+  if (codeHint) {
+    const fromCurrency = countryCodeFromCurrencyCode(codeHint);
+    if (fromCurrency) return fromCurrency;
   }
+
+  // Allow callers to pass a raw ISO currency or country code as `flag`
+  // when no emoji was stored yet (new catalog rows).
+  const trimmed = flag.trim();
+  if (/^[A-Za-z]{2,3}$/.test(trimmed)) {
+    return countryCodeFromCurrencyCode(trimmed);
+  }
+
   return null;
 }
 
 export function FlagChip({
   flag,
+  currencyCode,
   className = "",
   chipClassName = "",
 }: {
   flag: string;
-  /** Applied to BOTH forms (emoji span and image) — animations, margins. */
+  /** ISO 4217 code — used when `flag` is missing/placeholder so new currencies
+      still load `/flags/{country}.png` from the alphabetic currency code. */
+  currencyCode?: string | null;
+  /** Applied to BOTH forms (emoji span and image wrapper) — animations, margins. */
   className?: string;
   /** Applied ONLY when a real image renders (box size, ring, shadow). Emoji
       must never get these — a ringed fixed-size box around a glyph paints an
@@ -45,7 +59,7 @@ export function FlagChip({
   chipClassName?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const country = flagEmojiToCountryCode(flag);
+  const country = resolveFlagCountry(flag, currencyCode);
 
   if (!country || failed) {
     // Last-resort emoji glyph (custom currencies / missing file): no box
@@ -58,16 +72,18 @@ export function FlagChip({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- tiny same-origin flag PNG; next/image adds nothing here
-    <img
-      src={`/flags/${country}.png`}
-      alt=""
-      onError={() => setFailed(true)}
-      // Natural aspect + object-contain: fixed 1.6×1.05 + object-cover was
-      // clipping ~24% of 2:1 flags (AED, GBP, …), ~34% of square ones (CHF),
-      // and nearly half of Nepal. Height stays matched to the rate-row type;
-      // width follows each flag's real ratio so nothing is cropped.
-      className={`h-[1.05em] w-auto max-w-[1.85em] shrink-0 rounded-[2px] object-contain ring-1 ring-black/15 ${chipClassName} ${className}`}
-    />
+    <span
+      className={`inline-flex h-[1.05em] w-[1.6em] shrink-0 overflow-hidden rounded-[2px] ring-1 ring-black/15 ${chipClassName} ${className}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element -- tiny same-origin flag PNG; next/image adds nothing here */}
+      <img
+        src={`/flags/${country}.png`}
+        alt=""
+        onError={() => setFailed(true)}
+        // Fill the chip completely. Wide flags (AED/GBP), square (CHF), and
+        // tall (Nepal) all crop to the slot instead of leaving empty bands.
+        className="h-full w-full object-cover object-center"
+      />
+    </span>
   );
 }

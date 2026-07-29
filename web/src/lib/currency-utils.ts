@@ -12,8 +12,86 @@ const NAME_ALIASES: Record<string, string> = {
   "BRITISH POUND": "GBP",
 };
 
+/**
+ * Currencies whose ISO 4217 letters are NOT a valid ISO 3166 country (or
+ * should prefer a specific flag file under /public/flags). Values are
+ * lowercase paths without ".png" (e.g. "eu", "gb-sct").
+ */
+const CURRENCY_FLAG_COUNTRY_OVERRIDES: Record<string, string> = {
+  EUR: "eu",
+  SCP: "gb-sct",
+  XOF: "sn",
+  XAF: "cm",
+  XPF: "pf",
+  XCD: "ag",
+  ANG: "cw",
+};
+
 export function getCurrencyMeta(code: string): CurrencyMeta | undefined {
   return CURRENCY_METADATA[code.trim().toUpperCase()];
+}
+
+/** Decode a flag emoji (🇿🇲 / 🏴󠁧󠁢󠁳󠁣󠁴󠁿) to a /public/flags file stem. */
+export function countryCodeFromFlagEmoji(flag: string): string | null {
+  // Regional-indicator pairs (🇿🇲 → "zm").
+  const letters = [...flag]
+    .map((ch) => ch.codePointAt(0) ?? 0)
+    .filter((cp) => cp >= 0x1f1e6 && cp <= 0x1f1ff)
+    .map((cp) => String.fromCharCode(cp - 0x1f1e6 + 65));
+  if (letters.length === 2) return letters.join("").toLowerCase();
+
+  // Subdivision flags (Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿, Wales, England): black flag + "tag
+  // letter" sequence → "gb-sct" style code.
+  const tags = [...flag]
+    .map((ch) => ch.codePointAt(0) ?? 0)
+    .filter((cp) => cp >= 0xe0061 && cp <= 0xe007a)
+    .map((cp) => String.fromCharCode(cp - 0xe0000));
+  if (flag.includes("\u{1F3F4}") && tags.length >= 4) {
+    return `${tags.slice(0, 2).join("")}-${tags.slice(2).join("")}`;
+  }
+  return null;
+}
+
+function isKnownRegionCode(cc: string): boolean {
+  const upper = cc.trim().toUpperCase();
+  if (upper === "EU") return true; // /flags/eu.png — not always in Intl regions
+  if (!/^[A-Z]{2}$/.test(upper)) return false;
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(upper);
+    // Unknown regions echo the code back — that's not a country.
+    return Boolean(name && name !== upper);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Map an ISO 4217 currency code to a /public/flags/{code}.png stem.
+ * Uses catalog metadata + explicit overrides, then the ISO rule that most
+ * currency codes start with their country (KES → ke). Works for new
+ * currencies that are not yet in CURRENCY_METADATA.
+ */
+export function countryCodeFromCurrencyCode(code: string): string | null {
+  const upper = code.trim().toUpperCase();
+  if (!upper) return null;
+
+  const override = CURRENCY_FLAG_COUNTRY_OVERRIDES[upper];
+  if (override) return override;
+
+  const meta = getCurrencyMeta(upper);
+  if (meta?.flag) {
+    const fromMeta = countryCodeFromFlagEmoji(meta.flag);
+    if (fromMeta) return fromMeta;
+  }
+
+  // Bare ISO 3166 alpha-2 passed in (rare).
+  if (upper.length === 2 && isKnownRegionCode(upper)) {
+    return upper.toLowerCase();
+  }
+
+  const cc = upper.slice(0, 2);
+  if (!isKnownRegionCode(cc)) return null;
+  return cc.toLowerCase();
 }
 
 /**
@@ -23,15 +101,14 @@ export function getCurrencyMeta(code: string): CurrencyMeta | undefined {
  * first two letters aren't a real country, so callers can fall back.
  */
 export function flagFromCurrencyCode(code: string): string | null {
-  const cc = code.trim().toUpperCase().slice(0, 2);
-  if (!/^[A-Z]{2}$/.test(cc)) return null;
-  try {
-    const name = new Intl.DisplayNames(["en"], { type: "region" }).of(cc);
-    // Unknown regions echo the code back — that's not a country.
-    if (!name || name === cc) return null;
-  } catch {
-    return null;
+  const country = countryCodeFromCurrencyCode(code);
+  if (!country || country.includes("-") || country === "eu") {
+    // Subdivision / EU: prefer catalog emoji when available; otherwise no
+    // single regional-indicator pair exists for these stems.
+    const meta = getCurrencyMeta(code.trim().toUpperCase());
+    return meta?.flag ?? null;
   }
+  const cc = country.toUpperCase();
   const A = 0x1f1e6;
   return (
     String.fromCodePoint(A + cc.charCodeAt(0) - 65) + String.fromCodePoint(A + cc.charCodeAt(1) - 65)
