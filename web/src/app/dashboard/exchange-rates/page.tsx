@@ -710,12 +710,18 @@ export default function ExchangeRatesPage() {
     }
     setVisibilitySaving(true);
     const codeSet = new Set(codes);
-    // Optimistic: flip local rows immediately so the dialog can close.
+    // Optimistic: flip local rows immediately so the dialog can close,
+    // then re-sort so hidden currencies sink to the bottom.
     if (effectiveBranchId && targets.includes(effectiveBranchId)) {
       setRates((prev) =>
-        prev.map((r) =>
+        [...prev.map((r) =>
           codeSet.has(r.currencyCode.toUpperCase()) ? { ...r, isHidden: hide } : r,
-        ),
+        )].sort((a, b) => {
+          const ha = a.isHidden ? 1 : 0;
+          const hb = b.isHidden ? 1 : 0;
+          if (ha !== hb) return ha - hb;
+          return (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.currencyCode.localeCompare(b.currencyCode);
+        }),
       );
     }
     try {
