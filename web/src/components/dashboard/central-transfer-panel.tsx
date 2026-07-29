@@ -92,6 +92,7 @@ export function CentralTransferPanel({
     if (!visibilityDialog) return;
     const codes = visibilityDialog.codes.map((c) => c.trim().toUpperCase()).filter(Boolean);
     if (codes.length === 0) return;
+    const hide = visibilityDialog.hide;
     const targets =
       visibilityScope === "all"
         ? activeBranches
@@ -102,11 +103,14 @@ export function CentralTransferPanel({
       toast.error("Pick at least one branch");
       return;
     }
+    // Optimistic: close dialog + re-sort immediately.
+    setVisibilityDialog(null);
+    setSelectedVisibilityCodes([]);
     setVisibilitySaving(true);
     try {
       const updated = await setTransferCurrenciesVisibilityOnBranches(
         codes,
-        visibilityDialog.hide,
+        hide,
         targets,
         actor,
         { allActiveBranchIds: activeBranches.map((b) => b.id) },
@@ -115,22 +119,20 @@ export function CentralTransferPanel({
         codes.length === 1
           ? codes[0]
           : `${codes.length} currencies (${codes.slice(0, 4).join(", ")}${codes.length > 4 ? "…" : ""})`;
-      if (updated === 0 && visibilityScope !== "all") {
+      if (updated === 0) {
         toast.message(
-          visibilityDialog.hide
+          hide
             ? `${label} was already hidden on the chosen branch(es)`
             : `${label} was already visible on the chosen branch(es)`,
         );
       } else {
         toast.success(
-          visibilityDialog.hide
+          hide
             ? `Hidden ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`
             : `Shown ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"}`,
-          { duration: 7000 },
+          { duration: 5000 },
         );
       }
-      setVisibilityDialog(null);
-      setSelectedVisibilityCodes([]);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update visibility");
     } finally {

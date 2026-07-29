@@ -6,6 +6,8 @@ import {
   updateDocument,
   writeAuditLog,
 } from "@/lib/firebase/firestore";
+import { doc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
 import { normalizeCurrencyCode } from "@/lib/currency-utils";
 import type { Branch, BranchSettings, TransferRate } from "@/lib/types";
@@ -182,8 +184,7 @@ export async function setTransferCurrencyVisibilityOnBranches(
 
 /**
  * Hide or show MANY remittance currencies in one pass.
- * Writes each branch settings doc once (no per-branch audit / re-read) so
- * "all branches" finishes in one parallel wave.
+ * Uses Firestore writeBatch so all branch settings update in one round-trip.
  */
 export async function setTransferCurrenciesVisibilityOnBranches(
   codes: string[],
@@ -197,51 +198,64 @@ export async function setTransferCurrenciesVisibilityOnBranches(
   ];
   if (normalized.length === 0 || targets.length === 0) return 0;
 
-  const { updateDocument } = await import("@/lib/firebase/firestore");
-  const { COLLECTIONS } = await import("@/lib/constants");
-
-  // Use in-memory branch.settings (already loaded in the dashboard). Skipping
-  // a fresh getDocument per branch cuts the all-branches path roughly in half.
-  const branchResults = await Promise.all(
-    targets.map(async (branch) => {
-      const prevSettings = { ...(branch.settings ?? {}) } as BranchSettings;
-      const current = (prevSettings.hiddenTransferCodes ?? [])
-        .map((c) => String(c).toUpperCase())
-        .filter(Boolean);
-      let next = [...current];
-      let changed = false;
-      for (const code of normalized) {
-        const has = next.includes(code);
-        if (isHidden && !has) {
-          next.push(code);
-          changed = true;
-        } else if (!isHidden && has) {
-          next = next.filter((c) => c !== code);
-          changed = true;
-        }
+  const batch = writeBatch(db);
+  let updated = 0;
+  for (const branch of targets) {
+    const prevSettings = { ...(branch.settings ?? {}) } as BranchSettings;
+    const current = (prevSettings.hiddenTransferCodes ?? [])
+      .map((c) => String(c).toUpperCase())
+      .filter(Boolean);
+    let next = [...current];
+    let changed = false;
+    for (const code of normalized) {
+      const has = next.includes(code);
+      if (isHidden && !has) {
+        next.push(code);
+        changed = true;
+      } else if (!isHidden && has) {
+        next = next.filter((c) => c !== code);
+        changed = true;
       }
-      if (!changed) return 0;
-      // Direct doc update — skip updateBranch's per-call audit log.
-      await updateDocument(COLLECTIONS.branches, branch.id, {
-        settings: { ...prevSettings, hiddenTransferCodes: next } satisfies BranchSettings,
-      });
-      return 1;
-    }),
-  );
-  const updated = branchResults.reduce((sum: number, n) => sum + n, 0);
+    }
+    if (!changed) continue;
+    batch.update(doc(db, COLLECTIONS.branches, branch.id), {
+      settings: { ...prevSettings, hiddenTransferCodes: next },
+      updatedAt: serverTimestamp(),
+    });
+    updated += 1;
+  }
+  if (updated > 0) await batch.commit();
 
   const allIds = opts?.allActiveBranchIds ?? [];
   const targetingAll = allIds.length > 0 && targets.length >= allIds.length;
   if (targetingAll) {
-    await Promise.all(normalized.map((code) => setTransferRateHidden(code, isHidden, actor)));
+    const globalBatch = writeBatch(db);
+    for (const code of normalized) {
+      globalBatch.update(doc(db, COLLECTIONS.transferRates, code), {
+        isHidden,
+        updatedBy: actor.userId,
+        updatedByName: actor.userName,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    await globalBatch.commit();
   } else if (!isHidden) {
     const rows = await listTransferRates();
-    await Promise.all(
-      normalized.map(async (code) => {
-        const row = rows.find((r) => r.currencyCode.toUpperCase() === code);
-        if (row?.isHidden) await setTransferRateHidden(code, false, actor);
-      }),
-    );
+    const globalBatch = writeBatch(db);
+    let needsCommit = false;
+    for (const code of normalized) {
+      const row = rows.find((r) => r.currencyCode.toUpperCase() === code);
+      if (row?.isHidden) {
+        globalBatch.update(doc(db, COLLECTIONS.transferRates, code), {
+          isHidden: false,
+          updatedBy: actor.userId,
+          updatedByName: actor.userName,
+          updatedAt: serverTimestamp(),
+        });
+        needsCommit = true;
+      }
+    }
+    if (needsCommit) await globalBatch.commit();
   }
 
   void writeAuditLog({
