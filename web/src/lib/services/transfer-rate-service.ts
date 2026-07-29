@@ -18,10 +18,12 @@ import type { Branch, BranchSettings, TransferRate } from "@/lib/types";
  */
 
 function sortTransferRates(rows: TransferRate[]): TransferRate[] {
-  return [...rows].sort(
-    (a, b) =>
-      (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.currencyCode.localeCompare(b.currencyCode),
-  );
+  return [...rows].sort((a, b) => {
+    const ha = a.isHidden ? 1 : 0;
+    const hb = b.isHidden ? 1 : 0;
+    if (ha !== hb) return ha - hb;
+    return (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.currencyCode.localeCompare(b.currencyCode);
+  });
 }
 
 export async function listTransferRates(): Promise<TransferRate[]> {

@@ -21,9 +21,15 @@ import type { Currency, ExchangeRate, RateHistoryEntry, UserRole } from "@/lib/t
 const BATCH_WRITE_LIMIT = 450;
 
 function sortRates(rates: ExchangeRate[]): ExchangeRate[] {
-  return [...rates].sort(
-    (a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.currencyCode.localeCompare(b.currencyCode),
-  );
+  return [...rates].sort((a, b) => {
+    // Hidden currencies sink to the bottom; visible ones stay in their
+    // displayOrder. When unhidden, displayOrder is preserved so the currency
+    // returns to its original position.
+    const ha = a.isHidden ? 1 : 0;
+    const hb = b.isHidden ? 1 : 0;
+    if (ha !== hb) return ha - hb;
+    return (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.currencyCode.localeCompare(b.currencyCode);
+  });
 }
 
 export async function listExchangeRates(branchId: string): Promise<ExchangeRate[]> {
