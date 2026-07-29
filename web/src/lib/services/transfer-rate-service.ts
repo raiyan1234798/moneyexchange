@@ -175,45 +175,83 @@ export async function setTransferCurrencyVisibilityOnBranches(
   actor: { userId: string; userName: string },
   opts?: { allActiveBranchIds?: string[] },
 ): Promise<number> {
-  const normalized = normalizeCurrencyCode(code);
-  if (!normalized || targets.length === 0) return 0;
+  return setTransferCurrenciesVisibilityOnBranches([code], isHidden, targets, actor, opts);
+}
+
+/**
+ * Hide or show MANY remittance currencies in one pass. Each branch settings
+ * doc is written once (all codes merged into hiddenTransferCodes), instead of
+ * one write per currency — much faster for bulk hide/show.
+ */
+export async function setTransferCurrenciesVisibilityOnBranches(
+  codes: string[],
+  isHidden: boolean,
+  targets: Array<Pick<Branch, "id" | "settings">>,
+  actor: { userId: string; userName: string },
+  opts?: { allActiveBranchIds?: string[] },
+): Promise<number> {
+  const normalized = [
+    ...new Set(codes.map((c) => normalizeCurrencyCode(c) || c.trim().toUpperCase()).filter(Boolean)),
+  ];
+  if (normalized.length === 0 || targets.length === 0) return 0;
 
   const { updateBranch } = await import("@/lib/services/branch-service");
-  let updated = 0;
-  for (const branch of targets) {
-    const prevSettings = { ...(branch.settings ?? {}) } as BranchSettings;
-    const current = (prevSettings.hiddenTransferCodes ?? [])
-      .map((c) => String(c).toUpperCase())
-      .filter(Boolean);
-    const has = current.includes(normalized);
-    let next = current;
-    if (isHidden && !has) next = [...current, normalized];
-    else if (!isHidden && has) next = current.filter((c) => c !== normalized);
-    else continue;
-    const nextSettings: BranchSettings = { ...prevSettings, hiddenTransferCodes: next };
-    await updateBranch(branch.id, { settings: nextSettings }, actor);
-    updated += 1;
-  }
+  const { getDocument } = await import("@/lib/firebase/firestore");
+  const { COLLECTIONS } = await import("@/lib/constants");
+
+  const branchResults = await Promise.all(
+    targets.map(async (branch) => {
+      // Fresh read so we don't clobber concurrent settings edits.
+      const latest = await getDocument<Branch>(COLLECTIONS.branches, branch.id);
+      const prevSettings = {
+        ...(latest?.settings ?? branch.settings ?? {}),
+      } as BranchSettings;
+      const current = (prevSettings.hiddenTransferCodes ?? [])
+        .map((c) => String(c).toUpperCase())
+        .filter(Boolean);
+      let next = [...current];
+      let changed = false;
+      for (const code of normalized) {
+        const has = next.includes(code);
+        if (isHidden && !has) {
+          next.push(code);
+          changed = true;
+        } else if (!isHidden && has) {
+          next = next.filter((c) => c !== code);
+          changed = true;
+        }
+      }
+      if (!changed) return 0;
+      const nextSettings: BranchSettings = { ...prevSettings, hiddenTransferCodes: next };
+      await updateBranch(branch.id, { settings: nextSettings }, actor);
+      return 1;
+    }),
+  );
+  const updated = branchResults.reduce((sum: number, n) => sum + n, 0);
 
   const allIds = opts?.allActiveBranchIds ?? [];
-  if (allIds.length > 0 && targets.length >= allIds.length) {
-    await setTransferRateHidden(normalized, isHidden, actor);
+  const targetingAll = allIds.length > 0 && targets.length >= allIds.length;
+  if (targetingAll) {
+    await Promise.all(normalized.map((code) => setTransferRateHidden(code, isHidden, actor)));
   } else if (!isHidden) {
+    // Unhiding on a subset: clear global hide so the currency can show where allowed.
     const rows = await listTransferRates();
-    const row = rows.find((r) => r.currencyCode.toUpperCase() === normalized);
-    if (row?.isHidden) {
-      await setTransferRateHidden(normalized, false, actor);
-    }
+    await Promise.all(
+      normalized.map(async (code) => {
+        const row = rows.find((r) => r.currencyCode.toUpperCase() === code);
+        if (row?.isHidden) await setTransferRateHidden(code, false, actor);
+      }),
+    );
   }
 
   await writeAuditLog({
     action: isHidden ? "transfer_rate_hide_scoped" : "transfer_rate_show_scoped",
     entityType: "transfer_rate",
-    entityId: normalized,
+    entityId: normalized.length === 1 ? normalized[0] : normalized.join(","),
     userId: actor.userId,
     userName: actor.userName,
     branchId: targets.length === 1 ? targets[0].id : null,
-    metadata: { isHidden, branchIds: targets.map((t) => t.id), updated },
+    metadata: { codes: normalized, isHidden, branchIds: targets.map((t) => t.id), updated },
   });
   return updated;
 }
