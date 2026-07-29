@@ -192,29 +192,55 @@ export async function setForexCurrencyVisibilityOnBranches(
   branchIds: string[],
   actor: { userId: string; userName: string },
 ): Promise<number> {
-  const code = currencyCode.trim().toUpperCase();
-  if (!code || branchIds.length === 0) return 0;
-  let updated = 0;
-  for (const branchId of branchIds) {
-    const rates = await listExchangeRates(branchId);
-    const matches = rates.filter((r) => r.currencyCode.toUpperCase() === code);
-    await Promise.all(
-      matches.map(async (rate) => {
-        if (rate.isHidden === isHidden) return;
-        await updateDocument(COLLECTIONS.exchangeRates, rate.id, { isHidden });
-        updated += 1;
-      }),
-    );
-  }
+  return setForexCurrenciesVisibilityOnBranches([currencyCode], isHidden, branchIds, actor);
+}
+
+/**
+ * Hide or show MANY forex currencies in one pass. Lists each branch once and
+ * updates all matching rate rows in parallel — much faster than calling
+ * setForexCurrencyVisibilityOnBranches per currency.
+ */
+export async function setForexCurrenciesVisibilityOnBranches(
+  currencyCodes: string[],
+  isHidden: boolean,
+  branchIds: string[],
+  actor: { userId: string; userName: string },
+): Promise<number> {
+  const codes = [
+    ...new Set(
+      currencyCodes
+        .map((c) => c.trim().toUpperCase())
+        .filter((c) => /^[A-Z]{3}$/.test(c) || c.length >= 2),
+    ),
+  ];
+  const uniqueBranches = [...new Set(branchIds.filter(Boolean))];
+  if (codes.length === 0 || uniqueBranches.length === 0) return 0;
+  const codeSet = new Set(codes);
+
+  const perBranch = await Promise.all(
+    uniqueBranches.map(async (branchId) => {
+      const rates = await listExchangeRates(branchId);
+      const matches = rates.filter(
+        (r) => codeSet.has(r.currencyCode.toUpperCase()) && r.isHidden !== isHidden,
+      );
+      if (matches.length === 0) return 0;
+      await Promise.all(
+        matches.map((rate) => updateDocument(COLLECTIONS.exchangeRates, rate.id, { isHidden })),
+      );
+      return matches.length;
+    }),
+  );
+  const updated = perBranch.reduce((sum, n) => sum + n, 0);
+
   if (updated > 0) {
     await writeAuditLog({
       action: isHidden ? "rate_hide_scoped" : "rate_show_scoped",
       entityType: "exchange_rate",
-      entityId: code,
+      entityId: codes.length === 1 ? codes[0] : codes.join(","),
       userId: actor.userId,
       userName: actor.userName,
-      branchId: branchIds.length === 1 ? branchIds[0] : null,
-      metadata: { currencyCode: code, isHidden, branchIds, updated },
+      branchId: uniqueBranches.length === 1 ? uniqueBranches[0] : null,
+      metadata: { currencyCodes: codes, isHidden, branchIds: uniqueBranches, updated },
     });
   }
   return updated;

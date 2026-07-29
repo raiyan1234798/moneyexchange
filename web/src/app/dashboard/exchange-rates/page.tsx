@@ -75,7 +75,7 @@ import {
   listExchangeRates,
   reorderRates,
   subscribeBranchExchangeRates,
-  setForexCurrencyVisibilityOnBranches,
+  setForexCurrenciesVisibilityOnBranches,
   removeBranchRate,
   updateExchangeRate,
 } from "@/lib/services/exchange-rate-service";
@@ -150,13 +150,15 @@ export default function ExchangeRatesPage() {
   const [publishScope, setPublishScope] = useState<"branch" | "all">("branch");
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Hide / Show dialog: this branch · selected branches · all branches.
+  // Supports one currency (eye button) or many (checkbox multi-select).
   const [visibilityDialog, setVisibilityDialog] = useState<{
-    rate: ExchangeRate;
+    codes: string[];
     hide: boolean;
   } | null>(null);
   const [visibilityScope, setVisibilityScope] = useState<"current" | "specific" | "all">("current");
   const [visibilityBranchIds, setVisibilityBranchIds] = useState<string[]>([]);
   const [visibilitySaving, setVisibilitySaving] = useState(false);
+  const [selectedVisibilityCodes, setSelectedVisibilityCodes] = useState<string[]>([]);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canCreateCatalog = hasPermission("manageCurrencies");
@@ -660,15 +662,37 @@ export default function ExchangeRatesPage() {
   }
 
   async function handleToggleVisibility(rate: ExchangeRate) {
-    // Open scope picker — hide/show can target this branch, chosen ones, or all.
+    // Open scope picker for a single currency (eye button).
     const hide = !rate.isHidden;
     setVisibilityScope("current");
     setVisibilityBranchIds(effectiveBranchId ? [effectiveBranchId] : []);
-    setVisibilityDialog({ rate, hide });
+    setVisibilityDialog({ codes: [rate.currencyCode.toUpperCase()], hide });
+  }
+
+  function openBulkVisibility(hide: boolean) {
+    const codes = selectedVisibilityCodes
+      .map((c) => c.trim().toUpperCase())
+      .filter(Boolean);
+    if (codes.length === 0) {
+      toast.error("Select at least one currency");
+      return;
+    }
+    setVisibilityScope("current");
+    setVisibilityBranchIds(effectiveBranchId ? [effectiveBranchId] : []);
+    setVisibilityDialog({ codes, hide });
+  }
+
+  function toggleVisibilitySelection(code: string) {
+    const upper = code.toUpperCase();
+    setSelectedVisibilityCodes((prev) =>
+      prev.includes(upper) ? prev.filter((c) => c !== upper) : [...prev, upper],
+    );
   }
 
   async function confirmVisibilityChange() {
     if (!user || !profile || !visibilityDialog) return;
+    const codes = visibilityDialog.codes.map((c) => c.trim().toUpperCase()).filter(Boolean);
+    if (codes.length === 0) return;
     const active = branches.filter((b) => b.status === "active");
     const targets =
       visibilityScope === "all"
@@ -684,19 +708,22 @@ export default function ExchangeRatesPage() {
     }
     setVisibilitySaving(true);
     try {
-      const updated = await setForexCurrencyVisibilityOnBranches(
-        visibilityDialog.rate.currencyCode,
+      const updated = await setForexCurrenciesVisibilityOnBranches(
+        codes,
         visibilityDialog.hide,
         targets,
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
+      const label =
+        codes.length === 1 ? codes[0] : `${codes.length} currencies (${codes.slice(0, 4).join(", ")}${codes.length > 4 ? "…" : ""})`;
       toast.success(
         visibilityDialog.hide
-          ? `Hidden ${visibilityDialog.rate.currencyCode} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`
-          : `Shown ${visibilityDialog.rate.currencyCode} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`,
+          ? `Hidden ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`
+          : `Shown ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`,
         { duration: 7000 },
       );
       setVisibilityDialog(null);
+      setSelectedVisibilityCodes([]);
       if (effectiveBranchId) setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update visibility");
@@ -1781,7 +1808,7 @@ export default function ExchangeRatesPage() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Hide / Show forex currency on this branch, chosen branches, or all. */}
+        {/* Hide / Show forex currencies on this branch, chosen branches, or all. */}
         <AlertDialog
           open={visibilityDialog !== null}
           onOpenChange={(o) => !o && setVisibilityDialog(null)}
@@ -1790,9 +1817,17 @@ export default function ExchangeRatesPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>
                 {visibilityDialog?.hide ? "Hide" : "Show"}{" "}
-                {visibilityDialog?.rate.currencyCode} on which branches?
+                {visibilityDialog && visibilityDialog.codes.length === 1
+                  ? visibilityDialog.codes[0]
+                  : `${visibilityDialog?.codes.length ?? 0} currencies`}{" "}
+                on which branches?
               </AlertDialogTitle>
               <AlertDialogDescription>
+                {visibilityDialog && visibilityDialog.codes.length > 1 ? (
+                  <span className="mb-1 block font-medium text-foreground">
+                    {visibilityDialog.codes.join(", ")}
+                  </span>
+                ) : null}
                 {visibilityDialog?.hide
                   ? "Hidden currencies stay saved but do not appear on that branch’s TV rate card."
                   : "Shown currencies reappear on the selected branches’ TV rate cards."}
@@ -1869,8 +1904,12 @@ export default function ExchangeRatesPage() {
                 {visibilitySaving
                   ? "Saving…"
                   : visibilityDialog?.hide
-                    ? "Hide currency"
-                    : "Show currency"}
+                    ? visibilityDialog.codes.length > 1
+                      ? `Hide ${visibilityDialog.codes.length} currencies`
+                      : "Hide currency"
+                    : visibilityDialog && visibilityDialog.codes.length > 1
+                      ? `Show ${visibilityDialog.codes.length} currencies`
+                      : "Show currency"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -2117,6 +2156,61 @@ export default function ExchangeRatesPage() {
               </p>
             </CardHeader>
             <CardContent className="pt-4">
+              {!isBranchUser && rates.length > 0 ? (
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
+                    <input
+                      type="checkbox"
+                      className="h-3.5 w-3.5"
+                      checked={
+                        rates.length > 0 &&
+                        rates.every((r) =>
+                          selectedVisibilityCodes.includes(r.currencyCode.toUpperCase()),
+                        )
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedVisibilityCodes(
+                            rates.map((r) => r.currencyCode.toUpperCase()),
+                          );
+                        } else {
+                          setSelectedVisibilityCodes([]);
+                        }
+                      }}
+                    />
+                    Select all
+                  </label>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedVisibilityCodes.length > 0
+                      ? `${selectedVisibilityCodes.length} selected`
+                      : "Tick currencies to hide/show several at once"}
+                  </span>
+                  <div className="ml-auto flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg"
+                      disabled={selectedVisibilityCodes.length === 0 || visibilitySaving}
+                      onClick={() => openBulkVisibility(true)}
+                    >
+                      <Eye className="mr-1 h-3 w-3" />
+                      Hide selected
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg"
+                      disabled={selectedVisibilityCodes.length === 0 || visibilitySaving}
+                      onClick={() => openBulkVisibility(false)}
+                    >
+                      <EyeOff className="mr-1 h-3 w-3" />
+                      Show selected
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
               <div className="space-y-2">
                 {rates.map((rate, index) => {
                   const draft = drafts[rate.id];
@@ -2128,6 +2222,9 @@ export default function ExchangeRatesPage() {
                       draft.sellRate !== rate.sellRate ||
                       draft.displayName.trim() !== savedLabel);
                   const isEditingName = editingNameId === rate.id;
+                  const codeSelected = selectedVisibilityCodes.includes(
+                    rate.currencyCode.toUpperCase(),
+                  );
 
                   return (
                     <div
@@ -2147,6 +2244,8 @@ export default function ExchangeRatesPage() {
                         setOverIndex(null);
                       }}
                       className={`grid grid-cols-1 items-end gap-3 rounded-xl border p-3 transition-colors sm:gap-4 ${
+                        codeSelected ? "border-primary/40 bg-primary/[0.04]" : ""
+                      } ${
                         canManageRates && !isBranchUser
                           ? "sm:grid-cols-[auto_minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto]"
                           : "sm:grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto]"
@@ -2161,24 +2260,33 @@ export default function ExchangeRatesPage() {
                       }`}
                     >
                       {canManageRates && !isBranchUser ? (
-                        <button
-                          type="button"
-                          draggable
-                          aria-label="Drag to reorder"
-                          title="Drag to reorder how this shows on the TV"
-                          onDragStart={(e) => {
-                            setDragIndex(index);
-                            e.dataTransfer.effectAllowed = "move";
-                            e.dataTransfer.setData("text/plain", String(index));
-                          }}
-                          onDragEnd={() => {
-                            setDragIndex(null);
-                            setOverIndex(null);
-                          }}
-                          className="hidden shrink-0 cursor-grab touch-none self-center rounded-md p-1 text-muted-foreground hover:bg-muted/60 active:cursor-grabbing sm:flex sm:items-center"
-                        >
-                          <GripVertical className="h-4 w-4" />
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1.5 self-center">
+                          <input
+                            type="checkbox"
+                            className="h-3.5 w-3.5"
+                            checked={codeSelected}
+                            aria-label={`Select ${rate.currencyCode}`}
+                            onChange={() => toggleVisibilitySelection(rate.currencyCode)}
+                          />
+                          <button
+                            type="button"
+                            draggable
+                            aria-label="Drag to reorder"
+                            title="Drag to reorder how this shows on the TV"
+                            onDragStart={(e) => {
+                              setDragIndex(index);
+                              e.dataTransfer.effectAllowed = "move";
+                              e.dataTransfer.setData("text/plain", String(index));
+                            }}
+                            onDragEnd={() => {
+                              setDragIndex(null);
+                              setOverIndex(null);
+                            }}
+                            className="hidden cursor-grab touch-none rounded-md p-1 text-muted-foreground hover:bg-muted/60 active:cursor-grabbing sm:flex sm:items-center"
+                          >
+                            <GripVertical className="h-4 w-4" />
+                          </button>
+                        </div>
                       ) : null}
                       <div className="flex min-w-0 items-start gap-2">
                         <span className="shrink-0 text-xl leading-none">{resolved.flag}</span>
