@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
+import { ColorApplyRow, type ColorApplyScope } from "@/components/shared/color-apply-row";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,9 +54,9 @@ export function TickerDisplaySettings({
   const [copyHeadline, setCopyHeadline] = useState(false);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([branch.id]);
   // Independent apply targets for the two headline colours (box/border vs letters).
-  const [borderColorScope, setBorderColorScope] = useState<"current" | "specific" | "all">("current");
+  const [borderColorScope, setBorderColorScope] = useState<ColorApplyScope>("current");
   const [borderColorBranchIds, setBorderColorBranchIds] = useState<string[]>([branch.id]);
-  const [letterColorScope, setLetterColorScope] = useState<"current" | "specific" | "all">("current");
+  const [letterColorScope, setLetterColorScope] = useState<ColorApplyScope>("current");
   const [letterColorBranchIds, setLetterColorBranchIds] = useState<string[]>([branch.id]);
   const [applyingColor, setApplyingColor] = useState<"border" | "letter" | null>(null);
 
@@ -1089,84 +1090,5 @@ export function TickerDisplaySettings({
         </div>
       </div>
     </ContentPanel>
-  );
-}
-
-/** Compact this / selected / all picker for applying one colour independently. */
-function ColorApplyRow({
-  label,
-  scope,
-  selectedIds,
-  branches,
-  currentBranchId,
-  applying,
-  onScopeChange,
-  onApply,
-}: {
-  label: string;
-  scope: "current" | "specific" | "all";
-  selectedIds: string[];
-  branches: Branch[];
-  currentBranchId: string;
-  applying: boolean;
-  onScopeChange: (scope: "current" | "specific" | "all", ids: string[]) => void;
-  onApply: () => void;
-}) {
-  return (
-    <div className="space-y-2 rounded-xl border border-border/50 bg-background/60 p-2.5">
-      <p className="text-xs font-medium">{label}</p>
-      <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ["current", "This branch"],
-            ["specific", "Selected"],
-            ["all", "All branches"],
-          ] as const
-        ).map(([key, text]) => (
-          <label key={key} className="flex cursor-pointer items-center gap-1.5 text-[11px]">
-            <input
-              type="radio"
-              checked={scope === key}
-              onChange={() =>
-                onScopeChange(key, key === "specific" && selectedIds.length === 0 ? [currentBranchId] : selectedIds)
-              }
-              className="h-3 w-3"
-            />
-            {text}
-          </label>
-        ))}
-      </div>
-      {scope === "specific" ? (
-        <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto">
-          {branches.map((b) => {
-            const on = selectedIds.includes(b.id);
-            return (
-              <button
-                key={b.id}
-                type="button"
-                onClick={() => {
-                  const next = on ? selectedIds.filter((id) => id !== b.id) : [...selectedIds, b.id];
-                  onScopeChange("specific", next.length > 0 ? next : [currentBranchId]);
-                }}
-                className={`rounded-md border px-2 py-0.5 text-[10px] ${
-                  on ? "border-primary/50 bg-primary/10 text-primary" : "border-border/50 text-muted-foreground"
-                }`}
-              >
-                {b.name}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-      <Button
-        type="button"
-        size="sm"
-        className="h-8 w-full rounded-lg text-xs"
-        disabled={applying || (scope === "specific" && selectedIds.length === 0)}
-        onClick={onApply}
-      >
-        {applying ? "Applying…" : "Apply this colour"}
-      </Button>
-    </div>
   );
 }
