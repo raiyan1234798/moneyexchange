@@ -153,14 +153,14 @@ export async function setTransferRateHidden(
     updatedBy: actor.userId,
     updatedByName: actor.userName,
   });
-  await writeAuditLog({
+  void writeAuditLog({
     action: isHidden ? "transfer_rate_hide" : "transfer_rate_show",
     entityType: "transfer_rate",
     entityId: code,
     userId: actor.userId,
     userName: actor.userName,
     branchId: null,
-  });
+  }).catch(() => undefined);
 }
 
 /**
@@ -179,9 +179,9 @@ export async function setTransferCurrencyVisibilityOnBranches(
 }
 
 /**
- * Hide or show MANY remittance currencies in one pass. Each branch settings
- * doc is written once (all codes merged into hiddenTransferCodes), instead of
- * one write per currency — much faster for bulk hide/show.
+ * Hide or show MANY remittance currencies in one pass.
+ * Writes each branch settings doc once (no per-branch audit / re-read) so
+ * "all branches" finishes in one parallel wave.
  */
 export async function setTransferCurrenciesVisibilityOnBranches(
   codes: string[],
@@ -195,17 +195,14 @@ export async function setTransferCurrenciesVisibilityOnBranches(
   ];
   if (normalized.length === 0 || targets.length === 0) return 0;
 
-  const { updateBranch } = await import("@/lib/services/branch-service");
-  const { getDocument } = await import("@/lib/firebase/firestore");
+  const { updateDocument } = await import("@/lib/firebase/firestore");
   const { COLLECTIONS } = await import("@/lib/constants");
 
+  // Use in-memory branch.settings (already loaded in the dashboard). Skipping
+  // a fresh getDocument per branch cuts the all-branches path roughly in half.
   const branchResults = await Promise.all(
     targets.map(async (branch) => {
-      // Fresh read so we don't clobber concurrent settings edits.
-      const latest = await getDocument<Branch>(COLLECTIONS.branches, branch.id);
-      const prevSettings = {
-        ...(latest?.settings ?? branch.settings ?? {}),
-      } as BranchSettings;
+      const prevSettings = { ...(branch.settings ?? {}) } as BranchSettings;
       const current = (prevSettings.hiddenTransferCodes ?? [])
         .map((c) => String(c).toUpperCase())
         .filter(Boolean);
@@ -222,8 +219,10 @@ export async function setTransferCurrenciesVisibilityOnBranches(
         }
       }
       if (!changed) return 0;
-      const nextSettings: BranchSettings = { ...prevSettings, hiddenTransferCodes: next };
-      await updateBranch(branch.id, { settings: nextSettings }, actor);
+      // Direct doc update — skip updateBranch's per-call audit log.
+      await updateDocument(COLLECTIONS.branches, branch.id, {
+        settings: { ...prevSettings, hiddenTransferCodes: next } satisfies BranchSettings,
+      });
       return 1;
     }),
   );
@@ -234,7 +233,6 @@ export async function setTransferCurrenciesVisibilityOnBranches(
   if (targetingAll) {
     await Promise.all(normalized.map((code) => setTransferRateHidden(code, isHidden, actor)));
   } else if (!isHidden) {
-    // Unhiding on a subset: clear global hide so the currency can show where allowed.
     const rows = await listTransferRates();
     await Promise.all(
       normalized.map(async (code) => {
@@ -244,7 +242,7 @@ export async function setTransferCurrenciesVisibilityOnBranches(
     );
   }
 
-  await writeAuditLog({
+  void writeAuditLog({
     action: isHidden ? "transfer_rate_hide_scoped" : "transfer_rate_show_scoped",
     entityType: "transfer_rate",
     entityId: normalized.length === 1 ? normalized[0] : normalized.join(","),
@@ -252,7 +250,8 @@ export async function setTransferCurrenciesVisibilityOnBranches(
     userName: actor.userName,
     branchId: targets.length === 1 ? targets[0].id : null,
     metadata: { codes: normalized, isHidden, branchIds: targets.map((t) => t.id), updated },
-  });
+  }).catch(() => undefined);
+
   return updated;
 }
 

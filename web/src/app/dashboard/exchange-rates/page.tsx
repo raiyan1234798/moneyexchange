@@ -693,6 +693,7 @@ export default function ExchangeRatesPage() {
     if (!user || !profile || !visibilityDialog) return;
     const codes = visibilityDialog.codes.map((c) => c.trim().toUpperCase()).filter(Boolean);
     if (codes.length === 0) return;
+    const hide = visibilityDialog.hide;
     const active = branches.filter((b) => b.status === "active");
     const targets =
       visibilityScope === "all"
@@ -707,26 +708,43 @@ export default function ExchangeRatesPage() {
       return;
     }
     setVisibilitySaving(true);
+    const codeSet = new Set(codes);
+    // Optimistic: flip local rows immediately so the dialog can close.
+    if (effectiveBranchId && targets.includes(effectiveBranchId)) {
+      setRates((prev) =>
+        prev.map((r) =>
+          codeSet.has(r.currencyCode.toUpperCase()) ? { ...r, isHidden: hide } : r,
+        ),
+      );
+    }
     try {
       const updated = await setForexCurrenciesVisibilityOnBranches(
         codes,
-        visibilityDialog.hide,
+        hide,
         targets,
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
       const label =
-        codes.length === 1 ? codes[0] : `${codes.length} currencies (${codes.slice(0, 4).join(", ")}${codes.length > 4 ? "…" : ""})`;
+        codes.length === 1
+          ? codes[0]
+          : `${codes.length} currencies (${codes.slice(0, 4).join(", ")}${codes.length > 4 ? "…" : ""})`;
       toast.success(
-        visibilityDialog.hide
+        hide
           ? `Hidden ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`
           : `Shown ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`,
         { duration: 7000 },
       );
       setVisibilityDialog(null);
       setSelectedVisibilityCodes([]);
-      if (effectiveBranchId) setRates(await listExchangeRates(effectiveBranchId));
+      // Refresh in the background — subscribe may already cover it.
+      if (effectiveBranchId) {
+        void listExchangeRates(effectiveBranchId).then(setRates).catch(() => undefined);
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to update visibility");
+      if (effectiveBranchId) {
+        void listExchangeRates(effectiveBranchId).then(setRates).catch(() => undefined);
+      }
     } finally {
       setVisibilitySaving(false);
     }
