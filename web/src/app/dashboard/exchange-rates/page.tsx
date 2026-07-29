@@ -91,6 +91,7 @@ import {
 import { ocrRatesFromImage } from "@/lib/ocr-rates";
 import { bulkUpsertTransferRates, upsertTransferRate } from "@/lib/services/transfer-rate-service";
 import { CentralTransferPanel } from "@/components/dashboard/central-transfer-panel";
+import { BranchCurrencyVisibilityOverview } from "@/components/dashboard/branch-currency-visibility-overview";
 import { getRateDisplayLabel } from "@/lib/unimoni-signage";
 import {
   buildCurrencyPayload,
@@ -1584,10 +1585,12 @@ export default function ExchangeRatesPage() {
         ) : null}
 
         {canCreateCatalog ? (
-          <ContentPanel
-            title="Currency Catalog"
-            description="Global currencies available to all branches"
-          >
+          <>
+            <BranchCurrencyVisibilityOverview branches={branches} rates={allRates} />
+            <ContentPanel
+              title="Currency Catalog"
+              description="Global currencies available to all branches"
+            >
             {currencies.length === 0 ? (
               <EmptyState
                 title="No currencies yet"
@@ -1646,32 +1649,48 @@ export default function ExchangeRatesPage() {
                   {
                     key: "branches",
                     header: "On branches",
-                    width: "w-[120px]",
+                    width: "w-[140px]",
                     hideOnMobile: true,
                     cell: (c) => {
                       const code = getCatalogCurrency(c).code;
-                      const names = [
-                        ...new Set(
-                          allRates
-                            .filter((r) => r.currencyCode.toUpperCase() === code && !r.isHidden)
-                            .map((r) => branches.find((b) => b.id === r.branchId)?.name ?? null)
-                            .filter(Boolean) as string[],
-                        ),
-                      ];
-                      if (names.length === 0) {
+                      // Count EVERY branch that carries this currency (including
+                      // hidden-on-TV). The old filter skipped isHidden rows, so
+                      // "1 branch" appeared while the dialog listed 8.
+                      const byBranch = new Map<string, { name: string; hidden: boolean }>();
+                      for (const r of allRates) {
+                        if ((r.currencyCode ?? "").toUpperCase() !== code) continue;
+                        const b = branches.find((x) => x.id === r.branchId);
+                        if (!b) continue;
+                        const prev = byBranch.get(b.id);
+                        if (!prev) {
+                          byBranch.set(b.id, { name: b.name, hidden: Boolean(r.isHidden) });
+                        } else if (!r.isHidden) {
+                          byBranch.set(b.id, { name: b.name, hidden: false });
+                        }
+                      }
+                      const list = [...byBranch.values()];
+                      if (list.length === 0) {
                         return <span className="text-xs text-muted-foreground">—</span>;
                       }
-                      // Compact count — hover shows the full list, click opens the
-                      // per-branch dialog ("elaborate"). Keeps the table narrow so
-                      // it fits every screen without sideways scrolling.
+                      const hiddenCount = list.filter((x) => x.hidden).length;
+                      const title = list
+                        .map((x) => (x.hidden ? `${x.name} (hidden)` : x.name))
+                        .join(", ");
                       return (
                         <button
                           type="button"
                           onClick={() => setManageBranchesFor(c)}
-                          title={names.join(", ")}
-                          className="rounded-md px-2 py-0.5 text-xs font-medium text-primary underline-offset-2 hover:bg-primary/10 hover:underline"
+                          title={title}
+                          className="rounded-md px-2 py-0.5 text-left text-xs font-medium text-primary underline-offset-2 hover:bg-primary/10 hover:underline"
                         >
-                          {names.length} {names.length === 1 ? "branch" : "branches"}
+                          <span>
+                            {list.length} {list.length === 1 ? "branch" : "branches"}
+                          </span>
+                          {hiddenCount > 0 ? (
+                            <span className="mt-0.5 block text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                              {hiddenCount} hidden on TV
+                            </span>
+                          ) : null}
                         </button>
                       );
                     },
@@ -1764,6 +1783,7 @@ export default function ExchangeRatesPage() {
               />
             )}
           </ContentPanel>
+          </>
         ) : null}
 
         {/* Publish safety net: confirm an inverted spread or a big rate jump
