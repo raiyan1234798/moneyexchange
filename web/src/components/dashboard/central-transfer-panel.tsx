@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, FileSpreadsheet, GripVertical, Plus, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
@@ -157,6 +157,18 @@ export function CentralTransferPanel({
       prev.includes(upper) ? prev.filter((c) => c !== upper) : [...prev, upper],
     );
   }
+
+  /** Render order: hidden currencies sink to the bottom so visible ones stay
+      grouped at the top. displayOrder is preserved for when they're unhidden. */
+  const sortedRows = useMemo(() => {
+    return [...rows].sort((a, b) => {
+      const ha = isHiddenOnCurrentBranch(a.currencyCode) ? 1 : 0;
+      const hb = isHiddenOnCurrentBranch(b.currencyCode) ? 1 : 0;
+      if (ha !== hb) return ha - hb;
+      return (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.currencyCode.localeCompare(b.currencyCode);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- rows + branch hidden codes drive re-sort
+  }, [rows, currentBranch?.settings?.hiddenTransferCodes, currentBranch?.id]);
 
   /** Move a currency up/down on the TRANSFER card only (forex order untouched). */
   function moveTransferRow(row: TransferRate, dir: -1 | 1) {
@@ -420,19 +432,19 @@ export function CentralTransferPanel({
         description="Continues from the forex rates above — ONE set shown on every branch's transfer card."
       >
       <div className="space-y-2">
-        {rows.length > 0 ? (
+        {sortedRows.length > 0 ? (
           <div className="mb-1 flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
             <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
               <input
                 type="checkbox"
                 className="h-3.5 w-3.5"
                 checked={
-                  rows.length > 0 &&
-                  rows.every((r) => selectedVisibilityCodes.includes(r.currencyCode.toUpperCase()))
+                  sortedRows.length > 0 &&
+                  sortedRows.every((r) => selectedVisibilityCodes.includes(r.currencyCode.toUpperCase()))
                 }
                 onChange={(e) => {
                   if (e.target.checked) {
-                    setSelectedVisibilityCodes(rows.map((r) => r.currencyCode.toUpperCase()));
+                    setSelectedVisibilityCodes(sortedRows.map((r) => r.currencyCode.toUpperCase()));
                   } else {
                     setSelectedVisibilityCodes([]);
                   }
@@ -471,7 +483,7 @@ export function CentralTransferPanel({
             </div>
           </div>
         ) : null}
-        {rows.map((row, index) => {
+        {sortedRows.map((row, index) => {
           const draft = drafts[row.id] ?? { transferUsd: "", transferLocal: "" };
           const meta = getCurrencyMeta(row.currencyCode);
           // Auto-pick by country code when the built-in catalog doesn't know the
@@ -592,7 +604,7 @@ export function CentralTransferPanel({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy || rows[0]?.id === row.id}
+                  disabled={busy || sortedRows[0]?.id === row.id}
                   className="h-9 w-9 rounded-lg px-0"
                   title="Move up on the transfer card"
                   aria-label={`Move ${row.currencyCode} up`}
@@ -603,7 +615,7 @@ export function CentralTransferPanel({
                 <Button
                   variant="outline"
                   size="sm"
-                  disabled={busy || rows[rows.length - 1]?.id === row.id}
+                  disabled={busy || sortedRows[sortedRows.length - 1]?.id === row.id}
                   className="h-9 w-9 rounded-lg px-0"
                   title="Move down on the transfer card"
                   aria-label={`Move ${row.currencyCode} down`}
@@ -653,7 +665,7 @@ export function CentralTransferPanel({
             </div>
           );
         })}
-        {rows.length === 0 ? (
+        {sortedRows.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
             No transfer rates yet — add currencies below, or upload an Excel file with a Transfer
             sheet (CURRENCY | $ | {localLabel}) above.
