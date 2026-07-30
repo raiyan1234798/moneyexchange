@@ -85,10 +85,41 @@ export function getRateFlag(rate: ExchangeRate): string | null {
   return flagFromCurrencyCode(code);
 }
 
+/** Prefer a live rate over a leftover 1/1 placeholder when the same code
+ *  appears twice on one branch (client saw duplicate SCP rows on the TV). */
+function isPlaceholderRate(rate: ExchangeRate): boolean {
+  return Number(rate.buyRate) === 1 && Number(rate.sellRate) === 1;
+}
+
+function dedupeSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
+  const best = new Map<string, ExchangeRate>();
+  for (const rate of rates) {
+    const code = (rate.currencyCode ?? "").trim().toUpperCase();
+    if (!code) continue;
+    const existing = best.get(code);
+    if (!existing) {
+      best.set(code, rate);
+      continue;
+    }
+    const existingPlaceholder = isPlaceholderRate(existing);
+    const nextPlaceholder = isPlaceholderRate(rate);
+    if (existingPlaceholder && !nextPlaceholder) {
+      best.set(code, rate);
+      continue;
+    }
+    if (!existingPlaceholder && nextPlaceholder) continue;
+    // Same quality — keep the earlier displayOrder / first seen.
+    const eo = existing.displayOrder ?? Number.MAX_SAFE_INTEGER;
+    const no = rate.displayOrder ?? Number.MAX_SAFE_INTEGER;
+    if (no < eo) best.set(code, rate);
+  }
+  return [...best.values()];
+}
+
 export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {
   // NEVER invent rates: a branch with no published rates must show an explicit
   // "being updated" state, not fictional prices to walk-in customers.
-  return [...rates]
-    .filter((rate) => !rate.isHidden && rate.status === "published")
-    .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
+  return dedupeSignageRates(
+    [...rates].filter((rate) => !rate.isHidden && rate.status === "published"),
+  ).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
 }

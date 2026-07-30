@@ -769,8 +769,11 @@ export function UnimoniRatesPanel({
                     custom currencies. */}
                 <FlagChip
                   flag={
-                    currencyOverrides?.[rate.currencyCode?.toUpperCase() ?? ""]?.flag?.trim() ||
+                    // Catalog/ISO flag first so a bad currency_overrides emoji
+                    // (e.g. Zimbabwe on ZMW) cannot drive the chip. FlagChip
+                    // also prefers currencyCode → country for the PNG path.
                     getRateFlag(rate) ||
+                    currencyOverrides?.[rate.currencyCode?.toUpperCase() ?? ""]?.flag?.trim() ||
                     rate.currencyCode ||
                     "🌍"
                   }

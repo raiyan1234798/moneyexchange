@@ -17,6 +17,12 @@ describe("countryCodeFromCurrencyCode", () => {
     assert.equal(countryCodeFromCurrencyCode("RWF"), "rw");
   });
 
+  it("maps Zambia ZMW and Zimbabwe ZWL/ZWG to the correct countries", () => {
+    assert.equal(countryCodeFromCurrencyCode("ZMW"), "zm");
+    assert.equal(countryCodeFromCurrencyCode("ZWL"), "zw");
+    assert.equal(countryCodeFromCurrencyCode("ZWG"), "zw");
+  });
+
   it("handles catalog overrides (EUR, CFA, Scotland)", () => {
     assert.equal(countryCodeFromCurrencyCode("EUR"), "eu");
     assert.equal(countryCodeFromCurrencyCode("XOF"), "sn");
@@ -45,6 +51,8 @@ describe("countryCodeFromFlagEmoji", () => {
     assert.equal(countryCodeFromFlagEmoji("🇺🇸"), "us");
     assert.equal(countryCodeFromFlagEmoji("🇦🇪"), "ae");
     assert.equal(countryCodeFromFlagEmoji("🏴󠁧󠁢󠁳󠁣󠁴󠁿"), "gb-sct");
+    assert.equal(countryCodeFromFlagEmoji("🇿🇲"), "zm");
+    assert.equal(countryCodeFromFlagEmoji("🇿🇼"), "zw");
   });
 });
 

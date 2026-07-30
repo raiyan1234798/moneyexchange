@@ -17,19 +17,23 @@ import {
  *
  * Slot is a fixed box filled with object-cover so every flag (2:1, square,
  * Nepal, …) occupies the full chip — no letterboxing empty bands.
+ *
+ * Currency code wins over a stored/override emoji when both resolve: a wrong
+ * emoji saved on ZMW (Zimbabwe 🇿🇼 instead of Zambia 🇿🇲) must not paint the
+ * wrong country on the TV.
  */
 function resolveFlagCountry(
   flag: string,
   currencyCode?: string | null,
 ): string | null {
-  const fromEmoji = countryCodeFromFlagEmoji(flag);
-  if (fromEmoji) return fromEmoji;
-
   const codeHint = currencyCode?.trim() || "";
   if (codeHint) {
     const fromCurrency = countryCodeFromCurrencyCode(codeHint);
     if (fromCurrency) return fromCurrency;
   }
+
+  const fromEmoji = countryCodeFromFlagEmoji(flag);
+  if (fromEmoji) return fromEmoji;
 
   // Allow callers to pass a raw ISO currency or country code as `flag`
   // when no emoji was stored yet (new catalog rows).
@@ -39,6 +43,19 @@ function resolveFlagCountry(
   }
 
   return null;
+}
+
+/** Focal point inside the chip — some flags put identity marks off-center. */
+function flagObjectPosition(country: string): string {
+  switch (country) {
+    case "zm":
+      // Eagle + red/black/orange bars sit in the fly (bottom-right).
+      return "right bottom";
+    case "np":
+      return "center top";
+    default:
+      return "center";
+  }
 }
 
 export function FlagChip({
@@ -82,7 +99,8 @@ export function FlagChip({
         onError={() => setFailed(true)}
         // Fill the chip completely. Wide flags (AED/GBP), square (CHF), and
         // tall (Nepal) all crop to the slot instead of leaving empty bands.
-        className="h-full w-full object-cover object-center"
+        className="h-full w-full object-cover"
+        style={{ objectPosition: flagObjectPosition(country) }}
       />
     </span>
   );
