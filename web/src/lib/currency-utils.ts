@@ -5,6 +5,8 @@ export type CurrencyMeta = { name: string; country: string; flag: string };
 const NAME_ALIASES: Record<string, string> = {
   "ZAMBIAN CURRENCY": "ZMW",
   "ZAMBIAN KWACHA": "ZMW",
+  "ZIMBABWE DOLLAR": "ZMW",
+  "ZIMBABWEAN DOLLAR": "ZMW",
   "CANADA CAD": "CAD",
   "CANADIAN DOLLAR": "CAD",
   "AUSTRALIAN DOLLAR": "AUD",
@@ -25,6 +27,8 @@ const CURRENCY_FLAG_COUNTRY_OVERRIDES: Record<string, string> = {
   XPF: "pf",
   XCD: "ag",
   ANG: "cw",
+  // Client catalog: ZMW is listed as Zimbabwe (not ISO Zambia). Force zw.png.
+  ZMW: "zw",
 };
 
 export function getCurrencyMeta(code: string): CurrencyMeta | undefined {
@@ -190,9 +194,8 @@ export function resolveCurrencyFields(currency: {
     name = titleCaseName(name);
   }
 
-  // Flag + issuing country follow the currency CODE (ISO 4217 → country). A
-  // mis-saved emoji/label (ZMW → Zimbabwe) must not win over the catalog /
-  // country-code rule — money exchange flags are by country code.
+  // Flag + issuing country follow the currency CODE / catalog overrides
+  // (e.g. client ZMW → Zimbabwe). A mismatched stored emoji must not win.
   const country = meta?.country || currency.country?.trim() || "";
   const derivedFlag = meta?.flag ?? flagFromCurrencyCode(code);
   const stored = currency.flag?.trim() ?? "";

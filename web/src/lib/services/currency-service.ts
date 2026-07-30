@@ -46,9 +46,9 @@ export function subscribeCurrencyOverrides(
  * writes the public override the TV display reads, and keeps the catalog
  * document in sync when one exists for that code.
  *
- * Flag is validated against the currency CODE: a pasted emoji whose country
- * does not match the ISO mapping (ZMW + 🇿🇼) is replaced with the correct
- * flag so money-exchange displays stay consistent.
+ * Flag is validated against the currency CODE (and catalog overrides such as
+ * ZMW → Zimbabwe): a pasted emoji whose country does not match is replaced
+ * so money-exchange displays stay consistent.
  */
 export async function saveCurrencyOverride(
   code: string,

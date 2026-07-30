@@ -559,9 +559,9 @@ export const CURRENCY_METADATA: Record<
   CHF: { name: "Swiss Franc", country: "Switzerland", flag: "🇨🇭" },
   NZD: { name: "New Zealand Dollar", country: "New Zealand", flag: "🇳🇿" },
   SGD: { name: "Singapore Dollar", country: "Singapore", flag: "🇸🇬" },
-  ZMW: { name: "Zambian Kwacha", country: "Zambia", flag: "🇿🇲" },
-  // Zimbabwean Dollar (not ZMW — that is Zambia). Kept so imports/overrides
-  // for ZWL cannot be confused with the Zambian Kwacha again.
+  // Client uses ZMW for Zimbabwe (rate board / remittance). Not the ISO
+  // Zambia mapping — flag must stay 🇿🇼. See CURRENCY_FLAG_COUNTRY_OVERRIDES.
+  ZMW: { name: "Zimbabwe Dollar", country: "Zimbabwe", flag: "🇿🇼" },
   ZWL: { name: "Zimbabwean Dollar", country: "Zimbabwe", flag: "🇿🇼" },
   UGX: { name: "Ugandan Shilling", country: "Uganda", flag: "🇺🇬" },
   TZS: { name: "Tanzanian Shilling", country: "Tanzania", flag: "🇹🇿" },

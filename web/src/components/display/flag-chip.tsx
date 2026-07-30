@@ -18,16 +18,15 @@ import {
  * Slot is a fixed box filled with object-cover so every flag (2:1, square,
  * Nepal, …) occupies the full chip — no letterboxing empty bands.
  *
- * Money-exchange rule: the ISO 4217 currency code is the source of truth for
- * which country flag to show (ZMW → Zambia, not whatever emoji was saved by
- * mistake). Stored emoji is only a fallback when the code cannot be mapped.
+ * Money-exchange rule: the ISO 4217 currency code (plus catalog overrides
+ * such as ZMW → Zimbabwe) is the source of truth for which country flag to
+ * show. Stored emoji is only a fallback when the code cannot be mapped.
  */
 function resolveFlagCountry(
   flag: string,
   currencyCode?: string | null,
 ): string | null {
-  // Currency code FIRST — wrong overrides (e.g. ZMW saved as 🇿🇼 Zimbabwe)
-  // must not override the ISO country for that code on the rate card.
+  // Currency code FIRST (incl. catalog overrides like ZMW → zw).
   const codeHint = currencyCode?.trim() || "";
   if (codeHint) {
     const fromCurrency = countryCodeFromCurrencyCode(codeHint);

@@ -15,16 +15,16 @@ describe("countryCodeFromCurrencyCode", () => {
     assert.equal(countryCodeFromCurrencyCode("AED"), "ae");
     assert.equal(countryCodeFromCurrencyCode("CHF"), "ch");
     assert.equal(countryCodeFromCurrencyCode("RWF"), "rw");
-    // ZMW is Zambia — must NEVER resolve to Zimbabwe (zw)
-    assert.equal(countryCodeFromCurrencyCode("ZMW"), "zm");
-    assert.equal(countryCodeFromCurrencyCode("ZWL"), "zw");
   });
 
-  it("handles catalog overrides (EUR, CFA, Scotland)", () => {
+  it("handles catalog overrides (EUR, CFA, Scotland, ZMW→Zimbabwe)", () => {
     assert.equal(countryCodeFromCurrencyCode("EUR"), "eu");
     assert.equal(countryCodeFromCurrencyCode("XOF"), "sn");
     assert.equal(countryCodeFromCurrencyCode("XAF"), "cm");
     assert.equal(countryCodeFromCurrencyCode("SCP"), "gb-sct");
+    // Client board lists ZMW as Zimbabwe — must not use Zambia (zm)
+    assert.equal(countryCodeFromCurrencyCode("ZMW"), "zw");
+    assert.equal(countryCodeFromCurrencyCode("ZWL"), "zw");
   });
 
   it("derives flags for new currencies not in the catalog", () => {
@@ -55,24 +55,24 @@ describe("flagFromCurrencyCode", () => {
   it("returns emoji for ISO countries and catalog EUR", () => {
     assert.equal(flagFromCurrencyCode("KES"), "🇰🇪");
     assert.equal(flagFromCurrencyCode("EUR"), "🇪🇺");
-    assert.equal(flagFromCurrencyCode("ZMW"), "🇿🇲");
+    assert.equal(flagFromCurrencyCode("ZMW"), "🇿🇼");
     assert.equal(flagFromCurrencyCode("ZWL"), "🇿🇼");
     assert.ok(flagFromCurrencyCode("BOB"));
   });
 });
 
-describe("resolveCurrencyFields prefers country from currency code", () => {
-  it("ignores a mis-saved Zimbabwe label on ZMW", async () => {
+describe("resolveCurrencyFields keeps ZMW as Zimbabwe", () => {
+  it("resolves ZMW to Zimbabwe flag even if Zambia was stored", async () => {
     const { resolveCurrencyFields } = await import("./currency-utils.ts");
     const resolved = resolveCurrencyFields({
       currencyCode: "ZMW",
-      currencyName: "Zimbabwe Dollar",
-      country: "Zimbabwe",
-      flag: "🇿🇼",
+      currencyName: "Zambian Kwacha",
+      country: "Zambia",
+      flag: "🇿🇲",
     });
     assert.equal(resolved.code, "ZMW");
-    assert.equal(resolved.country, "Zambia");
-    assert.equal(resolved.flag, "🇿🇲");
+    assert.equal(resolved.country, "Zimbabwe");
+    assert.equal(resolved.flag, "🇿🇼");
   });
 });
 
