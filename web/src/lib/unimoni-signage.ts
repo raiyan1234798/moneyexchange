@@ -71,18 +71,20 @@ export function getRateDisplayLabel(rate: ExchangeRate): string {
 
 /**
  * Signage shows ONLY the currency code + its flag (per client), never long
- * display names. Flag resolved from the currency catalog metadata by code,
- * then the rate's stored flag, then ISO 4217 → country (works for new codes).
+ * display names. Flag is resolved from the ISO 4217 currency code (catalog +
+ * country-code rule) so a bad stored emoji cannot show the wrong country —
+ * money exchange flags must match the currency's country. Stored rate flags
+ * are only a last resort when the code cannot be mapped.
  */
 export function getRateFlag(rate: ExchangeRate): string | null {
   const code = rate.currencyCode?.trim() ?? "";
   const catalog = getCurrencyMeta(code)?.flag;
   if (catalog) return catalog;
-  // Not in the built-in catalog: use the flag saved on the rate itself (unless
-  // it's a stand-in glyph), then derive from the country code (KES → 🇰🇪).
+  const derived = flagFromCurrencyCode(code);
+  if (derived) return derived;
   const stored = rate.flag?.trim();
   if (stored && !isPlaceholderFlag(stored)) return stored;
-  return flagFromCurrencyCode(code);
+  return null;
 }
 
 export function resolveSignageRates(rates: ExchangeRate[]): ExchangeRate[] {

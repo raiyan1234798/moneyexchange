@@ -560,6 +560,9 @@ export const CURRENCY_METADATA: Record<
   NZD: { name: "New Zealand Dollar", country: "New Zealand", flag: "🇳🇿" },
   SGD: { name: "Singapore Dollar", country: "Singapore", flag: "🇸🇬" },
   ZMW: { name: "Zambian Kwacha", country: "Zambia", flag: "🇿🇲" },
+  // Zimbabwean Dollar (not ZMW — that is Zambia). Kept so imports/overrides
+  // for ZWL cannot be confused with the Zambian Kwacha again.
+  ZWL: { name: "Zimbabwean Dollar", country: "Zimbabwe", flag: "🇿🇼" },
   UGX: { name: "Ugandan Shilling", country: "Uganda", flag: "🇺🇬" },
   TZS: { name: "Tanzanian Shilling", country: "Tanzania", flag: "🇹🇿" },
   NGN: { name: "Nigerian Naira", country: "Nigeria", flag: "🇳🇬" },

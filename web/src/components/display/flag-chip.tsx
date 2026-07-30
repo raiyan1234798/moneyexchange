@@ -17,19 +17,25 @@ import {
  *
  * Slot is a fixed box filled with object-cover so every flag (2:1, square,
  * Nepal, …) occupies the full chip — no letterboxing empty bands.
+ *
+ * Money-exchange rule: the ISO 4217 currency code is the source of truth for
+ * which country flag to show (ZMW → Zambia, not whatever emoji was saved by
+ * mistake). Stored emoji is only a fallback when the code cannot be mapped.
  */
 function resolveFlagCountry(
   flag: string,
   currencyCode?: string | null,
 ): string | null {
-  const fromEmoji = countryCodeFromFlagEmoji(flag);
-  if (fromEmoji) return fromEmoji;
-
+  // Currency code FIRST — wrong overrides (e.g. ZMW saved as 🇿🇼 Zimbabwe)
+  // must not override the ISO country for that code on the rate card.
   const codeHint = currencyCode?.trim() || "";
   if (codeHint) {
     const fromCurrency = countryCodeFromCurrencyCode(codeHint);
     if (fromCurrency) return fromCurrency;
   }
+
+  const fromEmoji = countryCodeFromFlagEmoji(flag);
+  if (fromEmoji) return fromEmoji;
 
   // Allow callers to pass a raw ISO currency or country code as `flag`
   // when no emoji was stored yet (new catalog rows).

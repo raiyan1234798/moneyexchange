@@ -190,11 +190,13 @@ export function resolveCurrencyFields(currency: {
     name = titleCaseName(name);
   }
 
-  const country = currency.country?.trim() || meta?.country || "";
+  // Flag + issuing country follow the currency CODE (ISO 4217 → country). A
+  // mis-saved emoji/label (ZMW → Zimbabwe) must not win over the catalog /
+  // country-code rule — money exchange flags are by country code.
+  const country = meta?.country || currency.country?.trim() || "";
+  const derivedFlag = meta?.flag ?? flagFromCurrencyCode(code);
   const stored = currency.flag?.trim() ?? "";
-  const flag = !isPlaceholderFlag(stored)
-    ? stored
-    : meta?.flag ?? flagFromCurrencyCode(code) ?? (stored || "💱");
+  const flag = derivedFlag || (!isPlaceholderFlag(stored) ? stored : "") || "💱";
 
   return { code, name, country, flag };
 }
@@ -225,13 +227,14 @@ export function buildCurrencyPayload(input: {
       ? titleCaseName(rawName)
       : meta?.name ?? titleCaseName(rawName || code);
 
+  // Flag/country always follow the currency code when the catalog (or ISO
+  // country-code rule) can resolve them — manual paste only fills gaps.
+  const derivedFlag = meta?.flag ?? flagFromCurrencyCode(code);
+  const manualFlag = input.flag?.trim() && !isPlaceholderFlag(input.flag) ? input.flag.trim() : "";
   return {
     currencyCode: code,
     currencyName,
-    country: input.country?.trim() || meta?.country || "",
-    flag:
-      input.flag?.trim() && !isPlaceholderFlag(input.flag)
-        ? input.flag.trim()
-        : meta?.flag ?? flagFromCurrencyCode(code) ?? (input.flag?.trim() || "💱"),
+    country: meta?.country || input.country?.trim() || "",
+    flag: derivedFlag || manualFlag || "💱",
   };
 }
