@@ -61,7 +61,8 @@ const iconMap = {
 const MOBILE_NAV = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard },
   { href: "/dashboard/exchange-rates", label: "Rates", icon: TrendingUp },
-  { href: "/dashboard/videos", label: "Media Manager", icon: Video },
+  // Short label so five bottom-nav items fit on ~390px phones without crowding.
+  { href: "/dashboard/videos", label: "Media", icon: Video },
   { href: "/dashboard/profile", label: "Profile", icon: User },
 ] as const;
 

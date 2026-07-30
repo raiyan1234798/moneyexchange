@@ -1169,17 +1169,25 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
         /* Stack vertically ONLY in portrait (phones) — a landscape TV always keeps
            the side-by-side layout, even at a narrow logical width. */
         @media (orientation: portrait) {
+          .display-main-area {
+            /* Phone portrait: promo on top, rates below — both must stay usable. */
+            gap: 0.35rem;
+            padding-bottom: 0.25rem;
+          }
           .display-main-area .display-promo-panel,
           .display-main-area .display-rates-panel {
             width: 100% !important;
+            max-width: 100% !important;
           }
           .display-main-area .display-promo-panel {
-            flex: 1 1 0%;
-            min-height: clamp(10rem, 34vh, 24rem);
+            flex: 1.05 1 0%;
+            min-height: clamp(9rem, 32vh, 22rem);
           }
           .display-main-area .display-rates-panel {
-            flex: 1 1 0%;
-            min-height: clamp(12rem, 36vh, 18rem);
+            /* Prefer the rate card on phones — managers previewing on mobile
+               need to read codes/flags without the promo eating the screen. */
+            flex: 1.35 1 0%;
+            min-height: clamp(14rem, 42vh, 28rem);
           }
         }
       `}</style>
