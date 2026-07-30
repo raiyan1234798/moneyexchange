@@ -5,6 +5,10 @@ export type CurrencyMeta = { name: string; country: string; flag: string };
 const NAME_ALIASES: Record<string, string> = {
   "ZAMBIAN CURRENCY": "ZMW",
   "ZAMBIAN KWACHA": "ZMW",
+  // Zimbabwe ≠ Zambia (ZMW). Keep these aliases so imports don't land on ZMW.
+  ZIMBABWE: "ZWL",
+  "ZIMBABWEAN DOLLAR": "ZWL",
+  "ZIMBABWE DOLLAR": "ZWL",
   "CANADA CAD": "CAD",
   "CANADIAN DOLLAR": "CAD",
   "AUSTRALIAN DOLLAR": "AUD",

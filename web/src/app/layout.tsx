@@ -146,7 +146,9 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-background text-foreground antialiased">
         <AppProviders>{children}</AppProviders>
-        <Toaster richColors closeButton />
+        {/* Top placement keeps success/error toasts clear of sticky Save
+            bars and bottom CTAs (logo-upload messages were covering them). */}
+        <Toaster richColors closeButton position="top-center" offset={20} />
       </body>
     </html>
   );
