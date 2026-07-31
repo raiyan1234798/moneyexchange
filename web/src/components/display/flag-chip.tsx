@@ -22,6 +22,32 @@ import {
  * such as ZMW → Zimbabwe) is the source of truth for which country flag to
  * show. Stored emoji is only a fallback when the code cannot be mapped.
  */
+
+/**
+ * Flags whose distinctive emblem sits on the hoist (left). The rate-card chip
+ * is ~1.5:1 while many of these PNGs are 2:1, so object-center crops both
+ * sides and eats the triangle/bird (Zimbabwe / ZMW — client 2026-07-31).
+ * Anchor left so the right edge is what gets cropped instead.
+ */
+const HOIST_ANCHORED_FLAGS = new Set([
+  "zw", // Zimbabwe — white triangle + bird/star (ZMW on this board)
+  "cz", // Czech Republic
+  "sk", // Slovakia
+  "ph", // Philippines
+  "ss", // South Sudan
+  "sd", // Sudan
+  "ps", // Palestine
+  "jo", // Jordan
+  "eh", // Western Sahara
+  "cu", // Cuba
+  "tt", // Trinidad and Tobago
+  "dj", // Djibouti
+  "er", // Eritrea
+  "gy", // Guyana
+  "st", // São Tomé and Príncipe
+  "tl", // Timor-Leste
+]);
+
 function resolveFlagCountry(
   flag: string,
   currencyCode?: string | null,
@@ -65,6 +91,18 @@ export function FlagChip({
 }) {
   const [failed, setFailed] = useState(false);
   const country = resolveFlagCountry(flag, currencyCode);
+  // Hoist-emblem flags (Zimbabwe / ZMW): chip is ~1.5:1, PNG is 2:1.
+  // object-center crops BOTH sides and eats the triangle/bird. Anchor left
+  // so only the right edge is cropped, and widen the chip to ~2:1.
+  const hoistAnchored = Boolean(country && HOIST_ANCHORED_FLAGS.has(country));
+  // Rate-card passes !w-[2.75em] with !important — strip width utilities so we
+  // can expand to a 2:1 slot without losing the fight to !important.
+  const sizedChipClass = hoistAnchored
+    ? chipClassName
+        .split(/\s+/)
+        .filter((token) => token.length > 0 && !/^!?w-/.test(token) && !/^!?min-w-/.test(token) && !/^!?max-w-/.test(token))
+        .join(" ")
+    : chipClassName;
 
   if (!country || failed) {
     // Last-resort emoji glyph (custom currencies / missing file): no box
@@ -78,16 +116,25 @@ export function FlagChip({
 
   return (
     <span
-      className={`inline-flex h-[1.05em] w-[1.6em] shrink-0 overflow-hidden rounded-[2px] ring-1 ring-black/15 ${chipClassName} ${className}`}
+      className={`inline-flex h-[1.05em] w-[1.6em] shrink-0 overflow-hidden rounded-[2px] ring-1 ring-black/15 ${sizedChipClass} ${className}`}
+      style={
+        hoistAnchored
+          ? {
+              aspectRatio: "2 / 1",
+              width: "auto",
+              borderRadius: 1,
+            }
+          : undefined
+      }
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- tiny same-origin flag PNG; next/image adds nothing here */}
       <img
         src={`/flags/${country}.png`}
         alt=""
         onError={() => setFailed(true)}
-        // Fill the chip completely. Wide flags (AED/GBP), square (CHF), and
-        // tall (Nepal) all crop to the slot instead of leaving empty bands.
-        className="h-full w-full object-cover object-center"
+        // Most flags: cover + center. Hoist-emblem flags: cover + left so the
+        // distinctive left detail stays and the RIGHT side is what gets cropped.
+        className={`h-full w-full object-cover ${hoistAnchored ? "object-left" : "object-center"}`}
       />
     </span>
   );
