@@ -1655,49 +1655,97 @@ export default function ExchangeRatesPage() {
                   {
                     key: "branches",
                     header: "On branches",
-                    width: "w-[140px]",
+                    width: "w-[160px]",
                     hideOnMobile: true,
                     cell: (c) => {
                       const code = getCatalogCurrency(c).code;
                       // Count EVERY branch that carries this currency (including
-                      // hidden-on-TV). The old filter skipped isHidden rows, so
-                      // "1 branch" appeared while the dialog listed 8.
-                      const byBranch = new Map<string, { name: string; hidden: boolean }>();
+                      // hidden-on-TV). Hover lists branch NAMES (not UG codes).
+                      const byBranch = new Map<
+                        string,
+                        { id: string; name: string; shownOnTv: boolean }
+                      >();
                       for (const r of allRates) {
                         if ((r.currencyCode ?? "").toUpperCase() !== code) continue;
                         const b = branches.find((x) => x.id === r.branchId);
                         if (!b) continue;
                         const prev = byBranch.get(b.id);
                         if (!prev) {
-                          byBranch.set(b.id, { name: b.name, hidden: Boolean(r.isHidden) });
+                          byBranch.set(b.id, {
+                            id: b.id,
+                            name: b.name,
+                            shownOnTv: !r.isHidden,
+                          });
                         } else if (!r.isHidden) {
-                          byBranch.set(b.id, { name: b.name, hidden: false });
+                          byBranch.set(b.id, {
+                            id: b.id,
+                            name: b.name,
+                            shownOnTv: true,
+                          });
                         }
                       }
-                      const list = [...byBranch.values()];
+                      const list = [...byBranch.values()].sort((a, b) =>
+                        a.name.localeCompare(b.name),
+                      );
                       if (list.length === 0) {
                         return <span className="text-xs text-muted-foreground">—</span>;
                       }
-                      const hiddenCount = list.filter((x) => x.hidden).length;
-                      const title = list
-                        .map((x) => (x.hidden ? `${x.name} (hidden)` : x.name))
-                        .join(", ");
+                      const shown = list.filter((x) => x.shownOnTv);
+                      const hidden = list.filter((x) => !x.shownOnTv);
                       return (
-                        <button
-                          type="button"
-                          onClick={() => setManageBranchesFor(c)}
-                          title={title}
-                          className="rounded-md px-2 py-0.5 text-left text-xs font-medium text-primary underline-offset-2 hover:bg-primary/10 hover:underline"
-                        >
-                          <span>
-                            {list.length} {list.length === 1 ? "branch" : "branches"}
-                          </span>
-                          {hiddenCount > 0 ? (
-                            <span className="mt-0.5 block text-[10px] font-normal text-amber-600 dark:text-amber-400">
-                              {hiddenCount} hidden on TV
+                        <div className="group relative">
+                          <button
+                            type="button"
+                            onClick={() => setManageBranchesFor(c)}
+                            className="rounded-md px-2 py-0.5 text-left text-xs font-medium text-primary underline-offset-2 hover:bg-primary/10 hover:underline"
+                          >
+                            <span>
+                              {list.length} {list.length === 1 ? "branch" : "branches"}
                             </span>
-                          ) : null}
-                        </button>
+                            {hidden.length > 0 ? (
+                              <span className="mt-0.5 block text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                                {hidden.length} hidden on TV
+                              </span>
+                            ) : null}
+                          </button>
+                          {/* Hover: full branch NAMES — which TVs show this currency. */}
+                          <div
+                            role="tooltip"
+                            className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-56 rounded-xl border border-border/60 bg-popover p-2.5 text-left text-xs text-popover-foreground shadow-lg group-hover:block group-focus-within:block"
+                          >
+                            {shown.length > 0 ? (
+                              <div className="mb-1.5">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Shown on TV
+                                </p>
+                                <ul className="space-y-0.5">
+                                  {shown.map((x) => (
+                                    <li key={x.id} className="font-medium">
+                                      {x.name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                            {hidden.length > 0 ? (
+                              <div>
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                                  On branch but hidden
+                                </p>
+                                <ul className="space-y-0.5">
+                                  {hidden.map((x) => (
+                                    <li key={x.id} className="text-muted-foreground">
+                                      {x.name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                            <p className="mt-2 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground">
+                              Click to manage branches
+                            </p>
+                          </div>
+                        </div>
                       );
                     },
                   },
@@ -1965,8 +2013,13 @@ export default function ExchangeRatesPage() {
           <DialogContent className="rounded-2xl sm:max-w-md">
             <DialogHeader>
               <DialogTitle>
-                {manageBranchesFor ? getCatalogCurrency(manageBranchesFor).code : ""} — on which branches?
+                {manageBranchesFor ? getCatalogCurrency(manageBranchesFor).code : ""} — which
+                branches show this on TV?
               </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                Branch names below — Add puts the currency on that shop&apos;s rate card; Remove
+                takes it off.
+              </p>
             </DialogHeader>
             <div className="max-h-80 space-y-2 overflow-y-auto py-2">
               {(() => {
@@ -1978,6 +2031,7 @@ export default function ExchangeRatesPage() {
                     (r) => (r.currencyCode ?? "").toUpperCase() === code && r.branchId === b.id,
                   );
                   const on = carried.length > 0;
+                  const hiddenOnTv = on && carried.every((r) => r.isHidden);
                   return (
                     <div
                       key={b.id}
@@ -1986,12 +2040,11 @@ export default function ExchangeRatesPage() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{b.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {b.code}
                           {on
-                            ? carried.some((r) => r.isHidden)
-                              ? " · on this branch (hidden on TV)"
-                              : " · on this branch"
-                            : " · not on this branch"}
+                            ? hiddenOnTv
+                              ? "On this branch — hidden on TV"
+                              : "Shown on this branch's TV"
+                            : "Not on this branch"}
                         </p>
                       </div>
                       {on ? (
