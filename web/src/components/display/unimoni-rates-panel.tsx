@@ -768,9 +768,11 @@ export function UnimoniRatesPanel({
                     white flags visible on the light row. Globe fallback for
                     custom currencies. */}
                 <FlagChip
+                  // Currency CODE drives the PNG (FlagChip prefers currencyCode
+                  // + catalog overrides such as ZMW → Zimbabwe).
                   flag={
-                    currencyOverrides?.[rate.currencyCode?.toUpperCase() ?? ""]?.flag?.trim() ||
                     getRateFlag(rate) ||
+                    currencyOverrides?.[rate.currencyCode?.toUpperCase() ?? ""]?.flag?.trim() ||
                     rate.currencyCode ||
                     "🌍"
                   }

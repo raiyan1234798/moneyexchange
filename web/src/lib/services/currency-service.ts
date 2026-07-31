@@ -11,6 +11,12 @@ import {
   writeAuditLog,
 } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
+import {
+  countryCodeFromCurrencyCode,
+  countryCodeFromFlagEmoji,
+  flagFromCurrencyCode,
+  isPlaceholderFlag,
+} from "@/lib/currency-utils";
 import type { Currency, EntityStatus } from "@/lib/types";
 
 /** How a currency LOOKS everywhere — admin-editable, overrides the built-in catalog. */
@@ -39,6 +45,10 @@ export function subscribeCurrencyOverrides(
  * Save an admin's look-changes for one currency (flag emoji, name, country):
  * writes the public override the TV display reads, and keeps the catalog
  * document in sync when one exists for that code.
+ *
+ * Flag is validated against the currency CODE (and catalog overrides such as
+ * ZMW → Zimbabwe): a pasted emoji whose country does not match is replaced
+ * so money-exchange displays stay consistent.
  */
 export async function saveCurrencyOverride(
   code: string,
@@ -47,14 +57,27 @@ export async function saveCurrencyOverride(
 ): Promise<void> {
   const upper = code.trim().toUpperCase();
   if (!upper) throw new Error("Currency code is required");
+
+  const expectedCountry = countryCodeFromCurrencyCode(upper);
+  let flag = data.flag?.trim() ?? "";
+  if (flag && !isPlaceholderFlag(flag) && expectedCountry) {
+    const pastedCountry = countryCodeFromFlagEmoji(flag);
+    if (pastedCountry && pastedCountry !== expectedCountry) {
+      flag = flagFromCurrencyCode(upper) ?? flag;
+    }
+  } else if (!flag || isPlaceholderFlag(flag)) {
+    flag = flagFromCurrencyCode(upper) ?? "";
+  }
+
   const payload: Record<string, unknown> = {
     code: upper,
     updatedBy: actor.userName,
     updatedAt: serverTimestamp(),
   };
-  if (data.flag?.trim()) payload.flag = data.flag.trim();
+  if (flag) payload.flag = flag;
   if (data.name?.trim()) payload.name = data.name.trim();
   if (data.country?.trim()) payload.country = data.country.trim();
+
   await setDoc(doc(db, OVERRIDES_COLLECTION, upper), payload, { merge: true });
   // Best-effort catalog sync so dashboards list the same look.
   try {
@@ -62,7 +85,7 @@ export async function saveCurrencyOverride(
       where("currencyCode", "==", upper),
     ]);
     const catalogPatch: Record<string, unknown> = {};
-    if (data.flag?.trim()) catalogPatch.flag = data.flag.trim();
+    if (flag) catalogPatch.flag = flag;
     if (data.name?.trim()) catalogPatch.currencyName = data.name.trim();
     if (data.country?.trim()) catalogPatch.country = data.country.trim();
     if (Object.keys(catalogPatch).length > 0) {
@@ -79,7 +102,7 @@ export async function saveCurrencyOverride(
     entityId: upper,
     userId: actor.userId,
     userName: actor.userName,
-    metadata: { code: upper, ...data },
+    metadata: { code: upper, ...data, flag },
   });
 }
 
