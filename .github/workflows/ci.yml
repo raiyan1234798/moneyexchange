@@ -1,0 +1,50 @@
+name: CI
+
+# Quality gate on every push and PR to main. Cloudflare Pages deploys the web
+# app from `web/` on push; this workflow is the check that the code that ships
+# type-checks, passes tests, and builds. If it goes red, fix before trusting a
+# deploy. (Firestore rules are deployed separately with firebase-tools — see
+# firestore.rules; keep the committed rules in sync with production.)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel superseded runs on the same ref so only the latest commit is validated.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck (hard gate)
+        run: npx tsc --noEmit
+
+      - name: Unit tests (hard gate)
+        run: npm test
+
+      - name: Production build (hard gate)
+        run: npm run build
+
+      # Lint is advisory: the React-compiler hints are style-level and do not
+      # break the build, so they are reported but never fail CI.
+      - name: Lint (advisory)
+        run: npm run lint || true
