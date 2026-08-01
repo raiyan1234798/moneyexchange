@@ -15,8 +15,9 @@ import {
  * failed for others. The emoji span remains only as a last-resort fallback
  * (custom currencies with no country, or a missing file).
  *
- * Slot is a fixed box filled with object-cover so every flag (2:1, square,
- * Nepal, …) occupies the full chip — no letterboxing empty bands.
+ * Slot is a fixed box rendered with object-fill so every flag (including wide
+ * 2:1 flags like Zimbabwe) displays all its emblem symbols and triangles completely
+ * without cropping any side edges.
  */
 function resolveFlagCountry(
   flag: string,
@@ -71,6 +72,12 @@ export function FlagChip({
     );
   }
 
+  // NEVER crop: emblems/symbols at flag edges must always be visible (client
+  // 2026-08-01). object-fill stretches slightly instead of cutting — the same
+  // trade the client chose for videos. One rule, no per-flag exceptions to
+  // forget for future currencies.
+  const fitClass = "object-fill";
+
   return (
     <span
       className={`inline-flex h-[1.05em] w-[1.6em] shrink-0 overflow-hidden rounded-[2px] ring-1 ring-black/15 ${chipClassName} ${className}`}
@@ -80,9 +87,7 @@ export function FlagChip({
         src={`/flags/${country}.png`}
         alt=""
         onError={() => setFailed(true)}
-        // Fill the chip completely. Wide flags (AED/GBP), square (CHF), and
-        // tall (Nepal) all crop to the slot instead of leaving empty bands.
-        className="h-full w-full object-cover object-center"
+        className={`h-full w-full ${fitClass}`}
       />
     </span>
   );

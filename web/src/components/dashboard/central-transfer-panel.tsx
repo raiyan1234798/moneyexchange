@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, EyeOff, FileSpreadsheet, GripVertical, Plus, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
+import { FlagChip } from "@/components/display/flag-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -569,7 +570,12 @@ export function CentralTransferPanel({
                 </button>
               </div>
               <div className="flex min-w-0 items-center gap-2">
-                <span className="shrink-0 text-xl leading-none">{derivedFlag ?? "🌍"}</span>
+                <FlagChip
+                  flag={derivedFlag ?? "🌍"}
+                  currencyCode={row.currencyCode}
+                  className="text-xl"
+                  chipClassName="!h-[1.3em] !w-[2em] shadow-[0_1px_2px_rgba(0,0,0,0.28)]"
+                />
                 <div className="min-w-0">
                   <p className="font-semibold">{row.currencyCode}</p>
                   {meta?.name ? (

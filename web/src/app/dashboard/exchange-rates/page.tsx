@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
+import { FlagChip } from "@/components/display/flag-chip";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import {
@@ -1721,7 +1722,7 @@ export default function ExchangeRatesPage() {
                       const row = getCatalogCurrency(c);
                       return (
                         <span className="inline-flex items-center gap-1.5 font-mono font-semibold tabular-nums">
-                          <span className="text-base leading-none">{row.flag}</span>
+                          <FlagChip flag={row.flag} currencyCode={row.code} className="text-base" />
                           {row.code}
                         </span>
                       );
@@ -2483,7 +2484,12 @@ export default function ExchangeRatesPage() {
                         </div>
                       ) : null}
                       <div className="flex min-w-0 items-start gap-2">
-                        <span className="shrink-0 text-xl leading-none">{resolved.flag}</span>
+                        <FlagChip
+                          flag={resolved.flag}
+                          currencyCode={rate.currencyCode}
+                          className="text-xl"
+                          chipClassName="!h-[1.3em] !w-[2em] shadow-[0_1px_2px_rgba(0,0,0,0.28)]"
+                        />
                         <div className="min-w-0 flex-1">
                           {isEditingName && canManageRates ? (
                             <div className="space-y-1">
