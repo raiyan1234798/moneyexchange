@@ -474,10 +474,20 @@ export function TickerDisplaySettings({
                           max={100}
                           step={5}
                           title="Size of THIS logo inside the badge (Normal fit). Lower it if this logo's edges get cut; other logos are unaffected."
-                          value={Math.round((s.tickerLogoScales?.[src] ?? s.tickerLogoContainScale ?? 0.9) * 100)}
+                          value={Math.round(
+                            ((Array.isArray(s.tickerLogoScales) ? s.tickerLogoScales : []).find(
+                              (x) => x.url === src,
+                            )?.scale ??
+                              s.tickerLogoContainScale ??
+                              0.9) * 100,
+                          )}
                           onChange={(e) => {
                             const frac = Math.min(1, Math.max(0.5, Number(e.target.value) / 100 || 0.9));
-                            set({ tickerLogoScales: { ...(s.tickerLogoScales ?? {}), [src]: frac } });
+                            // Upsert into the { url, scale } array (Firestore-safe;
+                            // never a URL-keyed map — see BranchSettings type).
+                            const cur = Array.isArray(s.tickerLogoScales) ? s.tickerLogoScales : [];
+                            const rest = cur.filter((x) => x.url !== src);
+                            set({ tickerLogoScales: [...rest, { url: src, scale: frac }] });
                           }}
                           className="w-11 rounded border border-border/60 bg-transparent px-1 py-0.5 text-center text-[10px] tabular-nums"
                         />

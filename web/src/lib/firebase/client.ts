@@ -35,7 +35,10 @@ function createFirebaseApp(): FirebaseApp {
 function createFirestore(app: FirebaseApp): Firestore {
   if (typeof window === "undefined") {
     try {
-      return initializeFirestore(app, { localCache: memoryLocalCache() });
+      return initializeFirestore(app, {
+        localCache: memoryLocalCache(),
+        ignoreUndefinedProperties: true,
+      });
     } catch {
       return getFirestore(app);
     }
@@ -51,6 +54,9 @@ function createFirestore(app: FirebaseApp): Firestore {
 
   try {
     return initializeFirestore(app, {
+      // Never let a stray `undefined` in a settings object blow up a write with
+      // "Unsupported field value: undefined" — silently drop undefined instead.
+      ignoreUndefinedProperties: true,
       // Banks/corporate proxies often break WebChannel streaming — auto-detect
       // and fall back to long polling so live sync keeps working.
       experimentalAutoDetectLongPolling: true,
@@ -64,7 +70,10 @@ function createFirestore(app: FirebaseApp): Firestore {
   } catch (error) {
     console.warn("Firestore cache init unavailable, falling back to memory cache:", error);
     try {
-      return initializeFirestore(app, { localCache: memoryLocalCache() });
+      return initializeFirestore(app, {
+        localCache: memoryLocalCache(),
+        ignoreUndefinedProperties: true,
+      });
     } catch (memoryError) {
       console.warn("Firestore memory cache init failed, using default:", memoryError);
       return getFirestore(app);

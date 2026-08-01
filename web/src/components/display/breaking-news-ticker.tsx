@@ -37,8 +37,8 @@ interface BreakingNewsTickerProps {
   logoFit?: "contain" | "cover" | "fill";
   /** In contain fit, fraction of the badge the whole logo fills (0.5–1). Default 0.9. */
   logoContainScale?: number;
-  /** Per-logo size override keyed by badge logo URL (0.5–1). Falls back to logoContainScale. */
-  logoScales?: Record<string, number>;
+  /** Per-logo size overrides as { url, scale } (0.5–1). Falls back to logoContainScale. */
+  logoScales?: Array<{ url: string; scale: number }>;
   /**
    * How each SCROLLING logo fits inside the ticker bar.
    * - "contain" (default): logo kept at aspect ratio, centred with side padding.
@@ -245,7 +245,7 @@ function BreakingNewsTickerInner({
   scrollLogosEnabled = true,
   logoFit = "contain",
   logoContainScale = 0.9,
-  logoScales = {},
+  logoScales = [],
   scrollLogoFitMode = "contain",
   scrollLogoRemoveBg = true,
   logoText,
@@ -318,10 +318,9 @@ function BreakingNewsTickerInner({
   // Per-logo size override wins for the logo currently on screen; otherwise the
   // global Normal-fit size. Lets a wide logo be shrunk until it clears the
   // rounded corner while the rest stay large.
+  const perLogoEntry = currentBadge ? logoScales.find((x) => x.url === currentBadge) : undefined;
   const perLogoScale =
-    currentBadge && typeof logoScales[currentBadge] === "number"
-      ? logoScales[currentBadge]
-      : logoContainScale;
+    perLogoEntry && typeof perLogoEntry.scale === "number" ? perLogoEntry.scale : logoContainScale;
   const containPct = Math.round(Math.max(50, Math.min(100, perLogoScale * 100)));
 
   const activeText = messages[messageIndex] ?? "";
