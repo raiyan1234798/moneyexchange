@@ -888,16 +888,17 @@ export function TickerDisplaySettings({
               <Input
                 type="number"
                 min={70}
-                max={160}
+                max={300}
                 step={5}
                 value={Math.round((s.tickerScale ?? 1) * 100)}
                 onChange={(e) =>
-                  set({ tickerScale: Math.min(1.6, Math.max(0.7, Number(e.target.value) / 100 || 1)) })
+                  set({ tickerScale: Math.min(3, Math.max(0.7, Number(e.target.value) / 100 || 1)) })
                 }
                 className="rounded-xl"
               />
               <p className="text-xs text-muted-foreground">
-                Makes the black bar taller and the running message bigger together.
+                Makes the black bar taller and the running message bigger together. 100 is normal;
+                go up to 300 for a much bigger bar (very tall bars start covering the rate card).
               </p>
             </div>
             <div className="space-y-2">
