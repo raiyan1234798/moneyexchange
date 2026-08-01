@@ -108,20 +108,36 @@ async function finalizeLogin(firebaseUser: User, profile: AppUser): Promise<void
 }
 
 async function resolveUserProfile(firebaseUser: User): Promise<{ profile: AppUser; acceptedInvite: boolean }> {
-  try {
-    return await withTimeout(
-      ensureUserProfile(firebaseUser),
-      PROFILE_LOAD_TIMEOUT_MS,
-      "Profile load timed out",
-    );
-  } catch (error) {
-    const email = firebaseUser.email ?? "";
-    if (email && isSuperAdminEmail(email)) {
-      console.warn(`${LOG_PREFIX} profile load failed for super admin, using fallback`, error);
-      return { profile: buildSuperAdminFallbackProfile(firebaseUser), acceptedInvite: false };
+  const email = firebaseUser.email ?? "";
+  // Retry TRANSIENT failures (network blip, Firestore hiccup, a slow read that
+  // times out) up to 3 times before showing the "Could not load your profile"
+  // error. On flaky shop connections a single read could fail and the client
+  // saw the error even though a manual retry worked (client 2026-08-01).
+  // ProfileAccessError is PERMANENT (inactive / no invite) — never retried.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await withTimeout(
+        ensureUserProfile(firebaseUser),
+        PROFILE_LOAD_TIMEOUT_MS,
+        "Profile load timed out",
+      );
+    } catch (error) {
+      lastError = error;
+      if (error instanceof ProfileAccessError) break; // definite "no access" — stop
+      if (attempt < 2) {
+        console.warn(`${LOG_PREFIX} profile load attempt ${attempt + 1} failed, retrying`, error);
+        await new Promise((resolve) => setTimeout(resolve, 700 * (attempt + 1)));
+      }
     }
-    throw error;
   }
+  // Every attempt failed. Super admins fall back to a local profile so they can
+  // never be locked out; everyone else sees the (now rare) error.
+  if (email && isSuperAdminEmail(email)) {
+    console.warn(`${LOG_PREFIX} profile load failed for super admin, using fallback`, lastError);
+    return { profile: buildSuperAdminFallbackProfile(firebaseUser), acceptedInvite: false };
+  }
+  throw lastError;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {

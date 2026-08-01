@@ -376,10 +376,12 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const announcementTextScale = branchSettings.announcementTextScale ?? 1;
   const headerLogoAnimation = branchSettings.headerLogoAnimation ?? "none";
   const promoSlideLogoAnimation = branchSettings.promoSlideLogoAnimation ?? null;
-  // Promo message font: its own choice, else the (master-aware) card font.
-  const ratePromoFontCss = branchSettings.ratePromoFont
-    ? messageFontCss(branchSettings.ratePromoFont)
-    : undefined;
+  // Promo message font: its own choice, else the whole-screen / rate-card font
+  // — so changing the rate-card font restyles EVERY slide, promo text included
+  // (client 2026-08-01). Same cascade the rate-card note already uses.
+  const ratePromoFontCss = messageFontCss(
+    branchSettings.ratePromoFont || branchSettings.displayFont || branchSettings.rateCardFont,
+  );
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
   // Promo slides always hide the rate-card header unless the admin explicitly
   // chose "second" — legacy Firestore "keep" values are treated as hide.
