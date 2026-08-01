@@ -76,7 +76,7 @@ export function useBranchScope() {
 }
 
 export function useContentPermissions() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, hasModule } = useAuth();
   return {
     canManageBranches: hasPermission("createBranch"),
     canManageCurrencies: hasPermission("manageCurrencies"),
@@ -86,8 +86,11 @@ export function useContentPermissions() {
       hasPermission("manageOwnBranchRates"),
     canManageRates:
       hasPermission("manageExchangeRates") || hasPermission("manageOwnBranchRates"),
+    // The Users-page "Access" chips (moduleAccess) unlock these features for
+    // any role — the grid must actually grant access (client 2026-08-01).
     canManageVideos:
-      hasPermission("manageVideos") || hasPermission("manageOwnBranchVideos"),
+      hasPermission("manageVideos") || hasPermission("manageOwnBranchVideos") ||
+      hasModule("media"),
     canProposeVideos:
       hasPermission("manageVideos") ||
       hasPermission("manageOwnBranchVideos") ||
@@ -95,8 +98,9 @@ export function useContentPermissions() {
     canManagePlaylists:
       hasPermission("managePlaylists") || hasPermission("manageOwnBranchPlaylists"),
     canManageTickers:
-      hasPermission("manageTickers") || hasPermission("manageOwnBranchTickers"),
-    canManageImages: hasPermission("manageImageAdverts"),
+      hasPermission("manageTickers") || hasPermission("manageOwnBranchTickers") ||
+      hasModule("displayMessages"),
+    canManageImages: hasPermission("manageImageAdverts") || hasModule("media"),
     canManageTvs:
       hasPermission("manageTVDevices") || hasPermission("manageOwnBranchTVDevices"),
   };

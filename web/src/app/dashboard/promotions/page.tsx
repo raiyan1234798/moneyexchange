@@ -31,9 +31,10 @@ import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-
 import type { BranchSettings } from "@/lib/types";
 
 export default function PromotionsPage() {
-  const { user, profile, isSuperAdmin, isAdmin } = useAuth();
+  const { user, profile, isSuperAdmin, isAdmin, hasModule } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId } = useBranchScope();
-  const isPlatformAdmin = isSuperAdmin || isAdmin;
+  // Admins, plus anyone granted the "Promotions" chip in Users (2026-08-01).
+  const isPlatformAdmin = isSuperAdmin || isAdmin || hasModule("promotions");
   const canApplyToAll = canApplyToAllBranches(profile?.role);
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const activeBranchCount = branches.filter((b) => b.status === "active").length;

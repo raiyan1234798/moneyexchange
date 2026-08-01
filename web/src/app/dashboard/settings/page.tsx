@@ -2046,7 +2046,7 @@ function BranchSettingsForm({
 }
 
 export default function SettingsPage() {
-  const { user, profile, isSuperAdmin } = useAuth();
+  const { user, profile, isSuperAdmin, hasModule } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId, isAdmin } = useBranchScope();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
   const [globalLoading, setGlobalLoading] = useState(isSuperAdmin);
@@ -2219,9 +2219,9 @@ export default function SettingsPage() {
     }
   }
 
-  // Per client (2026-07-11): display settings (logos, promo card, sizing,
-  // tickers) are ADMIN-ONLY. Branch staff handle forex rates only.
-  if (!isSuperAdmin && !isAdmin) {
+  // Per client (2026-07-11): display settings are admin-only by default —
+  // but the "Display settings" chip in Users grants them too (2026-08-01).
+  if (!isSuperAdmin && !isAdmin && !hasModule("settings")) {
     return (
       <>
         <DashboardHeader title="Settings" description="System and branch display configuration." accent="default" />

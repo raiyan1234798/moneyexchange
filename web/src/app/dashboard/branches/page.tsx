@@ -103,7 +103,10 @@ function composeHoursSummary(byDay: Record<string, string>): string {
 }
 
 export default function BranchesPage() {
-  const { profile, user, hasPermission } = useAuth();
+  const { profile, user, hasPermission, hasModule } = useAuth();
+  // The "Branches" access chip grants branch editing to any role (2026-08-01).
+  const canEditBranches = hasPermission("editBranch") || hasModule("branches");
+  const canCreateBranches = hasPermission("createBranch") || hasModule("branches");
   const [branches, setBranches] = useState<Branch[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -314,7 +317,7 @@ export default function BranchesPage() {
       <DashboardHeader title="Branches" description="Create and manage branch locations, hours, and branding." accent="violet" />
       <PageShell accent="violet">
         <FirestoreSetupNotice message={notice} />
-        {hasPermission("createBranch") ? (
+        {canCreateBranches ? (
           <PageActions>
             {branches.length >= MAX_BRANCHES && !editBranch ? (
               <p className="text-xs text-muted-foreground">
@@ -474,7 +477,7 @@ export default function BranchesPage() {
             description="Step 1: Create your first branch here. Then add exchange rates, a video URL, and display messages from the sidebar."
             icon={Building2}
             actionLabel="Add Branch"
-            onAction={hasPermission("createBranch") ? () => setOpen(true) : undefined}
+            onAction={canCreateBranches ? () => setOpen(true) : undefined}
           />
         ) : (
           <>
@@ -497,7 +500,7 @@ export default function BranchesPage() {
             <ContentPanel
               title="Branch Directory"
               description={`${branches.length} location${branches.length === 1 ? "" : "s"}${
-                hasPermission("editBranch")
+                canEditBranches
                   ? " — drag rows (or use ▲▼) to set the order used in every branch list"
                   : ""
               }`}
@@ -506,7 +509,7 @@ export default function BranchesPage() {
               data={branches}
               keyExtractor={(b) => b.id}
               mobileTitle={(b) => b.name}
-              reorderDisabled={!hasPermission("editBranch")}
+              reorderDisabled={!canEditBranches}
               onReorder={(ordered) => {
                 if (!user || !profile) return;
                 void reorderBranches(
@@ -517,7 +520,7 @@ export default function BranchesPage() {
                 );
               }}
               columns={[
-                ...(hasPermission("editBranch")
+                ...(canEditBranches
                   ? [
                       {
                         key: "order",
@@ -607,7 +610,7 @@ export default function BranchesPage() {
                   className: "text-right",
                   cell: (b) => (
                     <div className="flex flex-wrap justify-end gap-1.5">
-                      {hasPermission("editBranch") ? (
+                      {canEditBranches ? (
                         <Button variant="outline" size="sm" className="rounded-lg" onClick={() => openEditBranch(b)}>
                           <Pencil className="mr-1 h-3 w-3" />
                           Edit

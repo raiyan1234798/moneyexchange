@@ -69,6 +69,13 @@ service cloud.firestore {
       return isSuperAdmin() || isAdmin() || belongsToManagerBranch(branchId);
     }
 
+    // "Access" chips from the Users page — a granted module key unlocks that
+    // feature for ANY role (client 2026-08-01: the grid must actually work).
+    function hasModuleKey(k) {
+      return isActiveUser() && 'moduleAccess' in userDoc() &&
+        userDoc().moduleAccess.hasAny([k]);
+    }
+
     function canManageBranchRates(branchId) {
       return isSuperAdmin() || belongsToManagerBranch(branchId) || belongsToBranchUserBranch(branchId);
     }
@@ -237,6 +244,11 @@ service cloud.firestore {
         (isAdmin() && isValidUserUpdate()
           && resource.data.role != 'superAdmin'
           && request.resource.data.role != 'superAdmin') ||
+        // "Users" module chip: manage branch staff — can never touch admins or
+        // promote anyone beyond the branch roles.
+        (hasModuleKey('users') && isValidUserUpdate()
+          && resource.data.role in ['branchManager', 'branchUser']
+          && request.resource.data.role in ['branchManager', 'branchUser']) ||
         (request.auth.uid == userId && request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastLoginAt', 'updatedAt', 'displayName', 'photoURL'])) ||
         (request.auth.uid == userId && isSuperAdminEmail() && isValidUserUpdate());
       // Permanent removal is limited to the OWNER admins (the same two accounts
@@ -260,6 +272,8 @@ service cloud.firestore {
 
       allow read: if canManageInvite() || canReadOwnInvite();
       allow create: if isSuperAdmin() || isAdmin() ||
+        // "Users" module chip: invite branch staff (never admin roles).
+        (hasModuleKey('users') && request.resource.data.role in ['branchManager', 'branchUser']) ||
         (isBranchManager() &&
           request.resource.data.role == 'branchUser' &&
           request.resource.data.branchId == managerBranchId());
@@ -270,7 +284,8 @@ service cloud.firestore {
           request.resource.data.branchId == managerBranchId()) ||
         (canReadOwnInvite() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'updatedAt']));
-      allow delete: if isSuperAdmin() || isAdmin() || canManageInvite() || canReadOwnInvite();
+      allow delete: if isSuperAdmin() || isAdmin() || hasModuleKey('users') ||
+        canManageInvite() || canReadOwnInvite();
     }
 
     // Sign-in passwords the OWNER admins hand out to the team. Strictly limited
@@ -295,7 +310,13 @@ service cloud.firestore {
       // Admins can create, update and delete branches (client request 2026-07-15).
       allow create: if isSuperAdmin() || isAdmin();
       allow delete: if isSuperAdmin() || isAdmin();
-      allow update: if isSuperAdmin() || isAdmin();
+      // "Branches" module = full branch editing. The display-settings modules
+      // (settings / promotions / display messages) may write ONLY the settings
+      // map (+ cosmetic logo/colour fields) — never code, name or status.
+      allow update: if isSuperAdmin() || isAdmin() || hasModuleKey('branches') ||
+        ((hasModuleKey('settings') || hasModuleKey('promotions') || hasModuleKey('displayMessages')) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['settings', 'updatedAt', 'logoUrl', 'brandingColor']));
     }
 
     match /currencies/{currencyId} {
@@ -396,7 +417,9 @@ service cloud.firestore {
 
     match /ticker_messages/{tickerId} {
       allow read: if isActiveUser() || resource.data.status == 'active';
-      allow create, update, delete: if isSuperAdmin() || isAdmin();
+      // Admins, plus anyone granted the "Display messages" module in Users.
+      allow create, update, delete: if isSuperAdmin() || isAdmin() ||
+        hasModuleKey('displayMessages');
     }
 
     match /tv_devices/{deviceId} {

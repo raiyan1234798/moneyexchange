@@ -94,7 +94,7 @@ const MANAGED_ROLES: UserRole[] = ["admin", "branchManager", "branchUser"];
 type InviteForm = typeof emptyForm & { inviteId?: string };
 
 export default function UsersPage() {
-  const { user, profile, hasPermission, isBranchManager, isSuperAdmin } = useAuth();
+  const { user, profile, hasPermission, hasModule, isBranchManager, isSuperAdmin } = useAuth();
   const { branches, managerBranchId } = useBranchScope();
   const [users, setUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<UserInvite[]>([]);
@@ -176,7 +176,9 @@ export default function UsersPage() {
   }, [clearNotice, isBranchManager, managerBranchId, onError]);
 
   const branchMap = Object.fromEntries(branches.map((branch) => [branch.id, branch.name]));
-  const canManage = hasPermission("manageUsers") || hasPermission("inviteBranchUsers");
+  // The "Users" access chip grants user management to any role (2026-08-01).
+  const canManage =
+    hasPermission("manageUsers") || hasPermission("inviteBranchUsers") || hasModule("users");
   const canInviteAdmin = hasPermission("manageUsers");
   const needsBranch = form.role === "branchManager" || form.role === "branchUser";
 
@@ -1101,10 +1103,12 @@ export default function UsersPage() {
                     }
                     const m = row.user;
                     {
-                    // Rules: only manageUsers roles may edit; admins cannot touch
-                    // superAdmin accounts; nobody edits their own row (lockout guard).
+    	            // Rules: manageUsers roles or the "Users" chip may edit; the chip
+                    // is limited to branch staff (mirrors firestore.rules); admins
+                    // cannot touch superAdmin; nobody edits their own row.
                     const canAct =
-                      hasPermission("manageUsers") &&
+                      (hasPermission("manageUsers") ||
+                        (hasModule("users") && (m.role === "branchManager" || m.role === "branchUser"))) &&
                       m.uid !== user?.uid &&
                       (m.role !== "superAdmin" || isSuperAdmin);
                     if (!canAct) return null;

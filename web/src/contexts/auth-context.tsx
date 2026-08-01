@@ -21,7 +21,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/client";
 import {
   buildSuperAdminFallbackProfile,
@@ -315,6 +315,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, AUTH_LOADING_SAFETY_MS);
     return () => clearTimeout(timer);
   }, [loading]);
+
+  // LIVE account watch (client 2026-08-01): the moment an admin deletes or
+  // deactivates this user, every open session signs out immediately — no
+  // waiting for the auth token to expire or the next page load. A permission
+  // error on our OWN profile doc means the account lost access (deleted /
+  // deactivated), so it signs out too.
+  useEffect(() => {
+    const uid = user?.uid;
+    if (!uid || !profile) return;
+    const kick = async (reason: string) => {
+      console.info(`${LOG_PREFIX} account revoked (${reason}) — signing out`);
+      toast.error("Your account was removed or deactivated. You have been signed out.");
+      await signOut(auth).catch(() => undefined);
+    };
+    const unsubscribe = onSnapshot(
+      doc(db, COLLECTIONS.users, uid),
+      (snap) => {
+        if (!snap.exists()) {
+          void kick("profile deleted");
+        } else if (snap.data()?.isActive === false) {
+          void kick("profile deactivated");
+        }
+      },
+      (error) => {
+        if ((error as FirebaseError)?.code === "permission-denied") {
+          void kick("profile read denied");
+        }
+      },
+    );
+    return unsubscribe;
+  }, [user?.uid, profile]);
 
   const permissions = useMemo<string[]>(() => {
     if (!profile) return [];
