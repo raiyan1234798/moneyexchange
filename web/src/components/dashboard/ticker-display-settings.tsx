@@ -757,6 +757,28 @@ export function TickerDisplaySettings({
           </div>
           <div className="space-y-2">
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Space between logos
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              max={5}
+              step={0.2}
+              value={s.tickerScrollLogoGapVw ?? 1.2}
+              onChange={(e) =>
+                set({
+                  tickerScrollLogoGapVw: Math.min(5, Math.max(0, Number(e.target.value))),
+                })
+              }
+              className="rounded-xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              Gap between one logo and the next. Set <strong>0</strong> to join the logos with no
+              space (e.g. Ria + MoneyGram touching); 1.2 is the normal spacing.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
               Logo background chip
             </Label>
             <Select

@@ -27,6 +27,8 @@ interface BreakingNewsTickerProps {
   scrollLogoAnimation?: string | null;
   /** Size multiplier for the scrolling logos (bar height unchanged). Default 1. */
   scrollLogoScale?: number;
+  /** Space between adjacent scrolling logos, in vw. Default 1.2. 0 = joined. */
+  scrollLogoGapVw?: number;
   /** Chip behind each scrolling logo: white, none, or auto (contrast-aware). */
   scrollLogoBg?: "white" | "transparent" | "auto";
   /** Show the scrolling logos at all. Default true. */
@@ -173,6 +175,7 @@ function ScrollingLogoImg({
   animClass,
   heightEm,
   side,
+  gapVw = 1.2,
   fitMode = "fill",
 }: {
   src: string;
@@ -180,19 +183,24 @@ function ScrollingLogoImg({
   animClass: string;
   heightEm: string;
   side: "start" | "end";
+  /** Space to the next logo, in vw. 0 = logos joined with no gap. */
+  gapVw?: number;
   fitMode?: "contain" | "fill" | "stretch";
   removeBg?: boolean; // kept for API compat, not used
 }) {
   const isStretch = fitMode === "fill" || fitMode === "stretch";
-  const margin = side === "start" ? "mr-[1.2vw]" : "ml-[1.2vw]";
+  // Admin-controlled gap between adjacent logos (0 = joined). Applied on the
+  // trailing side for start-group logos, leading side for end-group logos.
+  const gap = Math.max(0, gapVw);
+  const gapStyle = side === "start" ? { marginRight: `${gap}vw` } : { marginLeft: `${gap}vw` };
 
   if (isStretch) {
     // Fills the full height of the black ticker bar.
     // object-contain keeps the logo's original proportions and background — no clipping.
     return (
       <span
-        className={`${margin} inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
-        style={{ height: "100%", maxHeight: "100%" }}
+        className={`inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
+        style={{ height: "100%", maxHeight: "100%", ...gapStyle }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -211,8 +219,8 @@ function ScrollingLogoImg({
     <img
       src={src}
       alt=""
-      className={`${margin} inline-block w-auto align-middle object-contain ${animClass}`}
-      style={{ height: heightEm }}
+      className={`inline-block w-auto align-middle object-contain ${animClass}`}
+      style={{ height: heightEm, ...gapStyle }}
     />
   );
 }
@@ -228,6 +236,7 @@ function BreakingNewsTickerInner({
   logoBgColor = null,
   scrollLogoAnimation = null,
   scrollLogoScale = 1,
+  scrollLogoGapVw = 1.2,
   scrollLogoBg = "white",
   scrollLogosEnabled = true,
   logoFit = "contain",
@@ -473,6 +482,7 @@ function BreakingNewsTickerInner({
                         animClass={scrollLogoAnimClass}
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="start"
+                        gapVw={scrollLogoGapVw}
                         fitMode={scrollLogoFitMode}
                         removeBg={scrollLogoRemoveBg}
                       />
@@ -488,6 +498,7 @@ function BreakingNewsTickerInner({
                         animClass={scrollLogoAnimClass}
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="end"
+                        gapVw={scrollLogoGapVw}
                         fitMode={scrollLogoFitMode}
                         removeBg={scrollLogoRemoveBg}
                       />

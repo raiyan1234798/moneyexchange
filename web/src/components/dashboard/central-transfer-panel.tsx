@@ -55,12 +55,16 @@ export function CentralTransferPanel({
   localLabel,
   branches = [],
   currentBranchId = null,
+  canDeleteCurrency = false,
 }: {
   actor: { userId: string; userName: string };
   localLabel: string;
   /** Active branches — enables per-branch hide/show for remittance currencies. */
   branches?: Branch[];
   currentBranchId?: string | null;
+  /** Only admins (or an admin-granted "Add new currencies" user) may DELETE a
+   *  transfer currency. Everyone else can edit values but never remove rows. */
+  canDeleteCurrency?: boolean;
 }) {
   const [rows, setRows] = useState<TransferRate[]>([]);
   // Admin flag overrides (beats the built-in catalog) — same source the TV uses.
@@ -674,16 +678,18 @@ export function CentralTransferPanel({
                     <Eye className="h-3 w-3" />
                   )}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  className="h-9 w-9 rounded-lg px-0 text-destructive hover:text-destructive"
-                  title="Remove from the transfer card on all branches"
-                  onClick={() => setRemoveConfirm({ code: row.currencyCode })}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
+                {canDeleteCurrency ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    className="h-9 w-9 rounded-lg px-0 text-destructive hover:text-destructive"
+                    title="Remove from the transfer card on all branches"
+                    onClick={() => setRemoveConfirm({ code: row.currencyCode })}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                ) : null}
               </div>
             </div>
           );
@@ -865,7 +871,8 @@ export function CentralTransferPanel({
                     variant="outline"
                     size="sm"
                     className="rounded-lg px-2 text-destructive hover:text-destructive"
-                    aria-label={`Remove ${r.currencyCode} from this upload`}
+                    title={`Remove ${r.currencyCode} from THIS upload only — it does not delete the live transfer currency`}
+                    aria-label={`Remove ${r.currencyCode} from this upload (does not delete the live currency)`}
                     onClick={() =>
                       setPending((prev) =>
                         prev ? { ...prev, rows: prev.rows.filter((_, idx) => idx !== i) } : prev,

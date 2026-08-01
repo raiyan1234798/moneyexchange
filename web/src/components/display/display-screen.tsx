@@ -982,7 +982,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   // TV edge-cut (overscan) fix: many TVs crop a few % of an HDMI input on every
   // edge (logo/date/last column not fully visible). Uniformly shrinking the
   // WHOLE display leaves a black margin the TV crops instead of the content.
-  const safeAreaPercent = Math.max(0, Math.min(10, branchSettings.displaySafeAreaPercent ?? 0));
+  const safeAreaPercent = Math.max(0, Math.min(15, branchSettings.displaySafeAreaPercent ?? 0));
   // Admin-adjustable spin/flip cadence (Settings → "Spin / flip speed") plus an
   // adjustable STAND-STILL between turns: one animation cycle = pause + turn,
   // holding still for the first pause/(pause+turn) of the cycle. The keyframes
@@ -1011,7 +1011,14 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       }`}
       style={{
         ...(safeAreaPercent > 0
-          ? { transform: `scale(${(100 - 2 * safeAreaPercent) / 100})`, transformOrigin: "50% 50%" }
+          ? {
+              transform: `scale(${(100 - 2 * safeAreaPercent) / 100})`,
+              transformOrigin: "50% 50%",
+              // Fill the inset margin the shrink reveals with solid black, so a
+              // TV that crops edges shows clean black bars (never white page
+              // bleed or the TV's own menu) around the fully-visible signage.
+              boxShadow: "0 0 0 100vmax #000",
+            }
           : {}),
         ["--rate-anim-secs" as string]: `${rateAnimCycleSecs}s`,
         ["--sheet-anim-secs" as string]: `${Math.max(0.2, Math.min(5, branchSettings.slideTransitionSeconds ?? 0.6))}s`,
@@ -1097,6 +1104,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
         logoBgColor={branchSettings.tickerLogoBgColor ?? null}
         scrollLogoAnimation={branchSettings.tickerScrollLogoAnimation ?? null}
         scrollLogoScale={branchSettings.tickerScrollLogoScale ?? 1}
+        scrollLogoGapVw={branchSettings.tickerScrollLogoGapVw ?? 1.2}
         scrollLogoBg={branchSettings.tickerScrollLogoBg ?? "white"}
         scrollLogosEnabled={branchSettings.tickerScrollLogosEnabled !== false}
         logoFit={branchSettings.tickerLogoFit ?? "contain"}

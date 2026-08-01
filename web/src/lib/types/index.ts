@@ -126,6 +126,9 @@ export interface BranchSettings {
   /** Size multiplier for the logos scrolling WITH the message (1 = normal).
       The black bar height is NOT affected. */
   tickerScrollLogoScale?: number;
+  /** Space between adjacent scrolling logos, in vw. Default 1.2. Set 0 to
+      JOIN the logos with no gap (e.g. Ria + MoneyGram touching). */
+  tickerScrollLogoGapVw?: number;
   /** Chip behind each scrolling logo: white card (default), none, or AUTO —
       dark chip behind light artwork, white behind dark artwork. */
   tickerScrollLogoBg?: "white" | "transparent" | "auto";

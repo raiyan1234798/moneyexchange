@@ -86,6 +86,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerMessageAnimation: null as string | null,
   tickerScrollLogoAnimation: null as string | null,
   tickerScrollLogoScale: 1,
+  tickerScrollLogoGapVw: 1.2,
   tickerScrollLogoBg: "transparent" as "white" | "transparent" | "auto",
   tickerScrollLogosEnabled: true,
   tickerScrollLogoPosition: "start" as "start" | "end" | "both",

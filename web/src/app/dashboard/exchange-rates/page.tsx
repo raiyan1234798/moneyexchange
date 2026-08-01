@@ -213,9 +213,12 @@ export default function ExchangeRatesPage() {
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canCreateCatalog = hasPermission("manageCurrencies");
   // Only users with the "Add new currencies" module (Users page checkbox /
-  // feature board) may create currencies — manually or via file upload.
-  // Super admins always can. Branch staff without that module cannot.
-  const canAddNewCurrencies = isSuperAdmin || hasModule("addBranchCurrencies");
+  // feature board) may create OR delete currencies — manually or via file
+  // upload. Admins always can (matches firestore.rules isAdmin()); branch
+  // staff need the "Add new currencies" chip. Branch managers/users without
+  // that chip can edit values but never add or remove a currency.
+  const canAddNewCurrencies =
+    isSuperAdmin || isAdmin || hasModule("addBranchCurrencies");
   // For the catalog's "On branches" column: every branch's rates (admins only).
   const [allRates, setAllRates] = useState<ExchangeRate[]>([]);
   const transferLocalLabel = branch?.settings?.transferLocalLabel?.trim() || "UGX";
@@ -1370,6 +1373,8 @@ export default function ExchangeRatesPage() {
                     variant="outline"
                     size="sm"
                     className="rounded-lg text-destructive hover:text-destructive"
+                    title="Remove this row from THIS upload only — it does not delete the live currency on the branch"
+                    aria-label="Remove this row from this upload (does not delete the live currency)"
                     onClick={() =>
                       setImportPreview((prev) => (prev ? prev.filter((_, i) => i !== index) : prev))
                     }
@@ -1448,6 +1453,7 @@ export default function ExchangeRatesPage() {
               localLabel={transferLocalLabel}
               branches={branches}
               currentBranchId={effectiveBranchId}
+              canDeleteCurrency={canAddNewCurrencies}
             />
           </div>
         ) : null}
@@ -2701,7 +2707,10 @@ export default function ExchangeRatesPage() {
                               </Button>
                             </>
                           ) : null}
-                          {isSuperAdmin || isAdmin || isBranchManager ? (
+                          {/* Deleting a currency is admin-level: only admins,
+                              or a user the admin granted "Add new currencies".
+                              Branch managers/users can edit values, never delete. */}
+                          {canAddNewCurrencies ? (
                             <Button
                               variant="outline"
                               size="sm"

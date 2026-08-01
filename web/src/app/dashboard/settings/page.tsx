@@ -811,20 +811,22 @@ function BranchSettingsForm({
           <Input
             type="number"
             min={0}
-            max={10}
+            max={15}
             step={1}
             key={`safe-area-${settings.displaySafeAreaPercent ?? 0}`}
             defaultValue={settings.displaySafeAreaPercent ?? 0}
             onBlur={(event) => {
-              const value = Math.max(0, Math.min(10, Number(event.target.value) || 0));
+              const value = Math.max(0, Math.min(15, Number(event.target.value) || 0));
               event.target.value = String(value);
               setSettings({ ...settings, displaySafeAreaPercent: value });
             }}
             className="rounded-xl"
           />
           <p className="text-xs text-muted-foreground">
-            Some TVs cut off the edges of the picture (logo, date or last column not fully
-            visible). Increase this until everything fits — 3 to 5 works for most TVs. 0 = off.
+            Some TVs cut off the edges of the picture (the clock, logo, date, country names or the
+            last rate column not fully visible) — this happens over HDMI cable and casting alike.
+            Increase this until everything fits with a clean black border: 3 to 5 works for most
+            TVs, up to 15 for TVs that crop a lot. 0 = off.
           </p>
         </div>
       </div>

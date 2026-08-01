@@ -377,22 +377,33 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(
             ['buyRate', 'sellRate', 'version', 'status', 'updatedBy', 'updatedByName',
              'publishedAt', 'updatedAt']));
-      allow delete: if isSuperAdmin() || isAdmin() || hasAllBranchForex() ||
-        (isBranchManager() && canAccessBranch(resource.data.branchId));
+      // Deleting a currency ROW is an admin-level action (client 2026-08-01:
+      // "no user can delete any currency … only admins, and admin-chosen
+      // users, can"). Neither branch managers nor branch users may delete —
+      // they only edit values. Admins always; anyone else strictly needs the
+      // "Add new currencies" grant (addBranchCurrencies), the same chip that
+      // governs a currency's existence for create.
+      allow delete: if isSuperAdmin() || isAdmin() || hasAddBranchCurrencies();
     }
 
     // Centralized money-transfer rates (head office): one set for ALL branches.
     // Public read (the TV display is unauthenticated); admin-only writes.
     match /transfer_rates/{code} {
       allow read: if true;
-      // Admins always; branch managers by default (client 2026-07-21); anyone
-      // else only when granted the "transferRates" module in Users.
-      allow create, update, delete: if isSuperAdmin() || isAdmin() ||
+      // EDITING transfer values: admins always; branch managers by default
+      // (client 2026-07-21); anyone else only when granted the "transferRates"
+      // module in Users.
+      allow create, update: if isSuperAdmin() || isAdmin() ||
         (isBranchManager() &&
           (!('moduleAccess' in userDoc()) ||
             userDoc().moduleAccess.hasAny(['transferRates']))) ||
         (isActiveUser() && 'moduleAccess' in userDoc() &&
           userDoc().moduleAccess.hasAny(['transferRates']));
+      // DELETING a transfer currency is admin-level (client 2026-08-01): admins
+      // always, otherwise only the admin-granted "Add new currencies" chip —
+      // NOT the transferRates edit chip, and not branch managers by default.
+      allow delete: if isSuperAdmin() || isAdmin() ||
+        hasModuleKey('addBranchCurrencies');
     }
 
     match /rate_history/{historyId} {
