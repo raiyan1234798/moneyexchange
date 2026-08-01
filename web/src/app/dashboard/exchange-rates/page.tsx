@@ -138,6 +138,49 @@ export default function ExchangeRatesPage() {
   const [createScope, setCreateScope] = useState<"current" | "specific" | "all">("current");
   const [createBranchIds, setCreateBranchIds] = useState<string[]>([]);
   const [createHidden, setCreateHidden] = useState(true);
+  // Inline "add currency" row at the bottom of the forex list (like transfers):
+  // type a code, We Buy, We Sell → Add. Flag/name auto-pick from the code.
+  const [newForexCode, setNewForexCode] = useState("");
+  const [newForexBuy, setNewForexBuy] = useState("");
+  const [newForexSell, setNewForexSell] = useState("");
+  const [addingForex, setAddingForex] = useState(false);
+
+  async function addForexRowInline() {
+    const code = newForexCode.trim().toUpperCase();
+    if (!isValidCurrencyCode(code)) {
+      toast.error("Enter a 3-letter currency code (e.g. JPY)");
+      return;
+    }
+    if (!(Number(newForexBuy) > 0) || !(Number(newForexSell) > 0)) {
+      toast.error("Enter positive We Buy and We Sell values");
+      return;
+    }
+    const meta = getCurrencyMeta(code);
+    setAddingForex(true);
+    await handleCreateCurrency({
+      // Name/country/flag auto-picked from the code; flag falls back to the
+      // country-letters flag (JPY → 🇯🇵) for codes the catalog doesn't know.
+      form: {
+        currencyCode: code,
+        currencyName: meta?.name || code,
+        country: meta?.country || "",
+        flag: meta?.flag || flagFromCurrencyCode(code) || "",
+        buyRate: newForexBuy,
+        sellRate: newForexSell,
+        transferUsd: "",
+        transferLocal: "",
+      },
+      // Inline add = this branch, visible immediately (matches the transfer row).
+      scope: "current",
+      hidden: false,
+      onDone: () => {
+        setNewForexCode("");
+        setNewForexBuy("");
+        setNewForexSell("");
+      },
+    });
+    setAddingForex(false);
+  }
   // Edit-currency-look dialog (flag emoji / name / country) — admins only.
   const [editCurrencyTarget, setEditCurrencyTarget] = useState<Currency | null>(null);
   const [editCurrencyForm, setEditCurrencyForm] = useState({ flag: "", name: "", country: "" });
@@ -426,23 +469,33 @@ export default function ExchangeRatesPage() {
     }
   }
 
-  async function handleCreateCurrency() {
-    const code = currencyForm.currencyCode.trim().toUpperCase();
+  async function handleCreateCurrency(opts?: {
+    form?: typeof emptyCurrencyForm;
+    scope?: "current" | "specific" | "all";
+    hidden?: boolean;
+    /** Inline add-row callback: clear its own inputs on success. */
+    onDone?: () => void;
+  }) {
+    // The dialog uses component state; the inline add-row passes its own values.
+    const form = opts?.form ?? currencyForm;
+    const scope = opts?.scope ?? createScope;
+    const hidden = opts?.hidden ?? createHidden;
+    const code = form.currencyCode.trim().toUpperCase();
     if (!user || !profile || !effectiveBranchId || !canAddNewCurrencies) return;
-    if (!isValidCurrencyCode(code) || !currencyForm.currencyName.trim()) {
+    if (!isValidCurrencyCode(code) || !form.currencyName.trim()) {
       if (!isValidCurrencyCode(code)) {
         toast.error("Currency code must be exactly 3 letters (e.g. USD, CAD)");
       }
       return;
     }
-    const buyRate = Number(currencyForm.buyRate);
-    const sellRate = Number(currencyForm.sellRate);
+    const buyRate = Number(form.buyRate);
+    const sellRate = Number(form.sellRate);
     if (!Number.isFinite(buyRate) || buyRate <= 0 || !Number.isFinite(sellRate) || sellRate <= 0) {
       toast.error("Enter positive We Buy and We Sell values");
       return;
     }
-    const transferUsd = currencyForm.transferUsd.trim() === "" ? null : Number(currencyForm.transferUsd);
-    const transferLocal = currencyForm.transferLocal.trim() === "" ? null : Number(currencyForm.transferLocal);
+    const transferUsd = form.transferUsd.trim() === "" ? null : Number(form.transferUsd);
+    const transferLocal = form.transferLocal.trim() === "" ? null : Number(form.transferLocal);
     if (rates.some((r) => r.currencyCode.toUpperCase() === code)) {
       toast.error(`${code} is already on this branch — edit its rates below instead`);
       return;
@@ -471,9 +524,9 @@ export default function ExchangeRatesPage() {
             {
               currencyCode: code,
               displayName: code,
-              currencyName: currencyForm.currencyName,
-              country: currencyForm.country,
-              flag: currencyForm.flag,
+              currencyName: form.currencyName,
+              country: form.country,
+              flag: form.flag,
               buyRate,
               sellRate,
             },
@@ -489,6 +542,7 @@ export default function ExchangeRatesPage() {
         toast.success(`${code} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`);
         setCreateOpen(false);
         setCurrencyForm(emptyCurrencyForm);
+        opts?.onDone?.();
         setRates(await listExchangeRates(effectiveBranchId));
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to add currency");
@@ -501,9 +555,9 @@ export default function ExchangeRatesPage() {
     try {
       const payload = buildCurrencyPayload({
         currencyCode: code,
-        currencyName: currencyForm.currencyName,
-        country: currencyForm.country,
-        flag: currencyForm.flag,
+        currencyName: form.currencyName,
+        country: form.country,
+        flag: form.flag,
       });
       const currencyId = await createCurrency(
         {
@@ -516,9 +570,9 @@ export default function ExchangeRatesPage() {
       );
       // Which branches receive the new currency row.
       const targetIds =
-        createScope === "all"
+        scope === "all"
           ? branches.filter((b) => b.status === "active").map((b) => b.id)
-          : createScope === "specific"
+          : scope === "specific"
             ? [...new Set([effectiveBranchId, ...createBranchIds])]
             : [effectiveBranchId];
       for (const targetId of targetIds) {
@@ -539,12 +593,12 @@ export default function ExchangeRatesPage() {
             userName: profile.displayName || profile.email,
             branchName: target?.name || targetId,
           },
-          { buyRate, sellRate, isHidden: createHidden },
+          { buyRate, sellRate, isHidden: hidden },
         );
       }
       await publishCentralTransfer();
       toast.success(
-        createHidden
+        hidden
           ? `${payload.currencyCode} created on ${targetIds.length} branch${targetIds.length === 1 ? "" : "es"} — HIDDEN for now. Use Show on each branch (or the catalog's Branches dialog) when ready.`
           : `${payload.currencyCode} published to ${targetIds.length} branch${targetIds.length === 1 ? "" : "es"} at Buy ${buyRate} / Sell ${sellRate}`,
         { duration: 9000 },
@@ -2664,6 +2718,80 @@ export default function ExchangeRatesPage() {
                     </div>
                   );
                 })}
+
+                {/* Inline "add currency" row — same as the transfer card. Type a
+                    code, We Buy, We Sell → Add; flag/name auto-pick from the code. */}
+                {canManageRates && canAddNewCurrencies ? (
+                  <div className="grid grid-cols-1 items-end gap-3 rounded-xl border border-dashed border-primary/40 bg-primary/[0.04] p-3 sm:grid-cols-[minmax(150px,190px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4">
+                    <div className="min-w-0">
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Add currency
+                      </Label>
+                      <div className="mt-1 flex items-center gap-2">
+                        <FlagChip
+                          flag={
+                            getCurrencyMeta(newForexCode.trim().toUpperCase())?.flag ||
+                            flagFromCurrencyCode(newForexCode.trim().toUpperCase()) ||
+                            "🌍"
+                          }
+                          currencyCode={newForexCode.trim().toUpperCase()}
+                          className="text-xl"
+                          chipClassName="!h-[1.3em] !w-[2em]"
+                        />
+                        <Input
+                          value={newForexCode}
+                          onChange={(e) =>
+                            setNewForexCode(e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3))
+                          }
+                          placeholder="JPY"
+                          className="h-9 rounded-lg text-sm font-bold uppercase"
+                          aria-label="New currency code"
+                        />
+                      </div>
+                      {newForexCode.trim().length >= 2 ? (
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          {getCurrencyMeta(newForexCode.trim().toUpperCase())?.name ||
+                            "New currency — flag auto-picked from the code"}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                        We Buy
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        value={newForexBuy}
+                        onChange={(e) => setNewForexBuy(e.target.value)}
+                        placeholder="0"
+                        className="h-10 rounded-lg border-emerald-600/25 bg-emerald-500/5 tabular-nums"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] font-semibold uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                        We Sell
+                      </Label>
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        value={newForexSell}
+                        onChange={(e) => setNewForexSell(e.target.value)}
+                        placeholder="0"
+                        className="h-10 rounded-lg border-amber-600/25 bg-amber-500/5 tabular-nums"
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      className="h-10 rounded-lg sm:self-end"
+                      disabled={addingForex}
+                      onClick={() => void addForexRowInline()}
+                    >
+                      <Plus className="mr-1 h-4 w-4" />
+                      {addingForex ? "Adding…" : "Add"}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </CardContent>
           </Card>
