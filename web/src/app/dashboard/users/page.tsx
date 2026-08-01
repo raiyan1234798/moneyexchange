@@ -888,7 +888,7 @@ export default function UsersPage() {
                         size="sm"
                         className="h-7 rounded px-2 text-xs"
                         onClick={() => {
-                          void navigator.clipboard.writeText(`${c.email}  ${c.password}`);
+                          void navigator.clipboard.writeText(`Email: ${c.email}\nPassword: ${c.password}`);
                           toast.success("Email + password copied");
                         }}
                       >
@@ -916,7 +916,7 @@ export default function UsersPage() {
                             userName: profile.displayName || profile.email,
                           })
                             .then((next) => {
-                              void navigator.clipboard.writeText(`${c.email}  ${next}`);
+                              void navigator.clipboard.writeText(`Email: ${c.email}\nPassword: ${next}`);
                               toast.success(`New password for ${c.email}: ${next} (copied)`, { duration: 12000 });
                             })
                             .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reset"))
@@ -1203,7 +1203,7 @@ export default function UsersPage() {
                   if (credEdit.mode === "password") {
                     void resetUserPassword(credEdit.cred, a, credEditValue)
                       .then((next) => {
-                        void navigator.clipboard.writeText(`${credEdit.cred.email}  ${next}`);
+                        void navigator.clipboard.writeText(`Email: ${credEdit.cred.email}\nPassword: ${next}`);
                         toast.success(`Password changed — ${credEdit.cred.email} now signs in with ${next} (copied)`, { duration: 12000 });
                         done();
                       })
@@ -1215,7 +1215,7 @@ export default function UsersPage() {
                     const target = users.find((u) => normalizeEmail(u.email) === normalizeEmail(credEdit.cred.email));
                     void changeUserEmail(credEdit.cred, credEditValue, target ? { uid: target.uid } : null, a)
                       .then((newEmail) => {
-                        void navigator.clipboard.writeText(`${newEmail}  ${credEdit.cred.password}`);
+                        void navigator.clipboard.writeText(`Email: ${newEmail}\nPassword: ${credEdit.cred.password}`);
                         toast.success(`Sign-in moved to ${newEmail} (email + password copied)`, { duration: 12000 });
                         done();
                       })
