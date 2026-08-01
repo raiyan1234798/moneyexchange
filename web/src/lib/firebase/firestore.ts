@@ -150,27 +150,37 @@ export async function countDocuments(
  * deleted; `onProgress` fires after each committed batch so the UI can count up.
  */
 export async function deleteAuditLogsBefore(
-  cutoff: Date,
+  cutoff: Date | null,
   onProgress?: (deletedSoFar: number) => void,
 ): Promise<number> {
-  const cutoffTs = Timestamp.fromDate(cutoff);
+  // cutoff === null → delete EVERYTHING ("Delete all"). Otherwise only entries
+  // strictly older than cutoff.
+  const cutoffTs = cutoff ? Timestamp.fromDate(cutoff) : null;
   let total = 0;
   for (;;) {
-    const snapshot = await getDocs(
-      query(
-        collection(db, "audit_logs"),
-        where("timestamp", "<", cutoffTs),
-        orderBy("timestamp", "asc"),
-        limit(400),
-      ),
-    );
+    // Fetch a big page of ids only (cheap — no doc bodies), then commit several
+    // 400-write batches CONCURRENTLY. This makes clearing thousands of large
+    // audit docs many times faster than one-batch-at-a-time (client 2026-08-01).
+    const base = cutoffTs
+      ? [where("timestamp", "<", cutoffTs), orderBy("timestamp", "asc"), limit(2000)]
+      : [limit(2000)];
+    const snapshot = await getDocs(query(collection(db, "audit_logs"), ...base));
     if (snapshot.empty) break;
-    const batch = writeBatch(db);
-    snapshot.docs.forEach((d) => batch.delete(d.ref));
-    await batch.commit();
+
+    const refs = snapshot.docs.map((d) => d.ref);
+    const chunks: (typeof refs)[] = [];
+    for (let i = 0; i < refs.length; i += 400) chunks.push(refs.slice(i, i + 400));
+    await Promise.all(
+      chunks.map((chunk) => {
+        const batch = writeBatch(db);
+        chunk.forEach((ref) => batch.delete(ref));
+        return batch.commit();
+      }),
+    );
+
     total += snapshot.size;
     onProgress?.(total);
-    if (snapshot.size < 400) break;
+    if (snapshot.size < 2000) break;
   }
   return total;
 }

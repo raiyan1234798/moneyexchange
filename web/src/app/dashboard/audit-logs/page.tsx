@@ -50,6 +50,8 @@ export default function AuditLogsPage() {
   // Bulk cleanup ("delete old activity"): keep the newest N days, delete older.
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [keepDays, setKeepDays] = useState(90);
+  // "Everything" mode: delete ALL activity (no keep window).
+  const [deleteEverything, setDeleteEverything] = useState(false);
   const [oldCount, setOldCount] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deletedSoFar, setDeletedSoFar] = useState(0);
@@ -76,18 +78,18 @@ export default function AuditLogsPage() {
   // the confirm button always states the exact number before anything happens.
   useEffect(() => {
     if (!cleanupOpen || !isPlatformAdmin) return;
-    const days = Math.max(1, keepDays);
     setOldCount(null);
     let cancelled = false;
-    void countDocuments(COLLECTIONS.auditLogs, [
-      where("timestamp", "<", Timestamp.fromDate(new Date(Date.now() - days * 86_400_000))),
-    ])
+    const constraints = deleteEverything
+      ? [] // total count = everything
+      : [where("timestamp", "<", Timestamp.fromDate(new Date(Date.now() - Math.max(1, keepDays) * 86_400_000)))];
+    void countDocuments(COLLECTIONS.auditLogs, constraints)
       .then((n) => !cancelled && setOldCount(n))
       .catch(() => !cancelled && setOldCount(-1));
     return () => {
       cancelled = true;
     };
-  }, [cleanupOpen, keepDays, isPlatformAdmin]);
+  }, [cleanupOpen, keepDays, deleteEverything, isPlatformAdmin]);
 
   async function handleBulkCleanup() {
     const days = Math.max(1, keepDays);
@@ -95,15 +97,18 @@ export default function AuditLogsPage() {
     setDeletedSoFar(0);
     try {
       const deleted = await deleteAuditLogsBefore(
-        new Date(Date.now() - days * 86_400_000),
+        deleteEverything ? null : new Date(Date.now() - days * 86_400_000),
         setDeletedSoFar,
       );
       toast.success(
         deleted > 0
-          ? `Deleted ${deleted} old activity entr${deleted === 1 ? "y" : "ies"} — everything from the last ${days} days is kept.`
-          : `Nothing to delete — no activity older than ${days} days.`,
+          ? deleteEverything
+            ? `Deleted all ${deleted} activity entries.`
+            : `Deleted ${deleted} old activity entr${deleted === 1 ? "y" : "ies"} — everything from the last ${days} days is kept.`
+          : "Nothing to delete.",
       );
       setCleanupOpen(false);
+      setDeleteEverything(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not delete old activity");
     } finally {
@@ -264,10 +269,10 @@ export default function AuditLogsPage() {
                     <button
                       key={d}
                       type="button"
-                      disabled={deleting}
+                      disabled={deleting || deleteEverything}
                       onClick={() => setKeepDays(d)}
-                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
-                        keepDays === d
+                      className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 ${
+                        !deleteEverything && keepDays === d
                           ? "border-primary/60 bg-primary/15 text-primary"
                           : "border-border/50 text-muted-foreground hover:bg-muted/40"
                       }`}
@@ -280,22 +285,40 @@ export default function AuditLogsPage() {
                     min={1}
                     max={3650}
                     value={keepDays}
-                    disabled={deleting}
+                    disabled={deleting || deleteEverything}
                     onChange={(e) => setKeepDays(Math.max(1, Math.min(3650, Number(e.target.value) || 1)))}
-                    className="w-24 rounded-lg"
+                    className="w-24 rounded-lg disabled:opacity-40"
                     aria-label="Days of activity to keep"
                   />
                 </div>
+                {/* One-click select-all: delete EVERYTHING (client 2026-08-01). */}
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    checked={deleteEverything}
+                    disabled={deleting}
+                    onChange={(e) => setDeleteEverything(e.target.checked)}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm font-medium text-destructive">
+                    Select all — delete every activity entry
+                  </span>
+                </label>
               </div>
               <p className="rounded-lg bg-muted/30 px-3 py-2 text-sm">
                 {deleting ? (
                   <>Deleting… <strong>{deletedSoFar}</strong> removed so far. Keep this page open.</>
                 ) : oldCount === null ? (
-                  "Counting entries older than that…"
+                  "Counting…"
                 ) : oldCount === -1 ? (
-                  "Could not count the old entries — you can still run the delete."
+                  "Could not count — you can still run the delete."
                 ) : oldCount === 0 ? (
-                  `Nothing to delete — no activity is older than ${keepDays} days.`
+                  "Nothing to delete."
+                ) : deleteEverything ? (
+                  <>
+                    <strong>ALL {oldCount}</strong> activity entr{oldCount === 1 ? "y" : "ies"} will be
+                    permanently deleted — nothing is kept.
+                  </>
                 ) : (
                   <>
                     <strong>{oldCount}</strong> entr{oldCount === 1 ? "y" : "ies"} older than{" "}
@@ -320,9 +343,13 @@ export default function AuditLogsPage() {
               >
                 {deleting
                   ? "Deleting…"
-                  : oldCount && oldCount > 0
-                    ? `Delete ${oldCount} old entries`
-                    : "Delete old entries"}
+                  : deleteEverything
+                    ? oldCount && oldCount > 0
+                      ? `Delete ALL ${oldCount} entries`
+                      : "Delete everything"
+                    : oldCount && oldCount > 0
+                      ? `Delete ${oldCount} old entries`
+                      : "Delete old entries"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

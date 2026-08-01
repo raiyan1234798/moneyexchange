@@ -244,11 +244,17 @@ service cloud.firestore {
         (isAdmin() && isValidUserUpdate()
           && resource.data.role != 'superAdmin'
           && request.resource.data.role != 'superAdmin') ||
-        // "Users" module chip: manage branch staff — can never touch admins or
-        // promote anyone beyond the branch roles.
+        // "Users" module chip: manage branch staff ONLY. It can flip isActive,
+        // rename, or move a branch-staff member — but can NEVER change role or
+        // moduleAccess (no privilege escalation), never target admins, and never
+        // edit its OWN row (self-escalation guard). role + moduleAccess are
+        // pinned to their prior values so a chip holder cannot grant modules.
         (hasModuleKey('users') && isValidUserUpdate()
+          && request.auth.uid != userId
           && resource.data.role in ['branchManager', 'branchUser']
-          && request.resource.data.role in ['branchManager', 'branchUser']) ||
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.moduleAccess == resource.data.moduleAccess
+          && request.resource.data.email == resource.data.email) ||
         (request.auth.uid == userId && request.resource.data.diff(resource.data).changedKeys().hasOnly(['lastLoginAt', 'updatedAt', 'displayName', 'photoURL'])) ||
         (request.auth.uid == userId && isSuperAdminEmail() && isValidUserUpdate());
       // Permanent removal is limited to the OWNER admins (the same two accounts
@@ -272,8 +278,11 @@ service cloud.firestore {
 
       allow read: if canManageInvite() || canReadOwnInvite();
       allow create: if isSuperAdmin() || isAdmin() ||
-        // "Users" module chip: invite branch staff (never admin roles).
-        (hasModuleKey('users') && request.resource.data.role in ['branchManager', 'branchUser']) ||
+        // "Users" module chip: invite branch staff INTO THE CALLER'S OWN branch
+        // only (never admins, never other branches).
+        (hasModuleKey('users') &&
+          request.resource.data.role in ['branchManager', 'branchUser'] &&
+          request.resource.data.branchId == managerBranchId()) ||
         (isBranchManager() &&
           request.resource.data.role == 'branchUser' &&
           request.resource.data.branchId == managerBranchId());
@@ -284,7 +293,9 @@ service cloud.firestore {
           request.resource.data.branchId == managerBranchId()) ||
         (canReadOwnInvite() &&
           request.resource.data.diff(resource.data).changedKeys().hasOnly(['status', 'updatedAt']));
-      allow delete: if isSuperAdmin() || isAdmin() || hasModuleKey('users') ||
+      allow delete: if isSuperAdmin() || isAdmin() ||
+        // chip holders delete invites only in their own branch
+        (hasModuleKey('users') && resource.data.branchId == managerBranchId()) ||
         canManageInvite() || canReadOwnInvite();
     }
 
@@ -310,11 +321,14 @@ service cloud.firestore {
       // Admins can create, update and delete branches (client request 2026-07-15).
       allow create: if isSuperAdmin() || isAdmin();
       allow delete: if isSuperAdmin() || isAdmin();
-      // "Branches" module = full branch editing. The display-settings modules
-      // (settings / promotions / display messages) may write ONLY the settings
-      // map (+ cosmetic logo/colour fields) — never code, name or status.
-      allow update: if isSuperAdmin() || isAdmin() || hasModuleKey('branches') ||
+      // "Branches" module = full branch editing, but ONLY on a branch the user
+      // belongs to (never every branch). The display-settings chips (settings /
+      // promotions / display messages) may write ONLY the settings map (+ logo/
+      // colour) — never code, name or status — again only on their own branch.
+      allow update: if isSuperAdmin() || isAdmin() ||
+        (hasModuleKey('branches') && canAccessBranch(branchId)) ||
         ((hasModuleKey('settings') || hasModuleKey('promotions') || hasModuleKey('displayMessages')) &&
+          canAccessBranch(branchId) &&
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['settings', 'updatedAt', 'logoUrl', 'brandingColor']));
     }
@@ -353,7 +367,12 @@ service cloud.firestore {
         (belongsToManagerBranch(request.resource.data.branchId) && hasAddBranchCurrencies()) ||
         (belongsToBranchUserBranch(request.resource.data.branchId) && hasAddBranchCurrencies());
       allow update: if isSuperAdmin() || isAdmin() || hasAllBranchForex() ||
-        belongsToManagerBranch(request.resource.data.branchId) ||
+        // Manager edits a row in THEIR OWN branch (check the EXISTING doc's
+        // branch, not the incoming one) and cannot move the row to a branch —
+        // otherwise a manager could hijack another branch's rate row by
+        // rewriting its branchId to their own.
+        (belongsToManagerBranch(resource.data.branchId) &&
+          request.resource.data.branchId == resource.data.branchId) ||
         (belongsToBranchUserBranch(resource.data.branchId) &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(
             ['buyRate', 'sellRate', 'version', 'status', 'updatedBy', 'updatedByName',
@@ -423,20 +442,39 @@ service cloud.firestore {
     }
 
     match /tv_devices/{deviceId} {
-      allow read: if isActiveUser() || request.auth == null;
-      allow create: if true;
-      allow update: if isActiveUser() || request.auth == null;
+      // A TV reads its OWN device doc by id (the id is its secret token). LISTING
+      // the whole collection is staff-only — otherwise anyone could enumerate
+      // every device's secret token and impersonate/hijack a TV.
+      allow get: if true;
+      allow list: if isActiveUser();
+      // Two creators: (a) the unauthenticated TV self-registering — its doc id
+      // MUST equal its deviceToken so it can't be spoofed under a chosen id;
+      // (b) authenticated staff adding a device from the dashboard (auto-id),
+      // scoped to a branch they manage.
+      allow create: if request.resource.data.deviceToken == deviceId ||
+        canManageBranchContent(request.resource.data.branchId);
+      // Heartbeats/status may update, but the device's BRANCH can never be
+      // repointed by an update — that was the TV-hijack vector.
+      allow update: if (isActiveUser() || request.auth == null) &&
+        request.resource.data.branchId == resource.data.branchId;
       allow delete: if isSuperAdmin() ||
         (isBranchManager() && canAccessBranch(resource.data.branchId));
     }
 
     match /tv_pairing_codes/{code} {
       allow get: if true;
-      allow create, update, delete: if isActiveUser();
+      // Only branch content managers (or admins) mint/rotate/clear pairing codes
+      // for their branch — not every signed-in user.
+      allow create, update: if isSuperAdmin() || isAdmin() ||
+        (isBranchManager() && canAccessBranch(request.resource.data.branchId));
+      allow delete: if isSuperAdmin() || isAdmin() ||
+        (isBranchManager() && canAccessBranch(resource.data.branchId));
     }
 
     match /tv_health/{healthId} {
       allow read: if isActiveUser();
+      // Unauthenticated heartbeat from the TV; low-sensitivity ping data. Kept
+      // open so a TV with no login can report health; delete is admin-only.
       allow create, update: if true;
       allow delete: if isSuperAdmin();
     }
@@ -476,6 +514,12 @@ service cloud.firestore {
           && request.auth.token.email != null
           && request.auth.token.email.lower() == 'admin@unimoni-signage.com';
       }
+      // Readable by any signed-in user: the dashboard theme needs it, and branch
+      // staff with the media chip must read the upload-lock status to know
+      // whether an upload needs the password. (The upload password itself lives
+      // here in plaintext — a known limitation flagged for a follow-up: hash it
+      // or split the secret from the on/off status. It is NOT public — only
+      // authenticated active users can read it.)
       allow read: if isActiveUser();
       // The org-wide dashboard THEME doc is editable by any admin; the upload
       // lock and other config docs stay owner/super-admin only.
