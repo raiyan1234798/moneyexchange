@@ -65,6 +65,11 @@ export function UnimoniPromoPanel({
   const [failedImageUrl, setFailedImageUrl] = useState<string | null>(null);
   // Which clip is ACTUALLY rendering frames — drives the swap cover below.
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  // TRUE only while frames are actually advancing. Android-TV Chrome paints its
+  // own giant play button on ANY paused/stalled video (client 2026-08-01, TVs
+  // opening the link directly) — so the branded cover must track real playback,
+  // not just which URL loaded.
+  const [isActuallyPlaying, setIsActuallyPlaying] = useState(false);
   const imageFailed = Boolean(imageUrl) && failedImageUrl === imageUrl;
 
   const showVideo = Boolean(videoUrl);
@@ -140,13 +145,19 @@ export function UnimoniPromoPanel({
             // play button — never stay paused unless the video actually ended.
             onPause={(e) => {
               const v = e.currentTarget;
+              setIsActuallyPlaying(false);
               if (!v.ended && !v.seeking) {
                 void v.play().catch(() => {});
               }
             }}
             onLoadedData={onVideoLoaded}
             onTimeUpdate={onVideoProgress}
-            onPlaying={() => setPlayingUrl(videoUrl ?? null)}
+            onPlaying={() => {
+              setPlayingUrl(videoUrl ?? null);
+              setIsActuallyPlaying(true);
+            }}
+            onWaiting={() => setIsActuallyPlaying(false)}
+            onStalled={() => setIsActuallyPlaying(false)}
             onCanPlay={(e) => {
               // Some TV WebViews leave a freshly-loaded video paused (showing the
               // big play button) until told to play — force it. Try with sound if
@@ -162,7 +173,10 @@ export function UnimoniPromoPanel({
               onVideoLoaded?.();
             }}
             onError={onVideoError}
-            onEnded={onVideoEnded}
+            onEnded={() => {
+              setIsActuallyPlaying(false);
+              onVideoEnded?.();
+            }}
           />
         </>
       ) : showImage ? (
@@ -211,7 +225,7 @@ export function UnimoniPromoPanel({
         <div
           aria-hidden
           className={`pointer-events-none absolute inset-0 z-[4] flex items-center justify-center bg-[#0B1F3A] transition-opacity duration-500 ${
-            videoLoaded && playingUrl === videoUrl ? "opacity-0" : "opacity-100"
+            videoLoaded && playingUrl === videoUrl && isActuallyPlaying ? "opacity-0" : "opacity-100"
           }`}
         >
           {/* The logo chip is optional (admin switch); the navy COVER itself is

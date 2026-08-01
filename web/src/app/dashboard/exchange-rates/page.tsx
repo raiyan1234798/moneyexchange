@@ -564,15 +564,17 @@ export default function ExchangeRatesPage() {
   function handleCurrencyCodeChange(raw: string) {
     const code = raw.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
     const meta = getCurrencyMeta(code);
+    // Auto-pick from the typed code (client 2026-08-01): a known code fills
+    // name/country/flag from the catalog; an unknown one still derives the
+    // flag from its first two letters (JPX → 🇯🇵). Values always REPLACE the
+    // previous auto-fill so switching USD → EUR can't leave a stale country.
     setCurrencyForm((prev) => ({
       ...prev,
       currencyCode: code,
-      ...(meta && code.length === 3
-        ? {
-            currencyName: prev.currencyName || meta.name,
-            country: prev.country || meta.country,
-            flag: prev.flag || meta.flag,
-          }
+      ...(code.length === 3
+        ? meta
+          ? { currencyName: meta.name, country: meta.country, flag: meta.flag }
+          : { flag: flagFromCurrencyCode(code) ?? prev.flag }
         : {}),
     }));
   }

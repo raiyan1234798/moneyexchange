@@ -655,12 +655,11 @@ export default function TickersPage() {
         </div>
 
         {/* Sticky LIVE TV preview — follows while you edit, never covers anything. */}
+        {/* Preview on TOP, save below (client 2026-08-01). The stack scrolls
+            within itself on short screens so Save is always reachable. */}
         <div className="hidden xl:block">
           {branch ? (
-            <div className="sticky top-6 space-y-2">
-              {/* Save FIRST: on shorter laptop screens the preview pushed the
-                  save card below the fold (client 2026-07-31). */}
-              <div id="ticker-save-slot" ref={setTickerSaveSlot} className="pb-1" />
+            <div className="sticky top-6 max-h-[calc(100vh-3rem)] space-y-2 overflow-y-auto pr-1">
               <p className="text-sm font-medium">
                 Live TV preview — {branch.name}
               </p>
@@ -674,6 +673,7 @@ export default function TickersPage() {
               <p className="text-xs text-muted-foreground">
                 This is the real branch display, live. Saved changes appear here within seconds.
               </p>
+              <div id="ticker-save-slot" ref={setTickerSaveSlot} className="pt-1" />
             </div>
           ) : null}
         </div>
