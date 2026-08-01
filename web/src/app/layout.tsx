@@ -146,7 +146,8 @@ export default function RootLayout({
       </head>
       <body className="min-h-full bg-background text-foreground antialiased">
         <AppProviders>{children}</AppProviders>
-        <Toaster richColors closeButton />
+        {/* top-center: bottom-right toasts covered the save buttons on laptops */}
+        <Toaster richColors closeButton position="top-center" />
       </body>
     </html>
   );

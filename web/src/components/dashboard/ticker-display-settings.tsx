@@ -1066,7 +1066,7 @@ export function TickerDisplaySettings({
               saveSlot,
             )
           : null}
-        <div className={`${saveSlot ? "xl:hidden " : ""}space-y-3`}>
+        <div className={`${saveSlot ? "xl:hidden " : ""}sticky bottom-3 z-20 space-y-3 rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-lg backdrop-blur`}>
           {canApplyToAll ? (
             <ApplyToAllCheckbox
               id="ticker-settings-apply-all"

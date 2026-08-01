@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, EyeOff, FileSpreadsheet, GripVertical, Plus, Save, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, FileSpreadsheet, GripVertical, Pencil, Plus, Save, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { ContentPanel } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ import {
 } from "@/lib/services/transfer-rate-service";
 import { parseRateFile } from "@/lib/rate-import";
 import { flagFromCurrencyCode, getCurrencyMeta, normalizeCurrencyCode } from "@/lib/currency-utils";
-import { saveCurrencyOverride } from "@/lib/services/currency-service";
+import { saveCurrencyOverride, subscribeCurrencyOverrides } from "@/lib/services/currency-service";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +62,13 @@ export function CentralTransferPanel({
   currentBranchId?: string | null;
 }) {
   const [rows, setRows] = useState<TransferRate[]>([]);
+  // Admin flag overrides (beats the built-in catalog) — same source the TV uses.
+  const [flagOverrides, setFlagOverrides] = useState<Record<string, { flag?: string }>>({});
+  useEffect(() => subscribeCurrencyOverrides((m) => setFlagOverrides(m ?? {})), []);
+  // Per-row flag editor: type an emoji or a 2-letter country code.
+  const [flagEdit, setFlagEdit] = useState<{ code: string; value: string } | null>(null);
+  const [flagSaving, setFlagSaving] = useState(false);
+
   // Confirm before removing a transfer currency (avoid accidental delete).
   const [removeConfirm, setRemoveConfirm] = useState<{ code: string } | null>(null);
   const [visibilityDialog, setVisibilityDialog] = useState<{
@@ -490,7 +497,10 @@ export function CentralTransferPanel({
           const meta = getCurrencyMeta(row.currencyCode);
           // Auto-pick by country code when the built-in catalog doesn't know the
           // currency (e.g. TWD -> TW -> Taiwan flag).
-          const derivedFlag = meta?.flag ?? flagFromCurrencyCode(row.currencyCode);
+          const derivedFlag =
+            flagOverrides[row.currencyCode.toUpperCase()]?.flag?.trim() ||
+            meta?.flag ||
+            flagFromCurrencyCode(row.currencyCode);
           const changed =
             draft.transferUsd !== (row.transferUsd != null ? String(row.transferUsd) : "") ||
             draft.transferLocal !== (row.transferLocal != null ? String(row.transferLocal) : "");
@@ -555,6 +565,17 @@ export function CentralTransferPanel({
               </div>
               <div className="flex min-w-0 items-center gap-2">
                 <span className="shrink-0 text-xl leading-none">{derivedFlag ?? "🌍"}</span>
+                <button
+                  type="button"
+                  title="Edit this currency's flag (shows on every TV)"
+                  aria-label={`Edit flag for ${row.currencyCode}`}
+                  onClick={() =>
+                    setFlagEdit({ code: row.currencyCode.toUpperCase(), value: derivedFlag ?? "" })
+                  }
+                  className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
                 <div className="min-w-0">
                   <p className="font-semibold">{row.currencyCode}</p>
                   {meta?.name ? (
@@ -851,6 +872,60 @@ export function CentralTransferPanel({
               onClick={() => void publishPending()}
             >
               Yes, publish
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Per-currency flag editor — writes a currency override that every TV uses. */}
+      <AlertDialog open={flagEdit !== null} onOpenChange={(o) => !o && setFlagEdit(null)}>
+        <AlertDialogContent className="rounded-2xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Flag for {flagEdit?.code}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Type a flag emoji (🇯🇵) or a 2-letter country code (JP). The new flag shows on the
+              transfer card and forex card of every branch TV within seconds.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex items-center gap-3 py-1">
+            <Input
+              value={flagEdit?.value ?? ""}
+              onChange={(e) => setFlagEdit((prev) => (prev ? { ...prev, value: e.target.value } : prev))}
+              placeholder="🇯🇵 or JP"
+              className="rounded-xl text-lg"
+            />
+            <span className="text-3xl leading-none">
+              {(() => {
+                const v = flagEdit?.value.trim() ?? "";
+                if (!v) return "🌍";
+                if (/^[A-Za-z]{2}$/.test(v)) return flagFromCurrencyCode(`${v.toUpperCase()}X`) ?? "🌍";
+                return v;
+              })()}
+            </span>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl"
+              disabled={flagSaving || !flagEdit?.value.trim()}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!flagEdit) return;
+                const raw = flagEdit.value.trim();
+                const finalFlag = /^[A-Za-z]{2}$/.test(raw)
+                  ? flagFromCurrencyCode(`${raw.toUpperCase()}X`) || raw
+                  : raw;
+                setFlagSaving(true);
+                void saveCurrencyOverride(flagEdit.code, { flag: finalFlag }, actor)
+                  .then(() => {
+                    toast.success(`${flagEdit.code} flag updated — live on the TVs in seconds`);
+                    setFlagEdit(null);
+                  })
+                  .catch((err) => toast.error(err instanceof Error ? err.message : "Could not save the flag"))
+                  .finally(() => setFlagSaving(false));
+              }}
+            >
+              {flagSaving ? "Saving…" : "Save flag"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

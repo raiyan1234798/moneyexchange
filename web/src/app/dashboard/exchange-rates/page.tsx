@@ -132,6 +132,11 @@ export default function ExchangeRatesPage() {
   const [drafts, setDrafts] = useState<Record<string, RateDraft>>({});
   const [addOpen, setAddOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  // Scoped creation: which branches receive the new currency, and whether it
+  // starts hidden (in the dashboard but OFF the TVs until shown per branch).
+  const [createScope, setCreateScope] = useState<"current" | "specific" | "all">("current");
+  const [createBranchIds, setCreateBranchIds] = useState<string[]>([]);
+  const [createHidden, setCreateHidden] = useState(true);
   // Edit-currency-look dialog (flag emoji / name / country) — admins only.
   const [editCurrencyTarget, setEditCurrencyTarget] = useState<Currency | null>(null);
   const [editCurrencyForm, setEditCurrencyForm] = useState({ flag: "", name: "", country: "" });
@@ -508,30 +513,46 @@ export default function ExchangeRatesPage() {
         },
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
-      await addBranchRate(
-        effectiveBranchId,
-        {
-          id: currencyId,
-          ...payload,
-          sortOrder: currencies.length + 1,
-          status: "active",
-          isHidden: false,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-        {
-          userId: user.uid,
-          userName: profile.displayName || profile.email,
-          branchName: branch?.name || effectiveBranchId,
-        },
-        { buyRate, sellRate },
-      );
+      // Which branches receive the new currency row.
+      const targetIds =
+        createScope === "all"
+          ? branches.filter((b) => b.status === "active").map((b) => b.id)
+          : createScope === "specific"
+            ? [...new Set([effectiveBranchId, ...createBranchIds])]
+            : [effectiveBranchId];
+      for (const targetId of targetIds) {
+        const target = branches.find((b) => b.id === targetId);
+        await addBranchRate(
+          targetId,
+          {
+            id: currencyId,
+            ...payload,
+            sortOrder: currencies.length + 1,
+            status: "active",
+            isHidden: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+          {
+            userId: user.uid,
+            userName: profile.displayName || profile.email,
+            branchName: target?.name || targetId,
+          },
+          { buyRate, sellRate, isHidden: createHidden },
+        );
+      }
       await publishCentralTransfer();
       toast.success(
-        `${payload.currencyCode} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`,
+        createHidden
+          ? `${payload.currencyCode} created on ${targetIds.length} branch${targetIds.length === 1 ? "" : "es"} — HIDDEN for now. Use Show on each branch (or the catalog's Branches dialog) when ready.`
+          : `${payload.currencyCode} published to ${targetIds.length} branch${targetIds.length === 1 ? "" : "es"} at Buy ${buyRate} / Sell ${sellRate}`,
+        { duration: 9000 },
       );
       setCreateOpen(false);
       setCurrencyForm(emptyCurrencyForm);
+      setCreateScope("current");
+      setCreateBranchIds([]);
+      setCreateHidden(true);
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create currency");
@@ -1570,6 +1591,72 @@ export default function ExchangeRatesPage() {
                       </>
                     ) : null}
                   </FormSection>
+                  {canCreateCatalog ? (
+                    <div className="space-y-2 rounded-xl border border-border/40 bg-muted/20 p-3">
+                      <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Add this currency to
+                      </Label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {([
+                          ["current", "This branch only"],
+                          ["specific", "Choose branches"],
+                          ["all", `All active branches (${branches.filter((b) => b.status === "active").length})`],
+                        ] as const).map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => setCreateScope(key)}
+                            className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                              createScope === key
+                                ? "border-primary/60 bg-primary/15 text-primary"
+                                : "border-border/50 text-muted-foreground hover:bg-muted/40"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {createScope === "specific" ? (
+                        <div className="grid max-h-36 gap-1 overflow-y-auto sm:grid-cols-2">
+                          {branches
+                            .filter((b) => b.status === "active" && b.id !== effectiveBranchId)
+                            .map((b) => (
+                              <label key={b.id} className="flex cursor-pointer items-center gap-2 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={createBranchIds.includes(b.id)}
+                                  onChange={(e) =>
+                                    setCreateBranchIds((prev) =>
+                                      e.target.checked ? [...prev, b.id] : prev.filter((x) => x !== b.id),
+                                    )
+                                  }
+                                  className="h-4 w-4"
+                                />
+                                <span className="truncate">
+                                  {b.name} <span className="text-xs text-muted-foreground">({b.code})</span>
+                                </span>
+                              </label>
+                            ))}
+                        </div>
+                      ) : null}
+                      <label className="flex cursor-pointer items-start gap-2 pt-1">
+                        <input
+                          type="checkbox"
+                          checked={createHidden}
+                          onChange={(e) => setCreateHidden(e.target.checked)}
+                          className="mt-0.5 h-4 w-4"
+                        />
+                        <span className="text-xs">
+                          <span className="font-medium">Start hidden on the TVs</span>
+                          <span className="block text-muted-foreground">
+                            The currency is created on the chosen branches but stays OFF their
+                            displays until you press Show on each branch (or manage it from the
+                            catalog&apos;s Branches dialog). Untick to publish straight to the TVs.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  ) : null}
                   <DialogFooter>
                     <Button
                       onClick={() => void handleCreateCurrency()}
@@ -1583,7 +1670,7 @@ export default function ExchangeRatesPage() {
                       }
                       className="rounded-xl"
                     >
-                      {creating ? "Publishing…" : "Save & Publish to Branch"}
+                      {creating ? "Saving…" : createHidden ? "Create (hidden for now)" : "Save & Publish"}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -1596,6 +1683,14 @@ export default function ExchangeRatesPage() {
             <ContentPanel
               title="Currency Catalog"
               description="Global currencies available to all branches"
+              action={
+                canManageRates && canAddNewCurrencies ? (
+                  <Button className="rounded-xl" size="sm" onClick={() => setCreateOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add currency
+                  </Button>
+                ) : undefined
+              }
             >
             {currencies.length === 0 ? (
               <EmptyState

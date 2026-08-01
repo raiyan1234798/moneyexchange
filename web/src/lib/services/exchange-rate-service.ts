@@ -110,13 +110,16 @@ export async function addBranchRate(
     sellRate: number;
     transferUsd?: number | null;
     transferLocal?: number | null;
+    /** Create the branch row hidden — visible in the dashboard, off the TV
+        until an admin shows it (scoped currency creation, client 2026-07-31). */
+    isHidden?: boolean;
   },
 ): Promise<void> {
   const existing = await listExchangeRates(branchId);
   const already = existing.find((r) => r.currencyCode === currency.currencyCode);
   if (already) {
     await updateDocument(COLLECTIONS.exchangeRates, already.id, {
-      isHidden: false,
+      isHidden: initialRates?.isHidden ?? false,
       status: "published",
       ...(initialRates
         ? {
@@ -142,7 +145,7 @@ export async function addBranchRate(
     transferLocal: initialRates?.transferLocal ?? null,
     version: 1,
     displayOrder: existing.length + 1,
-    isHidden: false,
+    isHidden: initialRates?.isHidden ?? false,
     status: "published",
     updatedBy: actor.userId,
     updatedByName: actor.userName,

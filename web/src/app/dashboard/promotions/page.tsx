@@ -825,7 +825,9 @@ export default function PromotionsPage() {
 
             <PreviewDisplayLink branchCode={branch.code} />
 
-            <div className="space-y-3">
+            {/* Sticky: the branch picker can grow tall — Save must stay reachable
+                without scrolling to the very bottom (client 2026-07-31). */}
+            <div className="sticky bottom-3 z-20 space-y-3 rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-lg backdrop-blur">
               {canApplyToAll ? (
                 <ApplyToAllCheckbox
                   id="promotions-apply-all"
