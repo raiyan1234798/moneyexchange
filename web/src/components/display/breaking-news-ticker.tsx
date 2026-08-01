@@ -319,9 +319,14 @@ function BreakingNewsTickerInner({
   // global Normal-fit size. Lets a wide logo be shrunk until it clears the
   // rounded corner while the rest stay large.
   const perLogoEntry = currentBadge ? logoScales.find((x) => x.url === currentBadge) : undefined;
-  const perLogoScale =
-    perLogoEntry && typeof perLogoEntry.scale === "number" ? perLogoEntry.scale : logoContainScale;
-  const containPct = Math.round(Math.max(50, Math.min(100, perLogoScale * 100)));
+  // How much of the badge the logo fills. Normal (contain) fit defaults to the
+  // global "Logo size inside badge" (0.9); fill/cover default to 100% (their
+  // edge-to-edge look, unchanged) UNLESS a per-logo Size override is set — so
+  // the per-logo Size box takes effect in EVERY fit mode, live.
+  const baseScale = logoFit === "contain" ? logoContainScale : 1;
+  const rawScale =
+    perLogoEntry && typeof perLogoEntry.scale === "number" ? perLogoEntry.scale : baseScale;
+  const containPct = Math.round(Math.max(50, Math.min(100, rawScale * 100)));
 
   const activeText = messages[messageIndex] ?? "";
 
@@ -445,20 +450,16 @@ function BreakingNewsTickerInner({
               height={84}
               className={`drop-shadow-sm ${
                 logoFit === "fill"
-                  ? "h-full w-full object-fill"
+                  ? "object-fill"
                   : logoFit === "cover"
-                    ? "h-full w-full object-cover"
+                    ? "object-cover"
                     : "object-contain"
               } ${logoAnimClass}`}
-              // In Normal (contain) fit the WHOLE logo always shows (never
-              // cropped); this admin knob scales how much of the badge it fills
-              // so a logo with edge detail can be large AND complete. Fill/cover
-              // keep their edge-to-edge sizing.
-              style={
-                logoFit === "fill" || logoFit === "cover"
-                  ? undefined
-                  : { height: `${containPct}%`, width: `${containPct}%` }
-              }
+              // Size the logo by containPct in EVERY fit mode so the per-logo
+              // Size box always takes effect. At 100% fill/cover stay edge-to-
+              // edge (no regression); below 100% the logo shrinks inside the
+              // badge — Normal (contain) additionally never crops.
+              style={{ height: `${containPct}%`, width: `${containPct}%` }}
               unoptimized
               priority
               onError={() => (galleryLen > 1 ? setLogoIdx((i) => i + 1) : setLogoFailed(true))}
