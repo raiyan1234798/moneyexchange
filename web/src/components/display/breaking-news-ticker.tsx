@@ -35,6 +35,8 @@ interface BreakingNewsTickerProps {
   scrollLogosEnabled?: boolean;
   /** Badge logo fit: contain (default), cover, or fill (stretch to the box). */
   logoFit?: "contain" | "cover" | "fill";
+  /** In contain fit, fraction of the badge the whole logo fills (0.5–1). Default 0.9. */
+  logoContainScale?: number;
   /**
    * How each SCROLLING logo fits inside the ticker bar.
    * - "contain" (default): logo kept at aspect ratio, centred with side padding.
@@ -240,6 +242,7 @@ function BreakingNewsTickerInner({
   scrollLogoBg = "white",
   scrollLogosEnabled = true,
   logoFit = "contain",
+  logoContainScale = 0.9,
   scrollLogoFitMode = "contain",
   scrollLogoRemoveBg = true,
   logoText,
@@ -432,8 +435,20 @@ function BreakingNewsTickerInner({
                   ? "h-full w-full object-fill"
                   : logoFit === "cover"
                     ? "h-full w-full object-cover"
-                    : "h-[80%] w-[90%] object-contain"
+                    : "object-contain"
               } ${logoAnimClass}`}
+              // In Normal (contain) fit the WHOLE logo always shows (never
+              // cropped); this admin knob scales how much of the badge it fills
+              // so a logo with edge detail can be large AND complete. Fill/cover
+              // keep their edge-to-edge sizing.
+              style={
+                logoFit === "fill" || logoFit === "cover"
+                  ? undefined
+                  : {
+                      height: `${Math.round(Math.max(50, Math.min(100, logoContainScale * 100)))}%`,
+                      width: `${Math.round(Math.max(50, Math.min(100, logoContainScale * 100)))}%`,
+                    }
+              }
               unoptimized
               priority
               onError={() => (galleryLen > 1 ? setLogoIdx((i) => i + 1) : setLogoFailed(true))}

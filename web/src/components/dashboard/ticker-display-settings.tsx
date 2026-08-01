@@ -549,11 +549,38 @@ export function TickerDisplaySettings({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="contain">Normal — whole logo inside the box (default)</SelectItem>
-                  <SelectItem value="fill">Stretch — logo covers the box completely</SelectItem>
-                  <SelectItem value="cover">Zoom — covers the box, edges may crop</SelectItem>
+                  <SelectItem value="contain">Normal — whole logo always visible, never cropped (best)</SelectItem>
+                  <SelectItem value="fill">Stretch — fills the box, may distort the logo</SelectItem>
+                  <SelectItem value="cover">Zoom — fills the box, edges get cropped</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">
+                If a logo&apos;s edges get cut in Stretch/Zoom, use <strong>Normal</strong> and raise
+                &ldquo;Logo size inside badge&rdquo; below — the whole logo stays visible at any size.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                Logo size inside badge (%)
+              </Label>
+              <Input
+                type="number"
+                min={50}
+                max={100}
+                step={5}
+                value={Math.round((s.tickerLogoContainScale ?? 0.9) * 100)}
+                onChange={(e) =>
+                  set({
+                    tickerLogoContainScale: Math.min(1, Math.max(0.5, Number(e.target.value) / 100 || 0.9)),
+                  })
+                }
+                className="rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground">
+                Only for <strong>Normal</strong> fit: how much of the badge the whole logo fills. 100
+                = as big as possible with nothing cropped. Raise it if the logo looks too small; the
+                complete logo always shows.
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">

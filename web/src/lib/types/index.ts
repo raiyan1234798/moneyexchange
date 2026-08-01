@@ -142,6 +142,10 @@ export interface BranchSettings {
   scrollingLogoItems?: Array<{ url: string; pos: "start" | "end" }>;
   /** How the badge logo fits its box: contain (default), cover (fill+crop), fill (stretch). */
   tickerLogoFit?: "contain" | "cover" | "fill";
+  /** In "contain" (Normal) fit, how much of the badge the WHOLE logo fills,
+      0.5–1.0. Higher = bigger logo, still never cropped. Default 0.9. Lets a
+      logo with important edge detail be shown large AND complete. */
+  tickerLogoContainScale?: number;
   /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
   rateCardTransition?: string;
   /** Seconds the slide/page entrance animation lasts (rate card + video media). Default 0.6. */

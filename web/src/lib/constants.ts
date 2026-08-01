@@ -92,6 +92,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerScrollLogoPosition: "start" as "start" | "end" | "both",
   scrollingLogoItems: [] as Array<{ url: string; pos: "start" | "end" }>,
   tickerLogoFit: "contain" as "contain" | "cover" | "fill",
+  tickerLogoContainScale: 0.9,
   rateCardTransition: "fade" as string,
   /** Seconds the slide/page entrance animation lasts (rate card + video media). */
   slideTransitionSeconds: 0.6,
