@@ -180,6 +180,7 @@ function ScrollingLogoImg({
   heightEm,
   side,
   gapVw = 1.2,
+  scale = 1,
   fitMode = "fill",
 }: {
   src: string;
@@ -189,6 +190,8 @@ function ScrollingLogoImg({
   side: "start" | "end";
   /** Space to the next logo, in vw. 0 = logos joined with no gap. */
   gapVw?: number;
+  /** "Logo size (%)" as a fraction (1 = full bar height). Grows/shrinks the logo. */
+  scale?: number;
   fitMode?: "contain" | "fill" | "stretch";
   removeBg?: boolean; // kept for API compat, not used
 }) {
@@ -197,21 +200,23 @@ function ScrollingLogoImg({
   // trailing side for start-group logos, leading side for end-group logos.
   const gap = Math.max(0, gapVw);
   const gapStyle = side === "start" ? { marginRight: `${gap}vw` } : { marginLeft: `${gap}vw` };
+  const sizeScale = Math.max(0.3, scale);
 
   if (isStretch) {
-    // Fills the full height of the black ticker bar.
-    // object-contain keeps the logo's original proportions and background — no clipping.
+    // Fills the ticker bar height, scaled by "Logo size (%)": the bar height is
+    // unchanged, the logo grows (>100%, overflowing) or shrinks (<100%) — as the
+    // control's help text promises. overflow-visible lets it grow past the bar.
     return (
       <span
-        className={`inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
-        style={{ height: "100%", maxHeight: "100%", ...gapStyle }}
+        className={`inline-flex shrink-0 items-center overflow-visible ${animClass}`}
+        style={{ height: `calc(100% * ${sizeScale})`, ...gapStyle }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt=""
           className="block h-full w-auto"
-          style={{ maxHeight: "100%", objectFit: "contain" }}
+          style={{ objectFit: "contain" }}
         />
       </span>
     );
@@ -509,6 +514,7 @@ function BreakingNewsTickerInner({
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="start"
                         gapVw={scrollLogoGapVw}
+                        scale={scrollLogoScale}
                         fitMode={scrollLogoFitMode}
                         removeBg={scrollLogoRemoveBg}
                       />
@@ -525,6 +531,7 @@ function BreakingNewsTickerInner({
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
                         side="end"
                         gapVw={scrollLogoGapVw}
+                        scale={scrollLogoScale}
                         fitMode={scrollLogoFitMode}
                         removeBg={scrollLogoRemoveBg}
                       />

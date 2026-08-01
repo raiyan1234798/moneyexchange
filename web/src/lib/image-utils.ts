@@ -116,8 +116,11 @@ export async function compressImageToDataUrl(
     if (!ctx) throw new Error("Image processing is not supported in this browser.");
     ctx.drawImage(img, 0, 0, width, height);
 
-    // Auto-trim surrounding white margins if present
-    canvas = trimCanvasWhiteBorders(canvas);
+    // NOTE: we deliberately do NOT auto-trim the logo's margins here. Trimming
+    // to the tight content bounds removed the logo's natural padding, so it then
+    // touched the badge's rounded corner and looked cropped (client 2026-08-01:
+    // "logos should not be cropped/altered on upload — only I adjust the size").
+    // Upload the logo exactly as given (just proportionally downscaled).
 
     for (const quality of [0.82, 0.68, 0.55]) {
       const dataUrl = encode(canvas, "image/webp", quality);

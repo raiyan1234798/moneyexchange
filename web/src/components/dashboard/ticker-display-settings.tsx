@@ -29,6 +29,47 @@ import type { Branch, BranchSettings } from "@/lib/types";
  * itself (speed, text size/colour, height). Per the client: no hunting
  * through the Settings page for ticker things.
  */
+
+// The ONLY settings keys this ticker editor owns. "Apply to other branches"
+// copies exactly these onto a target branch and nothing else, so a target's
+// rate card, promotions, announcements, header logos, hidden currencies, video
+// width, fonts, etc. are never touched. Keep in sync with the controls above.
+const TICKER_COPY_KEYS: Array<keyof BranchSettings> = [
+  "tickerScale",
+  "tickerFontColor",
+  "tickerFontSize",
+  "tickerSpeed",
+  "tickerHeadline",
+  "tickerHeadlineAnimation",
+  "tickerHeadlineBgColor",
+  "tickerHeadlineTextColor",
+  "showTickerHeadline",
+  "showTickerLogo",
+  "tickerLogoUrl",
+  "tickerLogoUrls",
+  "tickerLogoText",
+  "tickerLogoAnimation",
+  "tickerLogoBgColor",
+  "tickerLogoFit",
+  "tickerLogoRotateSeconds",
+  "tickerLogoContainScale",
+  "tickerLogoScales",
+  "tickerLogoHeightScale",
+  "tickerMessageAnimation",
+  "tickerScrollLogoAnimation",
+  "tickerScrollLogoBg",
+  "tickerScrollLogoScale",
+  "tickerScrollLogoGapVw",
+  "tickerScrollLogoPosition",
+  "tickerScrollLogosEnabled",
+  "scrollingLogos",
+  "scrollingLogoItems",
+  "scrollLogoFitMode",
+  "scrollLogoRemoveBg",
+  "logoAutoRemoveBg",
+  "logoScale",
+];
+
 export function TickerDisplaySettings({
   branch,
   branches = [],
@@ -254,26 +295,36 @@ export function TickerDisplaySettings({
         list.map((b) => {
           let nextSettings: BranchSettings = settings;
           if (b.id !== branch.id) {
-            // Bar look + every size/scale always travels (that IS the shared
-            // styling). Logos travel unless unticked. The headline keeps the
-            // TARGET branch's own wording unless the admin opts in — it names
-            // the branch, so copying it would show one branch's name on all TVs.
+            // Copy ONLY the ticker/bar keys onto the target — NEVER spread the
+            // whole draft, which would overwrite the target branch's rate card,
+            // promotions, announcements, header logos, hidden currencies, video
+            // width, etc. with this branch's values (silent cross-branch data
+            // loss). Everything the target owns outside the ticker is preserved.
+            const tickerPatch: Partial<BranchSettings> = {};
+            for (const k of TICKER_COPY_KEYS) {
+              if (k in settings) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                (tickerPatch as any)[k] = (settings as any)[k];
+              }
+            }
             nextSettings = {
               ...(b.settings ?? {}),
-              ...settings,
+              ...tickerPatch,
+              // Logos (and their per-logo sizes) travel only when "copy logos"
+              // is on; otherwise the target keeps its OWN logos + sizes.
               ...(copyLogos
                 ? {}
                 : {
                     tickerLogoUrl: b.settings?.tickerLogoUrl ?? null,
                     tickerLogoUrls: b.settings?.tickerLogoUrls ?? [],
                     tickerLogoText: b.settings?.tickerLogoText ?? null,
+                    tickerLogoScales: b.settings?.tickerLogoScales ?? [],
                     scrollingLogos: b.settings?.scrollingLogos ?? [],
                     scrollingLogoItems: b.settings?.scrollingLogoItems ?? [],
                   }),
+              // The headline names the branch, so keep the target's own wording
+              // unless the admin explicitly opts in.
               ...(copyHeadline ? {} : { tickerHeadline: b.settings?.tickerHeadline ?? null }),
-              tickerHeadlineAnimation: settings.tickerHeadlineAnimation,
-              showTickerHeadline: settings.showTickerHeadline,
-              showTickerLogo: settings.showTickerLogo,
             };
           }
           return updateBranch(
@@ -448,6 +499,12 @@ export function TickerDisplaySettings({
                               set({
                                 tickerLogoUrl: null,
                                 tickerLogoUrls: badgeLogos.map((u, idx) => (idx === i ? cleaned : u)),
+                                // Follow this logo's per-logo Size to its new URL
+                                // so the size doesn't reset after Remove BG.
+                                tickerLogoScales: (Array.isArray(s.tickerLogoScales)
+                                  ? s.tickerLogoScales
+                                  : []
+                                ).map((x) => (x.url === src ? { ...x, url: cleaned } : x)),
                               }),
                             )
                             .then(() => toast.success("Background removed — Save to apply"))
@@ -487,7 +544,14 @@ export function TickerDisplaySettings({
                             // never a URL-keyed map — see BranchSettings type).
                             const cur = Array.isArray(s.tickerLogoScales) ? s.tickerLogoScales : [];
                             const rest = cur.filter((x) => x.url !== src);
-                            set({ tickerLogoScales: [...rest, { url: src, scale: frac }] });
+                            // Fold the legacy single tickerLogoUrl into the list
+                            // (like add/remove/reorder do) so this tile actually
+                            // renders on the TV and its Size takes effect.
+                            set({
+                              tickerLogoUrl: null,
+                              tickerLogoUrls: badgeLogos,
+                              tickerLogoScales: [...rest, { url: src, scale: frac }],
+                            });
                           }}
                           className="w-11 rounded border border-border/60 bg-transparent px-1 py-0.5 text-center text-[10px] tabular-nums"
                         />
@@ -980,31 +1044,52 @@ export function TickerDisplaySettings({
               </Label>
               <Input
                 type="number"
+                min={8}
+                max={120}
+                step={1}
                 value={s.tickerSpeed}
-                onChange={(e) => set({ tickerSpeed: Number(e.target.value) })}
+                // The display floors the scroll duration at 8s, so clamp here to
+                // match — values below 8 had no effect; empty no longer jumps to 35.
+                onChange={(e) =>
+                  set({ tickerSpeed: Math.max(8, Math.min(120, Number(e.target.value) || 8)) })
+                }
                 className="rounded-xl"
               />
+              <p className="text-xs text-muted-foreground">
+                Seconds for one message to cross the screen. Lower = faster (minimum 8).
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Message font size
+                Default message font size
               </Label>
               <Input
                 type="number"
+                min={8}
+                max={80}
+                step={1}
                 value={s.tickerFontSize}
-                onChange={(e) => set({ tickerFontSize: Number(e.target.value) })}
+                onChange={(e) =>
+                  set({ tickerFontSize: Math.max(8, Math.min(80, Number(e.target.value) || 18)) })
+                }
                 className="rounded-xl"
               />
+              <p className="text-xs text-muted-foreground">
+                Used unless a specific message sets its own size when you create it.
+              </p>
             </div>
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-                Message font colour
+                Default message font colour
               </Label>
               <Input
                 value={s.tickerFontColor}
                 onChange={(e) => set({ tickerFontColor: e.target.value })}
                 className="rounded-xl"
               />
+              <p className="text-xs text-muted-foreground">
+                Used unless a specific message sets its own colour when you create it.
+              </p>
             </div>
             <div className="space-y-2 sm:col-span-2">
               <div className="flex items-center justify-between gap-3">
