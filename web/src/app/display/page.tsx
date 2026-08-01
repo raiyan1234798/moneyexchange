@@ -20,6 +20,12 @@ function DisplayContent() {
 
   const branchCode = searchParams.get("branch") ? normalizeBranchCode(searchParams.get("branch")!) : "";
   const branchIdParam = searchParams.get("branchId") ?? "";
+  // Preview mode: when embedded in a dashboard editor iframe (?preview=1) the
+  // parent posts the UNSAVED draft settings; we render them via settingsOverride
+  // so the admin sees changes BEFORE saving. Real TVs never get such messages.
+  const isPreview = searchParams.get("preview") === "1";
+  const [previewOverride, setPreviewOverride] =
+    useState<Partial<import("@/lib/types").BranchSettings> | null>(null);
 
   const [codeResolvedId, setCodeResolvedId] = useState("");
   const [codeNotFound, setCodeNotFound] = useState(false);
@@ -39,6 +45,28 @@ function DisplayContent() {
       }
     });
   }, [isSuperAdmin, adminBranchId]);
+
+  // Receive draft settings from the parent editor (same-origin only). The parent
+  // posts { __unimoniPreview:true, settings } on every edit; null clears it.
+  useEffect(() => {
+    if (!isPreview) return;
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      const data = event.data;
+      if (!data || typeof data !== "object" || data.__unimoniPreview !== true) return;
+      setPreviewOverride(
+        data.settings && typeof data.settings === "object" ? data.settings : null,
+      );
+    }
+    window.addEventListener("message", onMessage);
+    // Tell the parent we're ready so it can post the current draft immediately.
+    try {
+      window.parent?.postMessage({ __unimoniPreviewReady: true }, window.location.origin);
+    } catch {
+      /* cross-origin parent — ignore */
+    }
+    return () => window.removeEventListener("message", onMessage);
+  }, [isPreview]);
 
   useEffect(() => {
     if (branchIdParam || !branchCode) return;
@@ -232,7 +260,12 @@ function DisplayContent() {
     );
   }
 
-  return <DisplayScreen branchId={resolvedBranchId} />;
+  return (
+    <DisplayScreen
+      branchId={resolvedBranchId}
+      settingsOverride={isPreview ? previewOverride : null}
+    />
+  );
 }
 
 export default function DisplayPage() {

@@ -1,0 +1,88 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import type { BranchSettings } from "@/lib/types";
+
+/**
+ * Live TV preview that reflects UNSAVED edits.
+ *
+ * It embeds the real branch display (`/display?preview=1`) in an iframe and
+ * posts the current draft settings to it via postMessage. The display renders
+ * them through its `settingsOverride`, so the admin sees exactly how a change
+ * will look BEFORE pressing Save. Saving still writes to the chosen branches —
+ * this panel changes nothing in the database.
+ */
+export function LiveTvPreview({
+  branchCode,
+  draft,
+  label,
+  className,
+}: {
+  branchCode: string;
+  /** The editor's current unsaved settings. Posted to the preview on every change. */
+  draft: Partial<BranchSettings> | null;
+  label?: string;
+  className?: string;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const readyRef = useRef(false);
+  // Keep the newest draft in a ref so the "ready" handshake can post it without
+  // re-subscribing the message listener on every keystroke.
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+
+  const post = () => {
+    const win = iframeRef.current?.contentWindow;
+    if (!win || !readyRef.current) return;
+    win.postMessage(
+      { __unimoniPreview: true, settings: draftRef.current ?? null },
+      window.location.origin,
+    );
+  };
+
+  // The iframe announces itself when its listener is mounted; then we can post.
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.__unimoniPreviewReady === true) {
+        readyRef.current = true;
+        post();
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-post whenever the draft changes (settings state is a new object per edit).
+  useEffect(() => {
+    post();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+
+  // A fresh branch means a fresh document — force the iframe to reload.
+  const src = `/display/?branch=${encodeURIComponent(branchCode)}&preview=1`;
+
+  return (
+    <div className={className}>
+      <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
+        <iframe
+          ref={iframeRef}
+          key={src}
+          src={src}
+          title={label ?? `Live preview — ${branchCode}`}
+          className="aspect-video w-full border-0"
+          onLoad={() => {
+            // If the iframe reloaded, its readiness resets; wait for its ready
+            // ping. But also try an immediate post in case the ping was missed.
+            post();
+          }}
+        />
+      </div>
+      <p className="pt-2 text-xs text-muted-foreground">
+        Live preview of your <strong>unsaved</strong> changes. Nothing is saved until you press
+        Save — then it goes live on the branches you choose.
+      </p>
+    </div>
+  );
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
@@ -34,6 +34,7 @@ export function TickerDisplaySettings({
   branches = [],
   actor,
   saveSlot,
+  onDraftChange,
 }: {
   branch: Branch;
   /** All branches — enables “apply to all” for headline + ticker look. */
@@ -41,10 +42,16 @@ export function TickerDisplaySettings({
   actor: { userId: string; userName: string };
   /** Element under the live TV preview that hosts the save bar on xl screens. */
   saveSlot?: HTMLElement | null;
+  /** Reports the current UNSAVED draft so a live preview can reflect it. */
+  onDraftChange?: (draft: BranchSettings) => void;
 }) {
   const seed = (): BranchSettings => ({ ...DEFAULT_BRANCH_SETTINGS, ...(branch.settings ?? {}) });
   const [settings, setSettings] = useState<BranchSettings>(seed);
   const [saving, setSaving] = useState(false);
+  // Surface the draft to the parent (for the live preview) on every edit.
+  useEffect(() => {
+    onDraftChange?.(settings);
+  }, [settings, onDraftChange]);
   const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
   // What travels to the other branches. Logos + their sizes DO (one brand set on
   // every TV). The yellow headline does NOT by default — it names the branch

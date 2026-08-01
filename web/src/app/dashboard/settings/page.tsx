@@ -6,6 +6,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
+import { LiveTvPreview } from "@/components/shared/live-tv-preview";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { ColorApplyRow, type ColorApplyScope } from "@/components/shared/color-apply-row";
 import { ContentPanel, FormSection, PageShell, PageLoader } from "@/components/shared/page-elements";
@@ -120,6 +121,7 @@ function BranchSettingsForm({
   navSlot,
   onSave,
   onCopyFontsToAll,
+  onDraftChange,
   branchCount = 1,
   otherBranches = [],
 }: {
@@ -129,6 +131,8 @@ function BranchSettingsForm({
   initialColor: string;
   initialSettings: BranchSettings;
   saving: boolean;
+  /** Reports the current UNSAVED draft so the live preview reflects it. */
+  onDraftChange?: (draft: BranchSettings) => void;
   /** Element under the live TV preview that hosts the save bar on xl screens. */
   saveSlot?: HTMLElement | null;
   /** Element below the save bar that hosts the section jump-nav on xl screens. */
@@ -147,6 +151,10 @@ function BranchSettingsForm({
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl);
   const [color, setColor] = useState(initialColor);
   const [settings, setSettings] = useState(initialSettings);
+  // Surface the draft (incl. logo) to the parent for the live preview.
+  useEffect(() => {
+    onDraftChange?.({ ...settings, headerLogoUrl: logoUrl || settings.headerLogoUrl });
+  }, [settings, logoUrl, onDraftChange]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Save-target choice in the confirm dialog: this branch, all, or picked ones,
   // plus whether to also copy the promotion images/videos to them.
@@ -2051,6 +2059,8 @@ export default function SettingsPage() {
   const { user, profile, isSuperAdmin, hasModule } = useAuth();
   const { branches, effectiveBranchId, setSelectedBranchId, isAdmin } = useBranchScope();
   const [settings, setSettings] = useState<SystemSettings | null>(null);
+  // Unsaved branch-display draft, surfaced by BranchSettingsForm for the preview.
+  const [branchDraft, setBranchDraft] = useState<BranchSettings | null>(null);
   const [globalLoading, setGlobalLoading] = useState(isSuperAdmin);
   const [saving, setSaving] = useState(false);
   // Slots under the live TV preview: save bar, then the section jump-nav.
@@ -2401,6 +2411,7 @@ export default function SettingsPage() {
                 navSlot={navSlot}
                 onSave={saveBranchSettings}
                 onCopyFontsToAll={copyFontsToAllBranches}
+                onDraftChange={setBranchDraft}
                 branchCount={branches.length}
                 otherBranches={branches
                   .filter((b) => b.id !== effectiveBranchId)
@@ -2409,16 +2420,11 @@ export default function SettingsPage() {
               <div className="hidden xl:block">
                 <div className="sticky top-3 space-y-2">
                   <Label>Live TV preview — {branch.name}</Label>
-                  <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
-                    <iframe
-                      src={`/display/?branch=${encodeURIComponent(branch.code)}`}
-                      title={`Live display preview for ${branch.name}`}
-                      className="aspect-video w-full border-0"
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    This is the real branch display, live. Saved changes appear here within seconds.
-                  </p>
+                  <LiveTvPreview
+                    branchCode={branch.code}
+                    draft={branchDraft ?? branch.settings ?? null}
+                    label={`Live display preview for ${branch.name}`}
+                  />
                   <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
                   <div id="branch-nav-slot" ref={setNavSlot} />
                 </div>

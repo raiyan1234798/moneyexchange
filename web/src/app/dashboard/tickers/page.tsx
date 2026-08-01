@@ -7,6 +7,8 @@ import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
+import { LiveTvPreview } from "@/components/shared/live-tv-preview";
+import type { BranchSettings } from "@/lib/types";
 import {
   ContentPanel,
   DataTable,
@@ -70,6 +72,8 @@ export default function TickersPage() {
   const [deleteTarget, setDeleteTarget] = useState<TickerMessage | null>(null);
   // Slot under the live TV preview that hosts the panel's save bar (xl screens).
   const [tickerSaveSlot, setTickerSaveSlot] = useState<HTMLElement | null>(null);
+  // Unsaved ticker settings, surfaced by TickerDisplaySettings for the live preview.
+  const [tickerDraft, setTickerDraft] = useState<BranchSettings | null>(null);
 
   const branch = branches.find((b) => b.id === effectiveBranchId);
   const canApplyToAll = (isSuperAdmin || isAdmin) && branches.filter((b) => b.status === "active").length > 1;
@@ -650,6 +654,7 @@ export default function TickersPage() {
             branches={branches}
             actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
             saveSlot={tickerSaveSlot}
+            onDraftChange={setTickerDraft}
           />
         ) : null}
         </div>
@@ -663,16 +668,11 @@ export default function TickersPage() {
               <p className="text-sm font-medium">
                 Live TV preview — {branch.name}
               </p>
-              <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
-                <iframe
-                  src={`/display/?branch=${encodeURIComponent(branch.code)}`}
-                  title={`Live TV preview for ${branch.name}`}
-                  className="aspect-video w-full border-0"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                This is the real branch display, live. Saved changes appear here within seconds.
-              </p>
+              <LiveTvPreview
+                branchCode={branch.code}
+                draft={tickerDraft ?? branch.settings ?? null}
+                label={`Live TV preview for ${branch.name}`}
+              />
               <div id="ticker-save-slot" ref={setTickerSaveSlot} className="pt-1" />
             </div>
           ) : null}

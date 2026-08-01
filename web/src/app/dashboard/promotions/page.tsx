@@ -8,6 +8,7 @@ import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { DisplayAnimationSelect } from "@/components/shared/animation-controls";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
+import { LiveTvPreview } from "@/components/shared/live-tv-preview";
 import { ContentPanel, PageShell } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -824,6 +825,13 @@ export default function PromotionsPage() {
               </div>
             </ContentPanel>
 
+            <div className="space-y-2">
+              <LiveTvPreview
+                branchCode={branch.code}
+                draft={settings}
+                label={`Live promotions preview for ${branch.name}`}
+              />
+            </div>
             <PreviewDisplayLink branchCode={branch.code} />
 
             {/* Sticky: the branch picker can grow tall — Save must stay reachable
