@@ -452,13 +452,42 @@ export function TickerDisplaySettings({
                       >
                         Remove BG
                       </button>
+                      {/* Per-logo size (Normal fit): shrink a wide logo until
+                          its edges clear the rounded corner — others stay big. */}
+                      <div
+                        className="flex items-center gap-1"
+                        draggable={false}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onDragStart={(e) => e.preventDefault()}
+                      >
+                        <span className="text-[9px] uppercase text-muted-foreground">Size</span>
+                        <input
+                          type="number"
+                          min={50}
+                          max={100}
+                          step={5}
+                          title="Size of THIS logo inside the badge (Normal fit). Lower it if this logo's edges get cut; other logos are unaffected."
+                          value={Math.round((s.tickerLogoScales?.[src] ?? s.tickerLogoContainScale ?? 0.9) * 100)}
+                          onChange={(e) => {
+                            const frac = Math.min(1, Math.max(0.5, Number(e.target.value) / 100 || 0.9));
+                            set({ tickerLogoScales: { ...(s.tickerLogoScales ?? {}), [src]: frac } });
+                          }}
+                          className="w-11 rounded border border-border/60 bg-transparent px-1 py-0.5 text-center text-[10px] tabular-nums"
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : null}
-              {badgeLogos.length > 1 ? (
+              {badgeLogos.length >= 1 ? (
                 <p className="pt-1 text-xs text-muted-foreground">
-                  Drag a logo onto another to change the order they take turns in — then Save.
+                  Each logo has its own <strong>Size</strong> box — if one logo&apos;s edges get cut,
+                  lower just that logo&apos;s size until the whole logo shows (works in Normal fit;
+                  other logos are unaffected).
+                  {badgeLogos.length > 1
+                    ? " Drag a logo onto another to change the order they take turns in."
+                    : ""}{" "}
+                  Then Save.
                 </p>
               ) : null}
               {badgeLogos.length > 1 ? (

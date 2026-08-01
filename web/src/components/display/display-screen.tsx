@@ -1109,6 +1109,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
         scrollLogosEnabled={branchSettings.tickerScrollLogosEnabled !== false}
         logoFit={branchSettings.tickerLogoFit ?? "contain"}
         logoContainScale={branchSettings.tickerLogoContainScale ?? 0.9}
+        logoScales={branchSettings.tickerLogoScales ?? {}}
         scrollLogoFitMode={branchSettings.scrollLogoFitMode ?? "fill"}
         scrollLogoRemoveBg={branchSettings.scrollLogoRemoveBg !== false}
         showLogo={branchSettings.showTickerLogo !== false}

@@ -146,6 +146,12 @@ export interface BranchSettings {
       0.5–1.0. Higher = bigger logo, still never cropped. Default 0.9. Lets a
       logo with important edge detail be shown large AND complete. */
   tickerLogoContainScale?: number;
+  /** PER-LOGO size override for the rotating corner badge, keyed by the logo's
+      URL: fraction of the badge that specific logo fills in Normal fit (0.5–1).
+      Overrides tickerLogoContainScale for just that logo, so a wide logo (e.g.
+      "unimoni") can be shrunk until its edges clear the rounded corner while
+      others stay large. Additive — absent keys fall back to the global size. */
+  tickerLogoScales?: Record<string, number>;
   /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
   rateCardTransition?: string;
   /** Seconds the slide/page entrance animation lasts (rate card + video media). Default 0.6. */
