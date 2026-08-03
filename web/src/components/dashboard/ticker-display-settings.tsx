@@ -877,19 +877,20 @@ export function TickerDisplaySettings({
             </Label>
             <Input
               type="number"
-              min={60}
-              max={250}
-              step={10}
-              value={Math.round((s.tickerScrollLogoScale ?? 1) * 100)}
+              min={40}
+              max={100}
+              step={5}
+              value={Math.min(100, Math.round((s.tickerScrollLogoScale ?? 1) * 100))}
               onChange={(e) =>
                 set({
-                  tickerScrollLogoScale: Math.min(2.5, Math.max(0.6, Number(e.target.value) / 100 || 1)),
+                  tickerScrollLogoScale: Math.min(1, Math.max(0.4, Number(e.target.value) / 100 || 1)),
                 })
               }
               className="rounded-xl"
             />
             <p className="text-xs text-muted-foreground">
-              Only the scrolling logos grow — the black bar height stays the same.
+              How much of the bar height each scrolling logo fills. 100 = full bar height; lower it
+              to make them smaller. Logos are never stretched or taller than the bar.
             </p>
           </div>
           <div className="space-y-2">

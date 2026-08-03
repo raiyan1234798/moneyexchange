@@ -203,20 +203,22 @@ function ScrollingLogoImg({
   const sizeScale = Math.max(0.3, scale);
 
   if (isStretch) {
-    // Fills the ticker bar height, scaled by "Logo size (%)": the bar height is
-    // unchanged, the logo grows (>100%, overflowing) or shrinks (<100%) — as the
-    // control's help text promises. overflow-visible lets it grow past the bar.
+    // Scrolling logos fit WITHIN the bar height — aspect preserved, NEVER taller
+    // than the bar, so they can't look stretched/oversized (client 2026-08-03:
+    // "the ticker message logo should not be stretched like this"). "Logo size %"
+    // scales DOWN from the bar height; anything above 100% is capped at the bar.
+    const pct = Math.min(100, Math.max(30, Math.round(sizeScale * 100)));
     return (
       <span
-        className={`inline-flex shrink-0 items-center overflow-visible ${animClass}`}
-        style={{ height: `calc(100% * ${sizeScale})`, ...gapStyle }}
+        className={`inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
+        style={{ ...gapStyle }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
           alt=""
-          className="block h-full w-auto"
-          style={{ objectFit: "contain" }}
+          className="block w-auto"
+          style={{ height: `${pct}%`, maxHeight: "100%", objectFit: "contain" }}
         />
       </span>
     );
