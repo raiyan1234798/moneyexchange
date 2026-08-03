@@ -446,6 +446,23 @@ export const NAV_ITEMS: Array<{
   },
 ];
 
+/**
+ * Which dashboard route each "Access" chip (moduleAccess) unlocks. A user who
+ * holds ANY listed module for a route may open it — even if their ROLE isn't in
+ * that route's NAV_ITEMS.roles. Both the sidebar (which links) AND the route
+ * guard (which admits) MUST use this, or a granted chip shows a link that
+ * bounces back to /dashboard (client 2026-08-01: "the grid must actually work").
+ */
+export const NAV_MODULE: Record<string, string[]> = {
+  "/dashboard/exchange-rates": ["forexRates", "forexRatesAllBranches", "transferRates"],
+  "/dashboard/videos": ["media"],
+  "/dashboard/tickers": ["displayMessages"],
+  "/dashboard/promotions": ["promotions"],
+  "/dashboard/settings": ["settings"],
+  "/dashboard/users": ["users"],
+  "/dashboard/branches": ["branches"],
+};
+
 export const SUPER_ADMIN_PERMISSIONS = [
   "createBranch",
   "editBranch",

@@ -1772,7 +1772,10 @@ function BranchSettingsForm({
               step={5}
               value={Math.round((settings.rateCardScale ?? 1) * 100)}
               onChange={(event) =>
-                setSettings({ ...settings, rateCardScale: Number(event.target.value) / 100 })
+                setSettings({
+                  ...settings,
+                  rateCardScale: Math.max(0.7, Math.min(1.5, Number(event.target.value) / 100 || 1)),
+                })
               }
               className="rounded-xl"
             />
@@ -1786,7 +1789,10 @@ function BranchSettingsForm({
               step={5}
               value={Math.round((settings.rateCurrencyScale ?? 1) * 100)}
               onChange={(event) =>
-                setSettings({ ...settings, rateCurrencyScale: Number(event.target.value) / 100 })
+                setSettings({
+                  ...settings,
+                  rateCurrencyScale: Math.max(0.5, Math.min(2, Number(event.target.value) / 100 || 1)),
+                })
               }
               className="rounded-xl"
             />
@@ -1801,7 +1807,10 @@ function BranchSettingsForm({
               step={5}
               value={Math.round((settings.rateValueScale ?? 1) * 100)}
               onChange={(event) =>
-                setSettings({ ...settings, rateValueScale: Number(event.target.value) / 100 })
+                setSettings({
+                  ...settings,
+                  rateValueScale: Math.max(0.5, Math.min(2, Number(event.target.value) / 100 || 1)),
+                })
               }
               className="rounded-xl"
             />
@@ -1816,7 +1825,10 @@ function BranchSettingsForm({
               step={5}
               value={Math.round((settings.tickerScale ?? 1) * 100)}
               onChange={(event) =>
-                setSettings({ ...settings, tickerScale: Number(event.target.value) / 100 })
+                setSettings({
+                  ...settings,
+                  tickerScale: Math.max(0.7, Math.min(1.6, Number(event.target.value) / 100 || 1)),
+                })
               }
               className="rounded-xl"
             />
@@ -1830,7 +1842,10 @@ function BranchSettingsForm({
               step={5}
               value={Math.round((settings.logoScale ?? 1) * 100)}
               onChange={(event) =>
-                setSettings({ ...settings, logoScale: Number(event.target.value) / 100 })
+                setSettings({
+                  ...settings,
+                  logoScale: Math.max(0.6, Math.min(2, Number(event.target.value) / 100 || 1)),
+                })
               }
               className="rounded-xl"
             />
@@ -2190,9 +2205,15 @@ export default function SettingsPage() {
         const OTHER_CONTENT_KEYS: Array<keyof BranchSettings> = [
           "tickerHeadline", "announcementText", "announcementImageUrl", "announcementVideoUrl",
           "scrollingLogos", "scrollingLogoItems", "slogan",
+          // Per-branch: which transfer currencies are hidden on THIS branch's TV.
+          // Must NOT travel to other branches (would hide/unhide their currencies).
+          "hiddenTransferCodes",
         ];
         const PROMO_KEYS: Array<keyof BranchSettings> = [
           "ratePromoMedia", "ratePromoImageUrl", "ratePromoText", "ratePromoTextTop",
+          // The promo on/off toggle travels only WITH the promo media, so applying
+          // from a promo-off branch doesn't silently disable everyone else's promo.
+          "ratePromoEnabled",
         ];
         const skip = [
           ...OTHER_CONTENT_KEYS,

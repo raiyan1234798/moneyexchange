@@ -183,7 +183,10 @@ export function CentralTransferPanel({
 
   /** Move a currency up/down on the TRANSFER card only (forex order untouched). */
   function moveTransferRow(row: TransferRate, dir: -1 | 1) {
-    const codes = rows.map((r) => r.currencyCode);
+    // Operate on the DISPLAYED order (sortedRows), not the raw rows — otherwise
+    // when a currency is hidden on this branch the two orders differ and up/down
+    // moves the wrong currency.
+    const codes = sortedRows.map((r) => r.currencyCode);
     const i = codes.indexOf(row.currencyCode);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= codes.length) return;
@@ -195,8 +198,11 @@ export function CentralTransferPanel({
 
   /** Drag a row onto another to set the new transfer-card order. */
   function dropTransferRow(from: number, to: number) {
-    if (from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) return;
-    const next = [...rows];
+    // from/to are indices into the DISPLAYED sortedRows (that's what the drag
+    // handlers pass), so reorder sortedRows — not the differently-ordered raw
+    // rows — or a hidden-on-this-branch currency shifts the wrong row.
+    if (from === to || from < 0 || to < 0 || from >= sortedRows.length || to >= sortedRows.length) return;
+    const next = [...sortedRows];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
     setRows(next); // optimistic — the subscription re-syncs after the write

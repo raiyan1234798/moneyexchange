@@ -427,12 +427,10 @@ export function UnimoniRatesPanel({
     if (sheetCount <= 1) return;
     const timer = window.setTimeout(
       () => {
-        setSheetIndex((i) => {
-          const next = (i + 1) % sheetCount;
-          // A full pass over EVERY sheet (incl. the promotion) just finished.
-          if (next === 0) onRotationComplete?.();
-          return next;
-        });
+        const next = (sheetIndex + 1) % sheetCount;
+        setSheetIndex(next);
+        // A full pass over EVERY sheet (incl. the promotion) just finished.
+        if (next === 0) onRotationComplete?.();
       },
       activeKind === "promo" ? promoMs : activeKind === "transfer" ? transferMs : rateMs,
     );
@@ -779,7 +777,7 @@ export function UnimoniRatesPanel({
                   chipClassName="!h-[1.85em] !w-[2.75em] rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
                 />
                 <span className={`min-w-0 flex-1 truncate text-center ${displayAnimationClass(currencyTextAnimation)}`}>
-                  {rate.currencyCode}
+                  {rate.displayName?.trim() || rate.currencyCode}
                 </span>
               </span>
               {valueColumns.map((col) => {
@@ -928,7 +926,7 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className, fo
                   chipClassName="!h-[1.15em] !w-[1.75em]"
                 />
               ) : null}
-              <span className="truncate">{rate.currencyCode}</span>
+              <span className="truncate">{rate.displayName?.trim() || rate.currencyCode}</span>
             </span>
             <div className="flex shrink-0 items-stretch gap-[1.2vmin]">
               {showBuyRate ? <BoardValue label="Buy" value={rate.buyRate} color={BUY_COLOR} /> : null}

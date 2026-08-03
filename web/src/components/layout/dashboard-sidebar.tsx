@@ -30,7 +30,7 @@ import {
 import { useTheme } from "next-themes";
 import { UnimoniLogoImage } from "@/components/brand/unimoni-logo";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "@/lib/constants";
+import { NAV_ITEMS, NAV_MODULE } from "@/lib/constants";
 import { BRAND } from "@/lib/brand";
 import { useAuth } from "@/contexts/auth-context";
 import { RealtimeBadge } from "@/contexts/realtime-context";
@@ -90,16 +90,6 @@ function normalizePath(pathname: string): string {
   return pathname;
 }
 
-// Pages controlled by the user-form MODULE grid — custom picks override roles.
-const NAV_MODULE: Record<string, string[]> = {
-  "/dashboard/exchange-rates": ["forexRates", "forexRatesAllBranches", "transferRates"],
-  "/dashboard/videos": ["media"],
-  "/dashboard/tickers": ["displayMessages"],
-  "/dashboard/promotions": ["promotions"],
-  "/dashboard/settings": ["settings"],
-  "/dashboard/users": ["users"],
-  "/dashboard/branches": ["branches"],
-};
 
 function NavLinks({ onNavigate, className }: { onNavigate?: () => void; className?: string }) {
   const pathname = usePathname();

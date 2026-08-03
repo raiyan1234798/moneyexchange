@@ -521,7 +521,7 @@ export default function ExchangeRatesPage() {
     // from currency metadata on the display.
     if (!canCreateCatalog) {
       try {
-        await bulkUpdateRates(
+        const result = await bulkUpdateRates(
           effectiveBranchId,
           [
             {
@@ -541,12 +541,22 @@ export default function ExchangeRatesPage() {
           },
           { autoCreateCurrencies: false, requireApproval, actorRole: profile.role, allowCreateRates: true },
         );
-        await publishCentralTransfer();
-        toast.success(`${code} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`);
-        setCreateOpen(false);
-        setCurrencyForm(emptyCurrencyForm);
-        opts?.onDone?.();
-        setRates(await listExchangeRates(effectiveBranchId));
+        // When approval is required, a brand-new currency is NOT created (there is
+        // no pending flow for new rows). Report that honestly instead of a false
+        // "published" toast (client audit 2026-08-03).
+        if (result.created === 0 && result.skippedNeedApproval > 0) {
+          toast.error(
+            `${code} was not added — new currencies can't be created while approval is on. Ask an admin/manager to add it.`,
+          );
+          setRates(await listExchangeRates(effectiveBranchId));
+        } else {
+          await publishCentralTransfer();
+          toast.success(`${code} published — live on your display at Buy ${buyRate} / Sell ${sellRate}`);
+          setCreateOpen(false);
+          setCurrencyForm(emptyCurrencyForm);
+          opts?.onDone?.();
+          setRates(await listExchangeRates(effectiveBranchId));
+        }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Failed to add currency");
       } finally {
