@@ -419,12 +419,11 @@ function BreakingNewsTickerInner({
           // slightly smaller logo below keep the wordmark clear of the rounded
           // corners so it never looks cut.
           className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
-            // Stretch/zoom fits fill the WHOLE rectangular box edge-to-edge — no
-            // side padding; the normal (contain) fit keeps breathing room on ALL
-            // sides so the whole logo — including side wordmarks and a second
-            // line like "Financial" — clears the rounded-right corner and the
-            // gold border, whatever the logo's shape.
-            isTextLogo || logoFit === "contain" ? "px-[1.3vw] py-[0.7vh]" : "px-0"
+            // Only "Zoom" (cover) goes edge-to-edge (it deliberately crops).
+            // Normal AND Fill keep breathing room on ALL sides so the whole logo
+            // — side wordmarks, a second line like "Financial" — clears the
+            // rounded-right corner and gold border, whatever the logo's shape.
+            isTextLogo || logoFit !== "cover" ? "px-[1.3vw] py-[0.7vh]" : "px-0"
           } ${pulse ? "ticker-logo-pulse" : ""}`}
           style={{
             width: badgeWidth,
@@ -453,17 +452,16 @@ function BreakingNewsTickerInner({
               alt={`${BRAND.name} logo`}
               width={260}
               height={84}
+              // NEVER distort a logo: "Fill" now keeps aspect ratio like Normal
+              // (object-contain) — it just fills more of the badge (100% vs the
+              // Normal padded size). Only "Zoom" (cover) fills edge-to-edge and
+              // is allowed to crop. object-fill (stretch/squash) is gone — it
+              // squashed logos like BANK TRANSFER (client 2026-08-03).
               className={`drop-shadow-sm ${
-                logoFit === "fill"
-                  ? "object-fill"
-                  : logoFit === "cover"
-                    ? "object-cover"
-                    : "object-contain"
+                logoFit === "cover" ? "object-cover" : "object-contain"
               } ${logoAnimClass}`}
-              // Size the logo by containPct in EVERY fit mode so the per-logo
-              // Size box always takes effect. At 100% fill/cover stay edge-to-
-              // edge (no regression); below 100% the logo shrinks inside the
-              // badge — Normal (contain) additionally never crops.
+              // Size the logo by containPct in every fit mode so the per-logo
+              // Size box always takes effect.
               style={{ height: `${containPct}%`, width: `${containPct}%` }}
               unoptimized
               priority
