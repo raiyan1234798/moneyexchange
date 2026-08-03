@@ -499,7 +499,12 @@ function BreakingNewsTickerInner({
                 }}
                 onAnimationEnd={handleAnimationEnd}
               >
-                <span className={`inline-flex h-full items-center ${messageAnimClass}`}>
+                {/* The message-movement animation is applied to the TEXT ONLY
+                    (below), NOT this wrapper — otherwise it would also spin/flip
+                    the logos, so "Logo movement = none" could never stop them
+                    (client 2026-08-01). The logos animate solely via their own
+                    "Logo movement" control (scrollLogoAnimClass). */}
+                <span className="inline-flex h-full items-center">
                 {/* Optional logo images ride with the message — at the FRONT,
                     the END, or both (admin choice). In fill/stretch mode they
                     expand to the full bar height; in contain mode they respect
@@ -520,7 +525,9 @@ function BreakingNewsTickerInner({
                       />
                     ))
                   : null}
-                {activeText}
+                <span className={`inline-flex h-full items-center ${messageAnimClass}`}>
+                  {activeText}
+                </span>
                 {scrollLogosEnabled
                   ? scrollingLogosEnd.map((src, i) => (
                       <ScrollingLogoImg
