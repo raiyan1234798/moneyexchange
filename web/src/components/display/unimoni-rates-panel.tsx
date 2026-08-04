@@ -234,6 +234,17 @@ export function rateCardHasContent(args: {
   return Boolean(args.promoText?.trim() || args.promoTextTop?.trim());
 }
 
+/** The label shown in the CURRENCY column. ONLY code-style labels ever render
+ *  (client 2026-08-04: never a full currency name like "Zimbabwe dollar").
+ *  An admin's short rename (e.g. "ZMWO") shows; anything long or spaced —
+ *  including legacy displayName values seeded from the full currency name —
+ *  falls back to the currency code. */
+function rateCardLabel(rate: { displayName?: string; currencyCode: string }): string {
+  const label = rate.displayName?.trim() ?? "";
+  if (label && !label.includes(" ") && label.length <= 6) return label;
+  return rate.currencyCode;
+}
+
 export function UnimoniRatesPanel({
   rates,
   showBuyRate = true,
@@ -777,7 +788,7 @@ export function UnimoniRatesPanel({
                   chipClassName="!h-[1.85em] !w-[2.75em] rounded-[3px] shadow-[0_1px_2px_rgba(0,0,0,0.28)] ring-1 ring-black/10"
                 />
                 <span className={`min-w-0 flex-1 truncate text-center ${displayAnimationClass(currencyTextAnimation)}`}>
-                  {rate.displayName?.trim() || rate.currencyCode}
+                  {rateCardLabel(rate)}
                 </span>
               </span>
               {valueColumns.map((col) => {
@@ -926,7 +937,7 @@ function RatesBoard({ rows, showBuyRate, showSellRate, branchName, className, fo
                   chipClassName="!h-[1.15em] !w-[1.75em]"
                 />
               ) : null}
-              <span className="truncate">{rate.displayName?.trim() || rate.currencyCode}</span>
+              <span className="truncate">{rateCardLabel(rate)}</span>
             </span>
             <div className="flex shrink-0 items-stretch gap-[1.2vmin]">
               {showBuyRate ? <BoardValue label="Buy" value={rate.buyRate} color={BUY_COLOR} /> : null}

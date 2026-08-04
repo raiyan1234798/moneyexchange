@@ -296,6 +296,54 @@ export async function reorderRates(
   });
 }
 
+/**
+ * Push a currency ORDER (by code) onto other branches. Each target branch keeps
+ * its OWN rate rows and values — only displayOrder is rewritten so its currencies
+ * follow `orderedCodes`. Currencies a target has that aren't in the list keep
+ * their current relative order, placed AFTER the ordered ones. Never creates or
+ * deletes a row. Returns how many branches/rows were touched.
+ */
+export async function applyForexOrderToBranches(
+  orderedCodes: string[],
+  targetBranchIds: string[],
+  actor: { userId: string; userName: string },
+): Promise<{ branches: number; rows: number }> {
+  const orderIndex = new Map(orderedCodes.map((c, i) => [c.toUpperCase(), i] as const));
+  let rows = 0;
+  let branches = 0;
+  await Promise.all(
+    targetBranchIds.map(async (branchId) => {
+      const existing = await listExchangeRates(branchId);
+      if (existing.length === 0) return;
+      const rank = (r: ExchangeRate) =>
+        orderIndex.has(r.currencyCode.toUpperCase())
+          ? orderIndex.get(r.currencyCode.toUpperCase())!
+          : Number.MAX_SAFE_INTEGER;
+      // Array.sort is stable (ES2019+): unknown codes fall back to their current
+      // displayOrder, preserving their relative order after the known ones.
+      const sorted = [...existing].sort(
+        (a, b) => rank(a) - rank(b) || (a.displayOrder ?? 0) - (b.displayOrder ?? 0),
+      );
+      await Promise.all(
+        sorted.map((r, index) =>
+          updateDocument(COLLECTIONS.exchangeRates, r.id, { displayOrder: index + 1 }),
+        ),
+      );
+      rows += sorted.length;
+      branches += 1;
+    }),
+  );
+  await writeAuditLog({
+    action: "rate_reorder_apply",
+    entityType: "exchange_rate",
+    userId: actor.userId,
+    userName: actor.userName,
+    branchId: null,
+    metadata: { branches, rows, order: orderedCodes },
+  });
+  return { branches, rows };
+}
+
 export async function updateExchangeRate(
   rate: ExchangeRate,
   newBuyRate: number,

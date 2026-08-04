@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { FlagChip } from "@/components/display/flag-chip";
 import { BranchSelector } from "@/components/shared/branch-selector";
+import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import {
   ContentPanel,
@@ -71,6 +72,7 @@ import {
 } from "@/lib/services/currency-service";
 import {
   addBranchRate,
+  applyForexOrderToBranches,
   bulkUpdateRates,
   initializeBranchRates,
   listExchangeRates,
@@ -716,6 +718,38 @@ export default function ExchangeRatesPage() {
   // Drag-to-reorder state for the "Edit rates" list.
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  // "Apply this order to other branches": scope + selected targets + busy flag.
+  const [orderScope, setOrderScope] = useState<"current" | "specific" | "all">("current");
+  const [orderBranchIds, setOrderBranchIds] = useState<string[]>([]);
+  const [applyingOrder, setApplyingOrder] = useState(false);
+
+  // Push THIS branch's currency order (by code) onto the chosen other branches.
+  async function handleApplyOrderToBranches() {
+    if (!user || !profile || !effectiveBranchId || orderScope === "current") return;
+    const active = branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId);
+    const targets =
+      orderScope === "all" ? active : active.filter((b) => orderBranchIds.includes(b.id));
+    if (targets.length === 0) {
+      toast.error("Pick at least one other branch");
+      return;
+    }
+    setApplyingOrder(true);
+    try {
+      const orderedCodes = rates.map((r) => r.currencyCode);
+      const res = await applyForexOrderToBranches(
+        orderedCodes,
+        targets.map((b) => b.id),
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success(
+        `Currency order applied to ${res.branches} branch${res.branches === 1 ? "" : "es"} — their TVs follow this order (rates unchanged).`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not apply the order to other branches");
+    } finally {
+      setApplyingOrder(false);
+    }
+  }
 
   async function handleReorderDrop(from: number, to: number) {
     if (!user || !profile || !effectiveBranchId) return;
@@ -2737,6 +2771,41 @@ export default function ExchangeRatesPage() {
                     </div>
                   );
                 })}
+
+                {/* Apply THIS branch's currency order to other branches (admins).
+                    Order-only: never changes their currencies, rates or values. */}
+                {(isSuperAdmin || isAdmin) &&
+                rates.length > 1 &&
+                branches.filter((b) => b.status === "active").length > 1 ? (
+                  <div className="mt-1 space-y-3 rounded-xl border border-primary/25 bg-primary/[0.03] p-3">
+                    <p className="text-sm font-medium">Apply this currency order to other branches</p>
+                    <p className="text-xs text-muted-foreground">
+                      Drag the rows above to set the order, then push that same order to other
+                      branches. Only the ORDER changes there — each branch keeps its own currencies,
+                      rates and values.
+                    </p>
+                    <ApplyToAllCheckbox
+                      id="forex-order-apply"
+                      scope={orderScope}
+                      selectedBranchIds={orderBranchIds}
+                      branches={branches}
+                      currentBranchId={effectiveBranchId}
+                      onScopeChange={(sel) => {
+                        setOrderScope(sel.scope);
+                        setOrderBranchIds(sel.selectedBranchIds);
+                      }}
+                      description="Applies only the CURRENCY ORDER to the chosen branches."
+                    />
+                    <Button
+                      size="sm"
+                      className="rounded-xl"
+                      disabled={applyingOrder || orderScope === "current"}
+                      onClick={() => void handleApplyOrderToBranches()}
+                    >
+                      {applyingOrder ? "Applying…" : "Apply order to branches"}
+                    </Button>
+                  </div>
+                ) : null}
 
                 {/* Inline "add currency" row — same as the transfer card. Type a
                     code, We Buy, We Sell → Add; flag/name auto-pick from the code. */}
