@@ -1045,6 +1045,7 @@ export default function VideosPage() {
             {canApplyToAll ? (
               <ApplyToAllCheckbox
                 id="video-apply-all"
+                className="mb-4 xl:hidden"
                 scope={targetScope}
                 selectedBranchIds={selectedBranchIds}
                 branches={branches}
@@ -1053,7 +1054,6 @@ export default function VideosPage() {
                   setTargetScope(sel.scope);
                   setSelectedBranchIds(sel.selectedBranchIds);
                 }}
-                className="mb-4"
               />
             ) : null}
             <Tabs defaultValue="external">
@@ -1351,6 +1351,7 @@ export default function VideosPage() {
             {canApplyToAll ? (
               <ApplyToAllCheckbox
                 id="image-advert-apply-all"
+                className="mb-4 xl:hidden"
                 scope={targetScope}
                 selectedBranchIds={selectedBranchIds}
                 branches={branches}
@@ -1359,7 +1360,6 @@ export default function VideosPage() {
                   setTargetScope(sel.scope);
                   setSelectedBranchIds(sel.selectedBranchIds);
                 }}
-                className="mb-4"
               />
             ) : null}
             <Tabs defaultValue="image-url">
@@ -2069,6 +2069,22 @@ export default function VideosPage() {
                 draft={null}
                 label={`Live display preview for ${branch.name}`}
               />
+              {/* The apply-to options live BELOW the screen on wide layouts —
+                  one control for both the video and image panels (they share
+                  the same target state); the in-panel copies show below xl. */}
+              {canApplyToAll ? (
+                <ApplyToAllCheckbox
+                  id="media-apply-sideways"
+                  scope={targetScope}
+                  selectedBranchIds={selectedBranchIds}
+                  branches={branches}
+                  currentBranchId={effectiveBranchId}
+                  onScopeChange={(sel) => {
+                    setTargetScope(sel.scope);
+                    setSelectedBranchIds(sel.selectedBranchIds);
+                  }}
+                />
+              ) : null}
             </div>
           ) : null}
         </div>

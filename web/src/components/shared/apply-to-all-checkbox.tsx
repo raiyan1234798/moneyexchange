@@ -65,7 +65,9 @@ export function ApplyToAllCheckbox({
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Apply changes to branches
           </Label>
-          <div className="flex flex-wrap gap-3">
+          {/* Vertical, left-aligned list — in a narrow column the old wrap made
+              the last option float on its own row and read as centered. */}
+          <div className="flex flex-col items-start gap-2">
             <label className="flex items-center gap-2 text-xs cursor-pointer">
               <input
                 type="radio"
