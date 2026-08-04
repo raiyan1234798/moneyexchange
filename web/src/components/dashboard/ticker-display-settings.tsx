@@ -743,14 +743,24 @@ export function TickerDisplaySettings({
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                 Logo fit inside the badge
               </Label>
-              <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2 text-sm">
-                Whole logo, never cropped
-              </div>
+              <Select
+                value={s.tickerLogoFit === "fill" ? "fill" : "contain"}
+                onValueChange={(value) =>
+                  set({ tickerLogoFit: value === "fill" ? "fill" : "contain" })
+                }
+              >
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="fill">Fill the badge — logo stretches to fill the whole box</SelectItem>
+                  <SelectItem value="contain">Whole logo — true shape, centred (may leave side space)</SelectItem>
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                The badge always shows the <strong>complete</strong> logo, centred and at its true
-                shape — never cut off and never squashed, at any badge size. To make a logo bigger
-                or smaller use <strong>Logo size inside badge</strong> below, or that logo&apos;s own{" "}
-                <strong>Size</strong> box above.
+                Neither option ever crops — the complete logo always shows. <strong>Fill</strong>{" "}
+                stretches it to the badge box; <strong>Whole logo</strong> keeps its exact
+                proportions.
               </p>
             </div>
             <div className="space-y-2">

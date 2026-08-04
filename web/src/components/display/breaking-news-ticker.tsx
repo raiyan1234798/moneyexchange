@@ -34,10 +34,9 @@ interface BreakingNewsTickerProps {
   /** Show the scrolling logos at all. Default true. */
   scrollLogosEnabled?: boolean;
   /** Badge logo fit: contain (default), cover, or fill (stretch to the box). */
-  /** @deprecated No longer changes rendering — the badge logo is ALWAYS shown
-   *  whole (contain), never cropped or squashed. Kept so saved branch settings
-   *  and existing callers still type-check. Use "Logo size inside badge (%)"
-   *  and the per-logo Size box to control how big the logo is. */
+  /** Badge logo fit: "contain" = whole logo at true shape; "fill" = stretch to
+   *  fill the badge box (client 2026-08-04). "cover" (crop) is accepted for
+   *  legacy saved settings but renders as contain — nothing is ever cropped. */
   logoFit?: "contain" | "cover" | "fill";
   /** In contain fit, fraction of the badge the whole logo fills (0.5–1). Default 0.9. */
   logoContainScale?: number;
@@ -257,6 +256,7 @@ function BreakingNewsTickerInner({
   heightScale = 1,
   logoScale = 1,
   logoHeightScale = 1,
+  logoFit = "contain",
   logoAnimation = "spin",
   scrollingLogos = [],
   scrollingLogosEnd = [],
@@ -464,13 +464,14 @@ function BreakingNewsTickerInner({
               alt={`${BRAND.name} logo`}
               width={260}
               height={84}
-              // ALWAYS object-contain: the WHOLE logo is shown, centred, at its
-              // true proportions — never cropped (object-cover) and never
-              // squashed (object-fill), under ANY fit option. The badge box
-              // grows/shrinks with Badge width/height %, and the logo scales
-              // proportionally inside it via containPct, so it stays fully
-              // visible at every size (client 2026-08-04).
-              className={`object-contain drop-shadow-sm ${logoAnimClass}`}
+              // Two honest modes (client 2026-08-04: "fill the badge" is back):
+              // - contain: WHOLE logo, true proportions, centred.
+              // - fill: stretches the logo to the badge box so it FILLS it —
+              //   nothing is ever cropped in either mode (object-cover is gone
+              //   for good; it cut M-PESA to "IEPES").
+              className={`drop-shadow-sm ${
+                logoFit === "fill" ? "object-fill" : "object-contain"
+              } ${logoAnimClass}`}
               style={{ height: `${containPct}%`, width: `${containPct}%` }}
               unoptimized
               priority
