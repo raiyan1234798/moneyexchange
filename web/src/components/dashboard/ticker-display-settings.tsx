@@ -929,6 +929,30 @@ export function TickerDisplaySettings({
                   >
                     Remove BG
                   </button>
+                  {/* Trim the blank margin baked into the file so the artwork
+                      truly FILLS the bar height — nothing cropped (client
+                      2026-08-04: scrolling logos looked small in the bar). */}
+                  <button
+                    type="button"
+                    title="Trim the empty space around this logo so it fills the bar (nothing is cropped)"
+                    onClick={() =>
+                      void trimLogoMargin(item.url)
+                        .then((trimmed) => {
+                          if (trimmed === item.url) {
+                            toast.info("This logo has no empty space left to trim");
+                            return;
+                          }
+                          setScrollItems(
+                            scrollItems.map((it, idx) => (idx === i ? { ...it, url: trimmed } : it)),
+                          );
+                          toast.success("Empty space trimmed — the logo now fills the bar. Save to apply");
+                        })
+                        .catch((e) => toast.error(e instanceof Error ? e.message : "Could not process"))
+                    }
+                    className="rounded border border-primary/50 px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                  >
+                    Fill space
+                  </button>
                   {/* Per-logo placement: FRONT of the message or at its END. */}
                   <div className="flex overflow-hidden rounded-md border border-border/60 text-[10px] font-semibold">
                     <button
@@ -1002,6 +1026,38 @@ export function TickerDisplaySettings({
                 className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
               >
                 All Fit
+              </button>
+              {/* Bulk margin-trim: every scrolling logo's artwork fills the bar
+                  (blank file margins removed; nothing cropped). Also flips every
+                  logo to Stretch so it uses the full bar height. */}
+              <button
+                type="button"
+                title="Trim the empty space around every scrolling logo and stretch them to the full bar height"
+                onClick={() => {
+                  void (async () => {
+                    try {
+                      const next = await Promise.all(
+                        scrollItems.map(async (it) => ({
+                          ...it,
+                          stretch: true,
+                          url: await trimLogoMargin(it.url).catch(() => it.url),
+                        })),
+                      );
+                      const changed = next.filter((it, idx) => it.url !== scrollItems[idx].url).length;
+                      setScrollItems(next);
+                      toast.success(
+                        changed > 0
+                          ? `Empty space trimmed on ${changed} logo(s); all set to Stretch — they now fill the bar. Save to apply`
+                          : "All logos set to Stretch (no empty space left to trim) — Save to apply",
+                      );
+                    } catch (e) {
+                      toast.error(e instanceof Error ? e.message : "Could not process the logos");
+                    }
+                  })();
+                }}
+                className="rounded-lg border border-primary/50 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+              >
+                Fill the bar (all logos)
               </button>
             </div>
           ) : null}
