@@ -426,7 +426,9 @@ export function TickerDisplaySettings({
                         s.logoAutoRemoveBg !== false
                           ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, badgeSurface())
                           : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
-                      urls.push(res.dataUrl);
+                      // Auto-adjust to the badge (client 2026-08-04): trim the
+                      // file's blank margin on upload so the logo fills at once.
+                      urls.push(await trimLogoMargin(res.dataUrl).catch(() => res.dataUrl));
                       if (res.backgroundKept) kept++;
                     }
                     addBadgeLogos(urls);
@@ -855,7 +857,9 @@ export function TickerDisplaySettings({
                     s.logoAutoRemoveBg !== false
                       ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, scrollSurface())
                       : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
-                  urls.push(res.dataUrl);
+                  // Auto-adjust to the bar (client 2026-08-04): trim blank margin
+                  // on upload so the logo fills the bar height at once.
+                  urls.push(await trimLogoMargin(res.dataUrl).catch(() => res.dataUrl));
                   if (res.backgroundKept) kept++;
                 }
                 setScrollItems([

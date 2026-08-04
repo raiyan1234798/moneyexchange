@@ -429,14 +429,14 @@ function BreakingNewsTickerInner({
           // rectangle); the left sits flush at the screen edge. More padding + a
           // slightly smaller logo below keep the wordmark clear of the rounded
           // corners so it never looks cut.
-          // EVERY fit keeps breathing room on all sides, so the whole logo —
-          // side wordmarks, a second line like "Financial" — always clears the
-          // rounded-right corner and the gold border, whatever its shape.
-          // No mode goes edge-to-edge any more (client 2026-08-04: logos were
-          // being cut, e.g. M-PESA -> "IEPES", MoneyGram -> "Money&A").
-          className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 px-[1.3vw] py-[0.7vh] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
-            pulse ? "ticker-logo-pulse" : ""
-          }`}
+          // "Fill the badge" goes truly edge-to-edge (no inner padding) — the
+          // classic Stretch look the client wants back (2026-08-04); only the
+          // rounded-right corner curves over the logo's corner pixels. "Whole
+          // logo" keeps breathing room on all sides so wordmarks clear the
+          // corner and gold border. Cropping via object-cover stays gone.
+          className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+            isTextLogo || logoFit !== "fill" ? "px-[1.3vw] py-[0.7vh]" : "p-0"
+          } ${pulse ? "ticker-logo-pulse" : ""}`}
           style={{
             width: badgeWidth,
             height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,
