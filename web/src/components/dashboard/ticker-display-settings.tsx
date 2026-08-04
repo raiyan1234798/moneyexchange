@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS } from "@/lib/constants";
-import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent, stripLogoBackground } from "@/lib/image-utils";
+import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent, stripLogoBackground, trimLogoMargin } from "@/lib/image-utils";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { Branch, BranchSettings } from "@/lib/types";
 
@@ -517,6 +517,37 @@ export function TickerDisplaySettings({
                       >
                         Remove BG
                       </button>
+                      {/* Trim the blank margin baked into the logo file so the
+                          artwork FILLS the badge instead of floating in white
+                          space — nothing is cropped (client 2026-08-04). */}
+                      <button
+                        type="button"
+                        title="Trim the empty space around this logo so it fills the badge (nothing is cropped)"
+                        onClick={() =>
+                          void trimLogoMargin(src)
+                            .then((trimmed) => {
+                              if (trimmed === src) {
+                                toast.info("This logo has no empty space left to trim");
+                                return;
+                              }
+                              set({
+                                tickerLogoUrl: null,
+                                tickerLogoUrls: badgeLogos.map((u, idx) => (idx === i ? trimmed : u)),
+                                tickerLogoScales: (Array.isArray(s.tickerLogoScales)
+                                  ? s.tickerLogoScales
+                                  : []
+                                ).map((x) => (x.url === src ? { ...x, url: trimmed } : x)),
+                              });
+                              toast.success("Empty space trimmed — the logo now fills the badge. Save to apply");
+                            })
+                            .catch((e) =>
+                              toast.error(e instanceof Error ? e.message : "Could not process"),
+                            )
+                        }
+                        className="rounded border border-primary/50 px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                      >
+                        Fill space
+                      </button>
                       {/* Per-logo size (Normal fit): shrink a wide logo until
                           its edges clear the rounded corner — others stay big. */}
                       <div
@@ -572,22 +603,67 @@ export function TickerDisplaySettings({
                   Then Save.
                 </p>
               ) : null}
-              {badgeLogos.length > 1 ? (
-                <button
-                  type="button"
-                  // One click = uniform look: clear every per-logo override so ALL
-                  // logos render at the same global "Logo size inside badge" %
-                  // (client 2026-08-04: "keep the logos the same size so none look odd").
-                  onClick={() => {
-                    set({ tickerLogoScales: [] });
-                    toast.success(
-                      "All badge logos now use the same size (the “Logo size inside badge” value) — Save to apply",
-                    );
-                  }}
-                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
-                >
-                  Make all logos the same size
-                </button>
+              {badgeLogos.length >= 1 ? (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {badgeLogos.length > 1 ? (
+                    <button
+                      type="button"
+                      // One click = uniform look: clear every per-logo override so ALL
+                      // logos render at the same global "Logo size inside badge" %
+                      // (client 2026-08-04: "keep the logos the same size so none look odd").
+                      onClick={() => {
+                        set({ tickerLogoScales: [] });
+                        toast.success(
+                          "All badge logos now use the same size (the “Logo size inside badge” value) — Save to apply",
+                        );
+                      }}
+                      className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                    >
+                      Make all logos the same size
+                    </button>
+                  ) : null}
+                  {/* Bulk version of the per-logo "Fill space": removes the blank
+                      margin from EVERY badge logo so none floats in white space. */}
+                  <button
+                    type="button"
+                    title="Trim the empty space around every badge logo so they all fill the badge"
+                    onClick={() => {
+                      void (async () => {
+                        try {
+                          const next = await Promise.all(
+                            badgeLogos.map((u) => trimLogoMargin(u).catch(() => u)),
+                          );
+                          const changed = next.filter((u, idx) => u !== badgeLogos[idx]).length;
+                          if (changed === 0) {
+                            toast.info("No empty space left to trim on these logos");
+                            return;
+                          }
+                          const scales = Array.isArray(s.tickerLogoScales) ? s.tickerLogoScales : [];
+                          set({
+                            tickerLogoUrl: null,
+                            tickerLogoUrls: next,
+                            // Keep each per-logo Size pointing at its new URL.
+                            tickerLogoScales: scales.map((x) => {
+                              const idx = badgeLogos.indexOf(x.url);
+                              return idx >= 0 ? { ...x, url: next[idx] } : x;
+                            }),
+                            // "Fill the space" means fill it — push the logo to
+                            // 100% of the badge now that the blank margin is gone.
+                            tickerLogoContainScale: 1,
+                          });
+                          toast.success(
+                            `Empty space trimmed on ${changed} logo(s) and size set to 100% — they now fill the badge. Save to apply`,
+                          );
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Could not process the logos");
+                        }
+                      })();
+                    }}
+                    className="rounded-lg border border-primary/50 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    Fill space on all logos
+                  </button>
+                </div>
               ) : null}
               {badgeLogos.length > 1 ? (
                 <div className="flex items-center gap-2 pt-1">

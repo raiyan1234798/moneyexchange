@@ -346,6 +346,121 @@ export async function compressLogoTransparent(
 }
 
 /**
+ * Trim the EMPTY MARGIN around a logo so the artwork fills its frame — the fix
+ * for "the badge has odd white space around the logo".
+ *
+ * Content-safe by construction:
+ *  - the margin colour is learned from the four CORNERS (transparent, white, or
+ *    any solid colour); only pixels matching it are considered blank,
+ *  - it only trims WHOLE blank rows/columns inward from each edge, so it can
+ *    never cut into artwork,
+ *  - it refuses to remove more than 45% of a side, and returns the image
+ *    untouched if there is no real margin to remove.
+ *
+ * Returns a PNG data URL (transparency preserved).
+ */
+export async function trimLogoMargin(src: string, tolerance = 18): Promise<string> {
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.crossOrigin = "anonymous";
+    el.onload = () => resolve(el);
+    el.onerror = () => reject(new Error("Could not read the logo image."));
+    el.src = src;
+  });
+
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  if (!w || !h) throw new Error("Could not read the logo image.");
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true });
+  if (!ctx) throw new Error("Image processing is not supported in this browser.");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  let data: Uint8ClampedArray;
+  try {
+    data = ctx.getImageData(0, 0, w, h).data;
+  } catch {
+    // Cross-origin image without CORS headers — cannot inspect pixels.
+    throw new Error("This logo is hosted elsewhere and can't be trimmed. Re-upload it instead.");
+  }
+
+  const px = (x: number, y: number) => {
+    const i = (y * w + x) * 4;
+    return { r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] };
+  };
+
+  // Learn the margin colour from the corners; if they disagree, only fully
+  // transparent pixels count as blank (safest).
+  const corners = [px(0, 0), px(w - 1, 0), px(0, h - 1), px(w - 1, h - 1)];
+  const allTransparent = corners.every((c) => c.a < 25);
+  const base = corners[0];
+  const cornersAgree =
+    !allTransparent &&
+    corners.every(
+      (c) =>
+        c.a >= 25 &&
+        Math.abs(c.r - base.r) <= tolerance &&
+        Math.abs(c.g - base.g) <= tolerance &&
+        Math.abs(c.b - base.b) <= tolerance,
+    );
+
+  const isBlank = (x: number, y: number) => {
+    const p = px(x, y);
+    if (p.a < 25) return true; // transparent margin
+    if (allTransparent || !cornersAgree) return false;
+    return (
+      Math.abs(p.r - base.r) <= tolerance &&
+      Math.abs(p.g - base.g) <= tolerance &&
+      Math.abs(p.b - base.b) <= tolerance
+    );
+  };
+
+  const rowBlank = (y: number) => {
+    for (let x = 0; x < w; x++) if (!isBlank(x, y)) return false;
+    return true;
+  };
+  const colBlank = (x: number) => {
+    for (let y = 0; y < h; y++) if (!isBlank(x, y)) return false;
+    return true;
+  };
+
+  let top = 0;
+  while (top < h && rowBlank(top)) top++;
+  let bottom = h - 1;
+  while (bottom > top && rowBlank(bottom)) bottom--;
+  let left = 0;
+  while (left < w && colBlank(left)) left++;
+  let right = w - 1;
+  while (right > left && colBlank(right)) right--;
+
+  // Nothing blank to remove, or the image is entirely blank — leave it alone.
+  if (right <= left || bottom <= top) return src;
+
+  // Safety rail: never remove more than 45% of a side.
+  const maxCut = { x: Math.floor(w * 0.45), y: Math.floor(h * 0.45) };
+  top = Math.min(top, maxCut.y);
+  left = Math.min(left, maxCut.x);
+  bottom = Math.max(bottom, h - 1 - maxCut.y);
+  right = Math.max(right, w - 1 - maxCut.x);
+
+  const cw = right - left + 1;
+  const ch = bottom - top + 1;
+  // Less than 2% margin either way — not worth re-encoding.
+  if (cw >= w * 0.98 && ch >= h * 0.98) return src;
+
+  const out = document.createElement("canvas");
+  out.width = cw;
+  out.height = ch;
+  const octx = out.getContext("2d");
+  if (!octx) return src;
+  octx.drawImage(canvas, left, top, cw, ch, 0, 0, cw, ch);
+  return out.toDataURL("image/png");
+}
+
+/**
  * Strip the background from an ALREADY-STORED logo (data URL or plain URL) —
  * same white/solid + nested-box removal as uploads, so old logos can be fixed
  * with one click instead of re-uploading. Returns a PNG data URL.
