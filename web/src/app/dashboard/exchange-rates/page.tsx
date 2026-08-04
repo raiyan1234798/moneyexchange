@@ -722,6 +722,45 @@ export default function ExchangeRatesPage() {
   const [orderScope, setOrderScope] = useState<"current" | "specific" | "all">("current");
   const [orderBranchIds, setOrderBranchIds] = useState<string[]>([]);
   const [applyingOrder, setApplyingOrder] = useState(false);
+  // Prompt shown IMMEDIATELY after a drag-drop: which branches get the new
+  // order? "Current branch" (already saved), "Selected branches", "All
+  // branches" (client 2026-08-04). Admin-only, and only when other branches exist.
+  const [orderPrompt, setOrderPrompt] = useState<{ codes: string[] } | null>(null);
+  const [orderPromptScope, setOrderPromptScope] = useState<"current" | "specific" | "all">("current");
+  const [orderPromptBranchIds, setOrderPromptBranchIds] = useState<string[]>([]);
+  const [orderPromptApplying, setOrderPromptApplying] = useState(false);
+
+  async function confirmOrderPrompt() {
+    if (!orderPrompt || !user || !profile) return;
+    // Current branch: the drop already saved there — nothing more to do.
+    if (orderPromptScope === "current") {
+      setOrderPrompt(null);
+      return;
+    }
+    const active = branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId);
+    const targets =
+      orderPromptScope === "all" ? active : active.filter((b) => orderPromptBranchIds.includes(b.id));
+    if (targets.length === 0) {
+      toast.error("Pick at least one branch");
+      return;
+    }
+    setOrderPromptApplying(true);
+    try {
+      const res = await applyForexOrderToBranches(
+        orderPrompt.codes,
+        targets.map((b) => b.id),
+        { userId: user.uid, userName: profile.displayName || profile.email },
+      );
+      toast.success(
+        `Order applied to ${res.branches} branch${res.branches === 1 ? "" : "es"} — only the order changed there.`,
+      );
+      setOrderPrompt(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not apply the order");
+    } finally {
+      setOrderPromptApplying(false);
+    }
+  }
 
   // Push THIS branch's currency order (by code) onto the chosen other branches.
   async function handleApplyOrderToBranches() {
@@ -766,6 +805,14 @@ export default function ExchangeRatesPage() {
       );
       toast.success("Order updated");
       setRates(await listExchangeRates(effectiveBranchId));
+      // Ask where the new order should apply (current/selected/all) — the
+      // current branch is already saved; the prompt only ADDS branches.
+      const others = branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId);
+      if ((isSuperAdmin || isAdmin) && others.length > 0) {
+        setOrderPromptScope("current");
+        setOrderPromptBranchIds([]);
+        setOrderPrompt({ codes: next.map((r) => r.currencyCode) });
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to reorder");
       setRates(await listExchangeRates(effectiveBranchId));
@@ -2077,6 +2124,76 @@ export default function ExchangeRatesPage() {
 
         {/* Guard against accidental deletes — a clear yes/no before a currency
             is pulled from this branch's rate card. */}
+        {/* Post-drag prompt: where should the new currency order apply? */}
+        <Dialog open={orderPrompt !== null} onOpenChange={(o) => !o && setOrderPrompt(null)}>
+          <DialogContent className="rounded-2xl sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Apply this new order to…</DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                The order is already saved on this branch. Choose where else it should apply — only
+                the ORDER changes; every branch keeps its own currencies and rates.
+              </p>
+            </DialogHeader>
+            <div className="space-y-2 py-1">
+              {(
+                [
+                  { key: "current", label: "Current branch" },
+                  { key: "specific", label: "Selected branches" },
+                  { key: "all", label: "All branches" },
+                ] as const
+              ).map((opt) => (
+                <label
+                  key={opt.key}
+                  className="flex cursor-pointer items-center gap-2 rounded-xl border border-border/40 p-3 text-sm has-[:checked]:border-primary/60 has-[:checked]:bg-primary/[0.05]"
+                >
+                  <input
+                    type="radio"
+                    name="order-prompt-scope"
+                    checked={orderPromptScope === opt.key}
+                    onChange={() => setOrderPromptScope(opt.key)}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+              {orderPromptScope === "specific" ? (
+                <div className="max-h-44 space-y-1 overflow-y-auto rounded-xl border border-border/40 p-2">
+                  {branches
+                    .filter((b) => b.status === "active" && b.id !== effectiveBranchId)
+                    .map((b) => (
+                      <label key={b.id} className="flex cursor-pointer items-center gap-2 p-1 text-sm">
+                        <Checkbox
+                          checked={orderPromptBranchIds.includes(b.id)}
+                          onCheckedChange={(c) =>
+                            setOrderPromptBranchIds((prev) =>
+                              c ? [...prev, b.id] : prev.filter((id) => id !== b.id),
+                            )
+                          }
+                        />
+                        {b.name}
+                      </label>
+                    ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => setOrderPrompt(null)}>
+                Close
+              </Button>
+              <Button
+                className="rounded-xl"
+                disabled={orderPromptApplying}
+                onClick={() => void confirmOrderPrompt()}
+              >
+                {orderPromptApplying
+                  ? "Applying…"
+                  : orderPromptScope === "current"
+                    ? "Done"
+                    : "Apply order"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         <AlertDialog open={removeConfirm !== null} onOpenChange={(o) => !o && setRemoveConfirm(null)}>
           <AlertDialogContent className="rounded-2xl sm:max-w-md">
             <AlertDialogHeader>

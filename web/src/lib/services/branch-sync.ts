@@ -302,7 +302,8 @@ export async function restoreInactiveMediaOnAllBranches(
 export async function syncExternalVideoToBranches(
   branches: Branch[],
   sourceBranchId: string,
-  applyToAll: boolean,
+  /** true = all active; false = source only; string[] = these ids (+ source). */
+  applyToAll: boolean | string[],
   data: { title: string; downloadUrl: string; createdBy: string },
   actor: Actor,
 ): Promise<number> {
@@ -389,7 +390,8 @@ export async function upsertTickerContentToBranches(
 export async function syncImageUrlToBranches(
   branches: Branch[],
   sourceBranchId: string,
-  applyToAll: boolean,
+  /** true = all active; false = source only; string[] = these ids (+ source). */
+  applyToAll: boolean | string[],
   data: {
     title: string;
     downloadUrl: string;

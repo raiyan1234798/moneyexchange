@@ -61,6 +61,7 @@ import {
   uploadVideo,
 } from "@/lib/services/video-service";
 import {
+  duplicateImageAdvertToBranch,
   duplicateStorageVideoToBranch,
   getActiveBranchTargets,
   pushBranchMediaToAllBranches,
@@ -132,7 +133,6 @@ export default function VideosPage() {
   const [bulkSeconds, setBulkSeconds] = useState("15");
   const [bulkApplying, setBulkApplying] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
-  const [applyToAll, setApplyToAll] = useState(false);
   // Admin: copy this branch's playlist to every other branch. Replace stays OFF
   // by default so we never wipe another branch's media without explicit consent.
   const [pushReplaceExisting, setPushReplaceExisting] = useState(false);
@@ -140,6 +140,21 @@ export default function VideosPage() {
   const [restoringMedia, setRestoringMedia] = useState(false);
   const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([effectiveBranchId]);
+  /** The branch targets the admin picked in the Apply-to checkbox, in the form
+   *  the sync services accept: true = all active branches, string[] = specific
+   *  branch ids (+ current is added by the service), false = current only.
+   *  Previously "Select specific branches" was silently collapsed to current-
+   *  only (audit 2026-08-03) — this makes all three scopes real. */
+  const mediaTargets = (): boolean | string[] =>
+    !canApplyToAll
+      ? false
+      : targetScope === "all"
+        ? true
+        : targetScope === "specific"
+          ? selectedBranchIds.filter((id) => id !== effectiveBranchId)
+          : false;
+  const mediaTargetsWantSync = (t: boolean | string[]): boolean =>
+    t === true || (Array.isArray(t) && t.length > 0);
   // TOTAL storage across ALL branches (R2's 10 GB free tier is shared), summed
   // server-side so we never download every doc. Null until the first load.
   const [totalStorageBytes, setTotalStorageBytes] = useState<number | null>(null);
@@ -294,7 +309,7 @@ export default function VideosPage() {
       const count = await syncExternalVideoToBranches(
         branches,
         effectiveBranchId,
-        applyToAll && canApplyToAll,
+        mediaTargets(),
         {
           title: resolvedTitle,
           downloadUrl: externalUrl.trim(),
@@ -309,7 +324,7 @@ export default function VideosPage() {
       );
       setTitle("");
       setExternalUrl("");
-      setApplyToAll(false);
+      setTargetScope("current");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to link video");
     }
@@ -329,7 +344,7 @@ export default function VideosPage() {
       const count = await syncExternalVideoToBranches(
         branches,
         effectiveBranchId,
-        applyToAll && canApplyToAll,
+        mediaTargets(),
         {
           title: resolvedTitle,
           downloadUrl: driveUrl.trim(),
@@ -345,7 +360,7 @@ export default function VideosPage() {
       );
       setTitle("");
       setDriveUrl("");
-      setApplyToAll(false);
+      setTargetScope("current");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to link Google Drive video");
     }
@@ -439,12 +454,13 @@ export default function VideosPage() {
         toast.warning(CHUNKED_UPLOAD_WARNING, { duration: 10000 });
       }
 
-      if (applyToAll && canApplyToAll && actor) {
+      const uploadTargets = mediaTargets();
+      if (mediaTargetsWantSync(uploadTargets) && actor) {
         const uploaded = await getDocument<VideoAsset>(COLLECTIONS.videos, videoId);
         if (uploaded?.sourceType === "chunked") {
           toast.warning("This upload is branch-only. Paste a video link to sync the same video to all branches.");
         } else if (uploaded) {
-          const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, true).filter(
+          const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, uploadTargets).filter(
             (b) => b.id !== effectiveBranchId,
           );
           await Promise.all(
@@ -463,7 +479,7 @@ export default function VideosPage() {
       setTitle("");
       setFile(null);
       setProgress(0);
-      setApplyToAll(false);
+      setTargetScope("current");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
       toast.error(message, { duration: 8000 });
@@ -483,7 +499,7 @@ export default function VideosPage() {
       const count = await syncImageUrlToBranches(
         branches,
         effectiveBranchId,
-        applyToAll && canApplyToAll,
+        mediaTargets(),
         {
           title: title.trim() || "Image advert",
           downloadUrl: imageUrl.trim(),
@@ -499,7 +515,7 @@ export default function VideosPage() {
       );
       setImageUrl("");
       setTitle("");
-      setApplyToAll(false);
+      setTargetScope("current");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to add image");
     } finally {
@@ -517,8 +533,9 @@ export default function VideosPage() {
     setImageUploading(true);
     let done = 0;
     try {
+      const uploadedIds: string[] = [];
       for (let i = 0; i < files.length; i++) {
-        await uploadImageAdvert(
+        const id = await uploadImageAdvert(
           {
             title: imageFileTitles[i]?.trim() || files[i].name.replace(/\.[^.]+$/, "") || files[i].name,
             branchId: effectiveBranchId,
@@ -530,7 +547,30 @@ export default function VideosPage() {
           // Adding images must never wipe the existing ones — they all rotate.
           { keepExisting: true },
         );
+        uploadedIds.push(id);
         done += 1;
+      }
+      // Honor the Apply-to choice for FILE uploads too — previously only the
+      // "Image URL" tab synced and uploads landed on the current branch alone
+      // (audit 2026-08-03). The stored copy is shared (same R2 file), so this
+      // adds branch docs, not duplicate storage.
+      const imageTargets = mediaTargets();
+      if (mediaTargetsWantSync(imageTargets) && actor) {
+        const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, imageTargets).filter(
+          (b) => b.id !== effectiveBranchId,
+        );
+        if (otherBranches.length > 0) {
+          for (const id of uploadedIds) {
+            const src = await getDocument<ImageAdvert>(COLLECTIONS.imageAdverts, id);
+            if (!src) continue;
+            await Promise.all(
+              otherBranches.map((b) => duplicateImageAdvertToBranch(src, b.id, user.uid, actor)),
+            );
+          }
+          toast.success(
+            `Also copied to ${otherBranches.length} other branch${otherBranches.length === 1 ? "" : "es"}`,
+          );
+        }
       }
       toast.success(
         files.length > 1
@@ -1006,7 +1046,6 @@ export default function VideosPage() {
                 onScopeChange={(sel) => {
                   setTargetScope(sel.scope);
                   setSelectedBranchIds(sel.selectedBranchIds);
-                  setApplyToAll(sel.scope === "all");
                 }}
                 className="mb-4"
               />
@@ -1313,7 +1352,6 @@ export default function VideosPage() {
                 onScopeChange={(sel) => {
                   setTargetScope(sel.scope);
                   setSelectedBranchIds(sel.selectedBranchIds);
-                  setApplyToAll(sel.scope === "all");
                 }}
                 className="mb-4"
               />
