@@ -205,11 +205,12 @@ export function TickerDisplaySettings({
   // Scrolling logos with PER-LOGO front/end placement. Legacy string list folds
   // into items (using the old whole-list position) on any edit.
   const legacyPos = (s.tickerScrollLogoPosition === "end" ? "end" : "start") as "start" | "end";
-  const scrollItems: Array<{ url: string; pos: "start" | "end" }> = [
+  type ScrollItem = { url: string; pos: "start" | "end"; stretch?: boolean };
+  const scrollItems: ScrollItem[] = [
     ...((s.scrollingLogoItems ?? []).filter((it) => it?.url?.trim())),
     ...((s.scrollingLogos ?? []).map((url) => ({ url, pos: legacyPos }))),
   ];
-  const setScrollItems = (items: Array<{ url: string; pos: "start" | "end" }>) =>
+  const setScrollItems = (items: ScrollItem[]) =>
     set({ scrollingLogoItems: items, scrollingLogos: [] });
   // Drag a scrolling-logo tile onto another to change the order they ride in
   // (client 2026-07-27). The TV builds its Front/End groups by filtering this
@@ -864,6 +865,30 @@ export function TickerDisplaySettings({
                       className={`px-1.5 py-0.5 ${item.pos === "end" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
                     >
                       End
+                    </button>
+                  </div>
+                  {/* Per-logo: STRETCH to the full bar height (big) or keep it
+                      smaller. Client 2026-08-04 — set each logo to taste. */}
+                  <div className="flex overflow-hidden rounded-md border border-border/60 text-[10px] font-semibold">
+                    <button
+                      type="button"
+                      title="Stretch this logo to the full bar height"
+                      onClick={() =>
+                        setScrollItems(scrollItems.map((it, idx) => (idx === i ? { ...it, stretch: true } : it)))
+                      }
+                      className={`px-1.5 py-0.5 ${item.stretch !== false ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                    >
+                      Stretch
+                    </button>
+                    <button
+                      type="button"
+                      title="Keep this logo smaller (not stretched)"
+                      onClick={() =>
+                        setScrollItems(scrollItems.map((it, idx) => (idx === i ? { ...it, stretch: false } : it)))
+                      }
+                      className={`px-1.5 py-0.5 ${item.stretch === false ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                    >
+                      Fit
                     </button>
                   </div>
                 </div>

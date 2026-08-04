@@ -67,10 +67,10 @@ interface BreakingNewsTickerProps {
   logoHeightScale?: number;
   /** Animation applied to the pop-out logo badge. Default "spin". */
   logoAnimation?: string;
-  /** Logos riding at the FRONT of the scrolling message. */
-  scrollingLogos?: string[];
-  /** Logos riding at the END of the scrolling message. */
-  scrollingLogosEnd?: string[];
+  /** Logos riding at the FRONT of the scrolling message (with per-logo stretch). */
+  scrollingLogos?: Array<{ url: string; stretch?: boolean }>;
+  /** Logos riding at the END of the scrolling message (with per-logo stretch). */
+  scrollingLogosEnd?: Array<{ url: string; stretch?: boolean }>;
   /** The promo/video area width as a % of the screen. Caps the gold headline
    *  tab so it can grow up to — but never onto — the rate card. */
   headlineMaxWidthPercent?: number;
@@ -177,62 +177,50 @@ function useCleanLogoSrc(
 function ScrollingLogoImg({
   src,
   animClass,
-  heightEm,
   side,
   gapVw = 1.2,
   scale = 1,
   fitMode = "fill",
+  stretch,
 }: {
   src: string;
   bgMode: "white" | "transparent" | "auto"; // kept for API compat, not used
   animClass: string;
-  heightEm: string;
+  heightEm: string; // kept for API compat, not used
   side: "start" | "end";
   /** Space to the next logo, in vw. 0 = logos joined with no gap. */
   gapVw?: number;
-  /** "Logo size (%)" as a fraction (1 = full bar height). Grows/shrinks the logo. */
+  /** "Logo size (%)" as a fraction (1 = full bar height). */
   scale?: number;
   fitMode?: "contain" | "fill" | "stretch";
-  removeBg?: boolean; // kept for API compat, not used
+  /** PER-LOGO override: true = stretch to full bar height (big); false = smaller;
+   *  undefined = follow fitMode (client 2026-08-04). */
+  stretch?: boolean;
 }) {
-  const isStretch = fitMode === "fill" || fitMode === "stretch";
-  // Admin-controlled gap between adjacent logos (0 = joined). Applied on the
-  // trailing side for start-group logos, leading side for end-group logos.
+  // Per-logo choice wins; otherwise the branch fit mode.
+  const isStretch = stretch ?? (fitMode === "fill" || fitMode === "stretch");
   const gap = Math.max(0, gapVw);
   const gapStyle = side === "start" ? { marginRight: `${gap}vw` } : { marginLeft: `${gap}vw` };
   const sizeScale = Math.max(0.3, scale);
-
-  if (isStretch) {
-    // Scrolling logos fit WITHIN the bar height — aspect preserved, NEVER taller
-    // than the bar, so they can't look stretched/oversized (client 2026-08-03:
-    // "the ticker message logo should not be stretched like this"). "Logo size %"
-    // scales DOWN from the bar height; anything above 100% is capped at the bar.
-    const pct = Math.min(100, Math.max(30, Math.round(sizeScale * 100)));
-    return (
-      <span
-        className={`inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
-        style={{ ...gapStyle }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={src}
-          alt=""
-          className="block w-auto"
-          style={{ height: `${pct}%`, maxHeight: "100%", objectFit: "contain" }}
-        />
-      </span>
-    );
-  }
-
-  // Contain mode — inline with scrolling text, fixed em height.
+  // Stretched = fill the bar height (up to 100%); not-stretched = clearly smaller.
+  // Aspect ALWAYS preserved (object-contain, w-auto) — never squashed, never
+  // taller than the bar (overflow-hidden), whichever the admin picks.
+  const pct = isStretch
+    ? Math.min(100, Math.max(30, Math.round(sizeScale * 100)))
+    : Math.min(72, Math.max(25, Math.round(sizeScale * 62)));
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={src}
-      alt=""
-      className={`inline-block w-auto align-middle object-contain ${animClass}`}
-      style={{ height: heightEm, ...gapStyle }}
-    />
+    <span
+      className={`inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
+      style={{ ...gapStyle }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className="block w-auto"
+        style={{ height: `${pct}%`, maxHeight: "100%", objectFit: "contain" }}
+      />
+    </span>
   );
 }
 
@@ -510,10 +498,10 @@ function BreakingNewsTickerInner({
                     expand to the full bar height; in contain mode they respect
                     scrollLogoScale. */}
                 {scrollLogosEnabled
-                  ? scrollingLogos.map((src, i) => (
+                  ? scrollingLogos.map((item, i) => (
                       <ScrollingLogoImg
-                        key={`start-${src.slice(-12)}-${i}`}
-                        src={src}
+                        key={`start-${item.url.slice(-12)}-${i}`}
+                        src={item.url}
                         bgMode={scrollLogoBg}
                         animClass={scrollLogoAnimClass}
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
@@ -521,7 +509,7 @@ function BreakingNewsTickerInner({
                         gapVw={scrollLogoGapVw}
                         scale={scrollLogoScale}
                         fitMode={scrollLogoFitMode}
-                        removeBg={scrollLogoRemoveBg}
+                        stretch={item.stretch}
                       />
                     ))
                   : null}
@@ -529,10 +517,10 @@ function BreakingNewsTickerInner({
                   {activeText}
                 </span>
                 {scrollLogosEnabled
-                  ? scrollingLogosEnd.map((src, i) => (
+                  ? scrollingLogosEnd.map((item, i) => (
                       <ScrollingLogoImg
-                        key={`end-${src.slice(-12)}-${i}`}
-                        src={src}
+                        key={`end-${item.url.slice(-12)}-${i}`}
+                        src={item.url}
                         bgMode={scrollLogoBg}
                         animClass={scrollLogoAnimClass}
                         heightEm={`${(2.2 * scrollLogoScale).toFixed(2)}em`}
@@ -540,7 +528,7 @@ function BreakingNewsTickerInner({
                         gapVw={scrollLogoGapVw}
                         scale={scrollLogoScale}
                         fitMode={scrollLogoFitMode}
-                        removeBg={scrollLogoRemoveBg}
+                        stretch={item.stretch}
                       />
                     ))
                   : null}

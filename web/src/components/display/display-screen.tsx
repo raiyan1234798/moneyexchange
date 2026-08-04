@@ -407,8 +407,11 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       ? scrollingLogos.map((url) => ({ url, pos: "end" as const }))
       : []),
   ];
-  const scrollingLogosStart = scrollLogoItems.filter((it) => it.pos !== "end").map((it) => it.url);
-  const scrollingLogosEnd = scrollLogoItems.filter((it) => it.pos === "end").map((it) => it.url);
+  // Carry each logo's per-logo stretch choice through to the ticker (not just
+  // the URL) so the admin can stretch some scrolling logos and not others.
+  const toLogo = (it: { url: string; stretch?: boolean }) => ({ url: it.url, stretch: it.stretch });
+  const scrollingLogosStart = scrollLogoItems.filter((it) => it.pos !== "end").map(toLogo);
+  const scrollingLogosEnd = scrollLogoItems.filter((it) => it.pos === "end").map(toLogo);
 
   // Browsers block UNMUTED autoplay until the page gets a user gesture. When the
   // branch wants sound, unmute every video on the first tap/click/key or when

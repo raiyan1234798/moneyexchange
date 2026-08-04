@@ -139,7 +139,13 @@ export interface BranchSettings {
   tickerScrollLogoPosition?: "start" | "end" | "both";
   /** Scrolling logos with a PER-LOGO position — e.g. 2–3 at the front and 2–3
       at the end of the message. Legacy scrollingLogos folds into this on edit. */
-  scrollingLogoItems?: Array<{ url: string; pos: "start" | "end" }>;
+  scrollingLogoItems?: Array<{
+    url: string;
+    pos: "start" | "end";
+    /** Per-logo: true = stretch to the FULL bar height (big), false = keep it
+     *  smaller/contained. Undefined = follow the branch default. Client 2026-08-04. */
+    stretch?: boolean;
+  }>;
   /** How the badge logo fits its box: contain (default), cover (fill+crop), fill (stretch). */
   tickerLogoFit?: "contain" | "cover" | "fill";
   /** In "contain" (Normal) fit, how much of the badge the WHOLE logo fills,
