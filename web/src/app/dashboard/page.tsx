@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Building2, Check, FileSpreadsheet, Monitor, TrendingUp, Activity, Coins, X } from "lucide-react";
+import { Building2, Check, FileSpreadsheet, Monitor, MonitorPlay, TrendingUp, Activity, Coins, X } from "lucide-react";
 import { toast } from "sonner";
 import { safeFormatDistanceToNow } from "@/lib/utils/date";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { RoleFeatureBoard } from "@/components/dashboard/role-feature-board";
+import { BranchesAtAGlance } from "@/components/dashboard/branches-at-a-glance";
 import { GettingStartedChecklist } from "@/components/shared/getting-started-checklist";
 import { DisplayUrlCard } from "@/components/shared/display-url-card";
 import {
@@ -28,11 +29,13 @@ import {
   subscribePendingApprovals,
 } from "@/lib/services/pending-approval-service";
 import { subscribeTickers } from "@/lib/services/ticker-service";
+import { subscribeTvDevices } from "@/lib/services/tv-service";
+import { summarizeTvs } from "@/lib/tv/liveness";
 import { subscribeVideos } from "@/lib/services/video-service";
 import { subscribeCollection, orderBy, where, limit } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
 import { getDisplayUrl } from "@/lib/display-url";
-import type { AuditLog, DashboardStats, PendingApproval } from "@/lib/types";
+import type { AuditLog, DashboardStats, PendingApproval, TvDevice } from "@/lib/types";
 import { StatusBadge } from "@/components/shared/page-elements";
 import { Button } from "@/components/ui/button";
 
@@ -46,6 +49,11 @@ export default function DashboardOverviewPage() {
   const [branchRatesCount, setBranchRatesCount] = useState(0);
   const [branchVideosCount, setBranchVideosCount] = useState(0);
   const [branchTickersCount, setBranchTickersCount] = useState(0);
+  // TV devices for the live/offline tile. "Live" is derived from the last
+  // heartbeat, NOT the stored status flag — nothing ever writes that flag back
+  // to "offline", so an unplugged TV would otherwise read online forever.
+  const [tvDevices, setTvDevices] = useState<TvDevice[]>([]);
+  const [tvNowMs, setTvNowMs] = useState(() => Date.now());
 
   const scopedBranch = branches.find((b) => b.id === effectiveBranchId);
   const isPlatformAdmin = isSuperAdmin || isAdmin;
@@ -203,6 +211,20 @@ export default function DashboardOverviewPage() {
     };
   }, [clearNotice, effectiveBranchId, onError]);
 
+  // Live TV heartbeat feed (all branches for admins; own branch otherwise) and a
+  // ticking clock so "live" stops being true once heartbeats stop arriving.
+  useEffect(() => {
+    const scope = isPlatformAdmin ? undefined : effectiveBranchId || undefined;
+    return subscribeTvDevices(setTvDevices, scope, onError);
+  }, [isPlatformAdmin, effectiveBranchId, onError]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => setTvNowMs(Date.now()), 30000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  const tvSummary = useMemo(() => summarizeTvs(tvDevices, tvNowMs), [tvDevices, tvNowMs]);
+
   const quickActions = useMemo(
     () => [
       ...(isPlatformAdmin
@@ -288,7 +310,7 @@ export default function DashboardOverviewPage() {
         {profile ? (
           <RoleFeatureBoard role={profile.role} branchName={scopedBranch?.name} />
         ) : null}
-        <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-3 xl:grid-cols-6">
           {isPlatformAdmin ? (
             <StatCard title="Branches" value={stats?.totalBranches ?? 0} loading={loading} accent="violet" icon={Building2} />
           ) : null}
@@ -301,9 +323,38 @@ export default function DashboardOverviewPage() {
             icon={Monitor}
           />
           <StatCard title="Currencies" value={stats?.totalCurrencies ?? 0} loading={loading} accent="sky" icon={Coins} />
+          <StatCard
+            title="TVs Live"
+            value={tvSummary.total === 0 ? "—" : `${tvSummary.live}/${tvSummary.total}`}
+            hint={
+              tvSummary.total === 0
+                ? "No TV paired"
+                : tvSummary.offline > 0
+                  ? `${tvSummary.offline} not responding`
+                  : "All responding"
+            }
+            loading={loading}
+            accent={tvSummary.total > 0 && tvSummary.offline > 0 ? "amber" : "emerald"}
+            icon={MonitorPlay}
+          />
           <StatCard title="Pending Rates" value={stats?.pendingRateApprovals ?? 0} loading={loading} accent="default" icon={TrendingUp} />
           <StatCard title="Activity" value={stats?.recentAuditEvents ?? 0} hint="Recent events" loading={loading} accent="default" icon={Activity} />
         </div>
+
+        {/* Command-centre view: every branch at a glance — is its TV live, how
+            many rates it is showing, when it last changed, open its display. */}
+        {branches.length > 0 ? (
+          <ContentPanel
+            title="Branches at a glance"
+            description={
+              isPlatformAdmin
+                ? "Every branch — TV status, what's on screen, and when it last changed"
+                : "Your branch — TV status and what's on screen"
+            }
+          >
+            <BranchesAtAGlance branches={branches} onError={onError} />
+          </ContentPanel>
+        ) : null}
 
         <GettingStartedChecklist
           branchCode={scopedBranch?.code}
