@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Cloud, Link2, Pencil, RotateCcw, Share2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
+import { LiveTvPreview } from "@/components/shared/live-tv-preview";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import {
@@ -944,6 +945,8 @@ export default function VideosPage() {
       />
       <PageShell accent="rose">
         <FirestoreSetupNotice message={notice} />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,46%)]">
+        <div className="min-w-0 space-y-6 sm:space-y-7">
         {isSuperAdmin || isAdmin ? (
           <BranchSelector
             branches={branches}
@@ -2050,6 +2053,23 @@ export default function VideosPage() {
             />
           </ContentPanel>
         ) : null}
+        </div>
+        {/* Persistent live TV screen (same pattern as Settings / Display
+            Messages / Exchange Rates): sticky in the sideways column, so it
+            stays visible while scrolling without shifting the page content. */}
+        <div className="hidden xl:block">
+          {branch ? (
+            <div className="sticky top-3 space-y-2">
+              <Label>Live TV preview — {branch.name}</Label>
+              <LiveTvPreview
+                branchCode={branch.code}
+                draft={null}
+                label={`Live display preview for ${branch.name}`}
+              />
+            </div>
+          ) : null}
+        </div>
+        </div>
       </PageShell>
     </>
   );
