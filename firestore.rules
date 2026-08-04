@@ -252,6 +252,10 @@ service cloud.firestore {
         (hasModuleKey('users') && isValidUserUpdate()
           && request.auth.uid != userId
           && resource.data.role in ['branchManager', 'branchUser']
+          // Own branch only, and cannot move the user to another branch — a chip
+          // holder manages ONLY their own branch's staff (parity with invites).
+          && resource.data.branchId == managerBranchId()
+          && request.resource.data.branchId == resource.data.branchId
           && request.resource.data.role == resource.data.role
           && request.resource.data.moduleAccess == resource.data.moduleAccess
           && request.resource.data.email == resource.data.email) ||
