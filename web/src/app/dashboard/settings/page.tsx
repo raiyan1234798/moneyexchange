@@ -2283,6 +2283,68 @@ export default function SettingsPage() {
     <>
       <DashboardHeader title="Settings" description="System and branch display configuration." accent="default" />
       <PageShell>
+        <ContentPanel
+          title="Branch Display Control"
+          description="Everything on the branch TV in ONE place — with a live preview. Changes apply after you confirm Save."
+          // overflow must stay visible here or every sticky child (section nav,
+          // save bar, live preview) silently stops sticking.
+          className="overflow-visible"
+          contentClassName="overflow-x-visible"
+        >
+          {/* Screen flush at the top: the branch selector lives INSIDE the left
+              column, so the TV preview column starts directly under the header
+              (client 2026-08-04). Selector still shows alone when no branch. */}
+          {!(effectiveBranchId && branch) && (isSuperAdmin || isAdmin) ? (
+            <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
+          ) : null}
+
+          {effectiveBranchId && branch ? (
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
+              <div className="min-w-0 space-y-6">
+              {isSuperAdmin || isAdmin ? (
+                <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
+              ) : (
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Branch: <strong>{branch.name}</strong>
+                </p>
+              )}
+              <BranchSettingsForm
+                key={branch.id}
+                branchId={branch.id}
+                branchName={branch.name}
+                initialLogoUrl={branch.logoUrl ?? ""}
+                initialColor={branch.brandingColor ?? "#0066B3"}
+                initialSettings={branch.settings}
+                saving={saving}
+                saveSlot={saveSlot}
+                navSlot={navSlot}
+                onSave={saveBranchSettings}
+                onCopyFontsToAll={copyFontsToAllBranches}
+                onDraftChange={setBranchDraft}
+                branchCount={branches.length}
+                otherBranches={branches
+                  .filter((b) => b.id !== effectiveBranchId)
+                  .map((b) => ({ id: b.id, name: b.name, code: b.code }))}
+              />
+              </div>
+              <div className="hidden xl:block">
+                <div className="sticky top-3 space-y-2">
+                  <Label>Live TV preview — {branch.name}</Label>
+                  <LiveTvPreview
+                    branchCode={branch.code}
+                    draft={branchDraft ?? branch.settings ?? null}
+                    label={`Live display preview for ${branch.name}`}
+                  />
+                  <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
+                  <div id="branch-nav-slot" ref={setNavSlot} />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Select a branch to configure display settings.</p>
+          )}
+        </ContentPanel>
+
         {isSuperAdmin && settings ? (
           <ContentPanel title="System Settings" description="Company-wide defaults for super admins">
             <FormSection title="Organization">
@@ -2402,59 +2464,6 @@ export default function SettingsPage() {
           <OrgThemePanel actor={{ userId: user.uid, userName: profile.displayName || profile.email }} />
         ) : null}
 
-        <ContentPanel
-          title="Branch Display Control"
-          description="Everything on the branch TV in ONE place — with a live preview. Changes apply after you confirm Save."
-          // overflow must stay visible here or every sticky child (section nav,
-          // save bar, live preview) silently stops sticking.
-          className="overflow-visible"
-          contentClassName="overflow-x-visible"
-        >
-          {isSuperAdmin || isAdmin ? (
-            <BranchSelector branches={branches} value={effectiveBranchId} onChange={setSelectedBranchId} />
-          ) : branch ? (
-            <p className="mb-4 text-sm text-muted-foreground">
-              Branch: <strong>{branch.name}</strong>
-            </p>
-          ) : null}
-
-          {effectiveBranchId && branch ? (
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
-              <BranchSettingsForm
-                key={branch.id}
-                branchId={branch.id}
-                branchName={branch.name}
-                initialLogoUrl={branch.logoUrl ?? ""}
-                initialColor={branch.brandingColor ?? "#0066B3"}
-                initialSettings={branch.settings}
-                saving={saving}
-                saveSlot={saveSlot}
-                navSlot={navSlot}
-                onSave={saveBranchSettings}
-                onCopyFontsToAll={copyFontsToAllBranches}
-                onDraftChange={setBranchDraft}
-                branchCount={branches.length}
-                otherBranches={branches
-                  .filter((b) => b.id !== effectiveBranchId)
-                  .map((b) => ({ id: b.id, name: b.name, code: b.code }))}
-              />
-              <div className="hidden xl:block">
-                <div className="sticky top-3 space-y-2">
-                  <Label>Live TV preview — {branch.name}</Label>
-                  <LiveTvPreview
-                    branchCode={branch.code}
-                    draft={branchDraft ?? branch.settings ?? null}
-                    label={`Live display preview for ${branch.name}`}
-                  />
-                  <div id="branch-save-slot" ref={setSaveSlot} className="pt-1" />
-                  <div id="branch-nav-slot" ref={setNavSlot} />
-                </div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Select a branch to configure display settings.</p>
-          )}
-        </ContentPanel>
       </PageShell>
     </>
   );

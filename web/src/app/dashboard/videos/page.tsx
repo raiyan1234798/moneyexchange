@@ -945,6 +945,11 @@ export default function VideosPage() {
       />
       <PageShell accent="rose">
         <FirestoreSetupNotice message={notice} />
+        {/* Screen flush at the top (client 2026-08-04): the branch selector sits
+            INSIDE the left column so the TV screen column starts directly under
+            the page header — same arrangement as Settings. */}
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
+        <div className="min-w-0 space-y-6 sm:space-y-7">
         {isSuperAdmin || isAdmin ? (
           <BranchSelector
             branches={branches}
@@ -957,11 +962,6 @@ export default function VideosPage() {
             Managing videos for: <strong>{branch.name}</strong>
           </p>
         ) : null}
-        {/* Same arrangement as the Settings page: branch choice full-width on
-            top, then content left + the fixed TV screen column (44%, matching
-            Settings) starting BELOW the branch option. */}
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
-        <div className="min-w-0 space-y-6 sm:space-y-7">
 
         <PreviewDisplayLink branchCode={branch?.code} />
 
