@@ -181,6 +181,18 @@ export function CentralTransferPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- rows + branch hidden codes drive re-sort
   }, [rows, currentBranch?.settings?.hiddenTransferCodes, currentBranch?.id]);
 
+  // Turn a failed reorder write into an honest, actionable message. A denied
+  // write means the on-screen reorder never saved — most often a session that
+  // can read but not write (re-sign-in as an admin fixes it).
+  function reorderErrorMessage(e: unknown): string {
+    const raw = e instanceof Error ? e.message : String(e);
+    const code = (e as { code?: string })?.code ?? "";
+    if (code === "permission-denied" || /permission|insufficient|PERMISSION_DENIED/i.test(raw)) {
+      return "Order NOT saved — your account can't edit the transfer card. Sign out and back in as an admin, then try again.";
+    }
+    return `Order not saved: ${raw}`;
+  }
+
   /** Move a currency up/down on the TRANSFER card only (forex order untouched). */
   function moveTransferRow(row: TransferRate, dir: -1 | 1) {
     // Operate on the DISPLAYED order (sortedRows), not the raw rows — otherwise
@@ -192,8 +204,8 @@ export function CentralTransferPanel({
     if (i < 0 || j < 0 || j >= codes.length) return;
     [codes[i], codes[j]] = [codes[j], codes[i]];
     void reorderTransferRates(codes, actor)
-      .then(() => toast.success(`${row.currencyCode} moved ${dir < 0 ? "up" : "down"} on the transfer card`))
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reorder"));
+      .then(() => toast.success(`${row.currencyCode} moved ${dir < 0 ? "up" : "down"} — saved to the transfer card`))
+      .catch((e) => toast.error(reorderErrorMessage(e), { duration: 9000 }));
   }
 
   /** Drag a row onto another to set the new transfer-card order. */
@@ -202,13 +214,17 @@ export function CentralTransferPanel({
     // handlers pass), so reorder sortedRows — not the differently-ordered raw
     // rows — or a hidden-on-this-branch currency shifts the wrong row.
     if (from === to || from < 0 || to < 0 || from >= sortedRows.length || to >= sortedRows.length) return;
+    const prev = rows;
     const next = [...sortedRows];
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
-    setRows(next); // optimistic — the subscription re-syncs after the write
+    setRows(next); // optimistic — the subscription re-syncs after a successful write
     void reorderTransferRates(next.map((r) => r.currencyCode), actor)
-      .then(() => toast.success("Transfer card order updated"))
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Could not reorder"));
+      .then(() => toast.success("Transfer card order saved — the rate card updates within seconds"))
+      .catch((e) => {
+        setRows(prev); // roll back the optimistic move so the UI can't lie
+        toast.error(reorderErrorMessage(e), { duration: 9000 });
+      });
   }
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   const [newCode, setNewCode] = useState("");
