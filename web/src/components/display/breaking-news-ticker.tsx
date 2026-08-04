@@ -34,6 +34,10 @@ interface BreakingNewsTickerProps {
   /** Show the scrolling logos at all. Default true. */
   scrollLogosEnabled?: boolean;
   /** Badge logo fit: contain (default), cover, or fill (stretch to the box). */
+  /** @deprecated No longer changes rendering — the badge logo is ALWAYS shown
+   *  whole (contain), never cropped or squashed. Kept so saved branch settings
+   *  and existing callers still type-check. Use "Logo size inside badge (%)"
+   *  and the per-logo Size box to control how big the logo is. */
   logoFit?: "contain" | "cover" | "fill";
   /** In contain fit, fraction of the badge the whole logo fills (0.5–1). Default 0.9. */
   logoContainScale?: number;
@@ -238,7 +242,6 @@ function BreakingNewsTickerInner({
   scrollLogoGapVw = 1.2,
   scrollLogoBg = "white",
   scrollLogosEnabled = true,
-  logoFit = "contain",
   logoContainScale = 0.9,
   logoScales = [],
   scrollLogoFitMode = "contain",
@@ -426,13 +429,14 @@ function BreakingNewsTickerInner({
           // rectangle); the left sits flush at the screen edge. More padding + a
           // slightly smaller logo below keep the wordmark clear of the rounded
           // corners so it never looks cut.
-          className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
-            // Only "Zoom" (cover) goes edge-to-edge (it deliberately crops).
-            // Normal AND Fill keep breathing room on ALL sides so the whole logo
-            // — side wordmarks, a second line like "Financial" — clears the
-            // rounded-right corner and gold border, whatever the logo's shape.
-            isTextLogo || logoFit !== "cover" ? "px-[1.3vw] py-[0.7vh]" : "px-0"
-          } ${pulse ? "ticker-logo-pulse" : ""}`}
+          // EVERY fit keeps breathing room on all sides, so the whole logo —
+          // side wordmarks, a second line like "Financial" — always clears the
+          // rounded-right corner and the gold border, whatever its shape.
+          // No mode goes edge-to-edge any more (client 2026-08-04: logos were
+          // being cut, e.g. M-PESA -> "IEPES", MoneyGram -> "Money&A").
+          className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 px-[1.3vw] py-[0.7vh] shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+            pulse ? "ticker-logo-pulse" : ""
+          }`}
           style={{
             width: badgeWidth,
             height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,
@@ -460,16 +464,13 @@ function BreakingNewsTickerInner({
               alt={`${BRAND.name} logo`}
               width={260}
               height={84}
-              // NEVER distort a logo: "Fill" now keeps aspect ratio like Normal
-              // (object-contain) — it just fills more of the badge (100% vs the
-              // Normal padded size). Only "Zoom" (cover) fills edge-to-edge and
-              // is allowed to crop. object-fill (stretch/squash) is gone — it
-              // squashed logos like BANK TRANSFER (client 2026-08-03).
-              className={`drop-shadow-sm ${
-                logoFit === "cover" ? "object-cover" : "object-contain"
-              } ${logoAnimClass}`}
-              // Size the logo by containPct in every fit mode so the per-logo
-              // Size box always takes effect.
+              // ALWAYS object-contain: the WHOLE logo is shown, centred, at its
+              // true proportions — never cropped (object-cover) and never
+              // squashed (object-fill), under ANY fit option. The badge box
+              // grows/shrinks with Badge width/height %, and the logo scales
+              // proportionally inside it via containPct, so it stays fully
+              // visible at every size (client 2026-08-04).
+              className={`object-contain drop-shadow-sm ${logoAnimClass}`}
               style={{ height: `${containPct}%`, width: `${containPct}%` }}
               unoptimized
               priority
