@@ -25,7 +25,6 @@ import { FlagChip } from "@/components/display/flag-chip";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
-import { LiveTvPreview } from "@/components/shared/live-tv-preview";
 import {
   ContentPanel,
   DataTable,
@@ -1119,8 +1118,6 @@ export default function ExchangeRatesPage() {
       />
       <PageShell accent="emerald">
         <FirestoreSetupNotice message={loadNotice} />
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,40%)]">
-        <div className="min-w-0 space-y-6 sm:space-y-7">
 
         {isSuperAdmin || isAdmin || hasModule("forexRatesAllBranches") ? (
           <BranchSelector
@@ -2778,6 +2775,43 @@ export default function ExchangeRatesPage() {
 
 
 
+                {/* Apply THIS branch's currency order to other branches (admins).
+                    Order-only: never changes their currencies, rates or values. */}
+                {(isSuperAdmin || isAdmin) &&
+                rates.length > 1 &&
+                branches.filter((b) => b.status === "active").length > 1 ? (
+                  <div className="mt-1 space-y-3 rounded-xl border border-primary/25 bg-primary/[0.03] p-3">
+                    <p className="text-sm font-medium">Apply this currency order to other branches</p>
+                    <p className="text-xs text-muted-foreground">
+                      Drag the rows above to set the order, then push that same order to selected
+                      branches or all branches. Only the ORDER changes there — each branch keeps its
+                      own currencies, rates and values. Currencies hidden on a branch are planned
+                      around automatically: they keep their slot but stay off that branch&apos;s TV,
+                      and the visible ones follow this order with no gaps.
+                    </p>
+                    <ApplyToAllCheckbox
+                      id="forex-order-apply"
+                      scope={orderScope}
+                      selectedBranchIds={orderBranchIds}
+                      branches={branches}
+                      currentBranchId={effectiveBranchId}
+                      onScopeChange={(sel) => {
+                        setOrderScope(sel.scope);
+                        setOrderBranchIds(sel.selectedBranchIds);
+                      }}
+                      description="Applies only the CURRENCY ORDER to the chosen branches."
+                    />
+                    <Button
+                      size="sm"
+                      className="rounded-xl"
+                      disabled={applyingOrder || orderScope === "current"}
+                      onClick={() => void handleApplyOrderToBranches()}
+                    >
+                      {applyingOrder ? "Applying…" : "Apply order to branches"}
+                    </Button>
+                  </div>
+                ) : null}
+
                 {/* Inline "add currency" row — same as the transfer card. Type a
                     code, We Buy, We Sell → Add; flag/name auto-pick from the code. */}
                 {canManageRates && canAddNewCurrencies ? (
@@ -2855,58 +2889,6 @@ export default function ExchangeRatesPage() {
             </CardContent>
           </Card>
         )}
-        </div>
-        {/* Sideways column (same pattern as Settings + Display Messages):
-            sticky live TV preview with the bulk apply/save option under it. */}
-        <div className="hidden xl:block">
-          {branch ? (
-            <div className="sticky top-3 max-h-[calc(100vh-2rem)] space-y-3 overflow-y-auto pr-1">
-              <Label>Live TV preview — {branch.name}</Label>
-              <LiveTvPreview
-                branchCode={branch.code}
-                draft={null}
-                label={`Live display preview for ${branch.name}`}
-              />
-                {/* Apply THIS branch's currency order to other branches (admins).
-                    Order-only: never changes their currencies, rates or values. */}
-                {(isSuperAdmin || isAdmin) &&
-                rates.length > 1 &&
-                branches.filter((b) => b.status === "active").length > 1 ? (
-                  <div className="mt-1 space-y-3 rounded-xl border border-primary/25 bg-primary/[0.03] p-3">
-                    <p className="text-sm font-medium">Apply this currency order to other branches</p>
-                    <p className="text-xs text-muted-foreground">
-                      Drag the rows above to set the order, then push that same order to selected
-                      branches or all branches. Only the ORDER changes there — each branch keeps its
-                      own currencies, rates and values. Currencies hidden on a branch are planned
-                      around automatically: they keep their slot but stay off that branch&apos;s TV,
-                      and the visible ones follow this order with no gaps.
-                    </p>
-                    <ApplyToAllCheckbox
-                      id="forex-order-apply"
-                      scope={orderScope}
-                      selectedBranchIds={orderBranchIds}
-                      branches={branches}
-                      currentBranchId={effectiveBranchId}
-                      onScopeChange={(sel) => {
-                        setOrderScope(sel.scope);
-                        setOrderBranchIds(sel.selectedBranchIds);
-                      }}
-                      description="Applies only the CURRENCY ORDER to the chosen branches."
-                    />
-                    <Button
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={applyingOrder || orderScope === "current"}
-                      onClick={() => void handleApplyOrderToBranches()}
-                    >
-                      {applyingOrder ? "Applying…" : "Apply order to branches"}
-                    </Button>
-                  </div>
-                ) : null}
-            </div>
-          ) : null}
-        </div>
-        </div>
       </PageShell>
     </>
   );

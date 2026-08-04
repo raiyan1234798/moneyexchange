@@ -945,11 +945,36 @@ export default function VideosPage() {
       />
       <PageShell accent="rose">
         <FirestoreSetupNotice message={notice} />
-        {/* Screen flush at the top (client 2026-08-04): the branch selector sits
-            INSIDE the left column so the TV screen column starts directly under
-            the page header — same arrangement as Settings. */}
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,44%)]">
-        <div className="min-w-0 space-y-6 sm:space-y-7">
+        {/* The TV screen FLOATS on the right (xl): option cards narrow beside
+            it and expand to FULL WIDTH below it — no blank side column (client
+            2026-08-04). Cards establish their own formatting context
+            (overflow-hidden), so they wrap around the float cleanly. */}
+        {branch ? (
+          <div className="hidden xl:block xl:float-right xl:mb-5 xl:ml-6 xl:w-[44%] space-y-3">
+              <Label>Live TV preview — {branch.name}</Label>
+              <LiveTvPreview
+                branchCode={branch.code}
+                draft={null}
+                label={`Live display preview for ${branch.name}`}
+              />
+              {/* The apply-to options live BELOW the screen on wide layouts —
+                  one control for both the video and image panels (they share
+                  the same target state); the in-panel copies show below xl. */}
+              {canApplyToAll ? (
+                <ApplyToAllCheckbox
+                  id="media-apply-sideways"
+                  scope={targetScope}
+                  selectedBranchIds={selectedBranchIds}
+                  branches={branches}
+                  currentBranchId={effectiveBranchId}
+                  onScopeChange={(sel) => {
+                    setTargetScope(sel.scope);
+                    setSelectedBranchIds(sel.selectedBranchIds);
+                  }}
+                />
+              ) : null}
+          </div>
+        ) : null}
         {isSuperAdmin || isAdmin ? (
           <BranchSelector
             branches={branches}
@@ -2056,39 +2081,6 @@ export default function VideosPage() {
             />
           </ContentPanel>
         ) : null}
-        </div>
-        {/* Persistent live TV screen (same pattern as Settings / Display
-            Messages / Exchange Rates): sticky in the sideways column, so it
-            stays visible while scrolling without shifting the page content. */}
-        <div className="hidden xl:block">
-          {branch ? (
-            <div className="sticky top-3 space-y-2">
-              <Label>Live TV preview — {branch.name}</Label>
-              <LiveTvPreview
-                branchCode={branch.code}
-                draft={null}
-                label={`Live display preview for ${branch.name}`}
-              />
-              {/* The apply-to options live BELOW the screen on wide layouts —
-                  one control for both the video and image panels (they share
-                  the same target state); the in-panel copies show below xl. */}
-              {canApplyToAll ? (
-                <ApplyToAllCheckbox
-                  id="media-apply-sideways"
-                  scope={targetScope}
-                  selectedBranchIds={selectedBranchIds}
-                  branches={branches}
-                  currentBranchId={effectiveBranchId}
-                  onScopeChange={(sel) => {
-                    setTargetScope(sel.scope);
-                    setSelectedBranchIds(sel.selectedBranchIds);
-                  }}
-                />
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-        </div>
       </PageShell>
     </>
   );
