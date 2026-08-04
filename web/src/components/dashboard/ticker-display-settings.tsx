@@ -564,13 +564,30 @@ export function TickerDisplaySettings({
               {badgeLogos.length >= 1 ? (
                 <p className="pt-1 text-xs text-muted-foreground">
                   Each logo has its own <strong>Size</strong> box — if one logo&apos;s edges get cut,
-                  lower just that logo&apos;s size until the whole logo shows (works in Normal fit;
-                  other logos are unaffected).
+                  lower just that logo&apos;s size until the whole logo shows (other logos are
+                  unaffected).
                   {badgeLogos.length > 1
                     ? " Drag a logo onto another to change the order they take turns in."
                     : ""}{" "}
                   Then Save.
                 </p>
+              ) : null}
+              {badgeLogos.length > 1 ? (
+                <button
+                  type="button"
+                  // One click = uniform look: clear every per-logo override so ALL
+                  // logos render at the same global "Logo size inside badge" %
+                  // (client 2026-08-04: "keep the logos the same size so none look odd").
+                  onClick={() => {
+                    set({ tickerLogoScales: [] });
+                    toast.success(
+                      "All badge logos now use the same size (the “Logo size inside badge” value) — Save to apply",
+                    );
+                  }}
+                  className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+                >
+                  Make all logos the same size
+                </button>
               ) : null}
               {badgeLogos.length > 1 ? (
                 <div className="flex items-center gap-2 pt-1">
@@ -688,7 +705,7 @@ export function TickerDisplaySettings({
                 className="rounded-xl"
               />
               <p className="text-xs text-muted-foreground">
-                Only for <strong>Normal</strong> fit: how much of the badge the whole logo fills. 100
+                How much of the badge the whole logo fills, in <strong>every</strong> fit. 100
                 = as big as possible with nothing cropped. Raise it if the logo looks too small; the
                 complete logo always shows.
               </p>
@@ -893,6 +910,33 @@ export function TickerDisplaySettings({
                   </div>
                 </div>
               ))}
+            </div>
+          ) : null}
+          {scrollItems.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              {/* Uniform look in one click — every scrolling logo gets the SAME
+                  setting, so none stands out (client 2026-08-04). */}
+              <span className="text-xs text-muted-foreground">Make all logos the same size:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setScrollItems(scrollItems.map((it) => ({ ...it, stretch: true })));
+                  toast.success("All scrolling logos set to Stretch (same size) — Save to apply");
+                }}
+                className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              >
+                All Stretch
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setScrollItems(scrollItems.map((it) => ({ ...it, stretch: false })));
+                  toast.success("All scrolling logos set to Fit (same smaller size) — Save to apply");
+                }}
+                className="rounded-lg border border-border/60 px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:bg-muted"
+              >
+                All Fit
+              </button>
             </div>
           ) : null}
           <div className="grid gap-4 pt-1 sm:grid-cols-2">

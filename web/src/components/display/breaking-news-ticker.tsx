@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { BRAND } from "@/lib/brand";
 import { displayAnimationClass } from "@/lib/constants";
@@ -304,6 +304,25 @@ function BreakingNewsTickerInner({
     return () => window.clearInterval(t);
   }, [isTextLogo, galleryLen, logoRotateSeconds]);
 
+  // REAL-TIME per-logo feedback: when the admin changes ONE logo's Size, jump the
+  // rotating badge straight to that logo so the change is visible immediately in
+  // the live preview, instead of waiting for it to come round again (client
+  // 2026-08-04: "I need this to reflect in real time").
+  const prevScalesRef = useRef<Array<{ url: string; scale: number }>>(logoScales);
+  useEffect(() => {
+    const prev = prevScalesRef.current;
+    if (prev === logoScales) return;
+    prevScalesRef.current = logoScales;
+    const changed = logoScales.find((x) => {
+      const before = prev.find((p) => p.url === x.url);
+      return !before || before.scale !== x.scale;
+    });
+    if (!changed) return;
+    const idx = effectiveBadgeImages.indexOf(changed.url);
+    if (idx >= 0) setLogoIdx(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logoScales]);
+
   const currentBadge = galleryLen ? effectiveBadgeImages[logoIdx % galleryLen] : null;
   const imageLogoSrc = isTextLogo
     ? null
@@ -314,13 +333,12 @@ function BreakingNewsTickerInner({
   // global Normal-fit size. Lets a wide logo be shrunk until it clears the
   // rounded corner while the rest stay large.
   const perLogoEntry = currentBadge ? logoScales.find((x) => x.url === currentBadge) : undefined;
-  // How much of the badge the logo fills. Normal (contain) fit defaults to the
-  // global "Logo size inside badge" (0.9); fill/cover default to 100% (their
-  // edge-to-edge look, unchanged) UNLESS a per-logo Size override is set — so
-  // the per-logo Size box takes effect in EVERY fit mode, live.
-  const baseScale = logoFit === "contain" ? logoContainScale : 1;
+  // How much of the badge the logo fills. BOTH knobs work in EVERY fit mode
+  // (client 2026-08-04: "Logo size inside badge" did nothing unless the fit was
+  // Normal): the global "Logo size inside badge" is the base, and a per-logo
+  // Size box overrides it for that one logo.
   const rawScale =
-    perLogoEntry && typeof perLogoEntry.scale === "number" ? perLogoEntry.scale : baseScale;
+    perLogoEntry && typeof perLogoEntry.scale === "number" ? perLogoEntry.scale : logoContainScale;
   const containPct = Math.round(Math.max(50, Math.min(100, rawScale * 100)));
 
   const activeText = messages[messageIndex] ?? "";
