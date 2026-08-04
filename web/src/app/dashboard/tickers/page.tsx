@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
-import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import { LiveTvPreview } from "@/components/shared/live-tv-preview";
 import type { BranchSettings } from "@/lib/types";
 import {
@@ -262,7 +261,6 @@ export default function TickersPage() {
           </p>
         ) : null}
 
-        <PreviewDisplayLink branchCode={branch?.code} />
 
         {canManageTickers && effectiveBranchId ? (
           <PageActions>
