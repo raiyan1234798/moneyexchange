@@ -1769,24 +1769,8 @@ export default function VideosPage() {
               reorderDisabled={!canManageVideos}
               columns={[
                 { key: "title", header: "Title", cell: (v) => renameableTitle("video", v.id, v.title) },
-                {
-                  key: "source",
-                  header: "Source",
-                  cell: (v) => (
-                    <StatusBadge
-                      status={
-                        v.sourceType === "chunked"
-                          ? "chunked"
-                          : v.sourceType === "r2"
-                            ? "cloud"
-                            : v.downloadUrl.includes("drive.google.com")
-                              ? "google_drive"
-                              : v.sourceType
-                      }
-                      variant={v.sourceType === "external" ? "info" : "neutral"}
-                    />
-                  ),
-                },
+                // Source column hidden (client 2026-08-05) — every video is
+                // cloud-hosted anyway, so the chip carried no information.
                 {
                   key: "size",
                   header: "Size",
