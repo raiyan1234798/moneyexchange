@@ -2547,8 +2547,8 @@ export default function ExchangeRatesPage() {
                         codeSelected ? "border-primary/40 bg-primary/[0.04]" : ""
                       } ${
                         canManageRates && !isBranchUser
-                          ? "sm:grid-cols-[auto_minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto]"
-                          : "sm:grid-cols-[minmax(140px,180px)_minmax(0,1fr)_minmax(0,1fr)_auto]"
+                          ? "sm:grid-cols-[auto_minmax(140px,180px)_minmax(90px,150px)_minmax(90px,150px)_1fr]"
+                          : "sm:grid-cols-[minmax(140px,180px)_minmax(90px,150px)_minmax(90px,150px)_1fr]"
                       } ${
                         rate.isHidden
                           ? "border-dashed border-border/50 bg-muted/25 opacity-60"
@@ -2690,13 +2690,15 @@ export default function ExchangeRatesPage() {
                       {canManageRates ? (
                         // Fixed mini-grid: buttons line up in tidy columns instead
                         // of a ragged wrap (client: "UI looks congested").
-                        <div className={`grid gap-1.5 ${isBranchUser ? "grid-cols-2 sm:w-[180px]" : "grid-cols-3 sm:w-[250px]"}`}>
+                        // One tidy line: Publish · Up · Down · Hide · Remove
+                        // (client 2026-08-05). Wraps only when space truly runs out.
+                        <div className="flex flex-wrap items-center justify-end gap-1.5 lg:flex-nowrap">
                           <Button
                             size="sm"
                             onClick={() => void saveRate(rate)}
                             disabled={!isChanged}
                             title="Save changes to TV displays"
-                            className={`h-8 w-full rounded-lg ${isChanged ? "" : "opacity-50"}`}
+                            className={`h-8 rounded-lg ${isChanged ? "" : "opacity-50"}`}
                           >
                             <TrendingUp className="mr-1 h-3 w-3" />
                             Publish
@@ -2708,7 +2710,7 @@ export default function ExchangeRatesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 w-full rounded-lg px-2"
+                                className="h-8 rounded-lg px-2"
                                 onClick={() => void handleMove(rate, "up")}
                                 disabled={index === 0}
                                 title="Move up on display"
@@ -2719,7 +2721,7 @@ export default function ExchangeRatesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 w-full rounded-lg px-2"
+                                className="h-8 rounded-lg px-2"
                                 onClick={() => void handleMove(rate, "down")}
                                 disabled={index === rates.length - 1}
                                 title="Move down on display"
@@ -2730,7 +2732,7 @@ export default function ExchangeRatesPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                className="h-8 w-full rounded-lg px-2"
+                                className="h-8 rounded-lg px-2"
                                 onClick={() => void handleToggleVisibility(rate)}
                                 title={
                                   rate.isHidden
@@ -2759,7 +2761,7 @@ export default function ExchangeRatesPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              className="h-8 w-full rounded-lg px-2 text-destructive hover:text-destructive"
+                              className="h-8 rounded-lg px-2 text-destructive hover:text-destructive"
                               onClick={() => setRemoveConfirm({ rateId: rate.id, label: primary })}
                               title="Remove from branch rates"
                             >

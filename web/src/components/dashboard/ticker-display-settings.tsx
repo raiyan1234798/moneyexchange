@@ -590,6 +590,45 @@ export function TickerDisplaySettings({
                           className="w-11 rounded border border-border/60 bg-transparent px-1 py-0.5 text-center text-[10px] tabular-nums"
                         />
                       </div>
+                      {/* Per-logo fit: wide wordmarks Fill the badge; ROUND
+                          emblems (e.g. Foreign Currency Exchange) pick Whole —
+                          a circle cannot fill a rectangle without distortion
+                          (client 2026-08-05). */}
+                      <div className="flex overflow-hidden rounded-md border border-border/60 text-[10px] font-semibold">
+                        {(["fill", "contain"] as const).map((f) => {
+                          const cur = (Array.isArray(s.tickerLogoScales) ? s.tickerLogoScales : []).find(
+                            (x) => x.url === src,
+                          );
+                          const active = (cur?.fit ?? (s.tickerLogoFit === "fill" ? "fill" : "contain")) === f;
+                          return (
+                            <button
+                              key={f}
+                              type="button"
+                              title={
+                                f === "fill"
+                                  ? "Stretch THIS logo to fill the whole badge"
+                                  : "Show THIS logo whole, at its true shape (best for round logos)"
+                              }
+                              onClick={() => {
+                                const cur2 = Array.isArray(s.tickerLogoScales) ? s.tickerLogoScales : [];
+                                const rest = cur2.filter((x) => x.url !== src);
+                                const prev = cur2.find((x) => x.url === src);
+                                set({
+                                  tickerLogoUrl: null,
+                                  tickerLogoUrls: badgeLogos,
+                                  tickerLogoScales: [
+                                    ...rest,
+                                    { url: src, scale: prev?.scale ?? s.tickerLogoContainScale ?? 1, fit: f },
+                                  ],
+                                });
+                              }}
+                              className={`px-1.5 py-0.5 ${active ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                            >
+                              {f === "fill" ? "Fill" : "Whole"}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -452,7 +452,21 @@ export function UnimoniRatesPanel({
   // No padding: every page's rows share the full card height, so each rotating
   // page fills completely with no empty gap (balanced chunking keeps pages a
   // similar length, so row heights stay consistent across the rotation).
-  const paddedRows: (ExchangeRate | null)[] = activeSheet.rows;
+  // Equalize row height across ALL rate sheets: a transfer sheet with fewer
+  // currencies used to stretch its rows taller than the forex sheets (client
+  // 2026-08-05: "transfer has more space — match the forex size"). Pad short
+  // sheets with blank rows so every sheet shares the same row height.
+  const maxRateRows = Math.max(
+    0,
+    ...sheets.filter((sh) => sh.kind !== "promo").map((sh) => sh.rows.length),
+  );
+  const paddedRows: (ExchangeRate | null)[] =
+    activeSheet.kind === "promo"
+      ? activeSheet.rows
+      : [
+          ...activeSheet.rows,
+          ...Array(Math.max(0, maxRateRows - activeSheet.rows.length)).fill(null),
+        ];
   const isTransferSheet = activeSheet.kind === "transfer";
   const isPromoSheet = activeSheet.kind === "promo";
   // The note ("WE BUY US$ small bills @ …") belongs to the FOREX rates. It shows

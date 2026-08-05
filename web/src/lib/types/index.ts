@@ -157,7 +157,14 @@ export interface BranchSettings {
       { url, scale } — NOT a URL-keyed map, because Firestore map keys cannot
       contain "/" (R2 URLs do), which fails the write with "invalid nested
       entity". A logo with no entry falls back to the global tickerLogoContainScale. */
-  tickerLogoScales?: Array<{ url: string; scale: number }>;
+  tickerLogoScales?: Array<{
+    url: string;
+    scale: number;
+    /** Per-logo fit override: "fill" stretches to the badge box; "contain"
+        shows the whole logo at its true shape (best for ROUND emblems, which
+        cannot fill a rectangle without distortion). Absent = branch fit. */
+    fit?: "fill" | "contain";
+  }>;
   /** Transition when the rotating rate-card changes sheet (forex/transfer/promo). */
   rateCardTransition?: string;
   /** Seconds the slide/page entrance animation lasts (rate card + video media). Default 0.6. */

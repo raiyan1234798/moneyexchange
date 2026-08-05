@@ -40,8 +40,8 @@ interface BreakingNewsTickerProps {
   logoFit?: "contain" | "cover" | "fill";
   /** In contain fit, fraction of the badge the whole logo fills (0.5–1). Default 0.9. */
   logoContainScale?: number;
-  /** Per-logo size overrides as { url, scale } (0.5–1). Falls back to logoContainScale. */
-  logoScales?: Array<{ url: string; scale: number }>;
+  /** Per-logo overrides: size (0.5–1) and optional fit. Falls back to the badge fit. */
+  logoScales?: Array<{ url: string; scale: number; fit?: "fill" | "contain" }>;
   /**
    * How each SCROLLING logo fits inside the ticker bar.
    * - "contain" (default): logo kept at aspect ratio, centred with side padding.
@@ -343,6 +343,9 @@ function BreakingNewsTickerInner({
   const rawScale =
     perLogoEntry && typeof perLogoEntry.scale === "number" ? perLogoEntry.scale : logoContainScale;
   const containPct = Math.round(Math.max(50, Math.min(100, rawScale * 100)));
+  // Per-logo fit beats the branch fit: a round emblem set to "Whole" stays a
+  // clean circle while wide wordmarks stretch to fill (client 2026-08-05).
+  const effLogoFit = perLogoEntry?.fit ?? logoFit;
 
   const activeText = messages[messageIndex] ?? "";
 
@@ -435,7 +438,7 @@ function BreakingNewsTickerInner({
           // logo" keeps breathing room on all sides so wordmarks clear the
           // corner and gold border. Cropping via object-cover stays gone.
           className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
-            isTextLogo || logoFit !== "fill" ? "px-[1.3vw] py-[0.7vh]" : "p-0"
+            isTextLogo || effLogoFit !== "fill" ? "px-[1.3vw] py-[0.7vh]" : "p-0"
           } ${pulse ? "ticker-logo-pulse" : ""}`}
           style={{
             width: badgeWidth,
@@ -470,7 +473,7 @@ function BreakingNewsTickerInner({
               //   nothing is ever cropped in either mode (object-cover is gone
               //   for good; it cut M-PESA to "IEPES").
               className={`drop-shadow-sm ${
-                logoFit === "fill" ? "object-fill" : "object-contain"
+                effLogoFit === "fill" ? "object-fill" : "object-contain"
               } ${logoAnimClass}`}
               style={{ height: `${containPct}%`, width: `${containPct}%` }}
               unoptimized
