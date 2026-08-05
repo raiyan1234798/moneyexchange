@@ -169,13 +169,19 @@ interface Sheet {
 
 function chunkRows(rows: ExchangeRate[], kind: Sheet["kind"]): Sheet[] {
   if (rows.length === 0) return [];
-  // Balance currencies evenly across sheets so no page is left mostly empty
-  // (e.g. 17 → 9 + 8, not 12 + 5) — each sheet fills the card nicely.
+  // TRUE balancing: spread the remainder one-per-sheet so page sizes differ by
+  // AT MOST one currency (37 → 10+9+9+9, not 10+10+10+7). The old ceil-slicing
+  // left the last page several currencies short, which showed as ugly blank
+  // rows once sheet heights were equalized (client 2026-08-05).
   const numSheets = Math.ceil(rows.length / RATES_PER_SHEET);
-  const perSheet = Math.ceil(rows.length / numSheets);
+  const base = Math.floor(rows.length / numSheets);
+  const extra = rows.length % numSheets; // first `extra` sheets carry one more
   const sheets: Sheet[] = [];
-  for (let i = 0; i < rows.length; i += perSheet) {
-    sheets.push({ kind, rows: rows.slice(i, i + perSheet) });
+  let start = 0;
+  for (let i = 0; i < numSheets; i++) {
+    const size = base + (i < extra ? 1 : 0);
+    sheets.push({ kind, rows: rows.slice(start, start + size) });
+    start += size;
   }
   return sheets;
 }
@@ -779,7 +785,12 @@ export function UnimoniRatesPanel({
           ) : null}
           {paddedRows.map((rate, i) =>
             rate === null ? (
-              <div key={`pad-${i}`} className="display-rate-row grid min-h-0" aria-hidden />
+              <div
+                key={`pad-${i}`}
+                className="display-rate-row grid min-h-0 rounded-[6px]"
+                style={{ backgroundColor: i % 2 === 1 ? STRIPE_BLUE : STRIPE_LIGHT }}
+                aria-hidden
+              />
             ) : (
             <div
               key={rate.id}
