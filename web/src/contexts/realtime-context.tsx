@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase/client";
 
 type ConnectionState = "connecting" | "live" | "offline";
 
@@ -12,13 +13,42 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<ConnectionState>("connecting");
 
   useEffect(() => {
-    const ref = doc(db, "settings", "global");
-    const unsubscribe = onSnapshot(
-      ref,
-      () => setStatus("live"),
-      () => setStatus("offline"),
-    );
-    return unsubscribe;
+    // The intermittent "Offline" right after login was a RACE: this listener
+    // started before auth finished, the read was denied, and a snapshot error
+    // KILLS the listener — so the badge stuck on Offline until a full reload.
+    // Now: (re)subscribe whenever auth state changes, retry after errors, and
+    // only report Offline when the browser genuinely has no network.
+    let unsubSnap: (() => void) | null = null;
+    let retryTimer: number | null = null;
+
+    const subscribe = () => {
+      unsubSnap?.();
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      unsubSnap = onSnapshot(
+        doc(db, "settings", "global"),
+        () => setStatus("live"),
+        () => {
+          // Denied/errored ≠ network down. Show "Connecting" and retry soon;
+          // a real outage is caught by navigator.onLine below.
+          setStatus(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "connecting");
+          retryTimer = window.setTimeout(subscribe, 4000);
+        },
+      );
+    };
+
+    const unsubAuth = onAuthStateChanged(auth, () => subscribe());
+    const onOnline = () => subscribe();
+    const onOffline = () => setStatus("offline");
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    return () => {
+      unsubAuth();
+      unsubSnap?.();
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
   }, []);
 
   return <RealtimeContext.Provider value={status}>{children}</RealtimeContext.Provider>;

@@ -749,7 +749,10 @@ export function UnimoniRatesPanel({
         ) : (
         <>
         <div
-          className="grid shrink-0 items-stretch px-2 py-[0.8vh] text-[clamp(0.75rem,1.25vw,1.15rem)] font-extrabold uppercase tracking-wide"
+          // px matches the body rows' px-[0.35vw] exactly — the old fixed px-2
+          // shifted the header grid a few pixels versus the rows, so column
+          // headings sat slightly off their values (client 2026-08-05).
+          className="grid shrink-0 items-stretch px-[0.35vw] py-[0.8vh] text-[clamp(0.75rem,1.25vw,1.15rem)] font-extrabold uppercase tracking-wide"
           style={{ color: currencyColor, borderBottom: "2px solid #D3E2F0", gridTemplateColumns: gridColumns }}
         >
           <span className="flex items-center justify-center">Currency</span>
