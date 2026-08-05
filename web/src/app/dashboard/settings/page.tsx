@@ -786,7 +786,8 @@ function BranchSettingsForm({
         <div>
           <Label>Empty screen shows</Label>
           <p className="text-xs text-muted-foreground">
-            What appears in the video area while this branch has no videos or images uploaded.
+            What appears in the video area while this branch has no videos yet — AND on the short
+            navy cover BETWEEN clips while the next video loads.
           </p>
         </div>
         <Select

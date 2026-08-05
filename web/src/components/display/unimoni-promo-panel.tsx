@@ -248,7 +248,25 @@ export function UnimoniPromoPanel({
           {/* The logo chip is optional (admin switch); the navy COVER itself is
               not — it is what keeps the TV's giant play button hidden while the
               next clip loads, so it stays even with the logo turned off. */}
+          {/* The between-clips cover follows the SAME "Empty screen shows"
+              choice as the empty screen: unimoni chip, the branch's own
+              words (Settings display font), or their picture (2026-08-05). */}
           {showCoverLogo ? (
+            placeholderMode === "image" && placeholderImageUrl?.trim() ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={placeholderImageUrl}
+                alt=""
+                className="max-h-[46%] max-w-[72%] object-contain drop-shadow-lg"
+              />
+            ) : placeholderMode === "text" && placeholderText?.trim() ? (
+              <p
+                className="max-w-[80%] whitespace-pre-line text-center text-[clamp(1.3rem,3.4vw,3.2rem)] font-extrabold leading-tight text-white drop-shadow-lg"
+                style={placeholderFontCss ? { fontFamily: placeholderFontCss } : undefined}
+              >
+                {placeholderText.trim()}
+              </p>
+            ) : (
             <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
               <Image
                 src="/unimoni-logo-full.png"
@@ -259,6 +277,7 @@ export function UnimoniPromoPanel({
                 unoptimized
               />
             </div>
+            )
           ) : null}
         </div>
       ) : null}
