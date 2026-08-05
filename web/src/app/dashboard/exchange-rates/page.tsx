@@ -1488,19 +1488,6 @@ export default function ExchangeRatesPage() {
           </Dialog>
         ) : null}
 
-        {/* Money Transfer card sits DIRECTLY under the Forex card — its own
-            separate upload (one file → ALL branches), per the client. */}
-        {hasModule("transferRates") && user && profile ? (
-          <div id="transfer-rates" className="scroll-mt-20">
-            <CentralTransferPanel
-              actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
-              localLabel={transferLocalLabel}
-              branches={branches}
-              currentBranchId={effectiveBranchId}
-              canDeleteCurrency={canAddNewCurrencies}
-            />
-          </div>
-        ) : null}
 
         <PreviewDisplayLink branchCode={branch?.code} />
 
@@ -1786,7 +1773,6 @@ export default function ExchangeRatesPage() {
 
         {canCreateCatalog ? (
           <>
-            <BranchCurrencyVisibilityOverview branches={branches} rates={allRates} />
             <ContentPanel
               title="Currency Catalog"
               description="Global currencies available to all branches"
@@ -2891,6 +2877,27 @@ export default function ExchangeRatesPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Money Transfer card sits DIRECTLY under the Forex card — its own
+            separate upload (one file → ALL branches), per the client. */}
+        {hasModule("transferRates") && user && profile ? (
+          <div id="transfer-rates" className="scroll-mt-20">
+            <CentralTransferPanel
+              actor={{ userId: user.uid, userName: profile.displayName || profile.email }}
+              localLabel={transferLocalLabel}
+              branches={branches}
+              currentBranchId={effectiveBranchId}
+              canDeleteCurrency={canAddNewCurrencies}
+            />
+          </div>
+        ) : null}
+
+        {/* Cross-branch currency visibility — LAST on the page, below both the
+            forex editor and the transfer card (client 2026-08-05). Live data:
+            fed by the real-time all-branches rates subscription. */}
+        {canCreateCatalog ? (
+          <BranchCurrencyVisibilityOverview branches={branches} rates={allRates} />
+        ) : null}
       </PageShell>
     </>
   );
