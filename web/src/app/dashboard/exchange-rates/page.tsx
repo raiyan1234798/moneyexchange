@@ -46,7 +46,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -133,7 +132,6 @@ export default function ExchangeRatesPage() {
     DEFAULT_SYSTEM_SETTINGS.requireApprovalForChanges,
   );
   const [drafts, setDrafts] = useState<Record<string, RateDraft>>({});
-  const [addOpen, setAddOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   // Scoped creation: which branches receive the new currency, and whether it
   // starts hidden (in the dashboard but OFF the TVs until shown per branch).
@@ -446,32 +444,6 @@ export default function ExchangeRatesPage() {
           transferLocal: donor.transferLocal ?? null,
         }
       : undefined;
-  }
-
-  async function handleAddCurrency(currency: Currency) {
-    if (!user || !profile || !effectiveBranchId || !canAddNewCurrencies) return;
-    try {
-      const seed = seedRatesFor(currency.currencyCode);
-      await addBranchRate(
-        effectiveBranchId,
-        currency,
-        {
-          userId: user.uid,
-          userName: profile.displayName || profile.email,
-          branchName: branch?.name || effectiveBranchId,
-        },
-        seed,
-      );
-      toast.success(
-        seed
-          ? `${currency.currencyCode} added with rates ${seed.buyRate}/${seed.sellRate} (copied from another branch) — adjust if needed`
-          : `${currency.currencyCode} added to branch rates`,
-      );
-      setRates(await listExchangeRates(effectiveBranchId));
-      setAddOpen(false);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to add currency");
-    }
   }
 
   async function handleCreateCurrency(opts?: {
@@ -1103,12 +1075,6 @@ export default function ExchangeRatesPage() {
         ),
       ]
     : [];
-  const availableCurrencies = currencies.filter((c) => {
-    if (c.status !== "active" || c.isHidden) return false;
-    const existing = rates.find((r) => r.currencyCode === c.currencyCode);
-    return !existing || existing.isHidden;
-  });
-
   return (
     <>
       <DashboardHeader
@@ -1569,24 +1535,8 @@ export default function ExchangeRatesPage() {
           </ContentPanel>
         ) : null}
 
-        {canManageRates && canAddNewCurrencies && effectiveBranchId ? (
-          <ContentPanel
-            title="Add New Currency"
-            description="Two ways: create one manually here, or upload the Excel file above and review before publishing"
-            action={
-              <Button className="rounded-xl" size="sm" onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Currency
-              </Button>
-            }
-          >
-            <p className="text-sm text-muted-foreground">
-              Enter a 3-letter code (e.g. JPY), its name, and your We Buy / We Sell values — one
-              click saves and publishes it straight to this branch&apos;s display.
-            </p>
-          </ContentPanel>
-        ) : null}
-
+        {/* Create-currency dialog — opened from Currency Catalog "Add currency".
+            Forex/transfer inline "+ Add" rows are the day-to-day add path. */}
         {canManageRates && canAddNewCurrencies && effectiveBranchId ? (
               <Dialog open={createOpen} onOpenChange={setCreateOpen}>
                 <DialogContent className="rounded-2xl sm:max-w-md">
@@ -2114,66 +2064,18 @@ export default function ExchangeRatesPage() {
           </Button>
         ) : null}
 
-        {/* Adding currencies curates the branch list — requires add permission. */}
-        {canManageRates && canAddNewCurrencies && effectiveBranchId ? (
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger
-              render={
-                <Button variant="outline" className="rounded-xl">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Existing Currency to Branch
-                </Button>
-              }
-            />
-            <DialogContent className="rounded-2xl sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add Currency to Branch</DialogTitle>
-              </DialogHeader>
-              <div className="max-h-72 space-y-2 overflow-y-auto py-2">
-                {availableCurrencies.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    All catalog currencies are already on this branch.
-                  </p>
-                ) : (
-                  availableCurrencies.map((currency) => {
-                    const row = resolveCurrencyFields(currency);
-                    return (
-                    <button
-                      key={currency.id}
-                      type="button"
-                      onClick={() => void handleAddCurrency(currency)}
-                      className="flex w-full items-center gap-3 rounded-xl border border-border/30 p-3 text-left transition-colors hover:bg-muted/40"
-                    >
-                      <span className="text-2xl">{row.flag}</span>
-                      <div>
-                        <p className="font-medium">{row.code}</p>
-                        <p className="text-xs text-muted-foreground">{row.name}</p>
-                      </div>
-                    </button>
-                    );
-                  })
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : null}
-
         {!effectiveBranchId ? (
           <EmptyState
             title="Select a branch first"
             description="Choose your shop location above, then upload Excel rates or edit buy/sell values below."
           />
-        ) : rates.length === 0 ? (
+        ) : rates.length === 0 && !canAddNewCurrencies ? (
           <EmptyState
             title="No rates for this branch yet"
             description={
               currencies.length === 0
-                ? canAddNewCurrencies
-                  ? "Add currencies using New Currency above, then set buy/sell values and click Publish."
-                  : "Ask an admin to add currencies to this branch, then set buy/sell values and click Publish."
-                : canAddNewCurrencies
-                  ? "Upload your Excel file above, or click Initialize from catalog."
-                  : "Upload your Excel file above to update rates (existing currencies only)."
+                ? "Ask an admin to add currencies to this branch, then set buy/sell values and click Publish."
+                : "Upload your Excel file above to update rates (existing currencies only)."
             }
           />
         ) : (
@@ -2186,6 +2088,12 @@ export default function ExchangeRatesPage() {
               </p>
             </CardHeader>
             <CardContent className="pt-4">
+              {rates.length === 0 ? (
+                <p className="mb-3 rounded-xl border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+                  No forex rates on this branch yet — add a currency below, upload Excel above, or
+                  initialize from the catalog.
+                </p>
+              ) : null}
               {!isBranchUser && rates.length > 0 ? (
                 <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border/50 bg-muted/20 px-3 py-2">
                   <label className="flex cursor-pointer items-center gap-2 text-xs font-medium">
@@ -2505,47 +2413,8 @@ export default function ExchangeRatesPage() {
                   );
                 })}
 
-
-
-                {/* Apply THIS branch's currency order to other branches (admins).
-                    Order-only: never changes their currencies, rates or values. */}
-                {(isSuperAdmin || isAdmin) &&
-                rates.length > 1 &&
-                branches.filter((b) => b.status === "active").length > 1 ? (
-                  <div className="mt-1 space-y-3 rounded-xl border border-primary/25 bg-primary/[0.03] p-3">
-                    <p className="text-sm font-medium">Apply this currency order to other branches</p>
-                    <p className="text-xs text-muted-foreground">
-                      Drag the rows above to set the order, then push that same order to selected
-                      branches or all branches. Only the ORDER changes there — each branch keeps its
-                      own currencies, rates and values. Currencies hidden on a branch are planned
-                      around automatically: they keep their slot but stay off that branch&apos;s TV,
-                      and the visible ones follow this order with no gaps.
-                    </p>
-                    <ApplyToAllCheckbox
-                      id="forex-order-apply"
-                      scope={orderScope}
-                      selectedBranchIds={orderBranchIds}
-                      branches={branches}
-                      currentBranchId={effectiveBranchId}
-                      onScopeChange={(sel) => {
-                        setOrderScope(sel.scope);
-                        setOrderBranchIds(sel.selectedBranchIds);
-                      }}
-                      description="Applies only the CURRENCY ORDER to the chosen branches."
-                    />
-                    <Button
-                      size="sm"
-                      className="rounded-xl"
-                      disabled={applyingOrder || orderScope === "current"}
-                      onClick={() => void handleApplyOrderToBranches()}
-                    >
-                      {applyingOrder ? "Applying…" : "Apply order to branches"}
-                    </Button>
-                  </div>
-                ) : null}
-
-                {/* Inline "add currency" row — same as the transfer card. Type a
-                    code, We Buy, We Sell → Add; flag/name auto-pick from the code. */}
+                {/* Inline "add currency" row — directly under the list (same as
+                    remittance / transfer card). Apply-order settings stay below. */}
                 {canManageRates && canAddNewCurrencies ? (
                   <div className="grid grid-cols-1 items-end gap-3 rounded-xl border border-dashed border-primary/40 bg-primary/[0.04] p-3 sm:grid-cols-[minmax(150px,190px)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:gap-4">
                     <div className="min-w-0">
@@ -2614,6 +2483,43 @@ export default function ExchangeRatesPage() {
                     >
                       <Plus className="mr-1 h-4 w-4" />
                       {addingForex ? "Adding…" : "Add"}
+                    </Button>
+                  </div>
+                ) : null}
+
+                {/* Apply THIS branch's currency order to other branches (admins).
+                    Order-only: never changes their currencies, rates or values. */}
+                {(isSuperAdmin || isAdmin) &&
+                rates.length > 1 &&
+                branches.filter((b) => b.status === "active").length > 1 ? (
+                  <div className="mt-1 space-y-3 rounded-xl border border-primary/25 bg-primary/[0.03] p-3">
+                    <p className="text-sm font-medium">Apply this currency order to other branches</p>
+                    <p className="text-xs text-muted-foreground">
+                      Drag the rows above to set the order, then push that same order to selected
+                      branches or all branches. Only the ORDER changes there — each branch keeps its
+                      own currencies, rates and values. Currencies hidden on a branch are planned
+                      around automatically: they keep their slot but stay off that branch&apos;s TV,
+                      and the visible ones follow this order with no gaps.
+                    </p>
+                    <ApplyToAllCheckbox
+                      id="forex-order-apply"
+                      scope={orderScope}
+                      selectedBranchIds={orderBranchIds}
+                      branches={branches}
+                      currentBranchId={effectiveBranchId}
+                      onScopeChange={(sel) => {
+                        setOrderScope(sel.scope);
+                        setOrderBranchIds(sel.selectedBranchIds);
+                      }}
+                      description="Applies only the CURRENCY ORDER to the chosen branches."
+                    />
+                    <Button
+                      size="sm"
+                      className="rounded-xl"
+                      disabled={applyingOrder || orderScope === "current"}
+                      onClick={() => void handleApplyOrderToBranches()}
+                    >
+                      {applyingOrder ? "Applying…" : "Apply order to branches"}
                     </Button>
                   </div>
                 ) : null}
