@@ -644,3 +644,7 @@ video::-webkit-media-controls-fullscreen-button {
 .animate-fade-in-up {
   animation: fade-in-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+/* Signage videos must never show focus rings or summon TV overlay controls. */
+video:focus, video:focus-visible { outline: none !important; }
+video::-internal-media-controls-overlay-cast-button { display: none !important; }

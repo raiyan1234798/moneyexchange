@@ -14,6 +14,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope } from "@/lib/hooks/use-branch-scope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -776,6 +777,85 @@ function BranchSettingsForm({
           checked={settings.videoSoundOn === true}
           onCheckedChange={(checked) => setSettings({ ...settings, videoSoundOn: checked })}
         />
+      </div>
+
+      {/* What the video area shows when this branch has NO videos/images yet
+          (client 2026-08-05): unimoni logo card, the branch's OWN words (in
+          the display font), or an uploaded picture. */}
+      <div className="space-y-3 rounded-xl border border-border/30 p-4">
+        <div>
+          <Label>Empty screen shows</Label>
+          <p className="text-xs text-muted-foreground">
+            What appears in the video area while this branch has no videos or images uploaded.
+          </p>
+        </div>
+        <Select
+          value={settings.videoPlaceholderMode ?? "logo"}
+          onValueChange={(value) =>
+            setSettings({ ...settings, videoPlaceholderMode: value as "logo" | "text" | "image" })
+          }
+        >
+          <SelectTrigger className="rounded-xl">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="logo">unimoni logo card (default)</SelectItem>
+            <SelectItem value="text">Your own words — big letters</SelectItem>
+            <SelectItem value="image">Your own picture</SelectItem>
+          </SelectContent>
+        </Select>
+        {(settings.videoPlaceholderMode ?? "logo") === "text" ? (
+          <div className="space-y-2">
+            <Label>Words to show</Label>
+            <Textarea
+              value={settings.videoPlaceholderText ?? ""}
+              onChange={(event: React.ChangeEvent<HTMLTextAreaElement>) =>
+                setSettings({ ...settings, videoPlaceholderText: event.target.value })
+              }
+              placeholder={"Welcome to " + (branchName || "our branch") + "!"}
+              className="rounded-xl"
+              rows={2}
+            />
+            <p className="text-xs text-muted-foreground">
+              Shown in the display font chosen above (Master font) — change the font there and these
+              letters follow.
+            </p>
+          </div>
+        ) : null}
+        {(settings.videoPlaceholderMode ?? "logo") === "image" ? (
+          <div className="space-y-2">
+            <Label>Picture</Label>
+            <div className="flex items-center gap-3">
+              {settings.videoPlaceholderImageUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={settings.videoPlaceholderImageUrl}
+                  alt="Empty screen picture"
+                  className="h-16 w-28 rounded-lg border border-border/50 bg-slate-900 object-contain"
+                />
+              ) : null}
+              <Input
+                type="file"
+                accept="image/*"
+                className="rounded-xl"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) return;
+                  void compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS)
+                    .then(({ dataUrl }) => {
+                      setSettings((prev) => ({ ...prev, videoPlaceholderImageUrl: dataUrl }));
+                      toast.success("Picture ready — Save to apply");
+                    })
+                    .catch((e) => toast.error(e instanceof Error ? e.message : "Could not read image"));
+                  event.target.value = "";
+                }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              The whole picture always shows (never cropped). Any size works; wide pictures fill best.
+            </p>
+          </div>
+        ) : null}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">

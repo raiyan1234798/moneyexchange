@@ -696,6 +696,9 @@ export function UnimoniRatesPanel({
               >
                 {activeSheet.promoMedia.type === "video" ? (
                   <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
                     key={activeSheet.promoMedia.url}
                     src={activeSheet.promoMedia.url}
                     autoPlay

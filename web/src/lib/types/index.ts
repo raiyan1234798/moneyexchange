@@ -312,6 +312,15 @@ export interface BranchSettings {
   /** ONE font for the whole TV screen — rate card, messages, announcements, logo.
    *  When set it overrides every individual font below. See MESSAGE_FONTS. */
   displayFont?: string | null;
+  /** What the video area shows when a branch has NO videos/images yet:
+      "logo" = the unimoni logo card (default), "text" = the branch's own
+      words (in the Settings display font), "image" = an uploaded picture.
+      Client 2026-08-05. */
+  videoPlaceholderMode?: "logo" | "text" | "image";
+  /** The words shown when videoPlaceholderMode is "text". */
+  videoPlaceholderText?: string | null;
+  /** The picture shown when videoPlaceholderMode is "image" (data URL or URL). */
+  videoPlaceholderImageUrl?: string | null;
   /** Font key for the rate card (header + table) — see MESSAGE_FONTS. */
   rateCardFont?: string | null;
   /** Size multiplier for the CURRENCY code text on the rate card (1 = normal). */

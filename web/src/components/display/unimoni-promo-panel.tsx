@@ -37,6 +37,13 @@ interface UnimoniPromoPanelProps {
   showCoverLogo?: boolean;
   /** Overlays scoped to the promo area (e.g. the drop-down announcement). */
   children?: React.ReactNode;
+  /** Empty-screen card style: unimoni logo (default), the branch's own TEXT,
+      or an uploaded IMAGE (client 2026-08-05). */
+  placeholderMode?: "logo" | "text" | "image";
+  placeholderText?: string | null;
+  placeholderImageUrl?: string | null;
+  /** Font for placeholder TEXT — follows the Settings display font. */
+  placeholderFontCss?: string;
 }
 
 export function UnimoniPromoPanel({
@@ -57,6 +64,10 @@ export function UnimoniPromoPanel({
   mediaTransitionSeconds = null,
   mediaKey,
   showCoverLogo = true,
+  placeholderMode = "logo",
+  placeholderText = null,
+  placeholderImageUrl = null,
+  placeholderFontCss,
   children,
 }: UnimoniPromoPanelProps) {
   // A broken advert image URL must fall back to the branded placeholder, not
@@ -105,6 +116,9 @@ export function UnimoniPromoPanel({
         <>
           {useBackdrop ? (
             <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
               key={`${videoUrl}-bg`}
               src={videoUrl ?? undefined}
               className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.5]"
@@ -116,6 +130,9 @@ export function UnimoniPromoPanel({
             />
           ) : null}
           <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
             key={`${videoUrl}-${mediaKey ?? ""}`}
             src={videoUrl ?? undefined}
             // The entrance animation must start when the navy swap cover lifts
@@ -247,6 +264,26 @@ export function UnimoniPromoPanel({
       ) : null}
 
       {showPlaceholder ? (
+        placeholderMode === "image" && placeholderImageUrl?.trim() ? (
+          // The branch's own picture fills the empty screen — whole image,
+          // never cropped, over the navy panel.
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={placeholderImageUrl}
+            alt=""
+            className="absolute inset-0 z-[5] h-full w-full object-contain"
+          />
+        ) : placeholderMode === "text" && placeholderText?.trim() ? (
+          // The branch's own words, in the Settings display font.
+          <div className="absolute inset-0 z-[5] flex items-center justify-center bg-[#0B1F3A]/80 px-[4%] text-center">
+            <p
+              className="whitespace-pre-line text-[clamp(1.6rem,4.5vw,4.5rem)] font-extrabold leading-tight text-white drop-shadow-lg"
+              style={placeholderFontCss ? { fontFamily: placeholderFontCss } : undefined}
+            >
+              {placeholderText.trim()}
+            </p>
+          </div>
+        ) : (
         <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-[#0B1F3A]/80 px-6 text-center">
           <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
             <Image
@@ -266,6 +303,7 @@ export function UnimoniPromoPanel({
             Upload content in Dashboard → Videos for this branch.
           </p>
         </div>
+        )
       ) : null}
 
       {/* The app-added "unimoni.com" caption over adverts was removed per the

@@ -296,6 +296,9 @@ export function MessageAreaAnnouncement({
             <div className="relative min-h-0 flex-1">
               {video ? (
                 <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
                   key={showCount}
                   src={video}
                   className="h-full w-full object-contain"
@@ -430,6 +433,9 @@ export function AnnouncementBanner({
           >
             {video ? (
               <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
                 key={showCount}
                 src={video}
                 className="h-[16vh] w-auto shrink-0 rounded-md object-cover shadow-lg"
@@ -483,6 +489,9 @@ export function AnnouncementBanner({
       >
         {video ? (
           <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
             key={showCount}
             src={video}
             className="min-h-0 w-full flex-1 object-contain"
@@ -540,6 +549,9 @@ export function AnnouncementBanner({
       >
         {video ? (
           <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
             key={showCount}
             src={video}
             className="min-h-0 w-full flex-1 rounded-lg object-contain"

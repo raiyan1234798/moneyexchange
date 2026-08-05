@@ -446,6 +446,18 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const hideDotsOnPromo = branchSettings.hideDotsOnPromo !== false;
   // ONE font for the whole screen. When set, it overrides every element's font
   // below (rate card, announcement, ticker message, ticker logo).
+  // TV browsers (Android TV WebView etc.) can paint their own prev/play/next
+  // overlay from the Media Session API on top of signage video. Null every
+  // action handler so that overlay has nothing to show (client 2026-08-05).
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const actions = ["play","pause","stop","seekbackward","seekforward","seekto","previoustrack","nexttrack"];
+    for (const a of actions) {
+      try { navigator.mediaSession.setActionHandler(a as MediaSessionAction, null); } catch { /* unsupported action */ }
+    }
+    try { navigator.mediaSession.metadata = null; } catch { /* older WebView */ }
+  }, []);
+
   const masterFont = branchSettings.displayFont?.trim() || null;
   const rateCardFontCss = messageFontCss(masterFont || branchSettings.rateCardFont);
   const announcementText = branchSettings.announcementText?.trim() || null;
@@ -849,6 +861,10 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const promoPanel = (
     <UnimoniPromoPanel
       showCoverLogo={branchSettings.showVideoCoverLogo !== false}
+      placeholderMode={branchSettings.videoPlaceholderMode ?? "logo"}
+      placeholderText={branchSettings.videoPlaceholderText ?? null}
+      placeholderImageUrl={branchSettings.videoPlaceholderImageUrl ?? null}
+      placeholderFontCss={rateCardFontCss}
       videoUrl={branchVideoUrl && !videoError ? branchVideoUrl : null}
       imageUrl={branchImageUrl}
       videoLoaded={videoLoaded}
