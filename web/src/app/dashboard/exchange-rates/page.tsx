@@ -1771,262 +1771,6 @@ export default function ExchangeRatesPage() {
               </Dialog>
         ) : null}
 
-        {canCreateCatalog ? (
-          <>
-            <ContentPanel
-              title="Currency Catalog"
-              description="Global currencies available to all branches"
-              action={
-                canManageRates && canAddNewCurrencies ? (
-                  <Button className="rounded-xl" size="sm" onClick={() => setCreateOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add currency
-                  </Button>
-                ) : undefined
-              }
-            >
-            {currencies.length === 0 ? (
-              <EmptyState
-                title="No currencies yet"
-                description="Create your first currency — it will be added to the selected branch automatically."
-                icon={Coins}
-              />
-            ) : (
-              <DataTable
-                data={catalogRows}
-                keyExtractor={(c) => c.id}
-                // Compact enough to fit the screen: name capped, branches shown
-                // as a count (hover/click to expand), and the action buttons stack
-                // downward instead of forcing sideways scroll.
-                tableClassName="min-w-[780px]"
-                mobileTitle={(c) => {
-                  const row = getCatalogCurrency(c);
-                  return `${row.flag} ${row.code}`;
-                }}
-                columns={[
-                  {
-                    key: "code",
-                    header: "Code",
-                    width: "w-[88px]",
-                    cell: (c) => {
-                      const row = getCatalogCurrency(c);
-                      return (
-                        <span className="inline-flex items-center gap-1.5 font-mono font-semibold tabular-nums">
-                          <FlagChip flag={row.flag} currencyCode={row.code} className="text-base" />
-                          {row.code}
-                        </span>
-                      );
-                    },
-                  },
-                  {
-                    key: "name",
-                    header: "Name",
-                    width: "w-[180px]",
-                    cell: (c) => (
-                      <span className="block truncate font-medium">{getCatalogCurrency(c).name}</span>
-                    ),
-                  },
-                  {
-                    key: "country",
-                    header: "Country",
-                    width: "w-[150px]",
-                    hideOnMobile: true,
-                    cell: (c) => {
-                      const country = getCatalogCurrency(c).country;
-                      return (
-                        <span className="block truncate text-muted-foreground">
-                          {country || "—"}
-                        </span>
-                      );
-                    },
-                  },
-                  {
-                    key: "branches",
-                    header: "On branches",
-                    width: "w-[160px]",
-                    hideOnMobile: true,
-                    cell: (c) => {
-                      const code = getCatalogCurrency(c).code;
-                      // Count EVERY branch that carries this currency (including
-                      // hidden-on-TV). Hover lists branch NAMES (not UG codes).
-                      const byBranch = new Map<
-                        string,
-                        { id: string; name: string; shownOnTv: boolean }
-                      >();
-                      for (const r of allRates) {
-                        if ((r.currencyCode ?? "").toUpperCase() !== code) continue;
-                        const b = branches.find((x) => x.id === r.branchId);
-                        if (!b) continue;
-                        const prev = byBranch.get(b.id);
-                        if (!prev) {
-                          byBranch.set(b.id, {
-                            id: b.id,
-                            name: b.name,
-                            shownOnTv: !r.isHidden,
-                          });
-                        } else if (!r.isHidden) {
-                          byBranch.set(b.id, {
-                            id: b.id,
-                            name: b.name,
-                            shownOnTv: true,
-                          });
-                        }
-                      }
-                      const list = [...byBranch.values()].sort((a, b) =>
-                        a.name.localeCompare(b.name),
-                      );
-                      if (list.length === 0) {
-                        return <span className="text-xs text-muted-foreground">—</span>;
-                      }
-                      const shown = list.filter((x) => x.shownOnTv);
-                      const hidden = list.filter((x) => !x.shownOnTv);
-                      return (
-                        <div className="group relative">
-                          <button
-                            type="button"
-                            onClick={() => setManageBranchesFor(c)}
-                            className="rounded-md px-2 py-0.5 text-left text-xs font-medium text-primary underline-offset-2 hover:bg-primary/10 hover:underline"
-                          >
-                            <span>
-                              {list.length} {list.length === 1 ? "branch" : "branches"}
-                            </span>
-                            {hidden.length > 0 ? (
-                              <span className="mt-0.5 block text-[10px] font-normal text-amber-600 dark:text-amber-400">
-                                {hidden.length} hidden on TV
-                              </span>
-                            ) : null}
-                          </button>
-                          {/* Hover: full branch NAMES — which TVs show this currency. */}
-                          <div
-                            role="tooltip"
-                            className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-56 rounded-xl border border-border/60 bg-popover p-2.5 text-left text-xs text-popover-foreground shadow-lg group-hover:block group-focus-within:block"
-                          >
-                            {shown.length > 0 ? (
-                              <div className="mb-1.5">
-                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                  Shown on TV
-                                </p>
-                                <ul className="space-y-0.5">
-                                  {shown.map((x) => (
-                                    <li key={x.id} className="font-medium">
-                                      {x.name}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                            {hidden.length > 0 ? (
-                              <div>
-                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
-                                  On branch but hidden
-                                </p>
-                                <ul className="space-y-0.5">
-                                  {hidden.map((x) => (
-                                    <li key={x.id} className="text-muted-foreground">
-                                      {x.name}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                            ) : null}
-                            <p className="mt-2 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground">
-                              Click to manage branches
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    },
-                  },
-                  {
-                    key: "status",
-                    header: "Status",
-                    width: "w-[100px]",
-                    cell: (c) => <StatusBadge status={c.status} />,
-                  },
-                  {
-                    key: "actions",
-                    header: "Actions",
-                    width: "w-[132px]",
-                    headerClassName: "text-right",
-                    className: "text-right",
-                    cell: (c) => (
-                      <span className="flex flex-col items-stretch gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-lg"
-                          onClick={() => {
-                            const row = getCatalogCurrency(c);
-                            setEditCurrencyTarget(c);
-                            setEditCurrencyForm({ flag: row.flag, name: row.name, country: row.country });
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-lg"
-                          onClick={() => setManageBranchesFor(c)}
-                        >
-                          Branches
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="rounded-lg"
-                          onClick={() => {
-                            const actor = { userId: user!.uid, userName: profile!.displayName || profile!.email };
-                            const nextStatus = c.status === "active" ? ("inactive" as const) : ("active" as const);
-                            void (async () => {
-                              if (isBranchOnlyRow(c)) {
-                                // Branch-only rows (e.g. SCP) have no catalog doc, so
-                                // there is nothing to toggle yet. Materialize a real
-                                // catalog entry with the desired status — the row then
-                                // becomes a normal catalog row with a working toggle.
-                                const resolved = getCatalogCurrency(c);
-                                const existing = currencies.find(
-                                  (x) => x.currencyCode.toUpperCase() === c.currencyCode.toUpperCase(),
-                                );
-                                if (existing) {
-                                  await toggleCurrencyStatus(existing.id, nextStatus, actor);
-                                } else {
-                                  await createCurrency(
-                                    {
-                                      ...buildCurrencyPayload({
-                                        currencyCode: c.currencyCode,
-                                        currencyName: resolved.name,
-                                        country: resolved.country,
-                                        flag: resolved.flag,
-                                      }),
-                                      sortOrder: currencies.length + 1,
-                                      status: nextStatus,
-                                      isHidden: false,
-                                    },
-                                    actor,
-                                  );
-                                }
-                              } else {
-                                await toggleCurrencyStatus(c.id, nextStatus, actor);
-                              }
-                            })()
-                              .then(() => toast.success(`${c.currencyCode} status updated`))
-                              .catch((e) =>
-                                toast.error(e instanceof Error ? e.message : "Failed to update status"),
-                              );
-                          }}
-                        >
-                          {c.status === "active" ? "Turn off" : "Turn on"}
-                        </Button>
-                      </span>
-                    ),
-                  },
-                ]}
-              />
-            )}
-          </ContentPanel>
-          </>
-        ) : null}
 
         {/* Publish safety net: confirm an inverted spread or a big rate jump
             before it goes live on the customer-facing TV. */}
@@ -2890,6 +2634,265 @@ export default function ExchangeRatesPage() {
               canDeleteCurrency={canAddNewCurrencies}
             />
           </div>
+        ) : null}
+
+        {/* Currency Catalog sits AFTER the forex + transfer sections (client
+            2026-08-05), with the visibility board below it as the final panel. */}
+        {canCreateCatalog ? (
+          <>
+            <ContentPanel
+              title="Currency Catalog"
+              description="Global currencies available to all branches"
+              action={
+                canManageRates && canAddNewCurrencies ? (
+                  <Button className="rounded-xl" size="sm" onClick={() => setCreateOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add currency
+                  </Button>
+                ) : undefined
+              }
+            >
+            {currencies.length === 0 ? (
+              <EmptyState
+                title="No currencies yet"
+                description="Create your first currency — it will be added to the selected branch automatically."
+                icon={Coins}
+              />
+            ) : (
+              <DataTable
+                data={catalogRows}
+                keyExtractor={(c) => c.id}
+                // Compact enough to fit the screen: name capped, branches shown
+                // as a count (hover/click to expand), and the action buttons stack
+                // downward instead of forcing sideways scroll.
+                tableClassName="min-w-[780px]"
+                mobileTitle={(c) => {
+                  const row = getCatalogCurrency(c);
+                  return `${row.flag} ${row.code}`;
+                }}
+                columns={[
+                  {
+                    key: "code",
+                    header: "Code",
+                    width: "w-[88px]",
+                    cell: (c) => {
+                      const row = getCatalogCurrency(c);
+                      return (
+                        <span className="inline-flex items-center gap-1.5 font-mono font-semibold tabular-nums">
+                          <FlagChip flag={row.flag} currencyCode={row.code} className="text-base" />
+                          {row.code}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "name",
+                    header: "Name",
+                    width: "w-[180px]",
+                    cell: (c) => (
+                      <span className="block truncate font-medium">{getCatalogCurrency(c).name}</span>
+                    ),
+                  },
+                  {
+                    key: "country",
+                    header: "Country",
+                    width: "w-[150px]",
+                    hideOnMobile: true,
+                    cell: (c) => {
+                      const country = getCatalogCurrency(c).country;
+                      return (
+                        <span className="block truncate text-muted-foreground">
+                          {country || "—"}
+                        </span>
+                      );
+                    },
+                  },
+                  {
+                    key: "branches",
+                    header: "On branches",
+                    width: "w-[160px]",
+                    hideOnMobile: true,
+                    cell: (c) => {
+                      const code = getCatalogCurrency(c).code;
+                      // Count EVERY branch that carries this currency (including
+                      // hidden-on-TV). Hover lists branch NAMES (not UG codes).
+                      const byBranch = new Map<
+                        string,
+                        { id: string; name: string; shownOnTv: boolean }
+                      >();
+                      for (const r of allRates) {
+                        if ((r.currencyCode ?? "").toUpperCase() !== code) continue;
+                        const b = branches.find((x) => x.id === r.branchId);
+                        if (!b) continue;
+                        const prev = byBranch.get(b.id);
+                        if (!prev) {
+                          byBranch.set(b.id, {
+                            id: b.id,
+                            name: b.name,
+                            shownOnTv: !r.isHidden,
+                          });
+                        } else if (!r.isHidden) {
+                          byBranch.set(b.id, {
+                            id: b.id,
+                            name: b.name,
+                            shownOnTv: true,
+                          });
+                        }
+                      }
+                      const list = [...byBranch.values()].sort((a, b) =>
+                        a.name.localeCompare(b.name),
+                      );
+                      if (list.length === 0) {
+                        return <span className="text-xs text-muted-foreground">—</span>;
+                      }
+                      const shown = list.filter((x) => x.shownOnTv);
+                      const hidden = list.filter((x) => !x.shownOnTv);
+                      return (
+                        <div className="group relative">
+                          <button
+                            type="button"
+                            onClick={() => setManageBranchesFor(c)}
+                            className="rounded-md px-2 py-0.5 text-left text-xs font-medium text-primary underline-offset-2 hover:bg-primary/10 hover:underline"
+                          >
+                            <span>
+                              {list.length} {list.length === 1 ? "branch" : "branches"}
+                            </span>
+                            {hidden.length > 0 ? (
+                              <span className="mt-0.5 block text-[10px] font-normal text-amber-600 dark:text-amber-400">
+                                {hidden.length} hidden on TV
+                              </span>
+                            ) : null}
+                          </button>
+                          {/* Hover: full branch NAMES — which TVs show this currency. */}
+                          <div
+                            role="tooltip"
+                            className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-56 rounded-xl border border-border/60 bg-popover p-2.5 text-left text-xs text-popover-foreground shadow-lg group-hover:block group-focus-within:block"
+                          >
+                            {shown.length > 0 ? (
+                              <div className="mb-1.5">
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                  Shown on TV
+                                </p>
+                                <ul className="space-y-0.5">
+                                  {shown.map((x) => (
+                                    <li key={x.id} className="font-medium">
+                                      {x.name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                            {hidden.length > 0 ? (
+                              <div>
+                                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                                  On branch but hidden
+                                </p>
+                                <ul className="space-y-0.5">
+                                  {hidden.map((x) => (
+                                    <li key={x.id} className="text-muted-foreground">
+                                      {x.name}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+                            <p className="mt-2 border-t border-border/40 pt-1.5 text-[10px] text-muted-foreground">
+                              Click to manage branches
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    },
+                  },
+                  {
+                    key: "status",
+                    header: "Status",
+                    width: "w-[100px]",
+                    cell: (c) => <StatusBadge status={c.status} />,
+                  },
+                  {
+                    key: "actions",
+                    header: "Actions",
+                    width: "w-[132px]",
+                    headerClassName: "text-right",
+                    className: "text-right",
+                    cell: (c) => (
+                      <span className="flex flex-col items-stretch gap-1.5">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => {
+                            const row = getCatalogCurrency(c);
+                            setEditCurrencyTarget(c);
+                            setEditCurrencyForm({ flag: row.flag, name: row.name, country: row.country });
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => setManageBranchesFor(c)}
+                        >
+                          Branches
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-lg"
+                          onClick={() => {
+                            const actor = { userId: user!.uid, userName: profile!.displayName || profile!.email };
+                            const nextStatus = c.status === "active" ? ("inactive" as const) : ("active" as const);
+                            void (async () => {
+                              if (isBranchOnlyRow(c)) {
+                                // Branch-only rows (e.g. SCP) have no catalog doc, so
+                                // there is nothing to toggle yet. Materialize a real
+                                // catalog entry with the desired status — the row then
+                                // becomes a normal catalog row with a working toggle.
+                                const resolved = getCatalogCurrency(c);
+                                const existing = currencies.find(
+                                  (x) => x.currencyCode.toUpperCase() === c.currencyCode.toUpperCase(),
+                                );
+                                if (existing) {
+                                  await toggleCurrencyStatus(existing.id, nextStatus, actor);
+                                } else {
+                                  await createCurrency(
+                                    {
+                                      ...buildCurrencyPayload({
+                                        currencyCode: c.currencyCode,
+                                        currencyName: resolved.name,
+                                        country: resolved.country,
+                                        flag: resolved.flag,
+                                      }),
+                                      sortOrder: currencies.length + 1,
+                                      status: nextStatus,
+                                      isHidden: false,
+                                    },
+                                    actor,
+                                  );
+                                }
+                              } else {
+                                await toggleCurrencyStatus(c.id, nextStatus, actor);
+                              }
+                            })()
+                              .then(() => toast.success(`${c.currencyCode} status updated`))
+                              .catch((e) =>
+                                toast.error(e instanceof Error ? e.message : "Failed to update status"),
+                              );
+                          }}
+                        >
+                          {c.status === "active" ? "Turn off" : "Turn on"}
+                        </Button>
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+            )}
+          </ContentPanel>
+          </>
         ) : null}
 
         {/* Cross-branch currency visibility — LAST on the page, below both the
