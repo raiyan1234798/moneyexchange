@@ -589,12 +589,15 @@ export function UnimoniRatesPanel({
       // The active slide type — the display re-times spin/flip per slide with it.
       data-anim-kind={activeKind}
     >
-      {/* Header: logo + date/time. Hidden entirely on promo slides when logos are hidden
-          so the promotion can fill the full panel. */}
+      {/* Header: logo truly centered; date/time pinned to the right so it never
+          pulls the logo off-center or overlaps it. */}
       {showHeaderBar ? (
-      <div className="flex shrink-0 items-center gap-[0.6vw] px-[1vw] py-[1.1vh]">
-        <div className="min-w-0 flex-1" aria-hidden />
-        <div className="flex min-w-0 shrink flex-col items-center justify-center">
+      <div className="relative flex shrink-0 items-center justify-center px-[1vw] py-[1.1vh]">
+        <div
+          className={`flex min-w-0 flex-col items-center justify-center ${
+            isPromoSheet ? "max-w-full" : "max-w-[calc(100%-7.5rem)]"
+          }`}
+        >
           {headerLogos === null ? null : showCustomLogos ? (
             <div className="flex min-w-0 items-center justify-center gap-[0.8vw]">
               {headerLogos!.map((src, i) => (
@@ -635,10 +638,8 @@ export function UnimoniRatesPanel({
             </p>
           ) : null}
         </div>
-        {isPromoSheet ? (
-          <div className="min-w-0 flex-1" aria-hidden />
-        ) : (
-          <div className="flex shrink-0 flex-col items-end justify-end self-end pb-[0.2vh] pl-[0.4vw] leading-tight">
+        {!isPromoSheet ? (
+          <div className="pointer-events-none absolute inset-y-0 right-[1vw] z-10 flex flex-col items-end justify-end pb-[0.2vh] leading-tight">
             <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-semibold tabular-nums text-white/75">
               {now ? formatSignageDate(now) : "—"}
             </span>
@@ -646,7 +647,7 @@ export function UnimoniRatesPanel({
               {now ? formatSignageTime(now) : "—"}
             </span>
           </div>
-        )}
+        ) : null}
       </div>
       ) : null}
 
