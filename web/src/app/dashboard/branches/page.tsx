@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Building2, Copy, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { Plus, Building2, Clock, Copy, ExternalLink, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
@@ -21,10 +21,10 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
- 
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,6 +100,98 @@ function composeHoursSummary(byDay: Record<string, string>): string {
   }
   const parts = DAY_KEYS.map((d) => (get(d) ? `${DAY_LABELS[d].slice(0, 3)} ${get(d)}` : null)).filter(Boolean);
   return parts.join(" · ");
+}
+
+/** Day rows for the hours details dialog — prefer per-day map, else one summary. */
+function hoursDetailRows(branch: Branch): Array<{ label: string; value: string }> {
+  const byDay = branch.workingHoursByDay;
+  if (byDay && DAY_KEYS.some((d) => Boolean(byDay[d]?.trim()))) {
+    return DAY_KEYS.map((d) => ({
+      label: DAY_LABELS[d],
+      value: byDay[d]?.trim() || "Closed",
+    }));
+  }
+  const summary = branch.workingHours?.trim();
+  if (!summary) return [{ label: "Hours", value: "Not set" }];
+  // Legacy one-line summaries sometimes used " · " between days.
+  if (summary.includes(" · ")) {
+    return summary.split(" · ").map((part) => {
+      const trimmed = part.trim();
+      const space = trimmed.indexOf(" ");
+      if (space > 0 && space <= 3) {
+        return { label: trimmed.slice(0, space), value: trimmed.slice(space + 1) };
+      }
+      return { label: "Hours", value: trimmed };
+    });
+  }
+  return [{ label: "Hours", value: summary }];
+}
+
+/**
+ * Hours stay hidden in the Branch Directory table. One click opens a dialog
+ * with the full Mon–Sun schedule (avoids the tall wrapped column).
+ */
+function ViewHoursButton({ branch }: { branch: Branch }) {
+  const [open, setOpen] = useState(false);
+  const rows = hoursDetailRows(branch);
+  const hasHours = Boolean(branch.workingHours?.trim()) ||
+    Boolean(branch.workingHoursByDay && DAY_KEYS.some((d) => Boolean(branch.workingHoursByDay?.[d]?.trim())));
+
+  if (!hasHours) {
+    return <span className="text-xs text-muted-foreground">Not set</span>;
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="h-8 rounded-lg text-xs"
+        title="Click to see full working hours"
+        aria-label={`View hours for ${branch.name}`}
+        onClick={() => setOpen(true)}
+      >
+        <Clock className="mr-1.5 h-3 w-3" />
+        View hours
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="rounded-2xl sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{branch.name}</DialogTitle>
+            <DialogDescription>Working hours for this branch.</DialogDescription>
+          </DialogHeader>
+          <ul className="divide-y divide-border/50 rounded-xl border border-border/50 bg-muted/20">
+            {rows.map((row) => {
+              const closed = /^closed$/i.test(row.value.trim()) || row.value === "—";
+              return (
+                <li
+                  key={`${row.label}-${row.value}`}
+                  className="flex items-baseline justify-between gap-4 px-3 py-2.5 text-sm"
+                >
+                  <span className="font-medium text-foreground">{row.label}</span>
+                  <span
+                    className={
+                      closed
+                        ? "text-right text-muted-foreground/80 italic"
+                        : "text-right tabular-nums text-muted-foreground"
+                    }
+                  >
+                    {row.value}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <DialogFooter>
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 export default function BranchesPage() {
@@ -598,7 +690,11 @@ export default function BranchesPage() {
                   ),
                 },
                 { key: "city", header: "City", cell: (b) => b.city, hideOnMobile: true },
-                { key: "hours", header: "Hours", cell: (b) => b.workingHours, hideOnMobile: true },
+                {
+                  key: "hours",
+                  header: "Hours",
+                  cell: (b) => <ViewHoursButton branch={b} />,
+                },
                 {
                   key: "status",
                   header: "Status",
