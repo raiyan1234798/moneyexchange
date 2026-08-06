@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Monitor, MonitorOff } from "lucide-react";
-import { getDisplayUrl } from "@/lib/display-url";
+import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
 import { listExchangeRates } from "@/lib/services/exchange-rate-service";
 import { subscribeTvDevices } from "@/lib/services/tv-service";
 import { isTvLive } from "@/lib/tv/liveness";
@@ -28,9 +28,54 @@ function toDate(value: unknown): Date | null {
   return Number.isNaN(p) ? null : new Date(p);
 }
 
+/** Lazy iframe — loads the real branch display only when the card is on screen. */
+function BranchTvView({ branchCode, name }: { branchCode: string; name: string }) {
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [active, setActive] = useState(false);
+  const code = normalizeBranchCode(branchCode);
+  const src = `/display/?branch=${encodeURIComponent(code)}&preview=1`;
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setActive(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "200px", threshold: 0.05 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={wrapRef}
+      className="overflow-hidden rounded-xl border border-border/50 bg-black shadow-inner"
+    >
+      {active ? (
+        <iframe
+          src={src}
+          title={`TV view — ${name}`}
+          className="aspect-video w-full border-0"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <div className="flex aspect-video w-full items-center justify-center bg-muted/30 text-xs text-muted-foreground">
+          Loading TV view…
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
- * One card per branch: is its TV live, how many rates it is showing, when it
- * last changed, and a one-click link to open that branch's display.
+ * One card per branch: live TV view of the display, rates on screen, last
+ * update, pairing status, and a one-click link to open that branch's display.
  */
 export function BranchesAtAGlance({
   branches,
@@ -88,7 +133,7 @@ export function BranchesAtAGlance({
   const list = rows ?? branches.map((branch) => ({ branch, liveRates: 0, lastUpdate: null }));
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {list.map(({ branch, liveRates, lastUpdate }) => {
         const branchDevices = devices.filter((d) => d.branchId === branch.id);
         const liveCount = branchDevices.filter((d) => isTvLive(d, nowMs)).length;
@@ -107,32 +152,32 @@ export function BranchesAtAGlance({
                   {branch.city ? ` · ${branch.city}` : ""}
                 </p>
               </div>
-              {/* Live = a TV checked in within the last few minutes (not just a
-                  stale "online" flag that nothing ever clears). */}
               <span
                 title={
                   hasDevices
                     ? isLive
                       ? `${liveCount} of ${branchDevices.length} TV(s) checked in recently`
-                      : "No TV has checked in recently"
-                    : "No TV paired to this branch yet"
+                      : "Paired TV has not checked in recently"
+                    : "Display is ready — no hardware TV device paired yet"
                 }
                 className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ring-inset ${
-                  !hasDevices
-                    ? "bg-muted/40 text-muted-foreground ring-border/50"
-                    : isLive
-                      ? "bg-emerald-500/10 text-emerald-600 ring-emerald-500/30 dark:text-emerald-400"
-                      : "bg-amber-500/10 text-amber-600 ring-amber-500/30 dark:text-amber-400"
+                  isLive
+                    ? "bg-emerald-500/10 text-emerald-600 ring-emerald-500/30 dark:text-emerald-400"
+                    : hasDevices
+                      ? "bg-amber-500/10 text-amber-600 ring-amber-500/30 dark:text-amber-400"
+                      : "bg-sky-500/10 text-sky-700 ring-sky-500/30 dark:text-sky-400"
                 }`}
               >
-                {hasDevices && isLive ? (
+                {isLive || !hasDevices ? (
                   <Monitor className="h-3 w-3" />
                 ) : (
                   <MonitorOff className="h-3 w-3" />
                 )}
-                {!hasDevices ? "No TV" : isLive ? "Live" : "Offline"}
+                {isLive ? "Live" : hasDevices ? "Offline" : "TV view"}
               </span>
             </div>
+
+            <BranchTvView branchCode={branch.code} name={branch.name} />
 
             <div className="flex items-baseline gap-4">
               <div>

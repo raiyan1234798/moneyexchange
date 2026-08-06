@@ -173,55 +173,56 @@ function useCleanLogoSrc(
   return enabled ? cleaned : src;
 }
 
-/** One scrolling logo — displayed exactly as uploaded (original background preserved).
- *  fill/stretch mode: logo expands to fill the full ticker bar height.
- *  contain mode: logo is kept at a fixed em height inline with the text.
- *  NO chip wrapper and NO background stripping are applied — what you upload is what shows. */
+/** One scrolling logo — every logo uses the SAME fixed slot (bar-height × 14:5);
+ *  artwork stays fully visible via object-contain (never cropped). */
 function ScrollingLogoImg({
   src,
   animClass,
   side,
   gapVw = 1.2,
   scale = 1,
-  fitMode = "fill",
-  stretch,
+  heightScale = 1,
 }: {
   src: string;
-  bgMode: "white" | "transparent" | "auto"; // kept for API compat, not used
+  bgMode: "white" | "transparent" | "auto";
   animClass: string;
-  heightEm: string; // kept for API compat, not used
+  heightEm: string;
   side: "start" | "end";
-  /** Space to the next logo, in vw. 0 = logos joined with no gap. */
   gapVw?: number;
-  /** "Logo size (%)" as a fraction (1 = full bar height). */
   scale?: number;
+  heightScale?: number;
   fitMode?: "contain" | "fill" | "stretch";
-  /** PER-LOGO override: true = stretch to full bar height (big); false = smaller;
-   *  undefined = follow fitMode (client 2026-08-04). */
   stretch?: boolean;
 }) {
-  // Per-logo choice wins; otherwise the branch fit mode.
-  const isStretch = stretch ?? (fitMode === "fill" || fitMode === "stretch");
   const gap = Math.max(0, gapVw);
   const gapStyle = side === "start" ? { marginRight: `${gap}vw` } : { marginLeft: `${gap}vw` };
-  const sizeScale = Math.max(0.3, scale);
-  // Stretched = fill the bar height (up to 100%); not-stretched = clearly smaller.
-  // Aspect ALWAYS preserved (object-contain, w-auto) — never squashed, never
-  // taller than the bar (overflow-hidden), whichever the admin picks.
-  const pct = isStretch
-    ? Math.min(100, Math.max(30, Math.round(sizeScale * 100)))
-    : Math.min(72, Math.max(25, Math.round(sizeScale * 62)));
+  const sizeScale = Math.max(0.3, Math.min(1, scale));
+  const slotH = `calc(clamp(3rem, 6vh, 4.5rem) * ${heightScale} * ${sizeScale})`;
+  const slotW = `calc(clamp(3rem, 6vh, 4.5rem) * ${heightScale} * ${sizeScale} * 2.8)`;
   return (
     <span
-      className={`inline-flex shrink-0 items-center self-stretch overflow-hidden ${animClass}`}
-      style={{ ...gapStyle }}
+      className={`inline-flex shrink-0 items-center justify-center ${animClass}`}
+      style={{
+        ...gapStyle,
+        width: slotW,
+        height: slotH,
+        minWidth: slotW,
+        minHeight: slotH,
+        maxWidth: slotW,
+        maxHeight: slotH,
+      }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt=""
-        className="block w-auto"
-        style={{ height: `${pct}%`, maxHeight: "100%", objectFit: "contain" }}
+        className="block"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          objectPosition: "center",
+        }}
       />
     </span>
   );
@@ -531,6 +532,7 @@ function BreakingNewsTickerInner({
                         side="start"
                         gapVw={scrollLogoGapVw}
                         scale={scrollLogoScale}
+                        heightScale={heightScale}
                         fitMode={scrollLogoFitMode}
                         stretch={item.stretch}
                       />
@@ -550,6 +552,7 @@ function BreakingNewsTickerInner({
                         side="end"
                         gapVw={scrollLogoGapVw}
                         scale={scrollLogoScale}
+                        heightScale={heightScale}
                         fitMode={scrollLogoFitMode}
                         stretch={item.stretch}
                       />

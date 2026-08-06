@@ -348,8 +348,8 @@ export default function DashboardOverviewPage() {
             title="Branches at a glance"
             description={
               isPlatformAdmin
-                ? "Every branch — TV status, what's on screen, and when it last changed"
-                : "Your branch — TV status and what's on screen"
+                ? "Every branch — live TV view, what’s on screen, and when it last changed"
+                : "Your branch — live TV view and what’s on screen"
             }
           >
             <BranchesAtAGlance branches={branches} onError={onError} />
