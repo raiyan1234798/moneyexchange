@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, Monitor, MonitorOff } from "lucide-react";
 import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
@@ -28,47 +28,20 @@ function toDate(value: unknown): Date | null {
   return Number.isNaN(p) ? null : new Date(p);
 }
 
-/** Lazy iframe — loads the real branch display only when the card is on screen. */
+/** Branch display preview — browser-lazy iframe of the live TV screen. */
 function BranchTvView({ branchCode, name }: { branchCode: string; name: string }) {
-  const wrapRef = useRef<HTMLDivElement | null>(null);
-  const [active, setActive] = useState(false);
   const code = normalizeBranchCode(branchCode);
   const src = `/display/?branch=${encodeURIComponent(code)}&preview=1`;
 
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) {
-          setActive(true);
-          io.disconnect();
-        }
-      },
-      { rootMargin: "200px", threshold: 0.05 },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   return (
-    <div
-      ref={wrapRef}
-      className="overflow-hidden rounded-xl border border-border/50 bg-black shadow-inner"
-    >
-      {active ? (
-        <iframe
-          src={src}
-          title={`TV view — ${name}`}
-          className="aspect-video w-full border-0"
-          loading="lazy"
-          referrerPolicy="no-referrer"
-        />
-      ) : (
-        <div className="flex aspect-video w-full items-center justify-center bg-muted/30 text-xs text-muted-foreground">
-          Loading TV view…
-        </div>
-      )}
+    <div className="overflow-hidden rounded-xl border border-border/50 bg-black shadow-inner">
+      <iframe
+        src={src}
+        title={`TV view — ${name}`}
+        className="aspect-video w-full border-0"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
     </div>
   );
 }
