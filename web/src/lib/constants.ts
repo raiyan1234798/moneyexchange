@@ -37,6 +37,9 @@ export const COLLECTIONS = {
   tvPairingCodes: "tv_pairing_codes",
   imageAdverts: "image_adverts",
   transferRates: "transfer_rates",
+  /** Small per-branch TV prefs (e.g. hidden remittance codes) — kept outside
+      the branch doc so saves work when branch.settings is near the 1 MiB cap. */
+  branchDisplayPrefs: "branch_display_prefs",
   pendingApprovals: "pending_approvals",
   appConfig: "app_config",
 } as const;

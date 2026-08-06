@@ -143,7 +143,15 @@ export function CentralTransferPanel({
         );
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update visibility");
+      const msg = e instanceof Error ? e.message : "Failed to update visibility";
+      if (/exceeds the maximum allowed size|1,048,576|1048576/i.test(msg)) {
+        toast.error(
+          "That branch’s settings file is over Firestore’s 1 MB limit. Remittance hide now saves to a small separate record — please retry. If Settings still won’t save, remove large uploaded images from that branch’s Settings.",
+          { duration: 12000 },
+        );
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setVisibilitySaving(false);
     }

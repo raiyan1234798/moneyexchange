@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { subscribeBranches } from "@/lib/services/branch-service";
+import {
+  mergeBranchWithDisplayPrefs,
+  subscribeAllBranchDisplayPrefs,
+} from "@/lib/services/branch-display-prefs-service";
 import { useBranchScopeStore } from "@/lib/stores/branch-scope-store";
 import type { Branch } from "@/lib/types";
 
@@ -26,13 +30,23 @@ export function useBranchScope() {
   // EVERY branch's rates, not just their own.
   const allBranchForex = hasModule("forexRatesAllBranches");
   const [allBranches, setAllBranches] = useState<Branch[]>([]);
+  const [prefsByBranchId, setPrefsByBranchId] = useState<Record<string, string[]>>({});
   const selectedBranchId = useBranchScopeStore((s) => s.selectedBranchId);
   const setSelectedBranchId = useBranchScopeStore((s) => s.setSelectedBranchId);
 
-  const branches = useMemo(
-    () => visibleBranchesForRole(allBranches, profile?.role, profile?.branchId, allBranchForex),
-    [allBranches, profile?.branchId, profile?.role, allBranchForex],
-  );
+  const branches = useMemo(() => {
+    const merged = allBranches.map((b) =>
+      prefsByBranchId[b.id] !== undefined
+        ? mergeBranchWithDisplayPrefs(b, prefsByBranchId[b.id])
+        : b,
+    );
+    return visibleBranchesForRole(merged, profile?.role, profile?.branchId, allBranchForex);
+  }, [allBranches, prefsByBranchId, profile?.branchId, profile?.role, allBranchForex]);
+
+  useEffect(() => {
+    const unsubPrefs = subscribeAllBranchDisplayPrefs(setPrefsByBranchId);
+    return unsubPrefs;
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeBranches((items) => {

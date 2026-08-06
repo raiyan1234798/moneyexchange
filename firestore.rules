@@ -337,6 +337,15 @@ service cloud.firestore {
             .hasOnly(['settings', 'updatedAt', 'logoUrl', 'brandingColor']));
     }
 
+    // Small per-branch TV prefs (hidden remittance codes, etc.) — kept outside
+    // the branch doc so writes succeed when branch.settings nears 1 MiB.
+    match /branch_display_prefs/{branchId} {
+      allow read: if true;
+      allow create, update, delete: if isSuperAdmin() || isAdmin() ||
+        hasModuleKey('forexRatesAllBranches') ||
+        hasModuleKey('transferRates');
+    }
+
     match /currencies/{currencyId} {
       allow read: if isActiveUser();
       // Admins manage the currency catalog too (client request 2026-07-20).

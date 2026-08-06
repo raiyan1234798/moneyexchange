@@ -231,17 +231,27 @@ export async function setForexCurrenciesVisibilityOnBranches(
   if (codes.length === 0 || uniqueBranches.length === 0) return 0;
   const branchSet = new Set(uniqueBranches);
 
-  // One equality query per code (parallel) — returns that currency on EVERY
-  // branch, then we keep only the target branchIds. Far cheaper than
-  // listExchangeRates(branch) × N branches.
-  const perCode = await Promise.all(
-    codes.map((code) =>
-      listDocuments<ExchangeRate>(COLLECTIONS.exchangeRates, [where("currencyCode", "==", code)]),
+  // One query per chunk of codes (Firestore `in` max 10) — faster than N
+  // separate scans when hiding several currencies at once.
+  const codeChunks: string[][] = [];
+  for (let i = 0; i < codes.length; i += 10) {
+    codeChunks.push(codes.slice(i, i + 10));
+  }
+  const perChunk = await Promise.all(
+    codeChunks.map((chunk) =>
+      listDocuments<ExchangeRate>(COLLECTIONS.exchangeRates, [where("currencyCode", "in", chunk)]),
     ),
   );
-  const toUpdate = perCode
+  const seen = new Set<string>();
+  const toUpdate = perChunk
     .flat()
-    .filter((rate) => branchSet.has(rate.branchId) && rate.isHidden !== isHidden);
+    .filter((rate) => {
+      if (!branchSet.has(rate.branchId) || rate.isHidden === isHidden) return false;
+      const key = rate.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
   if (toUpdate.length === 0) return 0;
 

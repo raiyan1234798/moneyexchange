@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { subscribeBranch } from "@/lib/services/branch-service";
+import { subscribeBranchDisplayPrefs } from "@/lib/services/branch-display-prefs-service";
 import { subscribeExchangeRates } from "@/lib/services/exchange-rate-service";
 import { subscribeTransferRates } from "@/lib/services/transfer-rate-service";
 import { subscribeImageAdverts } from "@/lib/services/image-advert-service";
@@ -231,6 +232,9 @@ function TimedRatesPanel({
 
 export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScreenProps) {
   const [branch, setBranch] = useState<Branch | null>(null);
+  const [displayPrefsHiddenTransfer, setDisplayPrefsHiddenTransfer] = useState<string[] | null>(
+    null,
+  );
   const [rates, setRates] = useState<ExchangeRate[]>([]);
   const [transferRates, setTransferRates] = useState<TransferRate[]>([]);
   const [tickers, setTickers] = useState<TickerMessage[]>([]);
@@ -278,6 +282,10 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
     ...(branch?.settings ?? {}),
     ...(settingsOverride ?? {}),
   };
+  const hiddenTransferCodes =
+    displayPrefsHiddenTransfer !== null
+      ? displayPrefsHiddenTransfer
+      : (branchSettings.hiddenTransferCodes ?? []);
   const rateCardPosition = branchSettings.rateCardPosition ?? "right";
   const rateCardDisplaySeconds = branchSettings.rateCardDisplaySeconds ?? 0;
   const rateCardHideSeconds = branchSettings.rateCardHideSeconds ?? 0;
@@ -547,7 +555,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const hasAnyRateContent = rateCardHasContent({
     rates,
     transferRates,
-    hiddenTransferCodes: branchSettings.hiddenTransferCodes ?? [],
+    hiddenTransferCodes,
     showForexCard,
     showTransferCard,
     promoMedia: ratePromoMedia,
@@ -585,6 +593,15 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
     // an admin explicitly used "Apply to all branches" (creates per-branch copies).
     const scopedBranchId = branchId;
     const unsubBranch = subscribeBranch(scopedBranchId, setBranch);
+    const unsubPrefs = subscribeBranchDisplayPrefs(scopedBranchId, (prefs) => {
+      if (!prefs) {
+        setDisplayPrefsHiddenTransfer(null);
+        return;
+      }
+      setDisplayPrefsHiddenTransfer(
+        (prefs.hiddenTransferCodes ?? []).map((c) => String(c).toUpperCase()).filter(Boolean),
+      );
+    });
     const unsubRates = subscribeExchangeRates(scopedBranchId, setRates);
     // Centralized head-office transfer rates — global, identical on every branch.
     const unsubTransfer = subscribeTransferRates(setTransferRates);
@@ -595,6 +612,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
 
     return () => {
       unsubBranch();
+      unsubPrefs();
       unsubRates();
       unsubTransfer();
       unsubTickers();
@@ -934,7 +952,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       showTransferCard={showTransferCard}
       showForexCard={showForexCard}
       transferRates={transferRates}
-      hiddenTransferCodes={branchSettings.hiddenTransferCodes ?? []}
+      hiddenTransferCodes={hiddenTransferCodes}
       transferLocalLabel={transferLocalLabel}
       scale={rateCardScale}
       currencyScale={rateCurrencyScale}

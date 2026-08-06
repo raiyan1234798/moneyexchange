@@ -10,7 +10,11 @@ import { doc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
 import { normalizeCurrencyCode } from "@/lib/currency-utils";
-import type { Branch, BranchSettings, TransferRate } from "@/lib/types";
+import {
+  resolveHiddenTransferCodes,
+  setHiddenTransferCodesOnBranches,
+} from "@/lib/services/branch-display-prefs-service";
+import type { Branch, TransferRate } from "@/lib/types";
 
 /**
  * CENTRALIZED money-transfer (remittance) rates — one set from head office,
@@ -184,7 +188,7 @@ export async function setTransferCurrencyVisibilityOnBranches(
 
 /**
  * Hide or show MANY remittance currencies in one pass.
- * Uses Firestore writeBatch so all branch settings update in one round-trip.
+ * Writes only to branch_display_prefs (tiny docs) — not branch.settings.
  */
 export async function setTransferCurrenciesVisibilityOnBranches(
   codes: string[],
@@ -198,13 +202,15 @@ export async function setTransferCurrenciesVisibilityOnBranches(
   ];
   if (normalized.length === 0 || targets.length === 0) return 0;
 
-  const batch = writeBatch(db);
-  let updated = 0;
-  for (const branch of targets) {
-    const prevSettings = { ...(branch.settings ?? {}) } as BranchSettings;
-    const current = (prevSettings.hiddenTransferCodes ?? [])
-      .map((c) => String(c).toUpperCase())
-      .filter(Boolean);
+  const resolved = await Promise.all(
+    targets.map(async (branch) => ({
+      branch,
+      current: await resolveHiddenTransferCodes(branch.id, branch.settings?.hiddenTransferCodes),
+    })),
+  );
+
+  const prefsUpdates: Array<{ branchId: string; hiddenTransferCodes: string[] }> = [];
+  for (const { branch, current } of resolved) {
     let next = [...current];
     let changed = false;
     for (const code of normalized) {
@@ -218,13 +224,13 @@ export async function setTransferCurrenciesVisibilityOnBranches(
       }
     }
     if (!changed) continue;
-    batch.update(doc(db, COLLECTIONS.branches, branch.id), {
-      settings: { ...prevSettings, hiddenTransferCodes: next },
-      updatedAt: serverTimestamp(),
-    });
-    updated += 1;
+    prefsUpdates.push({ branchId: branch.id, hiddenTransferCodes: next });
   }
-  if (updated > 0) await batch.commit();
+
+  if (prefsUpdates.length > 0) {
+    await setHiddenTransferCodesOnBranches(prefsUpdates);
+  }
+  const updated = prefsUpdates.length;
 
   const allIds = opts?.allActiveBranchIds ?? [];
   const targetingAll = allIds.length > 0 && targets.length >= allIds.length;

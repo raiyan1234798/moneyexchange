@@ -807,8 +807,13 @@ export default function ExchangeRatesPage() {
     }
     setVisibilitySaving(true);
     const codeSet = new Set(codes);
-    // Optimistic: flip local rows immediately so the dialog can close,
-    // then re-sort so hidden currencies sink to the bottom.
+    const dialogCodes = [...codes];
+    const dialogHide = hide;
+    const targetCount = targets.length;
+    // Close immediately — work continues in the background (client 2026-08-06).
+    setVisibilityDialog(null);
+    setSelectedVisibilityCodes([]);
+    // Optimistic: flip local rows immediately, then re-sort so hidden currencies sink to the bottom.
     if (effectiveBranchId && targets.includes(effectiveBranchId)) {
       setRates((prev) =>
         [...prev.map((r) =>
@@ -823,29 +828,35 @@ export default function ExchangeRatesPage() {
     }
     try {
       const updated = await setForexCurrenciesVisibilityOnBranches(
-        codes,
-        hide,
+        dialogCodes,
+        dialogHide,
         targets,
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
       const label =
-        codes.length === 1
-          ? codes[0]
-          : `${codes.length} currencies (${codes.slice(0, 4).join(", ")}${codes.length > 4 ? "…" : ""})`;
+        dialogCodes.length === 1
+          ? dialogCodes[0]
+          : `${dialogCodes.length} currencies (${dialogCodes.slice(0, 4).join(", ")}${dialogCodes.length > 4 ? "…" : ""})`;
       toast.success(
-        hide
-          ? `Hidden ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`
-          : `Shown ${label} on ${targets.length} branch${targets.length === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`,
+        dialogHide
+          ? `Hidden ${label} on ${targetCount} branch${targetCount === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`
+          : `Shown ${label} on ${targetCount} branch${targetCount === 1 ? "" : "es"} (${updated} rate row${updated === 1 ? "" : "s"})`,
         { duration: 7000 },
       );
-      setVisibilityDialog(null);
-      setSelectedVisibilityCodes([]);
       // Refresh in the background — subscribe may already cover it.
       if (effectiveBranchId) {
         void listExchangeRates(effectiveBranchId).then(setRates).catch(() => undefined);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to update visibility");
+      const msg = e instanceof Error ? e.message : "Failed to update visibility";
+      if (/exceeds the maximum allowed size|1,048,576|1048576/i.test(msg)) {
+        toast.error(
+          "Save failed: a branch settings document is too large (Firestore 1 MB limit). Transfer hides now use a separate prefs doc — retry. If this persists on forex hide, contact support.",
+          { duration: 12000 },
+        );
+      } else {
+        toast.error(msg);
+      }
       if (effectiveBranchId) {
         void listExchangeRates(effectiveBranchId).then(setRates).catch(() => undefined);
       }
