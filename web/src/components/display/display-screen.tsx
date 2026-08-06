@@ -866,6 +866,9 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       placeholderFontCss={rateCardFontCss}
       videoUrl={branchVideoUrl && !videoError ? branchVideoUrl : null}
       imageUrl={branchImageUrl}
+      // Chunked/cached videos resolve async — keep the previous frame up instead
+      // of flashing the empty navy placeholder between image ↔ video steps.
+      mediaPending={Boolean(activeVideo && !videoError && !branchVideoUrl)}
       videoLoaded={videoLoaded}
       loopVideo={mediaSequence.length <= 1}
       mediaKey={seqIndex}

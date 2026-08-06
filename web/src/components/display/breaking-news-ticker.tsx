@@ -173,8 +173,9 @@ function useCleanLogoSrc(
   return enabled ? cleaned : src;
 }
 
-/** One scrolling logo — every logo uses the SAME fixed slot (bar-height × 14:5);
- *  artwork stays fully visible via object-contain (never cropped). */
+/** One scrolling logo — every logo uses the SAME fixed slot (bar-height × 14:5 /
+ *  ~2.8:1 landscape); artwork stays fully visible via object-contain (never
+ *  cropped). Optional on-the-fly background strip removes white sticker boxes. */
 function ScrollingLogoImg({
   src,
   animClass,
@@ -182,6 +183,7 @@ function ScrollingLogoImg({
   gapVw = 1.2,
   scale = 1,
   heightScale = 1,
+  removeBg = true,
 }: {
   src: string;
   bgMode: "white" | "transparent" | "auto";
@@ -191,12 +193,15 @@ function ScrollingLogoImg({
   gapVw?: number;
   scale?: number;
   heightScale?: number;
-  fitMode?: "contain" | "fill" | "stretch";
+  fitMode?: "contain" | "cover" | "fill" | "stretch";
   stretch?: boolean;
+  removeBg?: boolean;
 }) {
+  const cleanSrc = useCleanLogoSrc(src, removeBg, "any");
   const gap = Math.max(0, gapVw);
   const gapStyle = side === "start" ? { marginRight: `${gap}vw` } : { marginLeft: `${gap}vw` };
   const sizeScale = Math.max(0.3, Math.min(1, scale));
+  // Fixed landscape slot ≈ 14:5 (width = height × 2.8). Matches upload spec.
   const slotH = `calc(clamp(3rem, 6vh, 4.5rem) * ${heightScale} * ${sizeScale})`;
   const slotW = `calc(clamp(3rem, 6vh, 4.5rem) * ${heightScale} * ${sizeScale} * 2.8)`;
   return (
@@ -210,11 +215,12 @@ function ScrollingLogoImg({
         minHeight: slotH,
         maxWidth: slotW,
         maxHeight: slotH,
+        background: "transparent",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src={src}
+        src={cleanSrc}
         alt=""
         className="block"
         style={{
@@ -535,6 +541,7 @@ function BreakingNewsTickerInner({
                         heightScale={heightScale}
                         fitMode={scrollLogoFitMode}
                         stretch={item.stretch}
+                        removeBg={scrollLogoRemoveBg}
                       />
                     ))
                   : null}
@@ -555,6 +562,7 @@ function BreakingNewsTickerInner({
                         heightScale={heightScale}
                         fitMode={scrollLogoFitMode}
                         stretch={item.stretch}
+                        removeBg={scrollLogoRemoveBg}
                       />
                     ))
                   : null}

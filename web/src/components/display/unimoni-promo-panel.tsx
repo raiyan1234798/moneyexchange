@@ -1,13 +1,21 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import Image from "next/image";
 import { UNIMONI_COLORS } from "@/lib/unimoni-signage";
 import { promoTransitionDurationMs, slideTransitionClass } from "@/lib/constants";
 
+type HoldMedia = { kind: "video" | "image"; url: string };
+
 interface UnimoniPromoPanelProps {
   videoUrl?: string | null;
   imageUrl?: string | null;
+  /**
+   * True while the play-order step is a video whose stream URL is still
+   * resolving (chunked/cached). Prevents the empty-screen placeholder from
+   * flashing navy between image ↔ video steps.
+   */
+  mediaPending?: boolean;
   videoLoaded?: boolean;
   loopVideo?: boolean;
   /** "stretch" = stretch to exactly fill (old-player behaviour); "auto" = area resizes to the media; "contain" = whole media + blurred fill; "cover" = fill & crop. */
@@ -35,7 +43,8 @@ interface UnimoniPromoPanelProps {
   children?: React.ReactNode;
   /** Empty-screen card style: unimoni logo (default), the branch's own TEXT,
       or an uploaded IMAGE (client 2026-08-05). Between-clip cover is always
-      plain navy (play-button shield only). */
+      plain navy (play-button shield only) — and only when there is no previous
+      frame to hold. */
   placeholderMode?: "logo" | "text" | "image";
   placeholderText?: string | null;
   placeholderImageUrl?: string | null;
@@ -46,6 +55,7 @@ interface UnimoniPromoPanelProps {
 export function UnimoniPromoPanel({
   videoUrl,
   imageUrl,
+  mediaPending = false,
   videoLoaded = false,
   loopVideo = true,
   fit = "stretch",
@@ -77,11 +87,43 @@ export function UnimoniPromoPanel({
   // opening the link directly) — so the branded cover must track real playback,
   // not just which URL loaded.
   const [isActuallyPlaying, setIsActuallyPlaying] = useState(false);
+  const [imageReady, setImageReady] = useState(false);
+  // Last successfully shown media — kept on screen until the next item is ready
+  // so image↔video transitions never flash blank navy (client 2026-08-06).
+  const [hold, setHold] = useState<HoldMedia | null>(null);
+
   const imageFailed = Boolean(imageUrl) && failedImageUrl === imageUrl;
 
   const showVideo = Boolean(videoUrl);
   const showImage = Boolean(imageUrl) && !showVideo && !imageFailed;
-  const showPlaceholder = !showVideo && !showImage;
+  const videoReady = Boolean(
+    showVideo && videoLoaded && playingUrl === videoUrl && isActuallyPlaying,
+  );
+  const currentReady = showVideo ? videoReady : showImage ? imageReady : false;
+
+  useEffect(() => {
+    setImageReady(false);
+  }, [imageUrl]);
+
+  useEffect(() => {
+    if (showVideo && videoReady && videoUrl) {
+      setHold({ kind: "video", url: videoUrl });
+    } else if (showImage && imageReady && imageUrl) {
+      setHold({ kind: "image", url: imageUrl });
+    }
+  }, [showVideo, showImage, videoReady, imageReady, videoUrl, imageUrl]);
+
+  // Keep the previous frame up while the next item buffers, or while a video
+  // URL is still resolving (mediaPending).
+  const showHold = Boolean(hold && (!currentReady || mediaPending));
+
+  // Empty placeholder only when there is truly nothing to show — not while the
+  // next video URL is resolving, and not while a previous frame is still held.
+  const showPlaceholder = !showVideo && !showImage && !mediaPending && !hold;
+
+  // Navy play-button shield only when a paused/loading video would otherwise be
+  // visible with no hold frame above it.
+  const showSwapCover = showVideo && !videoReady && !showHold;
 
   // "stretch" (default): media is stretched to exactly fill the fixed area —
   // whole content visible, no bars, no crop (matches the client's previous
@@ -92,12 +134,17 @@ export function UnimoniPromoPanel({
   const objectClass =
     fit === "stretch" ? "object-fill" : fit === "cover" ? "object-cover" : "object-contain";
   const useBackdrop = fit === "contain";
-  const mediaAnimMs = typeof mediaTransitionSeconds === "number" ? Math.round(mediaTransitionSeconds * 1000) : promoTransitionDurationMs;
+  const mediaAnimMs =
+    typeof mediaTransitionSeconds === "number"
+      ? Math.round(mediaTransitionSeconds * 1000)
+      : promoTransitionDurationMs;
   const mediaAnimStyle = { animationDuration: `${mediaAnimMs}ms` } as CSSProperties;
   const mediaAnimClass = slideTransitionClass(mediaTransition);
 
   const panelStyle: CSSProperties =
-    showVideo || showImage ? {} : { backgroundColor: UNIMONI_COLORS.panelBlue };
+    showVideo || showImage || showHold || mediaPending
+      ? {}
+      : { backgroundColor: UNIMONI_COLORS.panelBlue };
   if (widthPercent) panelStyle.width = `${widthPercent}%`;
 
   return (
@@ -105,6 +152,35 @@ export function UnimoniPromoPanel({
       className={`display-promo-panel relative flex h-full w-full min-h-0 shrink-0 flex-col overflow-hidden bg-black transition-[width] duration-500 ease-out lg:w-[65%] xl:w-[68%] ${className}`}
       style={panelStyle}
     >
+      {/* HOLD LAYER — previous image/video stays visible until the next item is
+          ready, so transitions never drop to blank navy. */}
+      {showHold && hold ? (
+        hold.kind === "image" ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={hold.url}
+            alt=""
+            aria-hidden
+            className={`absolute inset-0 z-[3] h-full w-full ${objectClass}`}
+          />
+        ) : (
+          <video
+            tabIndex={-1}
+            disableRemotePlayback
+            controlsList="nodownload nofullscreen noremoteplayback"
+            src={hold.url}
+            className={`absolute inset-0 z-[3] h-full w-full ${objectClass}`}
+            muted
+            playsInline
+            autoPlay
+            loop
+            controls={false}
+            disablePictureInPicture
+            aria-hidden
+          />
+        )
+      ) : null}
+
       {showVideo ? (
         // Native <video> — including Google Drive direct-stream URLs. The full
         // video is visible (contain) over a blurred copy of itself (backdrop),
@@ -112,9 +188,9 @@ export function UnimoniPromoPanel({
         <>
           {useBackdrop ? (
             <video
-            tabIndex={-1}
-            disableRemotePlayback
-            controlsList="nodownload nofullscreen noremoteplayback"
+              tabIndex={-1}
+              disableRemotePlayback
+              controlsList="nodownload nofullscreen noremoteplayback"
               key={`${videoUrl}-bg`}
               src={videoUrl ?? undefined}
               className="absolute inset-0 z-0 h-full w-full scale-110 object-cover blur-2xl brightness-[0.5]"
@@ -219,6 +295,7 @@ export function UnimoniPromoPanel({
               priority
               onLoad={(e) => {
                 const img = e.currentTarget as HTMLImageElement;
+                setImageReady(true);
                 if (img.naturalWidth && img.naturalHeight)
                   onMediaAspectChange?.(img.naturalWidth / img.naturalHeight);
               }}
@@ -228,20 +305,13 @@ export function UnimoniPromoPanel({
         </>
       ) : null}
 
-      {/* SWAP COVER — while the next clip loads (between videos / at the end of
-          the playlist loop), some TV browsers paint their own giant play button
-          over the paused video. CSS can't remove that native overlay, so we
-          simply COVER the video with a plain navy panel until the new clip is
-          actually playing, then fade it away. Plain navy only (no logo / text /
-          image) — minimal placeholder that still hides the play button
-          (client 2026-08-06). Empty-screen branding still applies when there is
-          no media in the playlist. */}
-      {showVideo ? (
+      {/* SWAP COVER — Android-TV play-button shield. Only when a video is
+          loading/paused AND we have no previous frame to hold above it.
+          Plain navy only (no logo). */}
+      {showSwapCover ? (
         <div
           aria-hidden
-          className={`pointer-events-none absolute inset-0 z-[4] bg-[#0B1F3A] transition-opacity duration-500 ${
-            videoLoaded && playingUrl === videoUrl && isActuallyPlaying ? "opacity-0" : "opacity-100"
-          }`}
+          className="pointer-events-none absolute inset-0 z-[4] bg-[#0B1F3A] transition-opacity duration-500 opacity-100"
         />
       ) : null}
 
@@ -266,25 +336,25 @@ export function UnimoniPromoPanel({
             </p>
           </div>
         ) : (
-        <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-[#0B1F3A]/80 px-6 text-center">
-          <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
-            <Image
-              src="/unimoni-logo-full.png"
-              alt="unimoni"
-              width={300}
-              height={97}
-              className="h-[clamp(2.5rem,7vh,5rem)] w-auto object-contain"
-              unoptimized
-              priority
-            />
+          <div className="absolute inset-0 z-[5] flex flex-col items-center justify-center gap-4 bg-[#0B1F3A]/80 px-6 text-center">
+            <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
+              <Image
+                src="/unimoni-logo-full.png"
+                alt="unimoni"
+                width={300}
+                height={97}
+                className="h-[clamp(2.5rem,7vh,5rem)] w-auto object-contain"
+                unoptimized
+                priority
+              />
+            </div>
+            <p className="text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium tracking-wide text-white/90">
+              Branch promotional video
+            </p>
+            <p className="max-w-md text-[clamp(0.75rem,1.1vw,0.9rem)] leading-relaxed text-white/55">
+              Upload content in Dashboard → Videos for this branch.
+            </p>
           </div>
-          <p className="text-[clamp(0.95rem,1.5vw,1.25rem)] font-medium tracking-wide text-white/90">
-            Branch promotional video
-          </p>
-          <p className="max-w-md text-[clamp(0.75rem,1.1vw,0.9rem)] leading-relaxed text-white/55">
-            Upload content in Dashboard → Videos for this branch.
-          </p>
-        </div>
         )
       ) : null}
 

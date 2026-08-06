@@ -873,6 +873,12 @@ export function TickerDisplaySettings({
                 remove one. <strong>Drag a logo onto another to change the order they appear in</strong>{" "}
                 (then Save). Backgrounds are removed automatically on upload.
               </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                Upload spec (keeps every logo the same size, never cropped): transparent PNG,{" "}
+                <strong>400×143 px (14:5 landscape)</strong>, mark centered with padding. The TV
+                always shows them in a fixed 14:5 slot with object-fit contain. See{" "}
+                <code className="rounded bg-muted px-1">Unimoni-Scrolling-Message-Logos-Spec.txt</code>.
+              </p>
             </div>
             <Switch
               checked={s.tickerScrollLogosEnabled !== false}

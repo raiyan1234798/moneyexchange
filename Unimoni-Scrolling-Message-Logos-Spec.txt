@@ -1,0 +1,92 @@
+UNIMONI — SCROLLING-MESSAGE LOGOS SPECIFICATION
+================================================
+Version: 2026-08-06
+Applies to: Dashboard → Tickers / Settings → Scrolling ticker logos
+Display: TV bottom ticker bar (scrolling message)
+
+------------------------------------------------------------
+1. STANDARD DIMENSIONS & SHAPE
+------------------------------------------------------------
+Display slot (enforced by the TV app — every logo gets the same box):
+  • Shape: landscape rectangle
+  • Aspect ratio: 14:5  (width = height × 2.8)
+  • On-screen size: about 72×201 px on a 1080p TV at default scale
+    (slot height = clamp(48px, 6vh, 72px); width = height × 2.8)
+
+Recommended master file to upload (artwork canvas):
+  • 400 × 143 px   (exactly 14:5)   — preferred
+  • Acceptable: 560 × 200 px or any 14:5 (or near-landscape) PNG
+  • Longest edge ≤ 400 px after upload compression
+
+Alignment inside the slot:
+  • Centered horizontally and vertically
+  • Fit mode: contain (entire logo visible — NEVER cropped)
+  • Transparent background around the artwork
+  • Keep ~8–12% clear padding inside the canvas so logos don’t touch the slot edges
+
+DO NOT:
+  • Upload tall/portrait logos expecting them to fill the bar (they will letterbox)
+  • Stretch or distort artwork to force a different ratio
+  • Bake a large white / coloured rectangle behind the mark (it shows as a “sticker”)
+
+------------------------------------------------------------
+2. FILE FORMAT & RESOLUTION
+------------------------------------------------------------
+Accepted formats:  PNG (preferred), JPEG, WebP, SVG
+Colour:            sRGB
+Transparency:      PNG with alpha preferred (logo on transparent ground)
+Max after upload:  longest edge 400 px; ~90 KB binary target (app compresses)
+Resolution:        1× of the canvas above is enough for TV; 2× (800×286) is OK
+                   but will be downscaled on upload
+
+------------------------------------------------------------
+3. UPLOAD SETTINGS (DASHBOARD)
+------------------------------------------------------------
+Path: Tickers page (or Settings display) → Scrolling ticker logos → file picker
+
+Required / default pipeline (already built in):
+  [x] Accept image/png, jpeg, webp, svg
+  [x] Auto-remove solid / white sticker backgrounds (keep ON)
+  [x] Auto-trim empty margin so the mark fills the slot height
+  [x] Compress with LOGO_IMAGE_OPTIONS (max 400 px, ~90 KB)
+  [x] Display fit = contain (no crop), transparent slot background
+  [x] Equal gap between logos (default ~1.2 vw) — adjust “Logo gap” if needed
+  [x] Equal slot size for every logo (scale control applies to ALL equally)
+
+Admin steps for each new logo:
+  1. Prepare a 14:5 transparent PNG with the mark centered + padding.
+  2. Upload via Scrolling ticker logos (multi-select allowed).
+  3. Confirm preview thumbnails look even (same box size).
+  4. Set Front / End placement if needed.
+  5. Save / Publish to the branch (or apply to all branches if required).
+
+If an OLD logo still shows a white box:
+  • Click the per-logo “Remove background” control, then Save
+  • Or re-upload a transparent PNG
+
+------------------------------------------------------------
+4. INTEGRITY CHECKLIST (NO CROP / NO ALTERATION OF THE MARK)
+------------------------------------------------------------
+Before Save / after Publish, verify on the TV (or Overview TV preview):
+
+  [ ] Every scrolling logo sits in the SAME width × height slot
+  [ ] No logo is cropped on any edge (full mark visible)
+  [ ] Aspect ratio of the artwork is unchanged (no squash / stretch)
+  [ ] No white or coloured “card” behind the mark (transparent bar behind)
+  [ ] Gaps between logos look even
+  [ ] Logo does not collide with the scrolling text
+  [ ] Replacing one logo does not change other logos’ sizes
+  [ ] File was not manually stretched to 14:5 if that would distort the mark
+      — instead: place the original mark centered on a 14:5 transparent canvas
+
+Conflict rule:
+  If a logo’s natural shape is not 14:5, keep its aspect ratio intact and
+  letterbox it inside the 14:5 slot (contain). Never crop or distort to fill.
+
+------------------------------------------------------------
+5. WHY THESE NUMBERS
+------------------------------------------------------------
+The TV renderer uses a fixed slot: height × 2.8 width, object-fit: contain.
+Matching uploads to 14:5 minimises empty padding differences between brands
+so Foreign Currency Exchange, Wiz, Unimoni, Bank Transfer, etc. look uniform
+without cropping or reshaping any mark.

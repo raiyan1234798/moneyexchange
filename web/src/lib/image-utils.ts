@@ -23,6 +23,19 @@ export const LOGO_IMAGE_OPTIONS: CompressOptions = {
   targetBytes: 90_000,
 };
 
+/** Scrolling-message logo master canvas (TV slot is height × 2.8 ≈ 14:5). */
+export const SCROLLING_LOGO_SPEC = {
+  /** Target upload width × height in pixels. */
+  width: 400,
+  height: 143,
+  /** width / height */
+  aspect: 400 / 143,
+  /** Human label for admin UI / docs. */
+  label: "400×143 px (14:5 landscape)",
+  fit: "contain" as const,
+  formats: ["image/png", "image/jpeg", "image/webp", "image/svg+xml"] as const,
+};
+
 function loadImage(file: File): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);

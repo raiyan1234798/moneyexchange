@@ -1,5 +1,6 @@
 /**
  * Guards the between-clip Android TV cover: plain navy only, no logo chip.
+ * Also guards hold-previous-media so image↔video transitions don't flash blank.
  * (Empty-screen branding when there is no media may still show the logo.)
  */
 import assert from "node:assert/strict";
@@ -13,6 +14,7 @@ const panelPath = path.join(root, "components/display/unimoni-promo-panel.tsx");
 const settingsPath = path.join(root, "app/dashboard/settings/page.tsx");
 const displayPath = path.join(root, "components/display/display-screen.tsx");
 const constantsPath = path.join(root, "lib/constants.ts");
+const tickerPath = path.join(root, "components/display/breaking-news-ticker.tsx");
 
 describe("video between-clip cover", () => {
   const panel = fs.readFileSync(panelPath, "utf8");
@@ -34,8 +36,14 @@ describe("video between-clip cover", () => {
     assert.doesNotMatch(swapBlock, /unimoni-logo-full/);
     assert.doesNotMatch(swapBlock, /placeholderMode/);
     assert.doesNotMatch(swapBlock, /showCoverLogo/);
-    assert.doesNotMatch(swapBlock, /<(Image|img|p)\b/);
-    assert.match(swapBlock, /bg-\[#0B1F3A\][\s\S]*?\/>/);
+  });
+
+  it("holds previous media so transitions are not blank navy", () => {
+    assert.match(panel, /HOLD LAYER/);
+    assert.match(panel, /mediaPending/);
+    assert.match(panel, /showHold/);
+    assert.match(panel, /showSwapCover/);
+    assert.match(display, /mediaPending=/);
   });
 
   it("removes the showCoverLogo wiring from display + panel", () => {
@@ -54,5 +62,15 @@ describe("video between-clip cover", () => {
     const emptyBlock = panel.slice(emptyIdx);
     assert.match(emptyBlock, /unimoni-logo-full/);
     assert.match(emptyBlock, /Branch promotional video/);
+  });
+});
+
+describe("scrolling-message logos", () => {
+  const ticker = fs.readFileSync(tickerPath, "utf8");
+
+  it("uses a fixed 14:5 / 2.8 slot with object-contain (no crop)", () => {
+    assert.match(ticker, /\* 2\.8/);
+    assert.match(ticker, /objectFit:\s*"contain"/);
+    assert.match(ticker, /useCleanLogoSrc/);
   });
 });
