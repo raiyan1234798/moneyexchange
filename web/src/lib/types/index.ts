@@ -212,8 +212,9 @@ export interface BranchSettings {
    */
   hiddenTransferCodes?: string[] | null;
 
-  /** unimoni logo on the navy cover between video clips. Default true. OFF =
-      plain navy cover (the cover always stays so the play button never shows). */
+  /** unimoni logo on the navy cover between video clips. Default false =
+      plain navy cover (the cover always stays so the play button never shows).
+      Opt in to true to show the logo chip again. */
   showVideoCoverLogo?: boolean;
   /** Transition when the video-area image/video changes. */
   videoImageTransition?: string;

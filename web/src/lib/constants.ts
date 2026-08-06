@@ -78,7 +78,9 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerHeadline: null as string | null,
   showTickerHeadline: true,
   showTickerLogo: true,
-  showVideoCoverLogo: true,
+  // Plain navy between clips by default — keeps the Android-TV play-button
+  // cover without flashing the unimoni logo chip (client 2026-08-06).
+  showVideoCoverLogo: false,
   tickerHeadlineBgColor: null as string | null,
   tickerHeadlineTextColor: null as string | null,
   hiddenTransferCodes: [] as string[],

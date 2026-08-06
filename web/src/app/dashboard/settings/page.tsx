@@ -786,8 +786,8 @@ function BranchSettingsForm({
         <div>
           <Label>Empty screen shows</Label>
           <p className="text-xs text-muted-foreground">
-            What appears in the video area while this branch has no videos yet — AND on the short
-            navy cover BETWEEN clips while the next video loads.
+            What appears in the video area while this branch has no videos yet. Between clips the
+            player always uses a plain navy cover (keeps the TV play button hidden — no logo).
           </p>
         </div>
         <Select
@@ -934,19 +934,13 @@ function BranchSettingsForm({
           durationHint="Shared with the rate card — length of the flip/fade. Try 1.2s if cube/flip was invisible before."
         />
       </div>
-      <div className="mt-4 flex items-center justify-between rounded-xl border border-border/30 p-4" data-setting="logo between videos cover play button">
-        <div>
-          <Label>Show the unimoni logo between videos</Label>
-          <p className="text-xs text-muted-foreground">
-            While the next clip loads (or the playlist restarts), the player briefly shows a navy
-            panel — it is what hides the TV&apos;s big play button. ON: the unimoni logo appears on
-            that panel. OFF: the panel is plain navy. The play button stays hidden either way.
-          </p>
-        </div>
-        <Switch
-          checked={settings.showVideoCoverLogo !== false}
-          onCheckedChange={(checked) => setSettings({ ...settings, showVideoCoverLogo: checked })}
-        />
+      <div className="mt-4 rounded-xl border border-border/30 p-4" data-setting="logo between videos cover play button">
+        <Label>Between-video cover</Label>
+        <p className="mt-1 text-xs text-muted-foreground">
+          While the next clip loads (or the playlist restarts), the player shows a plain navy panel
+          only — no logo. That cover is what hides the TV&apos;s big play button on Android TV /
+          Chrome. It cannot be turned off.
+        </p>
       </div>
       </SettingsGroup>
 

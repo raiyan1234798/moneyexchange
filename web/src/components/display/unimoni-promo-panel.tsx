@@ -31,14 +31,11 @@ interface UnimoniPromoPanelProps {
   /** Changes on every play-order STEP — remounts the media element so the SAME
       video repeated back-to-back restarts instead of freezing on its last frame. */
   mediaKey?: string | number;
-  /** Show the unimoni logo chip on the navy cover between clips. OFF = plain
-      navy panel — the cover itself ALWAYS stays, so the TV's play button is
-      never visible either way (per client, 2026-07-26). */
-  showCoverLogo?: boolean;
   /** Overlays scoped to the promo area (e.g. the drop-down announcement). */
   children?: React.ReactNode;
   /** Empty-screen card style: unimoni logo (default), the branch's own TEXT,
-      or an uploaded IMAGE (client 2026-08-05). */
+      or an uploaded IMAGE (client 2026-08-05). Between-clip cover is always
+      plain navy (play-button shield only). */
   placeholderMode?: "logo" | "text" | "image";
   placeholderText?: string | null;
   placeholderImageUrl?: string | null;
@@ -63,7 +60,6 @@ export function UnimoniPromoPanel({
   mediaTransition = "fade",
   mediaTransitionSeconds = null,
   mediaKey,
-  showCoverLogo = true,
   placeholderMode = "logo",
   placeholderText = null,
   placeholderImageUrl = null,
@@ -235,51 +231,18 @@ export function UnimoniPromoPanel({
       {/* SWAP COVER — while the next clip loads (between videos / at the end of
           the playlist loop), some TV browsers paint their own giant play button
           over the paused video. CSS can't remove that native overlay, so we
-          simply COVER the video with a branded navy panel until the new clip is
-          actually playing, then fade it away. Viewers see a clean logo moment,
-          never the TV's play button. */}
+          simply COVER the video with a plain navy panel until the new clip is
+          actually playing, then fade it away. Plain navy only (no logo / text /
+          image) — minimal placeholder that still hides the play button
+          (client 2026-08-06). Empty-screen branding still applies when there is
+          no media in the playlist. */}
       {showVideo ? (
         <div
           aria-hidden
-          className={`pointer-events-none absolute inset-0 z-[4] flex items-center justify-center bg-[#0B1F3A] transition-opacity duration-500 ${
+          className={`pointer-events-none absolute inset-0 z-[4] bg-[#0B1F3A] transition-opacity duration-500 ${
             videoLoaded && playingUrl === videoUrl && isActuallyPlaying ? "opacity-0" : "opacity-100"
           }`}
-        >
-          {/* The logo chip is optional (admin switch); the navy COVER itself is
-              not — it is what keeps the TV's giant play button hidden while the
-              next clip loads, so it stays even with the logo turned off. */}
-          {/* The between-clips cover follows the SAME "Empty screen shows"
-              choice as the empty screen: unimoni chip, the branch's own
-              words (Settings display font), or their picture (2026-08-05). */}
-          {showCoverLogo ? (
-            placeholderMode === "image" && placeholderImageUrl?.trim() ? (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={placeholderImageUrl}
-                alt=""
-                className="max-h-[46%] max-w-[72%] object-contain drop-shadow-lg"
-              />
-            ) : placeholderMode === "text" && placeholderText?.trim() ? (
-              <p
-                className="max-w-[80%] whitespace-pre-line text-center text-[clamp(1.3rem,3.4vw,3.2rem)] font-extrabold leading-tight text-white drop-shadow-lg"
-                style={placeholderFontCss ? { fontFamily: placeholderFontCss } : undefined}
-              >
-                {placeholderText.trim()}
-              </p>
-            ) : (
-            <div className="rounded-2xl bg-white px-6 py-4 shadow-lg">
-              <Image
-                src="/unimoni-logo-full.png"
-                alt=""
-                width={300}
-                height={97}
-                className="h-[clamp(2rem,6vh,4rem)] w-auto object-contain"
-                unoptimized
-              />
-            </div>
-            )
-          ) : null}
-        </div>
+        />
       ) : null}
 
       {showPlaceholder ? (

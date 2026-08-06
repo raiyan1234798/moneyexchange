@@ -860,7 +860,6 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
 
   const promoPanel = (
     <UnimoniPromoPanel
-      showCoverLogo={branchSettings.showVideoCoverLogo !== false}
       placeholderMode={branchSettings.videoPlaceholderMode ?? "logo"}
       placeholderText={branchSettings.videoPlaceholderText ?? null}
       placeholderImageUrl={branchSettings.videoPlaceholderImageUrl ?? null}
