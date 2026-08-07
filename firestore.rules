@@ -6,6 +6,17 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Email claim WITHOUT the email_verified requirement. Safe for identifying
+    // a specific known account: Firebase enforces email uniqueness, so nobody
+    // else can hold this address, and sign-in still requires its password.
+    // Needed because team logins use @unimoni-signage.com addresses that have
+    // no mailbox and can therefore NEVER be verified (client 2026-08-07).
+    function authEmailAny() {
+      return request.auth != null && request.auth.token.email != null
+        ? request.auth.token.email.lower()
+        : '';
+    }
+
     function authEmailLower() {
       return request.auth != null
         && request.auth.token.email != null
@@ -309,8 +320,11 @@ service cloud.firestore {
     match /user_credentials/{credEmail} {
       function isCredentialOwner() {
         return isAuthenticated() && (
-          authEmailLower() == 'admin@unimoni-signage.com' ||
-          authEmailLower() == 'mohamedaalthaf@gmail.com' ||
+          authEmailAny() == 'admin@unimoni-signage.com' ||
+          // The client's handover admin uses the DOT spelling — a DIFFERENT
+          // account from the dash one (client 2026-08-07).
+          authEmailAny() == 'admin@unimoni.signage.com' ||
+          authEmailAny() == 'mohamedaalthaf@gmail.com' ||
           isSuperAdminEmail()
         );
       }
