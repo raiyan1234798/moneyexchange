@@ -843,8 +843,10 @@ export default function PromotionsPage() {
             </div>
             <PreviewDisplayLink branchCode={branch.code} />
 
-            {/* At the end of the form (not sticky) so it never covers fields while scrolling. */}
-            <div className="mt-2 space-y-3 rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-sm">
+            {/* At the end of the form. `static` pins position:static explicitly
+                so no inherited rule can ever float this card over the preview
+                (client 2026-08-07: it covered the TV preview content). */}
+            <div className="static mt-2 space-y-3 rounded-2xl border border-primary/30 bg-background p-3 shadow-sm">
               {canApplyToAll ? (
                 <ApplyToAllCheckbox
                   id="promotions-apply-all"

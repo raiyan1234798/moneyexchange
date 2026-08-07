@@ -788,10 +788,11 @@ function BranchSettingsForm({
               className="rounded-xl"
               onClick={() => void onCopyFontsToAll(settings)}
             >
-              Copy fonts to ALL branches
+              Make ALL branches look like this one
             </Button>
             <p className="text-xs text-muted-foreground">
-              Makes every branch&apos;s TV use the SAME fonts as this one — nothing else changes.
+              Copies this branch&apos;s fonts, animations, image/video fit, sizes and scrolling-message
+              style to every branch. Each branch keeps its OWN words, logos, media and notes.
             </p>
           </div>
         ) : null}
@@ -2227,33 +2228,65 @@ export default function SettingsPage() {
 
   // "Copy fonts to ALL branches": writes ONLY the font choices of the current
   // form to every branch's settings — layout, media, timers stay untouched.
-  async function copyFontsToAllBranches(current: BranchSettings) {
+  // Per-branch CONTENT that must never be overwritten by a look-copy: names,
+  // words, logos, media, notes, per-branch hides. Everything else — fonts,
+  // animations, fits, sizes, speeds, timings — is "look" and copies over.
+  const LOOK_COPY_CONTENT_EXCLUDE = new Set<string>([
+    "tickerHeadline",
+    "tickerLogoUrl",
+    "tickerLogoUrls",
+    "tickerLogoText",
+    "tickerLogoScales",
+    "scrollingLogos",
+    "scrollingLogoItems",
+    "headerLogoUrl",
+    "headerLogoUrl2",
+    "headerLogoUrls",
+    "promoSlideLogoUrl",
+    "promoImageUrl",
+    "promoMedia",
+    "promoText",
+    "promoTextTop",
+    "ratePromoMessages",
+    "announcementText",
+    "announcementImageUrl",
+    "announcementMedia",
+    "videoPlaceholderText",
+    "videoPlaceholderImageUrl",
+    "rateCardNote",
+    "hiddenTransferCodes",
+    "slogan",
+    "timezone",
+    "defaultLanguage",
+    "transferLocalLabel",
+  ]);
+
+  /** Copy this branch's LOOK — fonts, animations, image/video fit, sizes,
+      speeds, scrolling-message style — to every branch. Each branch keeps its
+      own words, logos, media and notes (client 2026-08-07: "font, animation,
+      image, video, scrolling message all branches should look the same"). */
+  async function copyLookToAllBranches(current: BranchSettings) {
     if (!user || !profile) return;
-    const fontKeys = [
-      "displayFont",
-      "rateCardFont",
-      "tickerLogoFont",
-      "tickerMessageFont",
-      "ratePromoFont",
-      "announcementFont",
-    ] as const;
-    const fonts: Partial<BranchSettings> = {};
-    for (const k of fontKeys) {
-      (fonts as Record<string, unknown>)[k] = current[k] ?? null;
+    const look: Partial<BranchSettings> = {};
+    for (const [k, v] of Object.entries(current)) {
+      if (LOOK_COPY_CONTENT_EXCLUDE.has(k)) continue;
+      (look as Record<string, unknown>)[k] = v ?? null;
     }
     try {
       await Promise.all(
         branches.map((b) =>
           updateBranch(
             b.id,
-            { settings: { ...b.settings, ...fonts } },
+            { settings: { ...b.settings, ...look } },
             { userId: user.uid, userName: profile.displayName || profile.email },
           ),
         ),
       );
-      toast.success(`Fonts copied to all ${branches.length} branches — every TV now matches.`);
+      toast.success(
+        `Look & style copied to all ${branches.length} branches — fonts, animations, fits and sizes now match everywhere. Each branch kept its own words, logos and media.`,
+      );
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not copy the fonts");
+      toast.error(e instanceof Error ? e.message : "Could not copy the look");
     }
   }
 
@@ -2469,7 +2502,7 @@ export default function SettingsPage() {
                 saveSlot={saveSlot}
                 navSlot={navSlot}
                 onSave={saveBranchSettings}
-                onCopyFontsToAll={copyFontsToAllBranches}
+                onCopyFontsToAll={copyLookToAllBranches}
                 onDraftChange={setBranchDraft}
                 branchCount={branches.length}
                 otherBranches={branches
