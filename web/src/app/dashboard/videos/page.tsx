@@ -1716,12 +1716,23 @@ export default function VideosPage() {
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : (
                       <div className="flex items-center gap-2">
+                        {/* #t=0.5 makes the browser render a REAL frame instead
+                            of a black box, and hovering plays it — so videos
+                            preview like the image adverts do (client
+                            2026-08-07). */}
                         <video
-                          src={v.downloadUrl}
+                          src={`${v.downloadUrl}#t=0.5`}
                           muted
+                          loop
                           playsInline
                           preload="metadata"
-                          className="h-10 w-16 shrink-0 rounded-md border border-border/40 bg-muted object-contain"
+                          title="Hover to play"
+                          onMouseEnter={(e) => void e.currentTarget.play().catch(() => {})}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.pause();
+                            e.currentTarget.currentTime = 0.5;
+                          }}
+                          className="h-10 w-16 shrink-0 cursor-pointer rounded-md border border-border/40 bg-muted object-cover"
                         />
                         <button
                           type="button"
@@ -2274,12 +2285,23 @@ export default function VideosPage() {
                       <span className="text-xs text-muted-foreground">Plays on display</span>
                     ) : (
                       <div className="flex items-center gap-2">
+                        {/* #t=0.5 makes the browser render a REAL frame instead
+                            of a black box, and hovering plays it — so videos
+                            preview like the image adverts do (client
+                            2026-08-07). */}
                         <video
-                          src={v.downloadUrl}
+                          src={`${v.downloadUrl}#t=0.5`}
                           muted
+                          loop
                           playsInline
                           preload="metadata"
-                          className="h-10 w-16 shrink-0 rounded-md border border-border/40 bg-muted object-contain"
+                          title="Hover to play"
+                          onMouseEnter={(e) => void e.currentTarget.play().catch(() => {})}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.pause();
+                            e.currentTarget.currentTime = 0.5;
+                          }}
+                          className="h-10 w-16 shrink-0 cursor-pointer rounded-md border border-border/40 bg-muted object-cover"
                         />
                         <button
                           type="button"
