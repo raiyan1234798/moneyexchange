@@ -282,7 +282,8 @@ function inferVariant(status: string): StatusVariant {
 
 export type DataTableColumn<T> = {
   key: string;
-  header: string;
+  /** Text, or a node — e.g. a select-all checkbox in the header cell. */
+  header: React.ReactNode;
   cell: (row: T) => React.ReactNode;
   className?: string;
   headerClassName?: string;

@@ -174,6 +174,55 @@ export default function VideosPage() {
   const [imageFileTitles, setImageFileTitles] = useState<string[]>([]);
   // Inline rename of an EXISTING video/image row.
   const [editingMedia, setEditingMedia] = useState<{ kind: "video" | "image"; id: string; value: string } | null>(null);
+  // Multi-select delete for videos and images (client 2026-08-07): tick the
+  // rows you want gone and remove them in one action, instead of one-by-one or
+  // the all-or-nothing "Remove all".
+  const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
+  const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
+  const [deletingSelected, setDeletingSelected] = useState<"videos" | "images" | null>(null);
+
+  const toggleId = (list: string[], id: string) =>
+    list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+
+  async function deleteSelectedMedia(kind: "videos" | "images") {
+    if (!actor) return;
+    const ids = kind === "videos" ? selectedVideoIds : selectedImageIds;
+    if (ids.length === 0) return;
+    setDeletingSelected(kind);
+    let removed = 0;
+    let failed = 0;
+    try {
+      if (kind === "videos") {
+        for (const v of videos.filter((x) => ids.includes(x.id))) {
+          try {
+            await deleteVideo(v, actor);
+            removed += 1;
+          } catch {
+            failed += 1;
+          }
+        }
+        setSelectedVideoIds([]);
+      } else {
+        for (const img of images.filter((x) => ids.includes(x.id))) {
+          try {
+            await deleteImageAdvert(img, actor);
+            removed += 1;
+          } catch {
+            failed += 1;
+          }
+        }
+        setSelectedImageIds([]);
+      }
+      if (failed > 0) {
+        toast.warning(`Removed ${removed} — ${failed} could not be removed. Try again shortly.`);
+      } else {
+        toast.success(`Removed ${removed} ${kind === "videos" ? "video(s)" : "image(s)"} from this branch`);
+      }
+    } finally {
+      setDeletingSelected(null);
+    }
+  }
+
   // "Remove all" (videos or images) in progress — disables both buttons.
   const [removingAll, setRemovingAll] = useState<"videos" | "images" | null>(null);
   // TRUE bucket usage from Cloudflare (worker /api/storage-usage) — what R2
@@ -1152,6 +1201,49 @@ export default function VideosPage() {
   }
 
   /** Confirm-then-remove-everything button used by both tables below. */
+  /** "Delete selected (N)" — appears once rows are ticked. */
+  function deleteSelectedButton(kind: "videos" | "images") {
+    const count = kind === "videos" ? selectedVideoIds.length : selectedImageIds.length;
+    if (count === 0) return null;
+    return (
+      <AlertDialog>
+        <AlertDialogTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={deletingSelected !== null}
+              className="rounded-lg text-destructive hover:text-destructive"
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              {deletingSelected === kind ? "Removing…" : `Delete selected (${count})`}
+            </Button>
+          }
+        />
+        <AlertDialogContent className="rounded-2xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {count} selected {kind === "videos" ? "video(s)" : "image(s)"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They stop playing on {branch?.name ?? "this branch"}&apos;s TV immediately. Other
+              branches and the stored files are untouched.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-xl bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => void deleteSelectedMedia(kind)}
+            >
+              Remove {count}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    );
+  }
+
   function removeAllButton(kind: "videos" | "images", count: number) {
     if (count === 0) return null;
     return (
@@ -2128,7 +2220,10 @@ export default function VideosPage() {
             description="Drag rows to set play order, or use ▲ ▼ as a fallback."
           >
             {canManageVideos ? (
-              <div className="mb-3 flex justify-end">{removeAllButton("videos", videos.length)}</div>
+              <div className="mb-3 flex flex-wrap justify-end gap-2">
+                {deleteSelectedButton("videos")}
+                {removeAllButton("videos", videos.length)}
+              </div>
             ) : null}
             <SortableDataTable
               data={videos}
@@ -2137,6 +2232,29 @@ export default function VideosPage() {
               onReorder={(ordered) => void reorderVideosList(ordered)}
               reorderDisabled={!canManageVideos}
               columns={[
+                {
+                  key: "select",
+                  header: (
+                    <input
+                      type="checkbox"
+                      aria-label="Select all videos"
+                      className="h-3.5 w-3.5 cursor-pointer"
+                      checked={videos.length > 0 && selectedVideoIds.length === videos.length}
+                      onChange={(e) =>
+                        setSelectedVideoIds(e.target.checked ? videos.map((x) => x.id) : [])
+                      }
+                    />
+                  ),
+                  cell: (v) => (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${v.title}`}
+                      className="h-3.5 w-3.5 cursor-pointer"
+                      checked={selectedVideoIds.includes(v.id)}
+                      onChange={() => setSelectedVideoIds(toggleId(selectedVideoIds, v.id))}
+                    />
+                  ),
+                },
                 { key: "title", header: "Title", cell: (v) => renameableTitle("video", v.id, v.title) },
                 // Source column hidden (client 2026-08-05) — every video is
                 // cloud-hosted anyway, so the chip carried no information.
@@ -2248,7 +2366,10 @@ export default function VideosPage() {
             description="Drag the ⠿ handle to set order, or use ▲ ▼ as a fallback. These images play on THIS branch’s TV only until you copy the playlist to other branches."
           >
             {canManageImages ? (
-              <div className="mb-3 flex justify-end">{removeAllButton("images", images.length)}</div>
+              <div className="mb-3 flex flex-wrap justify-end gap-2">
+                {deleteSelectedButton("images")}
+                {removeAllButton("images", images.length)}
+              </div>
             ) : null}
             {canApplyToAll ? (
               <div className="mb-4 space-y-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
@@ -2424,6 +2545,29 @@ export default function VideosPage() {
               onReorder={(ordered) => void reorderImagesList(ordered)}
               reorderDisabled={!canManageImages}
               columns={[
+                {
+                  key: "select",
+                  header: (
+                    <input
+                      type="checkbox"
+                      aria-label="Select all images"
+                      className="h-3.5 w-3.5 cursor-pointer"
+                      checked={images.length > 0 && selectedImageIds.length === images.length}
+                      onChange={(e) =>
+                        setSelectedImageIds(e.target.checked ? images.map((x) => x.id) : [])
+                      }
+                    />
+                  ),
+                  cell: (img) => (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${img.title}`}
+                      className="h-3.5 w-3.5 cursor-pointer"
+                      checked={selectedImageIds.includes(img.id)}
+                      onChange={() => setSelectedImageIds(toggleId(selectedImageIds, img.id))}
+                    />
+                  ),
+                },
                 { key: "title", header: "Title", cell: (img) => renameableTitle("image", img.id, img.title) },
                 {
                   key: "duration",

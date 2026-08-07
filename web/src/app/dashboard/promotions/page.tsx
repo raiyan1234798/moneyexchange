@@ -245,7 +245,8 @@ export default function PromotionsPage() {
             <span />
           </ContentPanel>
         ) : (
-          <div className="space-y-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,40%)]">
+          <div className="min-w-0 space-y-6">
             {/* ---- Announcement ---- */}
             <ContentPanel
               title="Announcement / display message"
@@ -834,14 +835,6 @@ export default function PromotionsPage() {
               </div>
             </ContentPanel>
 
-            <div className="space-y-2">
-              <LiveTvPreview
-                branchCode={branch.code}
-                draft={settings}
-                label={`Live promotions preview for ${branch.name}`}
-              />
-            </div>
-            <PreviewDisplayLink branchCode={branch.code} />
 
             {/* At the end of the form. `static` pins position:static explicitly
                 so no inherited rule can ever float this card over the preview
@@ -867,6 +860,21 @@ export default function PromotionsPage() {
                 </Button>
               </div>
             </div>
+          </div>
+          {/* Compact live preview pinned at the TOP of the sideways column —
+              matching Settings / Display Messages (client 2026-08-07: it was
+              oversized and stuck at the bottom of the page). */}
+          <div className="hidden xl:block">
+            <div className="sticky top-3 space-y-2">
+              <Label>Live TV preview — {branch.name}</Label>
+              <LiveTvPreview
+                branchCode={branch.code}
+                draft={settings}
+                label={`Live promotions preview for ${branch.name}`}
+              />
+              <PreviewDisplayLink branchCode={branch.code} />
+            </div>
+          </div>
           </div>
         )}
       </PageShell>
