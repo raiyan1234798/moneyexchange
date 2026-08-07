@@ -39,14 +39,128 @@ function constraintsToQuery(constraints: D1Constraint[]): string {
   return params.toString();
 }
 
+
+/* ------------------------------------------------------------------ *
+ * STATIC SNAPSHOT FALLBACK
+ *
+ * Cloudflare Pages serves static assets free and unlimited, while Pages
+ * Functions carry a daily request ceiling — when it is reached, every
+ * /api/* call 404s and the app would otherwise be dead. /data/snapshot.json
+ * is a build-time copy of the public display data, so TVs and dashboards
+ * keep showing real content until the API returns. Reads only: writes still
+ * need the API and report honestly when they cannot go through.
+ * ------------------------------------------------------------------ */
+
+type Snapshot = { generatedAt: string; collections: Record<string, Record<string, unknown>[]> };
+let snapshotPromise: Promise<Snapshot | null> | null = null;
+let snapshotNotified = false;
+
+function loadSnapshot(): Promise<Snapshot | null> {
+  if (!snapshotPromise) {
+    snapshotPromise = fetch("/data/snapshot.json")
+      .then((r) => (r.ok ? (r.json() as Promise<Snapshot>) : null))
+      .catch(() => null)
+      .then((snap) => {
+        if (snap && !snapshotNotified) {
+          snapshotNotified = true;
+          console.info(
+            `[unimoni] Live server unavailable — showing saved data from ${snap.generatedAt}. Edits are paused until it returns.`,
+          );
+        }
+        return snap;
+      });
+  }
+  return snapshotPromise;
+}
+
+/** True when the app is currently running on the static snapshot. */
+export function isUsingSnapshot(): boolean {
+  return snapshotNotified;
+}
+
+function matchesConstraints(row: Record<string, unknown>, constraints: D1Constraint[]): boolean {
+  for (const c of constraints) {
+    if (c.type !== "where") continue;
+    const cur = row[c.field];
+    switch (c.op) {
+      case "==":
+        if (cur !== c.value) return false;
+        break;
+      case "!=":
+        if (cur === c.value) return false;
+        break;
+      case "<":
+        if (!((cur as number) < (c.value as number))) return false;
+        break;
+      case "<=":
+        if (!((cur as number) <= (c.value as number))) return false;
+        break;
+      case ">":
+        if (!((cur as number) > (c.value as number))) return false;
+        break;
+      case ">=":
+        if (!((cur as number) >= (c.value as number))) return false;
+        break;
+      case "in":
+        if (!Array.isArray(c.value) || !c.value.includes(cur)) return false;
+        break;
+      case "array-contains":
+        if (!Array.isArray(cur) || !cur.includes(c.value)) return false;
+        break;
+    }
+  }
+  return true;
+}
+
+async function snapshotList<T>(collection: string, constraints: D1Constraint[]): Promise<T[] | null> {
+  const snap = await loadSnapshot();
+  const rows = snap?.collections?.[collection];
+  if (!rows) return null;
+  let out = rows.filter((r) => matchesConstraints(r, constraints));
+  const order = constraints.find((c) => c.type === "orderBy");
+  if (order && order.type === "orderBy") {
+    const dir = order.direction === "desc" ? -1 : 1;
+    out = [...out].sort((a, b) => {
+      const av = a[order.field] as string | number | undefined;
+      const bv = b[order.field] as string | number | undefined;
+      if (av === bv) return 0;
+      return (av ?? 0) > (bv ?? 0) ? dir : -dir;
+    });
+  }
+  const lim = constraints.find((c) => c.type === "limit");
+  if (lim && lim.type === "limit") out = out.slice(0, lim.n);
+  return out as T[];
+}
+
+async function snapshotDoc<T>(collection: string, id: string): Promise<T | null> {
+  const snap = await loadSnapshot();
+  const rows = snap?.collections?.[collection];
+  if (!rows) return null;
+  return (rows.find((r) => r.id === id) as T) ?? null;
+}
+
 export async function d1GetDoc<T>(collection: string, id: string): Promise<T | null> {
-  const res = await fetch(
-    `/api/d1/docs?collection=${encodeURIComponent(collection)}&id=${encodeURIComponent(id)}`,
-  );
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`D1 get failed (${res.status})`);
-  const data = (await res.json()) as { doc?: T };
-  return data.doc ?? null;
+  try {
+    const res = await fetch(
+      `/api/d1/docs?collection=${encodeURIComponent(collection)}&id=${encodeURIComponent(id)}`,
+    );
+    // A 404 that is NOT our JSON means the API itself is unavailable (the
+    // static site answered) — fall back to the snapshot rather than reporting
+    // "missing" for a document that exists.
+    if (res.ok) {
+      const ct = res.headers.get("Content-Type") || "";
+      if (ct.includes("application/json")) {
+        const data = (await res.json()) as { doc?: T };
+        return data.doc ?? null;
+      }
+    } else if (res.status === 404) {
+      const ct = res.headers.get("Content-Type") || "";
+      if (ct.includes("application/json")) return null;
+    }
+  } catch {
+    /* network error — fall through to the snapshot */
+  }
+  return snapshotDoc<T>(collection, id);
 }
 
 export async function d1ListDocs<T>(
@@ -58,12 +172,28 @@ export async function d1ListDocs<T>(
   const apiConstraints = constraints.filter((c) => c.type !== "where" || c.op === "==");
   const q = constraintsToQuery(apiConstraints);
   const proj = fields && fields.length ? `&fields=${encodeURIComponent(fields.join(","))}` : "";
-  const res = await fetch(
-    `/api/d1/docs?collection=${encodeURIComponent(collection)}${q ? `&${q}` : ""}${proj}`,
-  );
-  if (!res.ok) throw new Error(`D1 list failed (${res.status})`);
-  const data = (await res.json()) as { docs?: T[] };
-  let docs = Array.isArray(data.docs) ? data.docs : [];
+  let docs: T[] = [];
+  let served = false;
+  try {
+    const res = await fetch(
+      `/api/d1/docs?collection=${encodeURIComponent(collection)}${q ? `&${q}` : ""}${proj}`,
+    );
+    const ct = res.headers.get("Content-Type") || "";
+    if (res.ok && ct.includes("application/json")) {
+      const data = (await res.json()) as { docs?: T[] };
+      docs = Array.isArray(data.docs) ? data.docs : [];
+      served = true;
+    }
+  } catch {
+    /* network error — fall through to the snapshot */
+  }
+  if (!served) {
+    // API unavailable (daily Functions ceiling / outage): serve the static
+    // snapshot so screens keep working instead of throwing.
+    const snap = await snapshotList<T>(collection, constraints);
+    if (snap) return snap;
+    throw new Error(`D1 list failed and no snapshot for ${collection}`);
+  }
 
   for (const c of constraints) {
     if (c.type !== "where" || c.op === "==") continue;
