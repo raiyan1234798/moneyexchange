@@ -1288,7 +1288,7 @@ async function handleBranchSlim(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname === "/api/storage-cleanup") {
       return handleStorageCleanup();
@@ -1325,6 +1325,32 @@ export default {
       url.pathname === "/api/d1/docs" ||
       url.pathname === "/api/d1/docs/"
     ) {
+      // GET reads are edge-cached briefly: a fleet of TVs polling the same
+      // queries every few seconds shares ONE D1 hit per 8s window instead of
+      // hammering the database (a load burst once 500'd every route,
+      // 2026-08-07). On any error the last good response is served instead
+      // of failing the TVs (stale-while-error).
+      if (request.method === "GET") {
+        const cache = caches.default;
+        const cacheKey = new Request(request.url, { method: "GET" });
+        const hit = await cache.match(cacheKey);
+        if (hit) return hit;
+        try {
+          const res = await handleDocuments(request, env);
+          if (res.status === 200) {
+            const headers = new Headers(res.headers);
+            headers.set("Cache-Control", "public, max-age=8");
+            const body = await res.arrayBuffer();
+            const cacheable = new Response(body, { status: 200, headers });
+            if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, cacheable.clone()));
+            else await cache.put(cacheKey, cacheable.clone());
+            return cacheable;
+          }
+          return res;
+        } catch (err) {
+          return json({ error: err && err.message ? err.message : "D1 docs failed" }, 500);
+        }
+      }
       try {
         return await handleDocuments(request, env);
       } catch (err) {
