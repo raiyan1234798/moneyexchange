@@ -495,7 +495,10 @@ async function handleDocuments(request, env) {
       )
         .bind(collection, id)
         .first();
-      if (!row) return json({ error: "Not found" }, 404);
+      // 200 with doc:null (not 404): a missing doc is a NORMAL state for the
+      // app (settings/global, per-branch prefs...), and 404s flood the browser
+      // console with red noise the client reads as errors (2026-08-07).
+      if (!row) return json({ doc: null });
       let data = {};
       try {
         data = JSON.parse(row.data_json || "{}");

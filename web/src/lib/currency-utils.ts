@@ -128,7 +128,8 @@ export function titleCaseName(value: string): string {
 
 /** Extract a clean 3-letter ISO code from messy catalog or Excel input. */
 export function normalizeCurrencyCode(raw: string): string {
-  const trimmed = raw.trim();
+  // A malformed doc (missing code) must never crash a page — treat as empty.
+  const trimmed = (raw ?? "").trim();
   if (!trimmed) return "";
 
   const upper = trimmed.toUpperCase();
@@ -180,7 +181,9 @@ export function resolveCurrencyFields(currency: {
   country: string;
   flag: string;
 }): { code: string; name: string; country: string; flag: string } {
-  const code = normalizeCurrencyCode(currency.currencyCode) || currency.currencyCode.trim().toUpperCase();
+  const code =
+    normalizeCurrencyCode(currency.currencyCode) ||
+    (currency.currencyCode ?? "").trim().toUpperCase();
   const meta = getCurrencyMeta(code);
 
   let name = currency.currencyName?.trim() ?? "";
