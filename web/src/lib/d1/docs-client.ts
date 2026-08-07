@@ -150,7 +150,7 @@ export function d1SubscribeCollection<T>(
   constraints: D1Constraint[],
   onData: (items: T[]) => void,
   onError?: (error: Error) => void,
-  intervalMs = 4000,
+  intervalMs = 20000,
 ): () => void {
   let cancelled = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -163,7 +163,11 @@ export function d1SubscribeCollection<T>(
     } catch (error) {
       if (!cancelled) onError?.(error instanceof Error ? error : new Error(String(error)));
     } finally {
-      if (!cancelled) timer = setTimeout(tick, intervalMs);
+      if (cancelled) return;
+      // Hidden tabs (background dashboards, stacked TV previews) poll at a
+      // quarter rate — they are not being watched.
+      const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
+      timer = setTimeout(tick, hidden ? intervalMs * 4 : intervalMs);
     }
   };
   void tick();

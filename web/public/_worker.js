@@ -1347,37 +1347,6 @@ export default {
       url.pathname === "/api/d1/docs" ||
       url.pathname === "/api/d1/docs/"
     ) {
-      // GET reads are edge-cached briefly: a fleet of TVs polling the same
-      // queries every few seconds shares ONE D1 hit per 8s window instead of
-      // hammering the database (a load burst once 500'd every route,
-      // 2026-08-07). On any error the last good response is served instead
-      // of failing the TVs (stale-while-error).
-      if (request.method === "GET") {
-        const cache = caches.default;
-        // Namespaced key: the raw URL collided with Cloudflare's static-asset
-        // cache — during a deploy flip it held the site's 404 HTML for /api/
-        // URLs and we served it back forever (2026-08-07). The marker param
-        // guarantees our entries never overlap anything else; the JSON guard
-        // is belt-and-suspenders.
-        const cacheKey = new Request(request.url + (request.url.includes("?") ? "&" : "?") + "__d1c=1", { method: "GET" });
-        const hit = await cache.match(cacheKey);
-        if (hit && (hit.headers.get("Content-Type") || "").includes("application/json")) return hit;
-        try {
-          const res = await handleDocuments(request, env);
-          if (res.status === 200) {
-            const headers = new Headers(res.headers);
-            headers.set("Cache-Control", "public, max-age=8");
-            const body = await res.arrayBuffer();
-            const cacheable = new Response(body, { status: 200, headers });
-            if (ctx && ctx.waitUntil) ctx.waitUntil(cache.put(cacheKey, cacheable.clone()));
-            else await cache.put(cacheKey, cacheable.clone());
-            return cacheable;
-          }
-          return res;
-        } catch (err) {
-          return json({ error: err && err.message ? err.message : "D1 docs failed" }, 500);
-        }
-      }
       try {
         return await handleDocuments(request, env);
       } catch (err) {
