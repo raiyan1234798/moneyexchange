@@ -246,6 +246,20 @@ export async function d1GetDoc<T>(collection: string, id: string): Promise<T | n
   return snapshotDoc<T>(collection, id);
 }
 
+
+/**
+ * How often a subscription re-polls. TV displays keep EIGHT subscriptions open
+ * around the clock; at 8 screens that is ~276k server requests/day — nearly 3x
+ * Cloudflare's free-plan ceiling, which took the API down (client 2026-08-07).
+ * Signage rates change a few times a day, so a 2-minute refresh is ample there
+ * and cuts the fleet's cost ~6x. Dashboards stay responsive at 20s.
+ */
+function defaultPollIntervalMs(): number {
+  if (typeof window === "undefined") return 20_000;
+  const p = window.location.pathname;
+  return p.startsWith("/display") || p.startsWith("/tv") ? 120_000 : 20_000;
+}
+
 export async function d1ListDocs<T>(
   collection: string,
   constraints: D1Constraint[] = [],
@@ -425,7 +439,7 @@ export function d1SubscribeCollection<T>(
   constraints: D1Constraint[],
   onData: (items: T[]) => void,
   onError?: (error: Error) => void,
-  intervalMs = 20000,
+  intervalMs = defaultPollIntervalMs(),
 ): () => void {
   let cancelled = false;
   let timer: ReturnType<typeof setTimeout> | undefined;

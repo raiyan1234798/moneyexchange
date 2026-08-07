@@ -1005,6 +1005,73 @@ async function handleRateCardNote(request, env) {
   return json({ error: "Method not allowed" }, 405);
 }
 
+
+/**
+ * ONE request per TV instead of eight.
+ *
+ * A display needs branch + rates + transfer rates + tickers + videos + images
+ * + prefs + currency overrides. Polling those separately burned ~276k
+ * Functions requests/day across 8 screens — nearly 3x the free-plan ceiling,
+ * which is what took the whole API down (client 2026-08-07). This returns the
+ * complete bundle in a single call, cutting that by ~8x.
+ */
+async function handleTvBundle(request, env) {
+  if (!env.DB) return json({ error: "D1 is not bound yet" }, 503);
+  const url = new URL(request.url);
+  const code = String(url.searchParams.get("branch") || "").trim().toUpperCase();
+  if (!code || !/^[\w-]{1,32}$/.test(code)) return json({ error: "branch code required" }, 400);
+
+  const parse = (row) => {
+    try {
+      const d = JSON.parse(row.data_json || "{}");
+      return { id: row.id, ...d, updatedAt: d.updatedAt || row.updated_at };
+    } catch {
+      return { id: row.id };
+    }
+  };
+  const all = async (collection, extraSql = "", binds = []) => {
+    const { results } = await env.DB.prepare(
+      `SELECT id, data_json, updated_at FROM documents WHERE collection = ?${extraSql}`,
+    )
+      .bind(collection, ...binds)
+      .all();
+    return (results || []).map(parse);
+  };
+
+  // Resolve the branch by code (active only) — same rule the display uses.
+  const branches = await all("branches");
+  const branch = branches.find(
+    (b) => String(b.code || "").toUpperCase() === code && b.status === "active",
+  );
+  if (!branch) return json({ branch: null }, 200);
+  const bid = branch.id;
+
+  const byBranch = (rows) => rows.filter((r) => r.branchId === bid);
+  const [rates, transferRates, tickers, videos, images, prefs, overrides] = await Promise.all([
+    all("exchange_rates").then((r) =>
+      byBranch(r).filter((x) => x.status === "published" && x.isHidden !== true),
+    ),
+    all("transfer_rates"),
+    all("ticker_messages").then((r) => byBranch(r).filter((x) => x.status === "active")),
+    all("videos").then((r) => byBranch(r).filter((x) => x.status === "active")),
+    all("image_adverts").then((r) => byBranch(r).filter((x) => x.status === "active")),
+    all("branch_display_prefs").then((r) => r.find((x) => x.id === bid) || null),
+    all("currency_overrides").catch(() => []),
+  ]);
+
+  return json({
+    branch,
+    rates,
+    transferRates,
+    tickers,
+    videos,
+    images,
+    prefs,
+    currencyOverrides: overrides,
+    servedAt: new Date().toISOString(),
+  });
+}
+
 async function handleBranchSlim(request, env) {
   // Offload inline data: URLs from a fat branch doc into R2, field-by-field,
   // so we never need to download/rewrite the whole 1MB+ document at once.
@@ -1378,6 +1445,13 @@ export default {
         return await handleRateCardNote(request, env);
       } catch (err) {
         return json({ error: err && err.message ? err.message : "D1 note API failed" }, 500);
+      }
+    }
+    if (url.pathname === "/api/tv" || url.pathname === "/api/tv/") {
+      try {
+        return await handleTvBundle(request, env);
+      } catch (err) {
+        return json({ error: err && err.message ? err.message : "TV bundle failed" }, 500);
       }
     }
     if (url.pathname === "/api/branch-slim") {

@@ -258,7 +258,14 @@ export function onSnapshot(
         } finally {
           if (cancelled) return;
           const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
-          timer = setTimeout(tick, hidden ? 80000 : 20000);
+          // Displays poll far less often than dashboards — see
+          // defaultPollIntervalMs() in docs-client for the reasoning.
+          const onDisplay =
+            typeof window !== "undefined" &&
+            (window.location.pathname.startsWith("/display") ||
+              window.location.pathname.startsWith("/tv"));
+          const base = onDisplay ? 120000 : 20000;
+          timer = setTimeout(tick, hidden ? base * 4 : base);
         }
       };
       void tick();

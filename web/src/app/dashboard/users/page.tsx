@@ -868,7 +868,7 @@ export default function UsersPage() {
 
         {isCredentialOwner && credentials.length > 0 ? (
           <ContentPanel
-            title="Sign-in passwords (owner only)"
+            title="Sign-in passwords (admins only)"
             description="Only you can see these. Copy a password to hand it over, or generate a new one."
           >
             <DataTable
