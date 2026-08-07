@@ -12,6 +12,8 @@ import {
   limit as fsLimit,
   query as fsQuery,
   where as fsWhere,
+  setDoc as fsSetDoc,
+  deleteDoc as fsDeleteDoc,
 } from "firebase/firestore";
 
 export type D1Constraint =
@@ -302,6 +304,38 @@ export async function d1ListDocs<T>(
   return docs;
 }
 
+
+/* WRITE FALLBACK.
+ * When the D1 API is unavailable (Pages Functions daily ceiling: the static
+ * site answers with 404/405), writes go to FIREBASE instead of failing. The
+ * user keeps working; Firestore holds a full copy of every collection, and a
+ * sync pushes changes back into D1 once the API returns. Without this, every
+ * save/delete in the dashboard errors out for hours (client 2026-08-07). */
+function apiUnavailable(status: number): boolean {
+  return status === 404 || status === 405 || status === 503;
+}
+
+let pendingSyncCount = 0;
+/** Number of writes made through the Firebase fallback this session. */
+export function pendingD1SyncCount(): number {
+  return pendingSyncCount;
+}
+
+async function firestoreWrite(
+  collection: string,
+  id: string,
+  data: Record<string, unknown>,
+  merge: boolean,
+): Promise<void> {
+  await fsSetDoc(fsDoc(db, collection, id), data, { merge });
+  pendingSyncCount += 1;
+}
+
+async function firestoreDelete(collection: string, id: string): Promise<void> {
+  await fsDeleteDoc(fsDoc(db, collection, id));
+  pendingSyncCount += 1;
+}
+
 export async function d1UpsertDoc(
   collection: string,
   id: string,
@@ -320,13 +354,12 @@ export async function d1UpsertDoc(
     }),
   });
   if (!res.ok) {
+    if (apiUnavailable(res.status)) {
+      await firestoreWrite(collection, id, data, opts?.merge ?? false);
+      return;
+    }
     const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { error?: string }).error ||
-        (res.status === 404 || res.status === 405
-          ? "Saving is paused — the server is temporarily unavailable. Your existing content is safe; try again shortly."
-          : `Could not save (${res.status})`),
-    );
+    throw new Error((err as { error?: string }).error || `Could not save (${res.status})`);
   }
 }
 
@@ -338,8 +371,12 @@ export async function d1DeleteDoc(collection: string, id: string): Promise<void>
     body: JSON.stringify({ collection, id }),
   });
   if (!res.ok) {
+    if (apiUnavailable(res.status)) {
+      await firestoreDelete(collection, id);
+      return;
+    }
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error || `D1 delete failed (${res.status})`);
+    throw new Error((err as { error?: string }).error || `Could not delete (${res.status})`);
   }
 }
 
@@ -353,8 +390,12 @@ export async function d1BulkUpsert(
     body: JSON.stringify({ docs }),
   });
   if (!res.ok) {
+    if (apiUnavailable(res.status)) {
+      for (const d of docs) await firestoreWrite(d.collection, d.id, d.data, true);
+      return { upserted: docs.length };
+    }
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error || `D1 bulk failed (${res.status})`);
+    throw new Error((err as { error?: string }).error || `Could not save (${res.status})`);
   }
   return (await res.json()) as { upserted: number };
 }
