@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { LiveTvPreview } from "@/components/shared/live-tv-preview";
 import { ApplyToAllCheckbox, type BranchTargetScope } from "@/components/shared/apply-to-all-checkbox";
+import { estimateUniqueMediaStorageBytes } from "@/lib/media-storage-estimate";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import {
   ContentPanel,
@@ -288,17 +289,18 @@ export default function VideosPage() {
     return `${gb(bytes)} GB`;
   };
 
-  // Storage meter: show this branch immediately, then cheap Firestore sums + R2.
-  // Never download every image/video doc on refresh (that was the slow path —
-  // data-URL images across all branches can be tens of MB).
+  // Storage meter: show this branch immediately, then the true unique-file
+  // total. Plain sums over every doc were WRONG twice over — they counted
+  // deleted (inactive) media and counted a file once per branch that shares
+  // it, reporting ~3 GB when only ~0.1 GB was actually in use
+  // (client 2026-08-07). estimateUniqueMediaStorageBytes() skips non-active
+  // docs and de-duplicates by storage path / URL, and is cheap now that the
+  // query projects only the size fields.
   const refreshTotalStorage = useCallback(async () => {
     setTotalStorageBytes((prev) => (prev == null ? usedBytes : Math.max(prev, usedBytes)));
     try {
-      const [videoBytes, imageBytes] = await Promise.all([
-        sumField(COLLECTIONS.videos, "fileSizeBytes"),
-        sumField(COLLECTIONS.imageAdverts, "fileSizeBytes"),
-      ]);
-      setTotalStorageBytes(Math.max(videoBytes + imageBytes, usedBytes));
+      const { bytes } = await estimateUniqueMediaStorageBytes();
+      setTotalStorageBytes(Math.max(bytes, usedBytes));
     } catch {
       setTotalStorageBytes(usedBytes);
     }
