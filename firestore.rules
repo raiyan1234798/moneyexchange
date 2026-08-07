@@ -571,7 +571,13 @@ service cloud.firestore {
       function isUploadOwner() {
         return isActiveUser()
           && request.auth.token.email != null
-          && request.auth.token.email.lower() == 'admin@unimoni-signage.com';
+          && (
+            request.auth.token.email.lower() == 'admin@unimoni-signage.com'
+            // The client's handover admin uses the DOT spelling — a different
+            // account, previously unable to change the upload password
+            // (client 2026-08-07).
+            || request.auth.token.email.lower() == 'admin@unimoni.signage.com'
+          );
       }
       // Readable by any signed-in user: the dashboard theme needs it, and branch
       // staff with the media chip must read the upload-lock status to know

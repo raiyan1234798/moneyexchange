@@ -191,12 +191,6 @@ export default function LoginPage() {
               <UnimoniLogoImage variant="onDark" height={54} priority className="hidden dark:block" />
             </div>
             <h1 className="text-center text-2xl font-semibold tracking-tight sm:text-3xl">Sign in</h1>
-            <p className="mt-2 text-center text-sm text-muted-foreground">
-              Access your {BRAND.displayName} console
-            </p>
-            <p className="mt-1 text-center text-xs text-muted-foreground">
-              Invited users: click <strong>Continue with Google</strong> using the exact Gmail address your admin invited.
-            </p>
             {profileError ? (
               <p className="mt-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-center text-xs text-destructive">
                 {profileError}
