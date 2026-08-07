@@ -3,7 +3,16 @@
  * Auth: Firebase ID token on mutating requests only.
  */
 
-import { auth } from "@/lib/firebase/client";
+import { auth, db } from "@/lib/firebase/client";
+import {
+  collection as fsCollection,
+  doc as fsDoc,
+  getDoc as fsGetDoc,
+  getDocs as fsGetDocs,
+  limit as fsLimit,
+  query as fsQuery,
+  where as fsWhere,
+} from "firebase/firestore";
 
 export type D1Constraint =
   | {
@@ -139,6 +148,57 @@ async function snapshotDoc<T>(collection: string, id: string): Promise<T | null>
   return (rows.find((r) => r.id === id) as T) ?? null;
 }
 
+
+/* PRIVATE collections are deliberately NOT in the public static snapshot
+ * (they hold user emails, roles and approvals). When the API is unavailable
+ * they fall back to FIREBASE instead — it still holds this data, enforces
+ * per-user access rules, and is the platform sign-in already runs on. That
+ * keeps login working without publishing anything private. */
+const FIRESTORE_FALLBACK_COLLECTIONS = new Set([
+  "users",
+  "user_invites",
+  "settings",
+  "app_config",
+  "pending_approvals",
+  "notifications",
+  "branch_display_prefs",
+  "tv_devices",
+  "tv_health",
+  "video_playlists",
+  "audit_logs",
+  "rate_history",
+  "scheduled_content",
+  "roles",
+  "permissions",
+]);
+
+async function firestoreDoc<T>(collection: string, id: string): Promise<T | null> {
+  if (!FIRESTORE_FALLBACK_COLLECTIONS.has(collection)) return null;
+  try {
+    const snap = await fsGetDoc(fsDoc(db, collection, id));
+    return snap.exists() ? ({ id: snap.id, ...snap.data() } as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function firestoreList<T>(collection: string, constraints: D1Constraint[]): Promise<T[] | null> {
+  if (!FIRESTORE_FALLBACK_COLLECTIONS.has(collection)) return null;
+  try {
+    const parts = [];
+    for (const c of constraints) {
+      if (c.type === "where" && c.op === "==") parts.push(fsWhere(c.field, "==", c.value));
+      else if (c.type === "limit") parts.push(fsLimit(c.n));
+    }
+    const snap = await fsGetDocs(fsQuery(fsCollection(db, collection), ...parts));
+    let rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Record<string, unknown>);
+    rows = rows.filter((r) => matchesConstraints(r, constraints));
+    return rows as T[];
+  } catch {
+    return null;
+  }
+}
+
 export async function d1GetDoc<T>(collection: string, id: string): Promise<T | null> {
   try {
     const res = await fetch(
@@ -160,6 +220,8 @@ export async function d1GetDoc<T>(collection: string, id: string): Promise<T | n
   } catch {
     /* network error — fall through to the snapshot */
   }
+  const viaFirestore = await firestoreDoc<T>(collection, id);
+  if (viaFirestore !== null) return viaFirestore;
   return snapshotDoc<T>(collection, id);
 }
 
@@ -190,9 +252,14 @@ export async function d1ListDocs<T>(
   if (!served) {
     // API unavailable (daily Functions ceiling / outage): serve the static
     // snapshot so screens keep working instead of throwing.
+    const viaFirestore = await firestoreList<T>(collection, constraints);
+    if (viaFirestore) return viaFirestore;
     const snap = await snapshotList<T>(collection, constraints);
     if (snap) return snap;
-    throw new Error(`D1 list failed and no snapshot for ${collection}`);
+    // Nothing to fall back to: return empty rather than throwing, so a page
+    // renders its normal "nothing here yet" state instead of an error toast
+    // while the server is unavailable. Live data returns automatically.
+    return [];
   }
 
   for (const c of constraints) {
