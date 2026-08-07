@@ -6,10 +6,11 @@ import { toast } from "sonner";
 import { useNewBuildAvailable } from "@/lib/tv/use-auto-refresh";
 
 /**
- * Quiet update notice for the dashboard: when a newer build is deployed, show a
- * single small toast (ONCE per build — never a persistent bar, never repeated)
- * with a Refresh action. It never reloads on its own, so it can't interrupt an
- * upload or lose unsaved edits.
+ * Update notice for the dashboard: when a newer build is deployed, show a
+ * toast that STAYS until acted on (client 2026-08-07: a 12s toast was missed,
+ * so the tab kept running hours-old code and re-showing errors that were
+ * already fixed). Still never reloads on its own — that would interrupt an
+ * upload or lose unsaved edits; the user chooses when.
  */
 export function UpdateBanner() {
   const newBuildId = useNewBuildAvailable();
@@ -23,11 +24,13 @@ export function UpdateBanner() {
     } catch {
       // sessionStorage unavailable — still show the toast once per mount.
     }
-    toast.info("A new version is ready.", {
+    toast.info("A new version is ready — refresh to get the latest fixes.", {
       id: "new-build",
-      duration: 12000,
+      // Stays until clicked: an update that is missed leaves this tab running
+      // old code, which is how already-fixed errors keep reappearing.
+      duration: Infinity,
       action: {
-        label: "Refresh",
+        label: "Refresh now",
         onClick: () => window.location.reload(),
       },
     });

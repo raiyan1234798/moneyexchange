@@ -13,7 +13,7 @@ import { BUILD_ID } from "@/lib/build-id";
  * fewer script tags than the server HTML, so that approach reported "new build"
  * on every check.)
  */
-export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000): string | null {
+export function useNewBuildAvailable(enabled = true, intervalMs = 60 * 1000): string | null {
   const [availableId, setAvailableId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -49,6 +49,7 @@ export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000)
       }
     };
 
+    void check();
     const id = window.setInterval(check, intervalMs);
     return () => {
       stopped = true;
@@ -64,7 +65,7 @@ export function useNewBuildAvailable(enabled = true, intervalMs = 3 * 60 * 1000)
  * so displays pick up fixes without anyone touching them. The dashboard instead
  * shows a Refresh banner (see UpdateBanner) so it can never interrupt an upload.
  */
-export function useAutoRefreshOnNewBuild(enabled: boolean, intervalMs = 4 * 60 * 1000): void {
+export function useAutoRefreshOnNewBuild(enabled: boolean, intervalMs = 90 * 1000): void {
   const available = useNewBuildAvailable(enabled, intervalMs);
   useEffect(() => {
     if (available) window.location.reload();
