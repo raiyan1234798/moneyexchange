@@ -65,6 +65,13 @@ export function collection(_db: unknown, name: string, ...more: string[]): ColRe
   return { collection: [name, ...more].join("__") };
 }
 
+/** Firestore-style auto id — used when doc(collectionRef) is called with no id. */
+function newDocId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID().replace(/-/g, "").slice(0, 20)
+    : `id_${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
 export function doc(dbOrCol: unknown, ...path: string[]): DocRef {
   if (
     typeof dbOrCol === "object" &&
@@ -73,7 +80,11 @@ export function doc(dbOrCol: unknown, ...path: string[]): DocRef {
     !("id" in (dbOrCol as object))
   ) {
     const col = dbOrCol as ColRef;
-    const id = String(path[0] ?? "");
+    // doc(collectionRef) with NO id must MINT one, like the real SDK. Returning
+    // "" made every auto-id create fail — e.g. "Apply videos/images to all
+    // branches" reported "19 copy(ies) failed" because each write had an empty
+    // document id (client 2026-08-07).
+    const id = path[0] != null && String(path[0]).length > 0 ? String(path[0]) : newDocId();
     return { collection: col.collection, id, path: `${col.collection}/${id}` };
   }
   // doc(db, col, id) OR doc(db, col, id, sub, subId, ...)
