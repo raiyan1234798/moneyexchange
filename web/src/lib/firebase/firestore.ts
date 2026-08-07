@@ -84,9 +84,11 @@ export async function getDocument<T>(collectionName: string, id: string): Promis
 export async function listDocuments<T>(
   collectionName: string,
   constraints: QueryConstraint[] = [],
+  /** Project only these fields — use for size/stat sweeps over big collections. */
+  fields?: string[],
 ): Promise<T[]> {
   try {
-    return await d1ListDocs<T>(collectionName, constraints);
+    return await d1ListDocs<T>(collectionName, constraints, fields);
   } catch (error) {
     throw normalizeFirestoreError(error, `Failed to load ${collectionName}`);
   }
@@ -150,7 +152,9 @@ export async function sumField(
   constraints: QueryConstraint[] = [],
 ): Promise<number> {
   try {
-    const docs = await d1ListDocs<Record<string, unknown>>(collectionName, constraints);
+    // Project ONLY the summed field — full docs (legacy inline images) made
+    // the response too large for big collections (2026-08-07).
+    const docs = await d1ListDocs<Record<string, unknown>>(collectionName, constraints, [field]);
     return docs.reduce((sum, d) => sum + (Number(d[field]) || 0), 0);
   } catch {
     return 0;

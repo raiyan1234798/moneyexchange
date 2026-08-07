@@ -514,8 +514,20 @@ async function handleDocuments(request, env) {
     // 500 on image_adverts, 2026-08-07). Unparseable filters still fall back
     // to the JS pass below.
     const eqParamsRaw = url.searchParams.getAll("eq");
+    // Optional projection: ?fields=fileSizeBytes,branchId returns ONLY those
+    // fields per doc — the storage-usage panels only need byte counts, and
+    // returning 1000 full docs (some with legacy inline images) exceeded
+    // worker response limits (2026-08-07).
+    const fieldsRaw = String(url.searchParams.get("fields") || "").trim();
+    const fields = fieldsRaw
+      ? fieldsRaw.split(",").map((f) => f.trim()).filter((f) => /^[\w.]+$/.test(f)).slice(0, 12)
+      : null;
     let sql = "SELECT id, data_json, updated_at FROM documents WHERE collection = ?";
-    const binds = [collection];
+    if (fields && fields.length) {
+      const parts = fields.map(() => `'$.' || ?`).map((ph) => `json_extract(data_json, ${ph})`);
+      sql = `SELECT id, ${parts.map((p2, i) => `${p2} AS f${i}`).join(", ")}, updated_at FROM documents WHERE collection = ?`;
+    }
+    const binds = fields && fields.length ? [...fields, collection] : [collection];
     for (const raw of eqParamsRaw) {
       const idx = raw.indexOf(":");
       if (idx <= 0) continue;
@@ -535,6 +547,16 @@ async function handleDocuments(request, env) {
       .bind(...binds)
       .all();
 
+    if (fields && fields.length) {
+      const docs = (results || []).map((row) => {
+        const out = { id: row.id, updatedAt: row.updated_at };
+        fields.forEach((f, i) => {
+          out[f] = row[`f${i}`];
+        });
+        return out;
+      });
+      return json({ docs, count: docs.length });
+    }
     let docs = (results || []).map((row) => {
       let data = {};
       try {
