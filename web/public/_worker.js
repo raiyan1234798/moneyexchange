@@ -508,11 +508,31 @@ async function handleDocuments(request, env) {
       return json({ doc: { id: row.id, ...data, updatedAt: data.updatedAt || row.updated_at } });
     }
 
-    // List (+ optional eq filters). Load rows then filter in JS for flexibility.
-    const { results } = await env.DB.prepare(
-      "SELECT id, data_json, updated_at FROM documents WHERE collection = ?",
-    )
-      .bind(collection)
+    // List (+ optional eq filters). Simple string/number/bool eq filters are
+    // pushed into SQL via json_extract — loading a whole 1000-doc collection
+    // into the worker just to filter in JS blew past resource limits (HTTP
+    // 500 on image_adverts, 2026-08-07). Unparseable filters still fall back
+    // to the JS pass below.
+    const eqParamsRaw = url.searchParams.getAll("eq");
+    let sql = "SELECT id, data_json, updated_at FROM documents WHERE collection = ?";
+    const binds = [collection];
+    for (const raw of eqParamsRaw) {
+      const idx = raw.indexOf(":");
+      if (idx <= 0) continue;
+      const field = raw.slice(0, idx);
+      if (!/^[\w.]+$/.test(field)) continue;
+      let value;
+      try {
+        value = JSON.parse(raw.slice(idx + 1));
+      } catch {
+        continue;
+      }
+      if (value === null || typeof value === "object") continue;
+      sql += ` AND json_extract(data_json, '$.' || ?) = ?`;
+      binds.push(field, typeof value === "boolean" ? (value ? 1 : 0) : value);
+    }
+    const { results } = await env.DB.prepare(sql)
+      .bind(...binds)
       .all();
 
     let docs = (results || []).map((row) => {
