@@ -856,6 +856,39 @@ async function handleBranchSettings(request, env) {
       )
       .run();
 
+    // MIRROR into the `documents` branch doc — that's what the display and the
+    // whole app data layer READ. Without this, Settings saves landed only in
+    // the dedicated table and never reached the TVs (found 2026-08-07).
+    try {
+      const existing = await env.DB.prepare(
+        "SELECT data_json FROM documents WHERE collection = 'branches' AND id = ?",
+      )
+        .bind(branchId)
+        .first();
+      let docData = {};
+      if (existing?.data_json) {
+        try { docData = JSON.parse(existing.data_json); } catch { docData = {}; }
+      }
+      docData.settings = settings;
+      if (body.name != null) docData.name = String(body.name);
+      if (body.status != null) docData.status = String(body.status);
+      if (body.code != null) docData.code = String(body.code);
+      if (logoUrl != null) docData.logoUrl = logoUrl;
+      docData.updatedAt = new Date().toISOString();
+      await env.DB.prepare(
+        `INSERT INTO documents (collection, id, data_json, updated_at)
+         VALUES ('branches', ?, ?, datetime('now'))
+         ON CONFLICT(collection, id) DO UPDATE SET
+           data_json = excluded.data_json,
+           updated_at = datetime('now')`,
+      )
+        .bind(branchId, JSON.stringify(docData))
+        .run();
+    } catch (e) {
+      // The dedicated write above succeeded — report but don't fail the save.
+      console.warn("documents mirror failed", e);
+    }
+
     return json({ ok: true, branchId, host: "cloudflare-d1" });
   }
 
