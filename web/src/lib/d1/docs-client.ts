@@ -165,7 +165,14 @@ async function snapshotDoc<T>(collection: string, id: string): Promise<T | null>
  * they fall back to FIREBASE instead — it still holds this data, enforces
  * per-user access rules, and is the platform sign-in already runs on. That
  * keeps login working without publishing anything private. */
+/* NEVER let these touch D1: GET /api/d1/docs is unauthenticated (TV display
+ * data is public by design), so anything here would be world-readable.
+ * user_credentials holds team sign-in passwords — Firestore only, where rules
+ * restrict it to the credential owners (client 2026-08-07). */
+const FIRESTORE_ONLY_COLLECTIONS = new Set(["user_credentials"]);
+
 const FIRESTORE_FALLBACK_COLLECTIONS = new Set([
+  "user_credentials",
   "users",
   "user_invites",
   "settings",
@@ -211,6 +218,7 @@ async function firestoreList<T>(collection: string, constraints: D1Constraint[])
 }
 
 export async function d1GetDoc<T>(collection: string, id: string): Promise<T | null> {
+  if (FIRESTORE_ONLY_COLLECTIONS.has(collection)) return firestoreDoc<T>(collection, id);
   try {
     const res = await fetch(
       `/api/d1/docs?collection=${encodeURIComponent(collection)}&id=${encodeURIComponent(id)}`,
@@ -246,6 +254,9 @@ export async function d1ListDocs<T>(
   // Send == filters to the API; apply the rest client-side.
   const apiConstraints = constraints.filter((c) => c.type !== "where" || c.op === "==");
   const q = constraintsToQuery(apiConstraints);
+  if (FIRESTORE_ONLY_COLLECTIONS.has(collection)) {
+    return (await firestoreList<T>(collection, constraints)) ?? [];
+  }
   const proj = fields && fields.length ? `&fields=${encodeURIComponent(fields.join(","))}` : "";
   let docs: T[] = [];
   let served = false;
@@ -342,6 +353,10 @@ export async function d1UpsertDoc(
   data: Record<string, unknown>,
   opts?: { merge?: boolean },
 ): Promise<void> {
+  if (FIRESTORE_ONLY_COLLECTIONS.has(collection)) {
+    await fsSetDoc(fsDoc(db, collection, id), data, { merge: opts?.merge ?? false });
+    return;
+  }
   const headers = await authHeaders();
   const res = await fetch("/api/d1/docs", {
     method: "PUT",
@@ -364,6 +379,10 @@ export async function d1UpsertDoc(
 }
 
 export async function d1DeleteDoc(collection: string, id: string): Promise<void> {
+  if (FIRESTORE_ONLY_COLLECTIONS.has(collection)) {
+    await fsDeleteDoc(fsDoc(db, collection, id));
+    return;
+  }
   const headers = await authHeaders();
   const res = await fetch("/api/d1/docs", {
     method: "DELETE",
