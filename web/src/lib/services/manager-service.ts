@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
-} from "firebase/firestore";
+} from "@/lib/d1/firestore-compat";
 import { normalizeEmail } from "@/lib/auth/user-profile";
 import { createAuthAccount, db, functions } from "@/lib/firebase/client";
 import { writeAuditLog } from "@/lib/firebase/firestore";

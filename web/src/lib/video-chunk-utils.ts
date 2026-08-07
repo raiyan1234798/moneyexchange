@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, getDocs, setDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, setDoc } from "@/lib/d1/firestore-compat";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS, VIDEO_CHUNK_BINARY_BYTES } from "@/lib/constants";
 import type { VideoAsset } from "@/lib/types";
@@ -67,15 +67,19 @@ export async function loadChunkedVideoBlobUrl(video: VideoAsset): Promise<string
     throw new Error("Chunked video metadata not found");
   }
 
-  const chunkCount = video.chunkCount ?? (metaSnap.data().chunkCount as number);
-  const mimeType = video.mimeType || (metaSnap.data().mimeType as string) || "video/mp4";
+  const meta = metaSnap.data() ?? {};
+  const chunkCount = video.chunkCount ?? (meta.chunkCount as number);
+  const mimeType = video.mimeType || (meta.mimeType as string) || "video/mp4";
 
   const partsSnap = await getDocs(collection(db, COLLECTIONS.videoChunks, video.id, "parts"));
   const parts = partsSnap.docs
-    .map((part) => ({
-      index: part.data().index as number,
-      data: part.data().data as string,
-    }))
+    .map((part) => {
+      const d = part.data() ?? {};
+      return {
+        index: d.index as number,
+        data: d.data as string,
+      };
+    })
     .sort((a, b) => a.index - b.index);
 
   if (parts.length !== chunkCount) {

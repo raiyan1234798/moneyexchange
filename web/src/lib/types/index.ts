@@ -1,4 +1,7 @@
-import type { Timestamp } from "firebase/firestore";
+import type { Timestamp } from "@/lib/d1/firestore-compat";
+
+/** Dates may be Firestore Timestamp, Date, or ISO string (Cloudflare D1). */
+export type AppDate = Timestamp | Date | string;
 
 export type UserRole = "superAdmin" | "admin" | "branchManager" | "branchUser";
 
@@ -26,9 +29,9 @@ export interface AppUser {
   branchId?: string | null;
   photoURL?: string | null;
   isActive: boolean;
-  createdAt: Timestamp | Date;
-  updatedAt: Timestamp | Date;
-  lastLoginAt?: Timestamp | Date | null;
+  createdAt: AppDate;
+  updatedAt: AppDate;
+  lastLoginAt?: AppDate | null;
   /** Custom module picks (Users form) — when set, REPLACES the role defaults. */
   moduleAccess?: string[];
 }
@@ -53,6 +56,8 @@ export interface Branch {
   /** Manual position in branch lists/dropdowns (1-based). Unset = after ordered ones, A–Z. */
   displayOrder?: number;
   settings: BranchSettings;
+  /** When set to cloudflare-d1, full display settings live in Cloudflare D1 (+ R2 media). */
+  settingsHost?: "firestore" | "cloudflare-d1";
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }
@@ -98,7 +103,7 @@ export interface BranchSettings {
    * How the video/image fits its area:
    * - "stretch" = media is stretched to exactly fill the fixed area — whole content
    *               visible, no bars, no crop (like the client's previous signage player). Default.
-   * - "auto"    = the promo AREA resizes to the media's shape (no crop, no bars, no stretch).
+   * - "auto"    = whole media + blurred fill; rate-card width stays fixed (same as contain).
    * - "cover"   = media fills a fixed area, cropping the edges.
    * - "contain" = whole media shown with a blurred fill behind it.
    */

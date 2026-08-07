@@ -28,6 +28,7 @@ import { updateBranch } from "@/lib/services/branch-service";
 import { DEFAULT_BRANCH_SETTINGS, MESSAGE_FONTS } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
+import { migrateBranchInlineMedia, storeImageForBranch } from "@/lib/migrate-inline-media";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
 import type { BranchSettings } from "@/lib/types";
 
@@ -89,8 +90,17 @@ export default function PromotionsPage() {
         } else {
           const fit = await checkPromoMediaFit(file);
           if (fit) toast.warning(`${file.name}: ${fit}`, { duration: 9000 });
-          const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
-          added.push({ type: "image", url: dataUrl });
+          if (!effectiveBranchId) {
+            toast.error("Select a branch before uploading");
+            continue;
+          }
+          const url = await storeImageForBranch({
+            file,
+            branchId: effectiveBranchId,
+            label: "promo",
+            toDataUrl: async (f) => (await compressImageToDataUrl(f, ADVERT_IMAGE_OPTIONS)).dataUrl,
+          });
+          added.push({ type: "image", url });
         }
       }
       if (added.length) {
@@ -111,44 +121,30 @@ export default function PromotionsPage() {
     }
   }
 
-  // Data-URL images upload to R2 at save time so the branch doc stays small
-  // (Firestore caps a doc at 1 MB). Same rescue the Settings page used.
-  async function migratePromoMediaForSave(from: BranchSettings): Promise<BranchSettings> {
-    const list = [...legacyPromo(from), ...(from.ratePromoMedia ?? [])];
-    if (!list.some((m) => m.url.startsWith("data:")) || !isR2UploadConfigured()) {
-      return { ...from, ratePromoImageUrl: null, ratePromoMedia: list };
-    }
-    toast.info("Optimizing promotion images for upload…");
-    const migrated: PromoItem[] = [];
-    for (const m of list) {
-      if (m.url.startsWith("data:")) {
-        try {
-          const res = await fetch(m.url);
-          const blob = await res.blob();
-          const ext = (blob.type.split("/")[1] || "png").replace("+xml", "");
-          const file = new File([blob], `promo-${Date.now()}.${ext}`, { type: blob.type });
-          const r2 = await uploadFileToR2(file, effectiveBranchId);
-          migrated.push({ type: m.type, url: r2.downloadUrl });
-        } catch {
-          migrated.push(m); // best-effort — keep original if the upload fails
-        }
-      } else {
-        migrated.push(m);
-      }
-    }
-    return { ...from, ratePromoImageUrl: null, ratePromoMedia: migrated };
-  }
-
   async function save() {
     if (!user || !profile || !effectiveBranchId || !branch) return;
     setSaving(true);
     const actor = { userId: user.uid, userName: profile.displayName || profile.email || "Admin" };
     try {
-      const prepared = await migratePromoMediaForSave(settings);
-      if (prepared !== settings) setSettings(prepared);
+      // updateBranch is the size/R2 chokepoint (migrate → assert → recover).
+      // Keep a local migrate pass so the form state also drops data: URLs.
+      toast.info("Moving large images to cloud storage…");
+      const migrated = await migrateBranchInlineMedia({
+        branchId: effectiveBranchId,
+        settings,
+        logoUrl: branch.logoUrl,
+        onProgress: (msg) => toast.message(msg),
+      });
+      const prepared = migrated.settings;
+      const preparedLogo = migrated.logoUrl ?? branch.logoUrl;
+      if (migrated.migratedCount > 0) setSettings(prepared);
       await updateBranch(
         effectiveBranchId,
-        { logoUrl: branch.logoUrl ?? "", brandingColor: branch.brandingColor ?? "#0D2680", settings: prepared },
+        {
+          logoUrl: preparedLogo ?? "",
+          brandingColor: branch.brandingColor ?? "#0D2680",
+          settings: prepared,
+        },
         actor,
       );
 
@@ -201,6 +197,7 @@ export default function PromotionsPage() {
                 (shared as Record<string, unknown>)[key] = value;
               }
             }
+            // Shared promo media must already be R2 URLs (migrated above).
             return updateBranch(b.id, { settings: { ...b.settings, ...shared } }, actor);
           }),
         );
@@ -294,10 +291,16 @@ export default function PromotionsPage() {
                       aria-label="Upload announcement image"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
+                        if (!file || !effectiveBranchId) return;
                         try {
-                          const { dataUrl } = await compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS);
-                          set({ announcementImageUrl: dataUrl });
+                          const url = await storeImageForBranch({
+                            file,
+                            branchId: effectiveBranchId,
+                            label: "announcement",
+                            toDataUrl: async (f) =>
+                              (await compressImageToDataUrl(f, ADVERT_IMAGE_OPTIONS)).dataUrl,
+                          });
+                          set({ announcementImageUrl: url });
                           toast.success("Image ready — Save to apply");
                         } catch (err) {
                           toast.error(err instanceof Error ? err.message : "Could not read image");
@@ -712,10 +715,16 @@ export default function PromotionsPage() {
                       aria-label="Upload promotion-slide logo"
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
-                        if (!file) return;
+                        if (!file || !effectiveBranchId) return;
                         try {
-                          const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark");
-                          set({ promoSlideLogoUrl: dataUrl });
+                          const url = await storeImageForBranch({
+                            file,
+                            branchId: effectiveBranchId,
+                            label: "promo-slide-logo",
+                            toDataUrl: async (f) =>
+                              (await compressLogoTransparent(f, LOGO_IMAGE_OPTIONS, "dark")).dataUrl,
+                          });
+                          set({ promoSlideLogoUrl: url });
                           toast.success("Promotion-slide logo ready — Save to apply");
                         } catch (err) {
                           toast.error(err instanceof Error ? err.message : "Could not read image");
@@ -834,9 +843,8 @@ export default function PromotionsPage() {
             </div>
             <PreviewDisplayLink branchCode={branch.code} />
 
-            {/* Sticky: the branch picker can grow tall — Save must stay reachable
-                without scrolling to the very bottom (client 2026-07-31). */}
-            <div className="sticky bottom-3 z-20 space-y-3 rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-lg backdrop-blur">
+            {/* At the end of the form (not sticky) so it never covers fields while scrolling. */}
+            <div className="mt-2 space-y-3 rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-sm">
               {canApplyToAll ? (
                 <ApplyToAllCheckbox
                   id="promotions-apply-all"

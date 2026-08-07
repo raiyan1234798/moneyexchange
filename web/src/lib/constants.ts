@@ -91,7 +91,7 @@ export const DEFAULT_BRANCH_SETTINGS = {
   tickerMessageAnimation: null as string | null,
   tickerScrollLogoAnimation: null as string | null,
   tickerScrollLogoScale: 1,
-  tickerScrollLogoGapVw: 1.2,
+  tickerScrollLogoGapVw: 1.6,
   tickerScrollLogoBg: "transparent" as "white" | "transparent" | "auto",
   tickerScrollLogosEnabled: true,
   tickerScrollLogoPosition: "start" as "start" | "end" | "both",
@@ -211,17 +211,19 @@ export const MAX_TOTAL_STORAGE_BYTES = 10 * 1024 * 1024 * 1024;
     (Cloudflare R2 bills beyond the 10 GB free tier). */
 export const STORAGE_WARN_BYTES = 9 * 1024 * 1024 * 1024;
 
-/** Max Firebase Storage upload per file (matches storage.rules) */
-export const MAX_VIDEO_UPLOAD_BYTES = 500 * 1024 * 1024;
+/** Max per-file upload when using R2 / Firebase Storage (multipart for large files). */
+export const MAX_VIDEO_UPLOAD_BYTES = 1024 * 1024 * 1024; // 1 GB
 
-/** Firestore chunk storage (the active store while R2/Storage are unavailable). */
-export const MAX_CHUNKED_VIDEO_BYTES = 50 * 1024 * 1024;
+/** Firestore chunk storage fallback when R2/Storage are unavailable.
+ *  Kept below ~100MB: each video is split into ~750KB docs, so larger files
+ *  become very slow and burn Firestore quota. Prefer R2 for big signage clips. */
+export const MAX_CHUNKED_VIDEO_BYTES = 100 * 1024 * 1024;
 
 export const CHUNKED_UPLOAD_WARNING =
   "Video saved to the database. Large files take a minute — pasting a direct video link is still the fastest option.";
 
-/** Warn in UI when file exceeds this size — recommend compression */
-export const WARN_LARGE_VIDEO_BYTES = 50 * 1024 * 1024;
+/** Warn in UI when file exceeds this size — recommend compression / R2 */
+export const WARN_LARGE_VIDEO_BYTES = 80 * 1024 * 1024;
 
 /** Binary bytes per Firestore chunk document (~1MB doc limit with base64 overhead) */
 export const VIDEO_CHUNK_BINARY_BYTES = 750_000;

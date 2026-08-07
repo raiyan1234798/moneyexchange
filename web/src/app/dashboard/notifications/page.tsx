@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { limit } from "firebase/firestore";
+import { limit } from "@/lib/d1/firestore-compat";
 import {
   Bell,
   Building2,

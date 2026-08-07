@@ -1,4 +1,4 @@
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "@/lib/d1/firestore-compat";
 import { db } from "@/lib/firebase/client";
 import {
   createDocument,

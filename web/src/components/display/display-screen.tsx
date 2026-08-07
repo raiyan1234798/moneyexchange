@@ -13,6 +13,7 @@ import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVi
 import { subscribeCurrencyOverrides } from "@/lib/services/currency-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
 import { DEFAULT_BRANCH_SETTINGS, logoFontCss, messageFontCss } from "@/lib/constants";
+import { displaySafeInsetCss, effectiveDisplaySafeAreaPercent } from "@/lib/display-tv-safe-area";
 import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
 import { UnimoniPromoPanel } from "@/components/display/unimoni-promo-panel";
 import {
@@ -261,21 +262,6 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   // Last time the playing video reported progress — the stall watchdog below.
   const videoProgressAtRef = useRef(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // Adaptive promo sizing: measure the live main-area box and the current media
-  // aspect so "auto" fit can resize the promo area to the video/image shape.
-  const mainAreaRef = useRef<HTMLDivElement>(null);
-  const [mediaAspect, setMediaAspect] = useState<number | null>(null);
-  const [mainDims, setMainDims] = useState<{ w: number; h: number } | null>(null);
-
-  useEffect(() => {
-    const el = mainAreaRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const update = () => setMainDims({ w: el.clientWidth, h: el.clientHeight });
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
 
   const branchSettings = {
     ...DEFAULT_BRANCH_SETTINGS,
@@ -340,17 +326,9 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const videoWidthPercent = Math.max(40, Math.min(75, branchSettings.videoWidthPercent ?? 72));
   const videoFit = branchSettings.videoFit ?? "stretch";
 
-  // "auto" fit: resize the promo area to the media's shape so the WHOLE media
-  // fills it with no crop and no bars. The rate card takes the rest. Clamped so
-  // the rate card always keeps at least 25% (readable rates) and at most 55%.
-  const adaptivePromoPercent = useMemo(() => {
-    if (videoFit !== "auto" || !mediaAspect || !mainDims || mainDims.w <= 0 || mainDims.h <= 0) {
-      return null;
-    }
-    const idealPx = mainDims.h * mediaAspect;
-    return Math.max(45, Math.min(75, (idealPx / mainDims.w) * 100));
-  }, [videoFit, mediaAspect, mainDims]);
-
+  // Rate-card width is ALWAYS the admin’s Video width % (never shrinks/grows with
+  // the media). "auto" and "contain" both keep the whole frame + blurred fill
+  // inside that fixed promo column — they must not move the rate card.
   const rateCardScale = branchSettings.rateCardScale ?? 1;
   const rateCurrencyScale = branchSettings.rateCurrencyScale ?? 1;
   const rateValueScale = branchSettings.rateValueScale ?? 1;
@@ -564,7 +542,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
     promoTextTop: ratePromoTextTop,
   });
   const rateCardShown = rateCardVisible && hasAnyRateContent;
-  const effectivePromoWidth = rateCardShown ? (adaptivePromoPercent ?? videoWidthPercent) : 100;
+  const effectivePromoWidth = rateCardShown ? videoWidthPercent : 100;
   const rateWidthPercent = 100 - effectivePromoWidth;
 
   useEffect(() => {
@@ -594,12 +572,12 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
     const scopedBranchId = branchId;
     const unsubBranch = subscribeBranch(scopedBranchId, setBranch);
     const unsubPrefs = subscribeBranchDisplayPrefs(scopedBranchId, (prefs) => {
-      if (!prefs) {
+      if (!prefs || prefs.hiddenTransferCodes === undefined) {
         setDisplayPrefsHiddenTransfer(null);
         return;
       }
       setDisplayPrefsHiddenTransfer(
-        (prefs.hiddenTransferCodes ?? []).map((c) => String(c).toUpperCase()).filter(Boolean),
+        prefs.hiddenTransferCodes.map((c) => String(c).toUpperCase()).filter(Boolean),
       );
     });
     const unsubRates = subscribeExchangeRates(scopedBranchId, setRates);
@@ -893,7 +871,6 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       fit={videoFit}
       widthPercent={effectivePromoWidth}
       soundOn={videoSoundOn}
-      onMediaAspectChange={setMediaAspect}
       onVideoLoaded={() => {
         setVideoLoaded(true);
         setErroredVideoId("");
@@ -1021,7 +998,8 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   // TV edge-cut (overscan) fix: many TVs crop a few % of an HDMI input on every
   // edge (logo/date/last column not fully visible). Uniformly shrinking the
   // WHOLE display leaves a black margin the TV crops instead of the content.
-  const safeAreaPercent = Math.max(0, Math.min(15, branchSettings.displaySafeAreaPercent ?? 0));
+  const safeAreaPercent = effectiveDisplaySafeAreaPercent(branchSettings.displaySafeAreaPercent);
+  const safeInset = displaySafeInsetCss(safeAreaPercent);
   // Admin-adjustable spin/flip cadence (Settings → "Spin / flip speed") plus an
   // adjustable STAND-STILL between turns: one animation cycle = pause + turn,
   // holding still for the first pause/(pause+turn) of the cycle. The keyframes
@@ -1045,7 +1023,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
 
   return (
     <div
-      className={`relative flex h-screen w-screen flex-col overflow-hidden bg-black text-white select-none ${
+      className={`relative flex h-[100dvh] w-[100dvw] max-h-[100dvh] max-w-[100dvw] flex-col overflow-hidden bg-black text-white select-none ${
         isFullscreen ? "display-kiosk" : ""
       }`}
       style={{
@@ -1059,6 +1037,8 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
               boxShadow: "0 0 0 100vmax #000",
             }
           : {}),
+        ["--display-safe-inset" as string]: safeInset,
+        ["--display-safe-pct" as string]: String(safeAreaPercent),
         ["--rate-anim-secs" as string]: `${rateAnimCycleSecs}s`,
         ["--sheet-anim-secs" as string]: `${Math.max(0.2, Math.min(5, branchSettings.slideTransitionSeconds ?? 0.6))}s`,
       }}
@@ -1102,7 +1082,6 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       )}
 
       <div
-        ref={mainAreaRef}
         // A TV is landscape: ALWAYS lay the video + rate card side-by-side when the
         // screen is wider than tall, regardless of pixel width (many Android TVs
         // report a narrow logical width and were falling into the phone "stacked"

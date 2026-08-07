@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { addDoc, collection, doc, serverTimestamp, writeBatch } from "@/lib/d1/firestore-compat";
 import {
   createDocument,
   listDocuments,
@@ -213,6 +213,9 @@ export async function setForexCurrencyVisibilityOnBranches(
  * Fast path: query by currencyCode (one read for all branches), then commit
  * isHidden updates in Firestore write batches. Avoids listing every branch's
  * full rate list when applying to "all branches".
+ *
+ * FOREX ONLY — never touches transfer_rates or branch_display_prefs
+ * (remittance hides). Hiding a forex code on a branch leaves remittance alone.
  */
 export async function setForexCurrenciesVisibilityOnBranches(
   currencyCodes: string[],
@@ -555,6 +558,8 @@ export async function bulkUpdateRates(
   // Admins/managers persist today's effective order ONCE so uploads can never
   // reorder the card — only the values change. (Branch users can't write
   // displayOrder by Firestore rules; their uploads never touch order anyway.)
+  // IMPORTANT: never assign displayOrder from Excel/file row index on updates —
+  // that would undo admin drag order on branch TVs.
   if (options?.actorRole !== "branchUser") {
     const seen = new Set<number>();
     let needsNormalize = false;

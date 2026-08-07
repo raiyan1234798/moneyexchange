@@ -1,4 +1,4 @@
-import { doc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { doc, serverTimestamp, writeBatch } from "@/lib/d1/firestore-compat";
 
 import { COLLECTIONS } from "@/lib/constants";
 import { db } from "@/lib/firebase/client";

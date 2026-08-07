@@ -589,15 +589,19 @@ export function UnimoniRatesPanel({
       // The active slide type — the display re-times spin/flip per slide with it.
       data-anim-kind={activeKind}
     >
-      {/* Header: logo truly centered; date/time pinned to the right so it never
-          pulls the logo off-center or overlaps it. */}
+      {/* Header: 3-column grid keeps the logo/title centered and reserves a
+          real column for the date — never overlay, so “EXCHANGE RATES” cannot
+          collide with the clock (portrait / narrow rate cards). */}
       {showHeaderBar ? (
-      <div className="relative flex shrink-0 items-center justify-center px-[1vw] py-[1.1vh]">
-        <div
-          className={`flex min-w-0 flex-col items-center justify-center ${
-            isPromoSheet ? "max-w-full" : "max-w-[calc(100%-7.5rem)]"
-          }`}
-        >
+      <div
+        className={`grid shrink-0 items-center gap-x-[0.4vw] px-[max(1vw,var(--display-safe-inset,0px))] py-[1.1vh] ${
+          isPromoSheet
+            ? "grid-cols-1 justify-items-center"
+            : "grid-cols-[minmax(4.25rem,1fr)_auto_minmax(4.25rem,1fr)]"
+        }`}
+      >
+        {!isPromoSheet ? <div aria-hidden className="min-w-0" /> : null}
+        <div className="flex min-w-0 max-w-full flex-col items-center justify-center gap-[0.15vh] px-[0.3vw]">
           {headerLogos === null ? null : showCustomLogos ? (
             <div className="flex min-w-0 items-center justify-center gap-[0.8vw]">
               {headerLogos!.map((src, i) => (
@@ -606,10 +610,10 @@ export function UnimoniRatesPanel({
                   key={`${src}-${i}`}
                   src={src}
                   alt="Brand logo"
-                  className={`h-[clamp(2rem,4.2vh,3.6rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
+                  className={`h-[clamp(2.6rem,5.4vh,4.6rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
                   style={
                     headerSizeScale !== 1
-                      ? { height: `calc(clamp(2rem,4.2vh,3.6rem) * ${headerSizeScale})` }
+                      ? { height: `calc(clamp(2.6rem,5.4vh,4.6rem) * ${headerSizeScale})` }
                       : undefined
                   }
                 />
@@ -618,19 +622,19 @@ export function UnimoniRatesPanel({
           ) : showDefaultLogo ? (
             <UnimoniLogoImage
               variant="onDark"
-              width={280}
-              height={72}
-              className={`h-[clamp(1.9rem,3.9vh,3.3rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
+              width={360}
+              height={92}
+              className={`h-[clamp(2.5rem,5.2vh,4.4rem)] w-auto max-w-full object-contain ${headerAnimClass}`}
               style={
                 headerSizeScale !== 1
-                  ? { height: `calc(clamp(1.9rem,3.9vh,3.3rem) * ${headerSizeScale})` }
+                  ? { height: `calc(clamp(2.5rem,5.2vh,4.4rem) * ${headerSizeScale})` }
                   : undefined
               }
               priority
             />
           ) : null}
           {headerSubLabel ? (
-            <p className="whitespace-nowrap text-[clamp(0.75rem,1.3vw,1.2rem)] font-extrabold uppercase tracking-[0.2em] text-white">
+            <p className="max-w-full truncate text-center text-[clamp(0.65rem,1.15vw,1.15rem)] font-extrabold uppercase tracking-[0.12em] text-white sm:tracking-[0.18em]">
               {/* Inner span so the movement effect never shifts the header layout. */}
               <span className={`display-text-anim inline-block ${displayAnimationClass(headingAnimation)}`}>
                 {headerSubLabel}
@@ -639,7 +643,10 @@ export function UnimoniRatesPanel({
           ) : null}
         </div>
         {!isPromoSheet ? (
-          <div className="pointer-events-none absolute inset-y-0 right-[1vw] z-10 flex flex-col items-end justify-end pb-[0.2vh] leading-tight">
+          <div
+            className="flex min-w-0 flex-col items-end justify-end self-end pb-[0.15vh] leading-tight"
+            style={{ paddingRight: "max(0px, calc(var(--display-safe-inset, 0px) * 0.25))" }}
+          >
             <span className="whitespace-nowrap text-[clamp(0.5rem,0.72vw,0.8rem)] font-semibold tabular-nums text-white/75">
               {now ? formatSignageDate(now) : "—"}
             </span>

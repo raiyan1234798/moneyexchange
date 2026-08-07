@@ -21,7 +21,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { doc, onSnapshot, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, serverTimestamp, updateDoc } from "@/lib/d1/firestore-compat";
 import { auth, db } from "@/lib/firebase/client";
 import {
   buildSuperAdminFallbackProfile,

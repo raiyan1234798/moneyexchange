@@ -5,12 +5,15 @@ import { useSearchParams } from "next/navigation";
 import { DisplayScreen } from "@/components/display/display-screen";
 import { heartbeatTvDevice, registerTvDevice } from "@/lib/services/tv-service";
 import { getTvSession, saveTvSession } from "@/lib/tv/offline-cache";
+import { useAutoRefreshOnNewBuild } from "@/lib/tv/use-auto-refresh";
 
 function TvPlayerContent() {
   const searchParams = useSearchParams();
   const session = typeof window !== "undefined" ? getTvSession() : null;
   const branchId = searchParams.get("branchId") ?? session?.branchId ?? "";
   const deviceId = searchParams.get("deviceId") ?? session?.deviceId ?? "";
+
+  useAutoRefreshOnNewBuild(Boolean(branchId));
 
   useEffect(() => {
     if (branchId && deviceId) {

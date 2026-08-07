@@ -8,7 +8,7 @@ import {
   orderBy,
   writeAuditLog,
 } from "@/lib/firebase/firestore";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc } from "@/lib/d1/firestore-compat";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
 import type { TvDevice, TvHealth } from "@/lib/types";

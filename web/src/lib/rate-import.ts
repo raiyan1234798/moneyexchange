@@ -88,11 +88,29 @@ const TEMPLATE_SAMPLE_RATES: Record<string, { buy: number; sell: number }> = {
   BHD: { buy: 9600, sell: 9900 },
 };
 
+/** Labels that are never currencies — skip so leftover note rows don't break imports. */
+const SKIP_ROW_LABELS = new Set([
+  "SMALL BILLS",
+  "SMALL BILL",
+  "BILLS NOTE",
+  "BILL NOTE",
+  "RATE CARD NOTE",
+  "RATE NOTE",
+  "NOTE",
+  "BILLS",
+]);
+
+const SKIP_SHEET_NAME_RE = /^(rate\s*card\s*note|small\s*bills?|note)$/i;
+
 function normalizeHeader(value: unknown): string {
   return String(value ?? "")
     .trim()
     .toUpperCase()
     .replace(/\s+/g, " ");
+}
+
+export function isSkippedRateImportLabel(raw: string): boolean {
+  return SKIP_ROW_LABELS.has(normalizeHeader(raw));
 }
 
 /** Excel/CSV cells often arrive as TEXT with thousand separators ("3,680") or
@@ -126,9 +144,11 @@ export function buildRateTemplateRows(): RateImportRow[] {
 export function downloadRateTemplateCsv(): void {
   const rows = buildRateTemplateRows();
   const header = "CURRENCY,WE BUY,WE SELL";
-  const body = rows
-    .map((r) => `${r.currencyCode},${r.buyRate},${r.sellRate}`)
-    .join("\n");
+  const body = [
+    ...rows.map((r) => `${r.currencyCode},${r.buyRate},${r.sellRate}`),
+    // Not a currency — published as the branch small-bills note on Excel Publish.
+    `SMALL BILLS,"*WE BUY USD SMALL BILLS $20, $10, $5, $2, $1 @ 3300",`,
+  ].join("\n");
   const blob = new Blob([`${header}\n${body}\n`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -140,20 +160,68 @@ export function downloadRateTemplateCsv(): void {
 
 export function downloadRateTemplateXlsx(): void {
   const rows = buildRateTemplateRows();
-  const sheet = XLSX.utils.json_to_sheet(
-    rows.map((r) => ({
+  const sheet = XLSX.utils.json_to_sheet([
+    ...rows.map((r) => ({
       CURRENCY: r.currencyCode,
       "WE BUY": r.buyRate,
       "WE SELL": r.sellRate,
     })),
-  );
+    {
+      CURRENCY: "SMALL BILLS",
+      "WE BUY": "*WE BUY USD SMALL BILLS $20, $10, $5, $2, $1 @ 3300",
+      "WE SELL": "",
+    },
+  ]);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "Rates");
   XLSX.writeFile(workbook, "exchange-rates-template.xlsx");
 }
 
+function extractNoteTextFromCells(row: unknown[], currencyIdx: number, buyIdx: number, sellIdx: number): string | null {
+  // Prefer WE BUY / WE SELL text cells; otherwise join remaining non-empty cells.
+  const candidates: string[] = [];
+  if (buyIdx >= 0) candidates.push(String(row[buyIdx] ?? "").trim());
+  if (sellIdx >= 0) candidates.push(String(row[sellIdx] ?? "").trim());
+  for (let c = 0; c < row.length; c++) {
+    if (c === currencyIdx) continue;
+    const t = String(row[c] ?? "").trim();
+    if (t) candidates.push(t);
+  }
+  const note = candidates.find((t) => t.length > 0 && toNumber(t) == null) ?? candidates.find((t) => t.length > 0);
+  return note?.trim() || null;
+}
+
+function extractNoteFromSheet(sheet: XLSX.WorkSheet): string | null {
+  const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+  let fallback: string | null = null;
+  for (const raw of rawRows) {
+    const row = raw as unknown[];
+    const joined = row.map((c) => String(c ?? "").trim()).filter(Boolean);
+    if (joined.length === 0) continue;
+    // Skip header-only rows like "RATE CARD NOTE".
+    if (joined.length === 1 && isSkippedRateImportLabel(joined[0])) continue;
+    if (joined.length === 1) {
+      if (/small\s*bills|we\s*buy\s*usd|@\s*\d+/i.test(joined[0])) return joined[0];
+      fallback = fallback ?? joined[0];
+      continue;
+    }
+    if (isSkippedRateImportLabel(joined[0])) {
+      const rest = joined.slice(1).join(" ").trim();
+      if (rest) return rest;
+      continue;
+    }
+    const asLine = joined.join(" ");
+    if (/small\s*bills|we\s*buy\s*usd|@\s*\d+/i.test(asLine)) return asLine;
+    fallback = fallback ?? asLine;
+  }
+  return fallback;
+}
+
 /** Parse ONE sheet. Returns null when its headers aren't a rates table. */
-function parseSheet(sheet: XLSX.WorkSheet, sheetLabel: string): RateImportRow[] | null {
+function parseSheet(
+  sheet: XLSX.WorkSheet,
+  sheetLabel: string,
+): { rows: RateImportRow[]; rateCardNote: string | null } | null {
   const rawRows = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
   if (rawRows.length < 2) return null;
 
@@ -205,10 +273,17 @@ function parseSheet(sheet: XLSX.WorkSheet, sheetLabel: string): RateImportRow[] 
   };
 
   const parsed: RateImportRow[] = [];
+  let rateCardNote: string | null = null;
   for (let i = headerRowIdx + 1; i < rawRows.length; i++) {
     const row = rawRows[i] as unknown[];
     const rawCurrency = String(row[currencyIdx] ?? "").trim();
     if (!rawCurrency || rawCurrency.toUpperCase() === "CURRENCY") continue;
+    // Capture small-bills / note rows — never create a currency from them.
+    if (isSkippedRateImportLabel(rawCurrency)) {
+      const note = extractNoteTextFromCells(row, currencyIdx, buyIdx, sellIdx);
+      if (note) rateCardNote = note;
+      continue;
+    }
 
     const { currencyCode, displayName, currencyName, country, flag } = parseCurrencyCell(rawCurrency);
     if (!currencyCode) continue;
@@ -251,28 +326,47 @@ function parseSheet(sheet: XLSX.WorkSheet, sheetLabel: string): RateImportRow[] 
     });
   }
 
-  return parsed;
+  return { rows: parsed, rateCardNote };
 }
+
+export type RateImportResult = {
+  rows: RateImportRow[];
+  /** Optional small-bills / rate-card note extracted from the file (not a currency). */
+  rateCardNote: string | null;
+};
 
 /**
  * Parse EVERY sheet in the workbook and merge rows by currency code — so one
  * Excel file can carry a "Forex Rates" sheet (CURRENCY | WE BUY | WE SELL) AND
  * a "Transfer Rate" sheet (CURRENCY | $ | UGX). A currency on both sheets gets
  * its forex and transfer rates combined into a single row. Sheets whose
- * headers aren't a rates table are skipped.
+ * headers aren't a rates table are skipped. Note sheets / SMALL BILLS rows
+ * populate rateCardNote without creating currencies.
  */
-export function parseRateWorkbook(workbook: XLSX.WorkBook): RateImportRow[] {
+export function parseRateWorkbook(workbook: XLSX.WorkBook): RateImportResult {
   if (workbook.SheetNames.length === 0) throw new Error("File has no sheets");
 
   const merged = new Map<string, RateImportRow>();
   let parsedAnySheet = false;
+  let rateCardNote: string | null = null;
 
   for (const sheetName of workbook.SheetNames) {
-    const rows = parseSheet(workbook.Sheets[sheetName], sheetName);
-    if (rows === null) continue;
-    parsedAnySheet = true;
+    if (SKIP_SHEET_NAME_RE.test(sheetName.trim())) {
+      const fromNoteSheet = extractNoteFromSheet(workbook.Sheets[sheetName]);
+      // Prefer an explicit note-sheet value, but never overwrite a better
+      // SMALL BILLS row already captured from a rates sheet with a header-only miss.
+      if (fromNoteSheet && (!rateCardNote || /@\s*\d+/i.test(fromNoteSheet))) {
+        rateCardNote = fromNoteSheet;
+      }
+      continue;
+    }
 
-    for (const row of rows) {
+    const parsed = parseSheet(workbook.Sheets[sheetName], sheetName);
+    if (parsed === null) continue;
+    parsedAnySheet = true;
+    if (parsed.rateCardNote) rateCardNote = parsed.rateCardNote;
+
+    for (const row of parsed.rows) {
       const existing = merged.get(row.currencyCode);
       if (!existing) {
         merged.set(row.currencyCode, row);
@@ -314,10 +408,10 @@ export function parseRateWorkbook(workbook: XLSX.WorkBook): RateImportRow[] {
 
   const result = [...merged.values()];
   if (result.length === 0) throw new Error("No valid rate rows found");
-  return result;
+  return { rows: result, rateCardNote };
 }
 
-export function parseRateFile(file: File): Promise<RateImportRow[]> {
+export function parseRateFile(file: File): Promise<RateImportResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (event) => {

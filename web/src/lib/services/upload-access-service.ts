@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   setDoc,
   type Unsubscribe,
-} from "firebase/firestore";
+} from "@/lib/d1/firestore-compat";
 
 import { db } from "@/lib/firebase/client";
 import { normalizeFirestoreError } from "@/lib/firebase/firestore-errors";

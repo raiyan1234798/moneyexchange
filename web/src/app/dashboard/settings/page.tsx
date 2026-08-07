@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from "@/lib/d1/firestore-compat";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { BranchSelector } from "@/components/shared/branch-selector";
@@ -41,6 +41,13 @@ import {
   messageFontCss,
 } from "@/lib/constants";
 import { ADVERT_IMAGE_OPTIONS, LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent } from "@/lib/image-utils";
+import {
+  assertBranchPayloadUnderLimit,
+  migrateBranchInlineMedia,
+  storeImageForBranch,
+} from "@/lib/migrate-inline-media";
+import { slimBranchDocument } from "@/lib/slim-branch";
+import { shrinkBranchMediaInPlace } from "@/lib/shrink-branch-in-place";
 import { checkPromoMediaFit } from "@/lib/promo-fit";
 import { isYouTubeUrl, normalizeImageLink, normalizeVideoLink } from "@/lib/media-links";
 import { isR2UploadConfigured, uploadFileToR2, uploadVideoToR2 } from "@/lib/r2-upload";
@@ -271,38 +278,39 @@ function BranchSettingsForm({
       return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
     });
 
-  // Rescue any promo images stored as base64 data URLs by uploading them to R2
-  // and swapping in the URL, so the branch doc stays well under Firestore's 1MB
-  // limit. Runs at save time; safe no-op when nothing needs migrating.
-  async function migratePromoMediaForSave(s: BranchSettings): Promise<BranchSettings> {
-    const list = [...legacyPromo(s), ...(s.ratePromoMedia ?? [])];
-    const needsUpload = list.some((m) => m.url.startsWith("data:"));
-    if (!needsUpload) {
-      return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
+  // Inline data URLs are offloaded to R2 before write (Firestore 1 MiB cap).
+  async function prepareSettingsForSave(
+    s: BranchSettings,
+  ): Promise<{ settings: BranchSettings; logoUrl: string }> {
+    toast.info("Moving large images to cloud storage…");
+    const slim = await slimBranchDocument(branchId);
+    if (slim.ok && slim.migrated > 0) {
+      toast.message(`Moved ${slim.migrated} image(s) to R2 — continuing save…`);
     }
-    if (!isR2UploadConfigured()) {
-      // No R2 here (local/dev): leave as-is; the caller will surface any size error.
-      return { ...s, ratePromoImageUrl: null, ratePromoMedia: list };
-    }
-    toast.info("Optimizing promotion images for upload…");
-    const migrated: PromoItem[] = [];
-    for (const m of list) {
-      if (m.url.startsWith("data:")) {
-        try {
-          const res = await fetch(m.url);
-          const blob = await res.blob();
-          const ext = (blob.type.split("/")[1] || "png").replace("+xml", "");
-          const file = new File([blob], `promo-${Date.now()}.${ext}`, { type: blob.type });
-          const r2 = await uploadFileToR2(file, branchId);
-          migrated.push({ type: m.type, url: r2.downloadUrl });
-        } catch {
-          migrated.push(m); // best-effort — keep original if the upload fails
-        }
-      } else {
-        migrated.push(m);
+    let working = s;
+    let workingLogo: string | null | undefined = logoUrl;
+    if (!slim.ok || slim.migrated === 0) {
+      const local = await shrinkBranchMediaInPlace({
+        branchId,
+        settings: s,
+        logoUrl,
+        onProgress: (msg) => toast.message(msg),
+      });
+      working = local.settings;
+      workingLogo = local.logoUrl;
+      if (local.migrated > 0) {
+        toast.message(`Moved ${local.migrated} image(s) from this form to R2…`);
       }
     }
-    return { ...s, ratePromoImageUrl: null, ratePromoMedia: migrated };
+    const { settings: migrated, logoUrl: nextLogo } = await migrateBranchInlineMedia({
+      branchId,
+      settings: working,
+      logoUrl: workingLogo,
+      onProgress: (msg) => toast.message(msg),
+    });
+    const resolvedLogo = nextLogo ?? workingLogo ?? logoUrl;
+    assertBranchPayloadUnderLimit({ logoUrl: resolvedLogo, settings: migrated });
+    return { settings: migrated, logoUrl: resolvedLogo || "" };
   }
 
   return (
@@ -406,8 +414,14 @@ function BranchSettingsForm({
               const file = event.target.files?.[0];
               if (!file) return;
               try {
-                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark");
-                setSettings({ ...settings, headerLogoUrl: dataUrl });
+                const url = await storeImageForBranch({
+                  file,
+                  branchId,
+                  label: "header-logo",
+                  toDataUrl: async (f) =>
+                    (await compressLogoTransparent(f, LOGO_IMAGE_OPTIONS, "dark")).dataUrl,
+                });
+                setSettings({ ...settings, headerLogoUrl: url });
                 toast.success("Header logo ready — click Save Branch Settings to apply");
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : "Could not read image");
@@ -453,8 +467,14 @@ function BranchSettingsForm({
               const file = event.target.files?.[0];
               if (!file) return;
               try {
-                const { dataUrl } = await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark");
-                setSettings({ ...settings, headerLogoUrl2: dataUrl });
+                const url = await storeImageForBranch({
+                  file,
+                  branchId,
+                  label: "header-logo-2",
+                  toDataUrl: async (f) =>
+                    (await compressLogoTransparent(f, LOGO_IMAGE_OPTIONS, "dark")).dataUrl,
+                });
+                setSettings({ ...settings, headerLogoUrl2: url });
                 toast.success("Second logo ready — click Save Branch Settings to apply");
               } catch (error) {
                 toast.error(error instanceof Error ? error.message : "Could not read image");
@@ -512,16 +532,27 @@ function BranchSettingsForm({
               const urls: string[] = [];
               let kept = 0;
               for (const file of files) {
-                const res =
-                  settings.logoAutoRemoveBg !== false
-                    ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, "dark")
-                    : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
-                urls.push(res.dataUrl);
-                if (res.backgroundKept) kept++;
+                let backgroundKept = false;
+                const url = await storeImageForBranch({
+                  file,
+                  branchId,
+                  label: "header-extra",
+                  toDataUrl: async (f) => {
+                    const res =
+                      settings.logoAutoRemoveBg !== false
+                        ? await compressLogoTransparent(f, LOGO_IMAGE_OPTIONS, "dark")
+                        : {
+                            ...(await compressImageToDataUrl(f, LOGO_IMAGE_OPTIONS)),
+                            backgroundKept: false,
+                          };
+                    backgroundKept = Boolean(res.backgroundKept);
+                    return res.dataUrl;
+                  },
+                });
+                urls.push(url);
+                if (backgroundKept) kept++;
               }
-              // Size budget: the logos live inside the branch document and
-              // Firestore rejects documents over 1 MB — refuse the batch rather
-              // than let every later settings save fail.
+              // Size budget: HTTPS URLs are tiny; keep the check for data: fallbacks.
               const totalChars = [...(settings.headerLogoUrls ?? []), ...urls].reduce(
                 (n, u) => n + u.length,
                 0,
@@ -842,9 +873,15 @@ function BranchSettingsForm({
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
-                  void compressImageToDataUrl(file, ADVERT_IMAGE_OPTIONS)
-                    .then(({ dataUrl }) => {
-                      setSettings((prev) => ({ ...prev, videoPlaceholderImageUrl: dataUrl }));
+                  void storeImageForBranch({
+                    file,
+                    branchId,
+                    label: "video-placeholder",
+                    toDataUrl: async (f) =>
+                      (await compressImageToDataUrl(f, ADVERT_IMAGE_OPTIONS)).dataUrl,
+                  })
+                    .then((url) => {
+                      setSettings((prev) => ({ ...prev, videoPlaceholderImageUrl: url }));
                       toast.success("Picture ready — Save to apply");
                     })
                     .catch((e) => toast.error(e instanceof Error ? e.message : "Could not read image"));
@@ -889,7 +926,7 @@ function BranchSettingsForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="stretch">Stretch to fill — like the previous display (recommended)</SelectItem>
-              <SelectItem value="auto">Auto-fit — area resizes to the video (no stretch)</SelectItem>
+              <SelectItem value="auto">Auto-fit — whole frame + blurred fill (rate card stays fixed)</SelectItem>
               <SelectItem value="cover">Fill a fixed area (may crop edges)</SelectItem>
               <SelectItem value="contain">Whole frame + blurred fill (nothing cropped)</SelectItem>
             </SelectContent>
@@ -915,7 +952,8 @@ function BranchSettingsForm({
             Some TVs cut off the edges of the picture (the clock, logo, date, country names or the
             last rate column not fully visible) — this happens over HDMI cable and casting alike.
             Increase this until everything fits with a clean black border: 3 to 5 works for most
-            TVs, up to 15 for TVs that crop a lot. 0 = off.
+            TVs, up to 15 for TVs that crop a lot. 0 = off on laptops; Android TV and similar
+            browsers automatically use at least ~5% when this is 0.
           </p>
         </div>
       </div>
@@ -1223,7 +1261,9 @@ function BranchSettingsForm({
           className="rounded-xl"
         />
         <p className="text-xs text-muted-foreground">
-          One line under the rate card. Same font as the board; only size is adjustable below.
+          One line under the rate card for <strong>this branch only</strong> (each shop can use a
+          different small-bills rate). Same font as the board; only size is adjustable below. You can
+          also edit this on Exchange Rates for the selected branch.
         </p>
         <div className="grid gap-3 pt-1 sm:grid-cols-2">
           <div>
@@ -1443,8 +1483,14 @@ function BranchSettingsForm({
                 const file = event.target.files?.[0];
                 if (!file) return;
                 try {
-                  const { dataUrl } = await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS);
-                  setSettings({ ...settings, announcementImageUrl: dataUrl });
+                  const url = await storeImageForBranch({
+                    file,
+                    branchId,
+                    label: "announcement",
+                    toDataUrl: async (f) =>
+                      (await compressImageToDataUrl(f, LOGO_IMAGE_OPTIONS)).dataUrl,
+                  });
+                  setSettings({ ...settings, announcementImageUrl: url });
                   toast.success("Announcement image ready — save to apply");
                 } catch (error) {
                   toast.error(error instanceof Error ? error.message : "Could not read image");
@@ -1938,18 +1984,20 @@ function BranchSettingsForm({
       </SettingsGroup>
 
       {/* Save bar: on large screens it lives in the RIGHT column, right below
-          the live TV preview (via portal); smaller screens keep a sticky
-          bottom bar so Save is always in reach. */}
+          the live TV preview (via portal). On smaller screens it sits at the
+          end of the form (not sticky) so it never covers fields while scrolling. */}
       {saveSlot
         ? createPortal(
             <div className="space-y-2 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg">
               <p className="text-xs text-muted-foreground">
                 Changes go live on the <strong>{branchName}</strong> TV only after you save.
                 Animations (including flip) travel with look &amp; behaviour when you apply to all.
+                Each branch keeps its own small-bills note.
               </p>
               {branchCount > 1 ? (
                 <ApplyToAllCheckbox
                   id="settings-apply-all-portal"
+                  branchCount={branchCount}
                   scope={applyMode === "all" ? "all" : applyMode === "some" ? "specific" : "current"}
                   selectedBranchIds={pickedBranchIds}
                   branches={otherBranches.map((b) => ({ ...b, status: "active" } as any))}
@@ -1958,7 +2006,7 @@ function BranchSettingsForm({
                     setApplyMode(sel.scope === "all" ? "all" : sel.scope === "specific" ? "some" : "this");
                     setPickedBranchIds(sel.selectedBranchIds);
                   }}
-                  description="Copies fonts, colours, sizes, animations, timers and layout to selected target branches."
+                  description="Copies fonts, colours, sizes, animations, timers and layout to selected target branches. Small-bills notes stay per branch."
                 />
               ) : null}
               <Button
@@ -1973,16 +2021,18 @@ function BranchSettingsForm({
           )
         : null}
       <div
-        className={`${saveSlot ? "xl:hidden " : ""}sticky bottom-3 z-20 flex flex-col gap-3 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between`}
+        className={`${saveSlot ? "xl:hidden " : ""}mt-4 flex flex-col gap-3 rounded-2xl border border-primary/30 bg-background/95 px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between`}
       >
         <div className="min-w-0 flex-1 space-y-2">
           <p className="text-xs text-muted-foreground">
             Changes go live on the <strong>{branchName}</strong> TV only after you save.
             Animations (including flip) travel with look &amp; behaviour when you apply to all.
+            Each branch keeps its own small-bills note.
           </p>
           {branchCount > 1 ? (
             <ApplyToAllCheckbox
-              id="settings-apply-all-sticky"
+              id="settings-apply-all-footer"
+              branchCount={branchCount}
               scope={applyMode === "all" ? "all" : applyMode === "some" ? "specific" : "current"}
               selectedBranchIds={pickedBranchIds}
               branches={otherBranches.map((b) => ({ ...b, status: "active" } as any))}
@@ -1991,7 +2041,7 @@ function BranchSettingsForm({
                 setApplyMode(sel.scope === "all" ? "all" : sel.scope === "specific" ? "some" : "this");
                 setPickedBranchIds(sel.selectedBranchIds);
               }}
-              description="Copies fonts, colours, sizes, animations, timers and layout to selected target branches."
+              description="Copies fonts, colours, sizes, animations, timers and layout to selected target branches. Small-bills notes stay per branch."
             />
           ) : null}
         </div>
@@ -2121,12 +2171,21 @@ function BranchSettingsForm({
                 setIncludePromo(false);
                 setIncludeLogos(false);
                 void (async () => {
-                  const prepared = await migratePromoMediaForSave(settings);
-                  if (prepared !== settings) setSettings(prepared);
-                  await onSave(
-                    { logoUrl, brandingColor: color, settings: prepared },
-                    { targetBranchIds, includePromo: alsoPromo, includeLogos: alsoLogos },
-                  );
+                  try {
+                    const prepared = await prepareSettingsForSave(settings);
+                    setSettings(prepared.settings);
+                    if (prepared.logoUrl !== logoUrl) setLogoUrl(prepared.logoUrl);
+                    await onSave(
+                      {
+                        logoUrl: prepared.logoUrl,
+                        brandingColor: color,
+                        settings: prepared.settings,
+                      },
+                      { targetBranchIds, includePromo: alsoPromo, includeLogos: alsoLogos },
+                    );
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Could not save");
+                  }
                 })();
               }}
               disabled={applyMode === "some" && pickedBranchIds.length === 0}
@@ -2260,6 +2319,13 @@ export default function SettingsPage() {
         { logoUrl: data.logoUrl || null, brandingColor: data.brandingColor, settings: data.settings },
         actor,
       );
+      // Phase 2 pilot: mirror small-bills note into D1 (best-effort).
+      if (data.settings.rateCardNote !== undefined) {
+        const { dualWriteRateCardNote } = await import("@/lib/d1/rate-card-note-client");
+        void dualWriteRateCardNote(effectiveBranchId, data.settings.rateCardNote ?? null).catch(
+          () => undefined,
+        );
+      }
 
       const targets = branches.filter(
         (b) => b.id !== effectiveBranchId && (opts?.targetBranchIds ?? []).includes(b.id),
@@ -2283,6 +2349,8 @@ export default function SettingsPage() {
           // Per-branch: which transfer currencies are hidden on THIS branch's TV.
           // Must NOT travel to other branches (would hide/unhide their currencies).
           "hiddenTransferCodes",
+          // Per-branch small-USD-bills footer on the rate card — each shop sets its own.
+          "rateCardNote",
         ];
         const PROMO_KEYS: Array<keyof BranchSettings> = [
           "ratePromoMedia", "ratePromoImageUrl", "ratePromoText", "ratePromoTextTop",
@@ -2313,8 +2381,8 @@ export default function SettingsPage() {
           .join(" + ");
         toast.success(
           extras
-            ? `Settings + ${extras} applied to ${targets.length + 1} branches.`
-            : `Settings applied to ${targets.length + 1} branches — each keeps its own videos, promotions and logos.`,
+            ? `Settings + ${extras} applied to ${targets.length + 1} branches. Small-bills notes stay per branch.`
+            : `Settings applied to ${targets.length + 1} branches — each keeps its own videos, promotions, logos, and small-bills note.`,
           { duration: 8000 },
         );
       } else {

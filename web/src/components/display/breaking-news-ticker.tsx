@@ -175,7 +175,7 @@ function useCleanLogoSrc(
 
 /** One scrolling logo — every logo uses the SAME fixed slot (bar-height × 14:5 /
  *  ~2.8:1 landscape); artwork stays fully visible via object-contain (never
- *  cropped). Optional on-the-fly background strip removes white sticker boxes. */
+ *  cropped). Equal plate + equal gap so spacing looks identical between logos. */
 function ScrollingLogoImg({
   src,
   animClass,
@@ -198,15 +198,17 @@ function ScrollingLogoImg({
   removeBg?: boolean;
 }) {
   const cleanSrc = useCleanLogoSrc(src, removeBg, "any");
-  const gap = Math.max(0, gapVw);
-  const gapStyle = side === "start" ? { marginRight: `${gap}vw` } : { marginLeft: `${gap}vw` };
+  const gap = Math.max(0.4, Math.min(5, gapVw));
+  // Always pad the trailing edge so gaps stay even regardless of start/end group.
+  const gapStyle = { marginRight: `${gap}vw` };
   const sizeScale = Math.max(0.3, Math.min(1, scale));
   // Fixed landscape slot ≈ 14:5 (width = height × 2.8). Matches upload spec.
   const slotH = `calc(clamp(3rem, 6vh, 4.5rem) * ${heightScale} * ${sizeScale})`;
   const slotW = `calc(clamp(3rem, 6vh, 4.5rem) * ${heightScale} * ${sizeScale} * 2.8)`;
+  void side;
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center ${animClass}`}
+      className={`inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md ${animClass}`}
       style={{
         ...gapStyle,
         width: slotW,
@@ -215,7 +217,9 @@ function ScrollingLogoImg({
         minHeight: slotH,
         maxWidth: slotW,
         maxHeight: slotH,
-        background: "transparent",
+        boxSizing: "border-box",
+        padding: "0.15em 0.25em",
+        background: "rgba(255,255,255,0.96)",
       }}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -412,12 +416,12 @@ function BreakingNewsTickerInner({
           // small letters the admin typed (client 2026-07-27).
           className="absolute top-0 z-30 -translate-y-full truncate rounded-t-lg px-3 py-0.5 text-[10px] font-extrabold tracking-[0.14em] sm:text-xs"
           style={{
-            left: badgeWidth,
+            left: `calc((${baseBadgeWidth}) * ${logoScale} + var(--display-safe-inset, 0px))`,
             // Single calc (no nested calc()) so TV WebViews resolve it. 0.5vw gap
             // keeps the widest box just short of the rate card.
             maxWidth: headlineMaxWidthPercent
-              ? `calc(${headlineMaxWidthPercent}vw - (${baseBadgeWidth}) * ${logoScale} - 0.5vw)`
-              : "60vw",
+              ? `calc(${headlineMaxWidthPercent}vw - (${baseBadgeWidth}) * ${logoScale} - 0.5vw - var(--display-safe-inset, 0px))`
+              : "calc(60vw - var(--display-safe-inset, 0px))",
             backgroundColor: goldTrim,
             color: headlineInk,
             fontFamily: headlineFontCss,
@@ -444,10 +448,11 @@ function BreakingNewsTickerInner({
           // rounded-right corner curves over the logo's corner pixels. "Whole
           // logo" keeps breathing room on all sides so wordmarks clear the
           // corner and gold border. Cropping via object-cover stays gone.
-          className={`absolute bottom-0 left-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+          className={`absolute bottom-0 z-40 flex items-center justify-center overflow-hidden rounded-r-[26px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
             isTextLogo || effLogoFit !== "fill" ? "px-[1.3vw] py-[0.7vh]" : "p-0"
           } ${pulse ? "ticker-logo-pulse" : ""}`}
           style={{
+            left: "var(--display-safe-inset, 0px)",
             width: badgeWidth,
             height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,
             backgroundColor: isTextLogo

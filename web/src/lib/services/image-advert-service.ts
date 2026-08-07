@@ -245,6 +245,15 @@ export async function restoreInactiveImagesOnBranch(
   let restored = 0;
   for (const image of items) {
     if (!image.downloadUrl?.trim()) continue;
+    // data: URLs are embedded — always restorable. http(s)/R2 must still exist.
+    if (!image.downloadUrl.startsWith("data:")) {
+      const { isMediaUrlReachable } = await import("@/lib/media-url-health");
+      const ok = await isMediaUrlReachable({
+        downloadUrl: image.downloadUrl,
+        storagePath: image.storagePath,
+      });
+      if (!ok) continue;
+    }
     await updateDocument(COLLECTIONS.imageAdverts, image.id, { status: "active" });
     restored += 1;
   }

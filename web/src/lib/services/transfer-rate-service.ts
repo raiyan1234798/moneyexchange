@@ -6,7 +6,7 @@ import {
   updateDocument,
   writeAuditLog,
 } from "@/lib/firebase/firestore";
-import { doc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { doc, serverTimestamp, writeBatch } from "@/lib/d1/firestore-compat";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
 import { normalizeCurrencyCode } from "@/lib/currency-utils";
@@ -99,16 +99,46 @@ export async function upsertTransferRate(
   });
 }
 
-/** Bulk upsert from the Excel Transfer sheet (admins only — rules enforce it). */
+/** Bulk upsert from the Excel Transfer sheet (admins only — rules enforce it).
+ *  Updates VALUES only on existing rows — never rewrites displayOrder (Excel
+ *  row order must not reshuffle the remittance card). New codes append at end. */
 export async function bulkUpsertTransferRates(
   rows: Array<{ currencyCode: string; transferUsd: number | null; transferLocal: number | null }>,
   actor: { userId: string; userName: string },
 ): Promise<number> {
+  const existing = await listTransferRates();
+  let nextOrder = existing.reduce((max, r) => Math.max(max, r.displayOrder ?? 0), 0) + 1;
   let count = 0;
   for (const row of rows) {
     if (!row.transferUsd && !row.transferLocal) continue;
     try {
-      await upsertTransferRate({ ...row, displayOrder: count + 1 }, actor);
+      const code =
+        normalizeCurrencyCode(row.currencyCode) || row.currencyCode.trim().toUpperCase();
+      const already = existing.find(
+        (r) => r.id === code || r.currencyCode.toUpperCase() === code,
+      );
+      if (already) {
+        // Preserve existing displayOrder — admin drag-order wins over Excel.
+        await upsertTransferRate(
+          {
+            currencyCode: code,
+            transferUsd: row.transferUsd,
+            transferLocal: row.transferLocal,
+          },
+          actor,
+        );
+      } else {
+        await upsertTransferRate(
+          {
+            currencyCode: code,
+            transferUsd: row.transferUsd,
+            transferLocal: row.transferLocal,
+            displayOrder: nextOrder,
+          },
+          actor,
+        );
+        nextOrder += 1;
+      }
       count += 1;
     } catch (error) {
       // One bad row (e.g. an invalid currency label) must not abort the whole
@@ -189,6 +219,7 @@ export async function setTransferCurrencyVisibilityOnBranches(
 /**
  * Hide or show MANY remittance currencies in one pass.
  * Writes only to branch_display_prefs (tiny docs) — not branch.settings.
+ * REMITTANCE ONLY — never touches exchange_rates / forex isHidden.
  */
 export async function setTransferCurrenciesVisibilityOnBranches(
   codes: string[],

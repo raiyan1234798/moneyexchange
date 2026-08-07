@@ -1,5 +1,5 @@
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
-import { collection, deleteDoc, doc, getDocs } from "firebase/firestore";
+import { collection, deleteDoc, doc, getDocs } from "@/lib/d1/firestore-compat";
 import {
   createDocument,
   listDocuments,
@@ -580,9 +580,17 @@ export async function uploadVideo(
       const id = await saveUploadedVideoDoc(file, metadata, { ...r2, sourceType: "r2" }, actor);
       return { id, usedChunkFallback: false };
     } catch (error) {
-      const message = error instanceof Error ? error.message : "";
+      const message = error instanceof Error ? error.message : String(error);
+      // Large files cannot use the Firestore chunk fallback — surface the real
+      // R2/cloud error instead of the confusing "slow fallback" size message.
+      if (file.size > MAX_CHUNKED_VIDEO_BYTES) {
+        throw new Error(
+          `Cloud upload failed for “${file.name}” (${Math.round(file.size / (1024 * 1024))} MB): ${message}. ` +
+            `Files over ${MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB need Cloudflare R2 working, or paste a direct video link.`,
+        );
+      }
       if (!isStorageUnavailableError(error) && !/not configured/i.test(message)) {
-        console.warn("R2 upload failed, trying Firebase Storage:", error);
+        console.warn("R2 upload failed, trying Firebase Storage / chunk fallback:", error);
       }
     }
   }
@@ -612,6 +620,13 @@ export async function uploadVideo(
 
     if (!shouldFallback) {
       throw error instanceof Error ? error : new Error("Upload failed");
+    }
+
+    if (file.size > MAX_CHUNKED_VIDEO_BYTES) {
+      throw new Error(
+        `“${file.name}” is ${Math.round(file.size / (1024 * 1024))} MB — too large for the database fallback ` +
+          `(max ${MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB). Enable Cloudflare R2 or paste a direct video link.`,
+      );
     }
 
     const id = await uploadVideoViaChunks(file, metadata, actor, onProgress, keepExisting);
@@ -748,6 +763,15 @@ export async function restoreInactiveVideosOnBranch(
       typeof video.chunkCount === "number" &&
       video.chunkCount > 0;
     if (!hasUrl && !isChunkedOk) continue;
+    // Skip rows whose R2/public file is gone — restoring them only produces 404s.
+    if (hasUrl) {
+      const { isMediaUrlReachable } = await import("@/lib/media-url-health");
+      const ok = await isMediaUrlReachable({
+        downloadUrl: video.downloadUrl,
+        storagePath: video.storagePath,
+      });
+      if (!ok) continue;
+    }
     await updateDocument(COLLECTIONS.videos, video.id, { status: "active" });
     restored += 1;
   }

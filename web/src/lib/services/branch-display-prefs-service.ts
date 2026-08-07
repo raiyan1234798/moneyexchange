@@ -1,4 +1,4 @@
-import { doc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "firebase/firestore";
+import { doc, getDoc, onSnapshot, serverTimestamp, writeBatch } from "@/lib/d1/firestore-compat";
 import { db } from "@/lib/firebase/client";
 import { COLLECTIONS } from "@/lib/constants";
 import { subscribeCollection } from "@/lib/firebase/firestore";
@@ -36,7 +36,8 @@ export function subscribeAllBranchDisplayPrefs(
     (items) => {
       const map: Record<string, string[]> = {};
       for (const item of items) {
-        map[item.id] = (item.hiddenTransferCodes ?? [])
+        if (item.hiddenTransferCodes === undefined) continue;
+        map[item.id] = item.hiddenTransferCodes
           .map((c) => String(c).toUpperCase())
           .filter(Boolean);
       }
@@ -59,12 +60,19 @@ export function mergeBranchWithDisplayPrefs(
   };
 }
 
+/**
+ * @returns `null` when there is no prefs doc or the doc has no
+ * `hiddenTransferCodes` field yet (use legacy branch.settings). An empty array
+ * means the admin explicitly cleared all remittance hides on this branch.
+ */
 export async function getHiddenTransferCodesForBranch(branchId: string): Promise<string[] | null> {
   const snap = await getDoc(doc(db, COLLECTIONS.branchDisplayPrefs, branchId));
   if (!snap.exists()) return null;
-  const codes = (snap.data() as BranchDisplayPrefs).hiddenTransferCodes;
-  if (!codes?.length) return [];
-  return codes.map((c) => String(c).toUpperCase()).filter(Boolean);
+  const data = snap.data() as BranchDisplayPrefs;
+  if (data.hiddenTransferCodes === undefined) return null;
+  return (data.hiddenTransferCodes ?? [])
+    .map((c) => String(c).toUpperCase())
+    .filter(Boolean);
 }
 
 /** Resolve current hidden list: prefs doc wins when it exists. */

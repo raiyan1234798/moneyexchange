@@ -250,7 +250,7 @@ export function CentralTransferPanel({
     try {
       const parsed = await parseRateFile(file);
       // USD rows are allowed (client 2026-07-25) — e.g. "USD | 1 | 3785".
-      const transferRows = parsed
+      const transferRows = parsed.rows
         .filter((r) => (r.transferUsd ?? 0) > 0 || (r.transferLocal ?? 0) > 0)
         .map((r) => ({
           currencyCode: r.currencyCode,
@@ -267,7 +267,7 @@ export function CentralTransferPanel({
       // Confirm before anything goes live on the TVs.
       setPending({
         rows: transferRows,
-        skippedNoTransfer: parsed.length - transferRows.length,
+        skippedNoTransfer: parsed.rows.length - transferRows.length,
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not read the transfer file");

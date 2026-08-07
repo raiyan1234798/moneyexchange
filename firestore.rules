@@ -325,6 +325,26 @@ service cloud.firestore {
       // Admins can create, update and delete branches (client request 2026-07-15).
       allow create: if isSuperAdmin() || isAdmin();
       allow delete: if isSuperAdmin() || isAdmin();
+      // Rate staff may update ONLY settings.rateCardNote on a branch they can
+      // access (Excel / Exchange Rates small-bills note) — never other settings.
+      function onlyRateCardNoteChanged() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['settings', 'updatedAt'])
+          && (
+            (!('settings' in resource.data)
+              && request.resource.data.settings.keys().hasOnly(['rateCardNote']))
+            || ('settings' in resource.data
+              && request.resource.data.settings.diff(resource.data.settings)
+                .affectedKeys().hasOnly(['rateCardNote']))
+          );
+      }
+      function canEditRateCardNote() {
+        return canAccessBranch(branchId) && (
+          belongsToManagerBranch(branchId) ||
+          belongsToBranchUserBranch(branchId) ||
+          hasModuleKey('forexRatesAllBranches')
+        );
+      }
       // "Branches" module = full branch editing, but ONLY on a branch the user
       // belongs to (never every branch). The display-settings chips (settings /
       // promotions / display messages) may write ONLY the settings map (+ logo/
@@ -334,7 +354,8 @@ service cloud.firestore {
         ((hasModuleKey('settings') || hasModuleKey('promotions') || hasModuleKey('displayMessages')) &&
           canAccessBranch(branchId) &&
           request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['settings', 'updatedAt', 'logoUrl', 'brandingColor']));
+            .hasOnly(['settings', 'updatedAt', 'logoUrl', 'brandingColor'])) ||
+        (canEditRateCardNote() && onlyRateCardNoteChanged());
     }
 
     // Small per-branch TV prefs (hidden remittance codes, etc.) — kept outside

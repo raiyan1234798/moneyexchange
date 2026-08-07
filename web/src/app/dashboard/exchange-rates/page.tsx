@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, onSnapshot } from "@/lib/d1/firestore-compat";
 import {
   ArrowDown,
   ArrowUp,
@@ -92,6 +92,8 @@ import {
 } from "@/lib/rate-import";
 import { ocrRatesFromImage } from "@/lib/ocr-rates";
 import { bulkUpsertTransferRates, upsertTransferRate } from "@/lib/services/transfer-rate-service";
+import { updateBranch } from "@/lib/services/branch-service";
+import { dualWriteRateCardNote } from "@/lib/d1/rate-card-note-client";
 import { CentralTransferPanel } from "@/components/dashboard/central-transfer-panel";
 import { BranchCurrencyVisibilityOverview } from "@/components/dashboard/branch-currency-visibility-overview";
 import { getRateDisplayLabel } from "@/lib/unimoni-signage";
@@ -189,7 +191,10 @@ export default function ExchangeRatesPage() {
   const [currencyForm, setCurrencyForm] = useState(emptyCurrencyForm);
   const [creating, setCreating] = useState(false);
   const [uploading, setUploading] = useState(false);
+  // Parsed file waiting for the admin's confirmation — nothing goes live yet.
   const [importPreview, setImportPreview] = useState<RateImportRow[] | null>(null);
+  /** Small-bills note from Excel (editable in review). Empty = leave existing note alone. */
+  const [importNoteDraft, setImportNoteDraft] = useState("");
   const [importMode, setImportMode] = useState<"forex" | "transfer" | "all-in-one">("forex");
   const [dragOver, setDragOver] = useState(false);
   const [editingNameId, setEditingNameId] = useState<string | null>(null);
@@ -199,6 +204,9 @@ export default function ExchangeRatesPage() {
   // selected branch only (default) or the same forex rates on ALL branches.
   const [publishScope, setPublishScope] = useState<"branch" | "all">("branch");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Per-branch small-bills footer on the TV rate card (edited here, not via Excel).
+  const [rateCardNoteDraft, setRateCardNoteDraft] = useState("");
+  const [savingRateCardNote, setSavingRateCardNote] = useState(false);
   // Hide / Show dialog: this branch · selected branches · all branches.
   // Supports one currency (eye button) or many (checkbox multi-select).
   const [visibilityDialog, setVisibilityDialog] = useState<{
@@ -222,6 +230,10 @@ export default function ExchangeRatesPage() {
   // For the catalog's "On branches" column: every branch's rates (admins only).
   const [allRates, setAllRates] = useState<ExchangeRate[]>([]);
   const transferLocalLabel = branch?.settings?.transferLocalLabel?.trim() || "UGX";
+
+  useEffect(() => {
+    setRateCardNoteDraft(branch?.settings?.rateCardNote ?? "");
+  }, [branch?.id, branch?.settings?.rateCardNote]);
 
   useEffect(() => {
     return subscribeCurrencies(
@@ -725,6 +737,10 @@ export default function ExchangeRatesPage() {
 
   async function handleReorderDrop(from: number, to: number) {
     if (!user || !profile || !effectiveBranchId) return;
+    if (!(isSuperAdmin || isAdmin)) {
+      toast.error("Only an admin can rearrange currency order");
+      return;
+    }
     if (from === to || from < 0 || to < 0 || from >= rates.length || to >= rates.length) return;
     const next = [...rates];
     const [moved] = next.splice(from, 1);
@@ -736,7 +752,23 @@ export default function ExchangeRatesPage() {
         next.map((r) => r.id),
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
-      toast.success("Order updated on this branch");
+      // Keep every branch's TV order in sync — Excel uploads never rewrite order,
+      // so admin drag on one branch must propagate or other branches keep old Excel order.
+      const others = branches
+        .filter((b) => b.status === "active" && b.id !== effectiveBranchId)
+        .map((b) => b.id);
+      if (others.length > 0) {
+        await applyForexOrderToBranches(
+          next.map((r) => r.currencyCode),
+          others,
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        toast.success(
+          `Order updated on this branch and synced to ${others.length} other branch${others.length === 1 ? "" : "es"}`,
+        );
+      } else {
+        toast.success("Order updated on this branch");
+      }
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to reorder");
@@ -867,6 +899,10 @@ export default function ExchangeRatesPage() {
 
   async function handleMove(rate: ExchangeRate, direction: "up" | "down") {
     if (!user || !profile || !effectiveBranchId) return;
+    if (!(isSuperAdmin || isAdmin)) {
+      toast.error("Only an admin can rearrange currency order");
+      return;
+    }
     const currentOrder = [...rates];
     const idx = currentOrder.findIndex((r) => r.id === rate.id);
     if (idx === -1) return;
@@ -880,7 +916,17 @@ export default function ExchangeRatesPage() {
         currentOrder.map((r) => r.id),
         { userId: user.uid, userName: profile.displayName || profile.email },
       );
-      toast.success("Order updated");
+      const others = branches
+        .filter((b) => b.status === "active" && b.id !== effectiveBranchId)
+        .map((b) => b.id);
+      if (others.length > 0) {
+        await applyForexOrderToBranches(
+          currentOrder.map((r) => r.currencyCode),
+          others,
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+      }
+      toast.success(others.length > 0 ? "Order updated on all branches" : "Order updated");
       setRates(await listExchangeRates(effectiveBranchId));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to reorder");
@@ -902,11 +948,14 @@ export default function ExchangeRatesPage() {
           { duration: 60000 },
         );
       }
-      const rows = isImage ? await ocrRatesFromImage(file) : await parseRateFile(file);
+      const parsed = isImage
+        ? { rows: await ocrRatesFromImage(file), rateCardNote: null as string | null }
+        : await parseRateFile(file);
       setPublishScope("branch");
-      setImportPreview(rows);
+      setImportPreview(parsed.rows);
+      setImportNoteDraft(parsed.rateCardNote?.trim() || "");
       toast.success(
-        `${rows.length} rows read — review${isImage ? " carefully (photo import)" : ""} and edit below, then Publish`,
+        `${parsed.rows.length} rows read${parsed.rateCardNote ? " + small-bills note" : ""} — review${isImage ? " carefully (photo import)" : ""} and edit below, then Publish`,
       );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not import file — check the template columns");
@@ -1046,6 +1095,7 @@ export default function ExchangeRatesPage() {
           { duration: 9000 },
         );
       }
+
       // NEW currencies whose code the built-in catalog doesn't know: persist the
       // auto-picked (or manually chosen) flag so every TV shows it immediately.
       const knownCatalog = new Set(currencies.map((c) => c.currencyCode.toUpperCase()));
@@ -1062,7 +1112,33 @@ export default function ExchangeRatesPage() {
       }
 
       setRates(await listExchangeRates(effectiveBranchId));
+
+      // Small-bills note: always for the SELECTED branch only (never stamp all
+      // shops when "apply forex to all" is checked). Empty draft = leave alone.
+      const noteToSave = importNoteDraft.trim();
+      if (noteToSave && branch) {
+        await updateBranch(
+          effectiveBranchId,
+          {
+            settings: {
+              ...(branch.settings ?? {}),
+              rateCardNote: noteToSave,
+            },
+          },
+          { userId: user.uid, userName: profile.displayName || profile.email },
+        );
+        setRateCardNoteDraft(noteToSave);
+        void dualWriteRateCardNote(effectiveBranchId, noteToSave).catch(() => undefined);
+        toast.success(
+          applyAll
+            ? `Small-bills note saved for ${branchLabel} only (rates went to all branches)`
+            : `Small-bills note saved for ${branchLabel}`,
+          { duration: 7000 },
+        );
+      }
+
       setImportPreview(null);
+      setImportNoteDraft("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not publish the imported rates");
     } finally {
@@ -1167,6 +1243,70 @@ export default function ExchangeRatesPage() {
                   </span>
                 </button>
               </div>
+            </div>
+          </div>
+        ) : null}
+
+        {canManageRates && effectiveBranchId && branch ? (
+          <div className="space-y-3 rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+            <div>
+              <p className="text-base font-semibold tracking-tight">
+                Small bills note — {branch.name}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Each branch has its own small-USD-bills rate under the forex card (e.g.{" "}
+                <span className="font-mono">BILLS $20,$10,$5,$2,$1 @ 3300</span>). Edit and save for
+                this branch only, or include a <span className="font-mono">SMALL BILLS</span> row in
+                the Excel upload — published with Review → Publish for this branch only.
+              </p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Rate card note
+                </Label>
+                <Input
+                  value={rateCardNoteDraft}
+                  onChange={(e) => setRateCardNoteDraft(e.target.value)}
+                  placeholder="BILLS $20,$10,$5,$2,$1 @ 3300"
+                  className="rounded-xl"
+                />
+              </div>
+              <Button
+                className="shrink-0 rounded-xl"
+                disabled={
+                  savingRateCardNote ||
+                  rateCardNoteDraft.trim() === (branch.settings?.rateCardNote ?? "").trim()
+                }
+                onClick={() => {
+                  if (!user || !profile || !branch) return;
+                  // Capture at click so a branch switch mid-save cannot write the
+                  // wrong shop's note (or merge into another branch's settings).
+                  const branchId = branch.id;
+                  const branchName = branch.name;
+                  const noteValue = rateCardNoteDraft.trim() || null;
+                  const nextSettings = {
+                    ...(branch.settings ?? {}),
+                    rateCardNote: noteValue,
+                  };
+                  setSavingRateCardNote(true);
+                  void updateBranch(
+                    branchId,
+                    { settings: nextSettings },
+                    { userId: user.uid, userName: profile.displayName || profile.email },
+                  )
+                    .then(() => {
+                      void dualWriteRateCardNote(branchId, noteValue).catch(() => undefined);
+                      toast.success(`Small-bills note saved for ${branchName} only`);
+                    })
+                    .catch((e) =>
+                      toast.error(e instanceof Error ? e.message : "Could not save the note"),
+                    )
+                    .finally(() => setSavingRateCardNote(false));
+                }}
+              >
+                {savingRateCardNote ? "Saving…" : "Save for this branch"}
+              </Button>
             </div>
           </div>
         ) : null}
@@ -1444,8 +1584,33 @@ export default function ExchangeRatesPage() {
               </div>
             ) : null}
 
+            <div className="space-y-2 rounded-xl border border-border/50 bg-muted/20 p-3">
+              <Label htmlFor="import-rate-card-note" className="text-sm font-medium">
+                Small-bills note (this branch only)
+              </Label>
+              <Input
+                id="import-rate-card-note"
+                value={importNoteDraft}
+                onChange={(e) => setImportNoteDraft(e.target.value)}
+                placeholder="*WE BUY USD SMALL BILLS $20, $10, $5, $2, $1 @ 3300"
+                className="rounded-xl"
+              />
+              <p className="text-xs text-muted-foreground">
+                Filled from Excel when the file has a SMALL BILLS row. Cleared = leave the
+                existing note on <strong>{branch?.name ?? "this branch"}</strong> unchanged.
+                Never applied to other branches, even if forex publish is set to all.
+              </p>
+            </div>
+
             <DialogFooter className="pt-1">
-              <Button variant="outline" className="rounded-xl" onClick={() => setImportPreview(null)}>
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                onClick={() => {
+                  setImportPreview(null);
+                  setImportNoteDraft("");
+                }}
+              >
                 Cancel import
               </Button>
               <Button
@@ -2213,24 +2378,26 @@ export default function ExchangeRatesPage() {
                             aria-label={`Select ${rate.currencyCode}`}
                             onChange={() => toggleVisibilitySelection(rate.currencyCode)}
                           />
-                          <button
-                            type="button"
-                            draggable
-                            aria-label="Drag to reorder"
-                            title="Drag to reorder how this shows on the TV"
-                            onDragStart={(e) => {
-                              setDragIndex(index);
-                              e.dataTransfer.effectAllowed = "move";
-                              e.dataTransfer.setData("text/plain", String(index));
-                            }}
-                            onDragEnd={() => {
-                              setDragIndex(null);
-                              setOverIndex(null);
-                            }}
-                            className="hidden cursor-grab touch-none rounded-md p-1 text-muted-foreground hover:bg-muted/60 active:cursor-grabbing sm:flex sm:items-center"
-                          >
-                            <GripVertical className="h-4 w-4" />
-                          </button>
+                          {isSuperAdmin || isAdmin ? (
+                            <button
+                              type="button"
+                              draggable
+                              aria-label="Drag to reorder"
+                              title="Drag to reorder how this shows on every branch TV"
+                              onDragStart={(e) => {
+                                setDragIndex(index);
+                                e.dataTransfer.effectAllowed = "move";
+                                e.dataTransfer.setData("text/plain", String(index));
+                              }}
+                              onDragEnd={() => {
+                                setDragIndex(null);
+                                setOverIndex(null);
+                              }}
+                              className="hidden cursor-grab touch-none rounded-md p-1 text-muted-foreground hover:bg-muted/60 active:cursor-grabbing sm:flex sm:items-center"
+                            >
+                              <GripVertical className="h-4 w-4" />
+                            </button>
+                          ) : null}
                         </div>
                       ) : null}
                       <div className="flex min-w-0 items-start gap-2">
@@ -2352,28 +2519,32 @@ export default function ExchangeRatesPage() {
                               ONLY forex edit + publish (per client, 2026-07-11). */}
                           {!isBranchUser ? (
                             <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 rounded-lg px-2"
-                                onClick={() => void handleMove(rate, "up")}
-                                disabled={index === 0}
-                                title="Move up on display"
-                              >
-                                <ArrowUp className="mr-1 h-3 w-3" />
-                                Up
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 rounded-lg px-2"
-                                onClick={() => void handleMove(rate, "down")}
-                                disabled={index === rates.length - 1}
-                                title="Move down on display"
-                              >
-                                <ArrowDown className="mr-1 h-3 w-3" />
-                                Down
-                              </Button>
+                              {isSuperAdmin || isAdmin ? (
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg px-2"
+                                    onClick={() => void handleMove(rate, "up")}
+                                    disabled={index === 0}
+                                    title="Move up on every branch TV"
+                                  >
+                                    <ArrowUp className="mr-1 h-3 w-3" />
+                                    Up
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 rounded-lg px-2"
+                                    onClick={() => void handleMove(rate, "down")}
+                                    disabled={index === rates.length - 1}
+                                    title="Move down on every branch TV"
+                                  >
+                                    <ArrowDown className="mr-1 h-3 w-3" />
+                                    Down
+                                  </Button>
+                                </>
+                              ) : null}
                               <Button
                                 variant="outline"
                                 size="sm"

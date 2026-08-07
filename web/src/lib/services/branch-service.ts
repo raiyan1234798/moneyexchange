@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, query } from "firebase/firestore";
+import { collection, doc, onSnapshot, query } from "@/lib/d1/firestore-compat";
 import {
   createDocument,
   limit,
@@ -59,8 +59,10 @@ export function subscribeBranchByCode(
       (activeSnapshot) => {
         if (activeSnapshot.metadata.fromCache && activeSnapshot.empty && !acceptCache) return;
         const match = activeSnapshot.docs
-          .map((item) => ({ id: item.id, ...item.data() }) as Branch)
-          .find((branch) => branchMatchesCode(branch, normalized));
+          .map((item: { id: string; data: () => Record<string, unknown> }) =>
+            ({ id: item.id, ...item.data() }) as Branch,
+          )
+          .find((branch: Branch) => branchMatchesCode(branch, normalized));
         // Keep listening either way — a later server snapshot self-corrects.
         onData(match ?? null);
       },
@@ -94,17 +96,38 @@ export function subscribeBranchByCode(
 }
 
 export function subscribeBranch(branchId: string, onData: (branch: Branch | null) => void) {
-  return onSnapshot(
+  let cancelled = false;
+  const unsub = onSnapshot(
     doc(db, COLLECTIONS.branches, branchId),
     (snapshot) => {
       if (!snapshot.exists()) {
         onData(null);
         return;
       }
-      onData({ id: snapshot.id, ...snapshot.data() } as Branch);
+      const shell = { id: snapshot.id, ...snapshot.data() } as Branch;
+      onData(shell);
+      void (async () => {
+        try {
+          const { getBranchSettingsFromD1 } = await import("@/lib/d1/branch-settings-client");
+          const row = await getBranchSettingsFromD1(branchId);
+          if (cancelled || !row) return;
+          onData({
+            ...shell,
+            logoUrl: row.logoUrl ?? shell.logoUrl,
+            brandingColor: row.brandingColor ?? shell.brandingColor,
+            settings: { ...(shell.settings ?? {}), ...(row.settings ?? {}) },
+          });
+        } catch {
+          /* keep shell */
+        }
+      })();
     },
     () => onData(null),
   );
+  return () => {
+    cancelled = true;
+    unsub();
+  };
 }
 
 // Manual order first (▲▼ on the Branches page), then A–Z for branches never
@@ -128,12 +151,35 @@ export function subscribeBranches(
   onData: (branches: Branch[]) => void,
   onError?: (error: Error) => void,
 ) {
-  return subscribeCollection<Branch>(
+  let latest: Branch[] = [];
+  let cancelled = false;
+
+  const publish = async (items: Branch[]) => {
+    latest = sortBranches(items);
+    onData(latest);
+    // Overlay Cloudflare D1 display settings (source of truth for logos/promos/ticker).
+    try {
+      const { hydrateBranchesFromD1 } = await import("@/lib/d1/branch-settings-client");
+      const merged = await hydrateBranchesFromD1(latest);
+      if (!cancelled) onData(sortBranches(merged));
+    } catch {
+      /* keep Firestore shell if D1 unreachable */
+    }
+  };
+
+  const unsub = subscribeCollection<Branch>(
     COLLECTIONS.branches,
     [orderBy("name", "asc")],
-    (items) => onData(sortBranches(items)),
+    (items) => {
+      void publish(items);
+    },
     onError,
   );
+
+  return () => {
+    cancelled = true;
+    unsub();
+  };
 }
 
 /** Persist a new manual order for ALL branches (1-based positions). */
@@ -165,11 +211,28 @@ export async function createBranch(
       `Branch limit reached — a maximum of ${MAX_BRANCHES} branches is allowed. Delete an unused branch first.`,
     );
   }
+  const settings = { ...DEFAULT_BRANCH_SETTINGS, ...data.settings };
   const id = await createDocument(COLLECTIONS.branches, {
     ...data,
     code: normalizeBranchCode(data.code),
-    settings: { ...DEFAULT_BRANCH_SETTINGS, ...data.settings },
+    // Thin index only — full settings live on Cloudflare D1.
+    settings: {},
+    settingsHost: "cloudflare-d1",
   });
+  try {
+    const { putBranchSettingsToD1 } = await import("@/lib/d1/branch-settings-client");
+    await putBranchSettingsToD1({
+      branchId: id,
+      settings,
+      logoUrl: data.logoUrl,
+      name: data.name,
+      code: normalizeBranchCode(data.code),
+      status: data.status,
+      brandingColor: data.brandingColor,
+    });
+  } catch (error) {
+    console.warn("[branch] D1 create seed failed", error);
+  }
   await writeAuditLog({
     action: "create",
     entityType: "branch",
@@ -210,14 +273,18 @@ export async function updateBranch(
   actor: { userId: string; userName: string },
 ): Promise<void> {
   const payload = data.code !== undefined ? { ...data, code: normalizeBranchCode(data.code) } : data;
-  await updateDocument(COLLECTIONS.branches, id, payload);
+  // Single chokepoint: every branch write migrates inline media to R2 and
+  // recovers from Firestore 1 MiB size errors so Save promotions/settings
+  // cannot recreate oversized docs.
+  const { safeUpdateBranchFields } = await import("@/lib/safe-branch-write");
+  const written = await safeUpdateBranchFields(id, payload);
   await writeAuditLog({
     action: "update",
     entityType: "branch",
     entityId: id,
     userId: actor.userId,
     userName: actor.userName,
-    metadata: stripInlineMedia(data) as Record<string, unknown>,
+    metadata: stripInlineMedia(written) as Record<string, unknown>,
   });
 }
 

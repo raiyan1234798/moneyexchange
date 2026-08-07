@@ -10,7 +10,7 @@ import {
   setDoc,
   where,
   type DocumentReference,
-} from "firebase/firestore";
+} from "@/lib/d1/firestore-compat";
 import { FirebaseError } from "firebase/app";
 import type { User } from "firebase/auth";
 import { bootstrapInvitedUserProfile } from "@/lib/auth/bootstrap-invited-user";
@@ -152,7 +152,7 @@ async function findPendingInvite(email: string): Promise<PendingInvite | null> {
   authLog("invite lookup by doc id", email);
   const directSnap = await withFirestoreTimeout(getDoc(directRef), "Invite read (by id)");
   if (directSnap.exists()) {
-    const data = directSnap.data() as UserInviteData;
+    const data = directSnap.data() as unknown as UserInviteData;
     if (isInviteOpen(data)) {
       authLog("invite found by doc id", { id: directSnap.id, role: data.role, branchId: data.branchId });
       return { ref: directRef, data };
@@ -174,7 +174,7 @@ async function findPendingInvite(email: string): Promise<PendingInvite | null> {
   }
 
   const match = querySnap.docs[0];
-  const data = match.data() as UserInviteData;
+  const data = match.data() as unknown as UserInviteData;
   if (!isInviteOpen(data)) {
     authLog("invite query match is not open", { id: match.id, status: data.status });
     return null;
@@ -253,7 +253,7 @@ async function bootstrapSuperAdminProfile(
     uid,
     ...profileData,
     createdAt: existing?.createdAt ?? profileData.createdAt,
-  } as AppUser;
+  } as unknown as AppUser;
 }
 
 async function loadSuperAdminProfile(firebaseUser: User): Promise<ProfileLoadResult> {
@@ -306,7 +306,7 @@ async function bootstrapClientAdminProfile(
     uid,
     ...profileData,
     createdAt: existing?.createdAt ?? profileData.createdAt,
-  } as AppUser;
+  } as unknown as AppUser;
 }
 
 async function loadClientAdminProfile(firebaseUser: User): Promise<ProfileLoadResult> {

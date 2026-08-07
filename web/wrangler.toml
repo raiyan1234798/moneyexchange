@@ -1,3 +1,16 @@
-# Cloudflare Pages only (not a Worker). Git builds: root directory = web (see ../README-CLOUDFLARE-PAGES.md).
-name = "unimoni-6va"
+# Cloudflare Pages project (advanced mode worker in public/_worker.js).
+# Deploy: wrangler pages deploy out --project-name=unimoni --branch=production
+name = "unimoni"
 pages_build_output_dir = "out"
+
+# R2 — videos/images/promo logos. Required so branch docs stay under Firestore 1MB.
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "unimoni"
+
+# D1 — Phase 2 app-data mirror (Firebase Auth stays).
+#   CLOUDFLARE_ACCOUNT_ID=… wrangler d1 execute unimoni --remote --file=./migrations/0001_init.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "unimoni"
+database_id = "93a35e04-9673-4e9c-8340-b7485dd3d5ea"

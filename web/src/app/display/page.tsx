@@ -104,11 +104,6 @@ function DisplayContent() {
   const managerBranchId =
     isBranchManager && profile?.branchId ? profile.branchId : "";
 
-  // Signage TVs cache the app; without a self-update they keep running old code
-  // and never show newly-deployed features. Poll for a newer build and reload.
-  const isDisplayingSignage = Boolean(branchCode || branchIdParam || managerBranchId);
-  useAutoRefreshOnNewBuild(isDisplayingSignage);
-
   const resolvedBranchId = useMemo(() => {
     if (branchIdParam) return branchIdParam;
     if (branchCode) return codeResolvedId;
@@ -116,6 +111,9 @@ function DisplayContent() {
     if (storedResolvedId) return storedResolvedId;
     return "";
   }, [branchIdParam, branchCode, codeResolvedId, managerBranchId, storedResolvedId]);
+
+  // Signage TVs cache the app; poll for a newer build and reload (no manual refresh).
+  useAutoRefreshOnNewBuild(Boolean(resolvedBranchId) && !isPreview);
 
   function handleAdminLaunch() {
     const branch = branches.find((b) => b.id === adminBranchId);

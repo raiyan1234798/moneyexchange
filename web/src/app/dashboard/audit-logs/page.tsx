@@ -15,7 +15,7 @@ import {
   countDocuments,
   deleteAuditLogsBefore,
 } from "@/lib/firebase/firestore";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from "@/lib/d1/firestore-compat";
 import { COLLECTIONS } from "@/lib/constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

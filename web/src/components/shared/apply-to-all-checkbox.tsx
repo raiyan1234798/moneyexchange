@@ -39,7 +39,10 @@ export function ApplyToAllCheckbox({
   onScopeChange?: (selection: BranchTargetSelection) => void;
 }) {
   const activeBranches = branches.filter((b) => b.status === "active");
+  // Prefer explicit branchCount when parents pass "other branches only" for the
+  // picker list — the All label must still show the real total (e.g. 8 not 7).
   const count = branchCount ?? activeBranches.length;
+  const allLabelCount = Math.max(count, activeBranches.length);
 
   if (count <= 1 && !scope) return null;
 
@@ -78,7 +81,7 @@ export function ApplyToAllCheckbox({
               />
               <span className="font-medium">Selected branch only</span>
             </label>
-            {activeBranches.length > 1 ? (
+            {allLabelCount > 1 ? (
               <>
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <input
@@ -98,7 +101,7 @@ export function ApplyToAllCheckbox({
                     onChange={() => handleScopeRadio("all")}
                     className="h-3.5 w-3.5 text-primary"
                   />
-                  <span className="font-medium">All active branches ({activeBranches.length})</span>
+                  <span className="font-medium">All active branches ({allLabelCount})</span>
                 </label>
               </>
             ) : null}

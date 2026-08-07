@@ -1,5 +1,5 @@
 import { format, formatDistanceToNow, type FormatDistanceToNowOptions } from "date-fns";
-import { Timestamp } from "firebase/firestore";
+import { Timestamp } from "@/lib/d1/firestore-compat";
 
 export function toSafeDate(value: unknown): Date | null {
   if (value == null) return null;

@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Cloud, Link2, Pencil, RotateCcw, Share2, Upload, Video, Trash2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { LiveTvPreview } from "@/components/shared/live-tv-preview";
-import { ApplyToAllCheckbox } from "@/components/shared/apply-to-all-checkbox";
+import { ApplyToAllCheckbox, type BranchTargetScope } from "@/components/shared/apply-to-all-checkbox";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import {
   ContentPanel,
@@ -19,10 +19,13 @@ import { SortableDataTable } from "@/components/shared/sortable-data-table";
 import { useAuth } from "@/contexts/auth-context";
 import { useBranchScope, useContentPermissions } from "@/lib/hooks/use-branch-scope";
 import { UploadAccessPanel, UploadPasswordDialog, useUploadAccess } from "@/components/dashboard/upload-access";
+import {
+  UploadDestinationDialog,
+  uploadSkipKey,
+} from "@/components/dashboard/upload-destination-dialog";
 import { useFirestoreNotice } from "@/lib/hooks/use-firestore-notice";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -44,13 +47,11 @@ import {
   MAX_TOTAL_STORAGE_BYTES,
   STORAGE_WARN_BYTES,
   RECOMMENDED_VIDEO_FORMATS,
-  WARN_LARGE_VIDEO_BYTES,
 } from "@/lib/constants";
 import { PreviewDisplayLink } from "@/components/shared/preview-display-link";
 import { Badge } from "@/components/ui/badge";
 import {
   approveVideo,
-  CHUNKED_UPLOAD_WARNING,
   deleteVideo,
   isR2UploadConfigured,
   proposeExternalVideo,
@@ -67,12 +68,17 @@ import {
   getActiveBranchTargets,
   pushBranchMediaToAllBranches,
   restoreInactiveMediaOnAllBranches,
+  purgeUnreachableMediaOnAllBranches,
   syncExternalVideoToBranches,
   syncImageUrlToBranches,
+  dedupeActiveMediaOnBranch,
 } from "@/lib/services/branch-sync";
+import { isMediaUrlReachable } from "@/lib/media-url-health";
+import { mediaIdentityKeys } from "@/lib/media-identity";
 import { auth } from "@/lib/firebase/client";
-import { getDocument, listDocuments, sumField } from "@/lib/firebase/firestore";
+import { getDocument, sumField } from "@/lib/firebase/firestore";
 import { COLLECTIONS } from "@/lib/constants";
+import { estimateMediaItemBytes } from "@/lib/media-item-bytes";
 import {
   deleteImageAdvert,
   reorderImageAdverts,
@@ -98,6 +104,54 @@ import {
   validateVideoFile,
 } from "@/lib/video-utils";
 import type { ImageAdvert, VideoAsset } from "@/lib/types";
+
+/** Open any image URL in a new tab. Uploaded images are often stored as
+ *  data: URLs, which browsers refuse to open via a normal link — convert
+ *  those to a temporary blob: URL first so every row can use Open. */
+async function openImageInNewTab(url: string, storagePath?: string | null) {
+  const href = url?.trim();
+  if (!href) {
+    toast.error("This image has no preview URL");
+    return;
+  }
+  if (!href.startsWith("data:")) {
+    const ok = await isMediaUrlReachable({ downloadUrl: href, storagePath });
+    if (!ok) {
+      toast.error("This file is missing from storage (404). Remove it and upload again.");
+      return;
+    }
+    window.open(href, "_blank", "noopener,noreferrer");
+    return;
+  }
+  try {
+    const r = await fetch(href);
+    const blob = await r.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const win = window.open(blobUrl, "_blank", "noopener,noreferrer");
+    if (!win) {
+      URL.revokeObjectURL(blobUrl);
+      toast.error("Pop-up blocked — allow pop-ups to view the image");
+      return;
+    }
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  } catch {
+    toast.error("Could not open this image");
+  }
+}
+
+async function openHttpMediaInNewTab(url: string, storagePath?: string | null) {
+  const href = url?.trim();
+  if (!href) {
+    toast.error("This file has no URL");
+    return;
+  }
+  const ok = await isMediaUrlReachable({ downloadUrl: href, storagePath });
+  if (!ok) {
+    toast.error("This file is missing from storage (404). Remove it and upload again.");
+    return;
+  }
+  window.open(href, "_blank", "noopener,noreferrer");
+}
 
 export default function VideosPage() {
   const { user, profile, hasModule } = useAuth();
@@ -125,6 +179,8 @@ export default function VideosPage() {
   // TRUE bucket usage from Cloudflare (worker /api/storage-usage) — what R2
   // actually bills, including files the database lost track of.
   const [realStorage, setRealStorage] = useState<{ bytes: number; objects: number } | null>(null);
+  // Defer the heavy live-TV iframe so video/image lists paint first on refresh.
+  const [showLivePreview, setShowLivePreview] = useState(false);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [imageUrl, setImageUrl] = useState("");
@@ -134,13 +190,16 @@ export default function VideosPage() {
   const [bulkSeconds, setBulkSeconds] = useState("15");
   const [bulkApplying, setBulkApplying] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
-  // Admin: copy this branch's playlist to every other branch. Replace stays OFF
-  // by default so we never wipe another branch's media without explicit consent.
-  const [pushReplaceExisting, setPushReplaceExisting] = useState(false);
-  const [pushingPlaylist, setPushingPlaylist] = useState(false);
+  // Admin: copy this branch's playlist to every other branch (add missing only —
+  // never removes unique videos/images already on those branches).
+  const [pushingPlaylist, setPushingPlaylist] = useState<"all" | "videos" | "images" | null>(null);
   const [restoringMedia, setRestoringMedia] = useState(false);
+  const [purgingBroken, setPurgingBroken] = useState(false);
   const [targetScope, setTargetScope] = useState<"current" | "specific" | "all">("current");
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([effectiveBranchId]);
+  const [uploadDestOpen, setUploadDestOpen] = useState<"video" | "image" | null>(null);
+  /** Skip sync/upload for branch+file keys chosen in the destination dialog. */
+  const [uploadSkipKeys, setUploadSkipKeys] = useState<Set<string>>(new Set());
   /** The branch targets the admin picked in the Apply-to checkbox, in the form
    *  the sync services accept: true = all active branches, string[] = specific
    *  branch ids (+ current is added by the service), false = current only.
@@ -168,63 +227,93 @@ export default function VideosPage() {
   // Rough storage used for this branch (videos + image adverts). Cloudflare R2's
   // free tier is 10 GB total, so warn before an upload would push over the cap.
   const usedBytes = useMemo(() => {
-    const videoBytes = videos.reduce((sum, v) => sum + (v.fileSizeBytes ?? 0), 0);
-    const imageBytes = images.reduce(
-      (sum, img) =>
-        sum +
-        (img.fileSizeBytes ??
-          (img.downloadUrl?.startsWith("data:") ? Math.ceil(img.downloadUrl.length * 0.75) : 0)),
-      0,
-    );
+    const videoBytes = videos.reduce((sum, v) => sum + estimateMediaItemBytes(v), 0);
+    const imageBytes = images.reduce((sum, img) => sum + estimateMediaItemBytes(img), 0);
     return videoBytes + imageBytes;
   }, [videos, images]);
 
   const gb = (bytes: number) => (bytes / (1024 * 1024 * 1024)).toFixed(2);
+  const formatStorage = (bytes: number) => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${gb(bytes)} GB`;
+  };
 
-  // Recompute the total (all branches) whenever this branch's content changes —
-  // uploads/deletes here are the usual trigger. Cheap server-side SUM.
+  // Storage meter: show this branch immediately, then cheap Firestore sums + R2.
+  // Never download every image/video doc on refresh (that was the slow path —
+  // data-URL images across all branches can be tens of MB).
   const refreshTotalStorage = useCallback(async () => {
-    const [videoBytes, imageBytes] = await Promise.all([
-      sumField(COLLECTIONS.videos, "fileSizeBytes"),
-      sumField(COLLECTIONS.imageAdverts, "fileSizeBytes"),
-    ]);
-    setTotalStorageBytes(videoBytes + imageBytes);
-  }, []);
+    setTotalStorageBytes((prev) => (prev == null ? usedBytes : Math.max(prev, usedBytes)));
+    try {
+      const [videoBytes, imageBytes] = await Promise.all([
+        sumField(COLLECTIONS.videos, "fileSizeBytes"),
+        sumField(COLLECTIONS.imageAdverts, "fileSizeBytes"),
+      ]);
+      setTotalStorageBytes(Math.max(videoBytes + imageBytes, usedBytes));
+    } catch {
+      setTotalStorageBytes(usedBytes);
+    }
+  }, [usedBytes]);
 
   useEffect(() => {
-    void refreshTotalStorage();
-  }, [refreshTotalStorage, videos, images]);
+    // Let the media subscriptions win the first paint, then refresh the meter.
+    const t = window.setTimeout(() => {
+      void refreshTotalStorage();
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [refreshTotalStorage]);
 
-  // Prefer the REAL bucket total (live from Cloudflare) over the Firestore sum.
-  // Admin-authenticated, and re-fetched only when the tracked byte total moves
-  // (each call lists the whole bucket — not something to spam per snapshot).
+  // Live R2 count — once per significant usage change, deferred so lists load first.
   useEffect(() => {
     let alive = true;
-    void (async () => {
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        if (!token) return;
-        const res = await fetch("/api/storage-usage", {
-          cache: "no-store",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { bytes?: number; objects?: number };
-        if (alive && typeof data.bytes === "number") {
-          setRealStorage({ bytes: data.bytes, objects: data.objects ?? 0 });
+    const t = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const token = await auth.currentUser?.getIdToken();
+          if (!token || !alive) return;
+          const res = await fetch("/api/storage-usage", {
+            cache: "no-store",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok || !alive) return;
+          const data = (await res.json()) as { bytes?: number; objects?: number };
+          if (alive && typeof data.bytes === "number") {
+            setRealStorage({ bytes: data.bytes, objects: data.objects ?? 0 });
+          }
+        } catch {
+          // Endpoint unavailable — sumField / branch estimate still show.
         }
-      } catch {
-        // Endpoint unavailable (e.g. old deploy) — the Firestore sum still shows.
-      }
-    })();
+      })();
+    }, 400);
     return () => {
       alive = false;
+      window.clearTimeout(t);
     };
   }, [usedBytes]);
 
-  /** Returns false (and toasts) when an upload would exceed the 10 GB budget. */
+  // Mount the live preview after lists have had a chance to subscribe.
+  useEffect(() => {
+    if (!branch) {
+      setShowLivePreview(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShowLivePreview(true), 500);
+    return () => window.clearTimeout(t);
+  }, [branch]);
+
+  /** Bytes shown on the meter: R2 live when available, else unique media estimate,
+   *  never below this branch's own footprint (so it can't read 0.00 with media present). */
+  const displayedStorageBytes = Math.max(
+    realStorage?.bytes ?? 0,
+    totalStorageBytes ?? 0,
+    usedBytes,
+  );
+
+  /** Returns false (and toasts) when an upload would exceed the 10 GB budget.
+   *  Capacity warnings only surface when storage is nearly full or over the limit —
+   *  no toast spam for normal uploads. */
   function withinStorageBudget(addBytes: number): boolean {
-    const projected = usedBytes + addBytes;
+    const projected = displayedStorageBytes + addBytes;
     if (projected > MAX_TOTAL_STORAGE_BYTES) {
       toast.error(
         `This upload would exceed the 10 GB storage limit (${gb(projected)} GB). Remove old videos/images, or paste a direct video link instead.`,
@@ -239,6 +328,13 @@ export default function VideosPage() {
       );
     }
     return true;
+  }
+
+  /** Size / R2 / Firestore-fallback messages — never toast these; they confused users mid-batch. */
+  function isUploadLimitNoise(message: string): boolean {
+    return /MB limit|slow fallback|Cloudflare R2|chunk|direct video link|Cloud upload failed|too large for the database|database fallback|Paste a direct/i.test(
+      message,
+    );
   }
 
   useEffect(() => {
@@ -273,6 +369,64 @@ export default function VideosPage() {
       unsubPending();
     };
   }, [clearNotice, effectiveBranchId, onError]);
+
+  // One-shot: hide active playlist rows whose R2/public file is already gone
+  // (common after Restore reactivated soft-deletes whose bytes were purged).
+  const purgedBrokenRef = useRef(false);
+  useEffect(() => {
+    if (!canApplyToAll || !actor || branches.length === 0) return;
+    if (purgedBrokenRef.current) return;
+    purgedBrokenRef.current = true;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          setPurgingBroken(true);
+          const result = await purgeUnreachableMediaOnAllBranches(branches, actor);
+          if (result.videosRemoved + result.imagesRemoved > 0) {
+            toast.warning(
+              `Removed ${result.videosRemoved} video(s) and ${result.imagesRemoved} image(s) with missing files (404). Re-upload to play them again.`,
+              { duration: 14000 },
+            );
+          }
+        } catch {
+          // Non-blocking — admin can still use the manual Clean button.
+        } finally {
+          setPurgingBroken(false);
+        }
+      })();
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [actor, branches, canApplyToAll]);
+
+  // Collapse duplicate active rows (same file copied more than once). Deferred
+  // so it never blocks the initial list paint on refresh.
+  const dedupingRef = useRef(false);
+  useEffect(() => {
+    if (!effectiveBranchId || (!canManageVideos && !canManageImages)) return;
+    if (dedupingRef.current) return;
+
+    const hasDupes = (items: { downloadUrl?: string | null; storagePath?: string | null }[]) => {
+      const seen = new Set<string>();
+      for (const item of items) {
+        const keys = mediaIdentityKeys(item.downloadUrl, item.storagePath);
+        if (keys.length === 0) continue;
+        if (keys.some((k) => seen.has(k))) return true;
+        for (const k of keys) seen.add(k);
+      }
+      return false;
+    };
+
+    if (!hasDupes(videos) && !hasDupes(images)) return;
+
+    const t = window.setTimeout(() => {
+      if (dedupingRef.current) return;
+      dedupingRef.current = true;
+      void dedupeActiveMediaOnBranch(effectiveBranchId).finally(() => {
+        dedupingRef.current = false;
+      });
+    }, 1200);
+    return () => window.clearTimeout(t);
+  }, [canManageImages, canManageVideos, effectiveBranchId, images, videos]);
 
   async function handlePropose() {
     if (!user || !profile || !effectiveBranchId || !proposeUrl.trim() || !actor) {
@@ -367,7 +521,7 @@ export default function VideosPage() {
     }
   }
 
-  async function handleUploadMany(files: File[]) {
+  async function handleUploadMany(files: File[], skipKeys: Set<string> = uploadSkipKeys) {
     if (!user || !profile || !effectiveBranchId || !actor) return;
     for (const f of files) {
       try {
@@ -378,50 +532,91 @@ export default function VideosPage() {
       }
     }
     if (!withinStorageBudget(files.reduce((s, f) => s + f.size, 0))) return;
+
     setUploading(true);
     setProgress(1);
     let done = 0;
-    let chunked = false;
+    const failures: string[] = [];
+    const uploadedIds: string[] = [];
     try {
-      // ADD every selected video to the branch playlist — never touch what is
-      // already there. (This used to "replace the set" first, which silently
-      // wiped every existing video and even purged chunked-video data.)
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
-        const { usedChunkFallback } = await uploadVideo(
-          f,
-          {
-            title: videoFileTitles[i]?.trim() || deriveTitleFromFile(f),
-            branchId: effectiveBranchId,
-            createdBy: user.uid,
-          },
-          { userId: user.uid, userName: profile.displayName || profile.email },
-          (p) => setProgress(Math.round(((i + p / 100) / files.length) * 100)),
-          { keepExisting: true },
-        );
-        chunked = chunked || usedChunkFallback;
-        done += 1;
+        const fileTitle = videoFileTitles[i]?.trim() || deriveTitleFromFile(f);
+        // Skip uploading again on the current branch when the dialog marked it as present.
+        if (skipKeys.has(uploadSkipKey(effectiveBranchId, fileTitle))) {
+          continue;
+        }
+        try {
+          const { id } = await uploadVideo(
+            f,
+            {
+              title: fileTitle,
+              branchId: effectiveBranchId,
+              createdBy: user.uid,
+            },
+            { userId: user.uid, userName: profile.displayName || profile.email },
+            (p) => setProgress(Math.round(((i + p / 100) / files.length) * 100)),
+            { keepExisting: true },
+          );
+          uploadedIds.push(id);
+          done += 1;
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : "failed";
+          if (!isUploadLimitNoise(msg)) {
+            failures.push(`${f.name}: ${msg}`);
+          } else {
+            console.warn("Upload skipped (limit/fallback):", f.name, msg);
+          }
+        }
       }
-      toast.success(`${done} videos uploaded — they rotate on the display`);
-      if (chunked) toast.warning(CHUNKED_UPLOAD_WARNING, { duration: 9000 });
+
+      const uploadTargets = mediaTargets();
+      if (mediaTargetsWantSync(uploadTargets) && actor && uploadedIds.length > 0) {
+        const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, uploadTargets).filter(
+          (b) => b.id !== effectiveBranchId,
+        );
+        let synced = 0;
+        for (let i = 0; i < uploadedIds.length; i++) {
+          const uploaded = await getDocument<VideoAsset>(COLLECTIONS.videos, uploadedIds[i]);
+          if (!uploaded || uploaded.sourceType === "chunked") continue;
+          const fileTitle = uploaded.title;
+          const targets = otherBranches.filter(
+            (b) => !skipKeys.has(uploadSkipKey(b.id, fileTitle)),
+          );
+          await Promise.all(
+            targets.map((b) => duplicateStorageVideoToBranch(uploaded, b.id, user.uid, actor)),
+          );
+          synced += targets.length > 0 ? 1 : 0;
+        }
+        if (synced > 0) {
+          toast.success(`${done} video(s) uploaded and copied to other branches (duplicates skipped)`);
+        } else if (done > 0) {
+          toast.success(`${done} video${done === 1 ? "" : "s"} uploaded — they rotate on the display`);
+        }
+      } else if (done > 0) {
+        toast.success(`${done} video${done === 1 ? "" : "s"} uploaded — they rotate on the display`);
+      }
+      if (failures.length > 0) {
+        toast.error(
+          `${failures.length} of ${files.length} failed.\n${failures.slice(0, 3).join("\n")}` +
+            (failures.length > 3 ? `\n…and ${failures.length - 3} more` : ""),
+          { duration: 14000 },
+        );
+      }
       setTitle("");
       setFile(null);
       setVideoFiles([]);
       setVideoFileTitles([]);
-    } catch (error) {
-      toast.error(
-        `${done} of ${files.length} uploaded before an error: ${error instanceof Error ? error.message : "failed"}`,
-        { duration: 9000 },
-      );
+      setUploadSkipKeys(new Set());
     } finally {
       setUploading(false);
       setProgress(0);
     }
   }
 
-  async function handleUpload() {
+  async function handleUpload(skipKeys: Set<string> = uploadSkipKeys) {
     if (videoFiles.length > 1) {
-      await handleUploadMany(videoFiles);
+      await handleUploadMany(videoFiles, skipKeys);
       return;
     }
     if (!user || !profile || !effectiveBranchId || !file) {
@@ -438,31 +633,46 @@ export default function VideosPage() {
     if (!withinStorageBudget(file.size)) return;
 
     const resolvedTitle = resolveVideoTitle(title, deriveTitleFromFile(file));
+    if (skipKeys.has(uploadSkipKey(effectiveBranchId, resolvedTitle))) {
+      toast.message(`“${resolvedTitle}” already on this branch — skipped. Other selected branches still update if needed.`);
+      // Still sync to other branches if we find an existing local copy to duplicate from.
+      const existingLocal = videos.find(
+        (v) => v.title.trim().toLowerCase() === resolvedTitle.trim().toLowerCase(),
+      );
+      if (existingLocal && mediaTargetsWantSync(mediaTargets()) && actor) {
+        const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, mediaTargets()).filter(
+          (b) => b.id !== effectiveBranchId && !skipKeys.has(uploadSkipKey(b.id, resolvedTitle)),
+        );
+        if (otherBranches.length > 0 && existingLocal.sourceType !== "chunked") {
+          await Promise.all(
+            otherBranches.map((b) =>
+              duplicateStorageVideoToBranch(existingLocal, b.id, user.uid, actor),
+            ),
+          );
+          toast.success(`Copied existing video to ${otherBranches.length} other branch(es)`);
+        }
+      }
+      setUploadSkipKeys(new Set());
+      return;
+    }
+
     setUploading(true);
     setProgress(1);
     try {
-      const { id: videoId, usedChunkFallback } = await uploadVideo(
+      const { id: videoId } = await uploadVideo(
         file,
         { title: resolvedTitle, branchId: effectiveBranchId, createdBy: user.uid },
         { userId: user.uid, userName: profile.displayName || profile.email },
         setProgress,
-        // ALWAYS keep what is already there — this page is a playlist. Without
-        // this the upload silently deactivated every existing branch video.
         { keepExisting: true },
       );
-
-      if (usedChunkFallback) {
-        toast.warning(CHUNKED_UPLOAD_WARNING, { duration: 10000 });
-      }
 
       const uploadTargets = mediaTargets();
       if (mediaTargetsWantSync(uploadTargets) && actor) {
         const uploaded = await getDocument<VideoAsset>(COLLECTIONS.videos, videoId);
-        if (uploaded?.sourceType === "chunked") {
-          toast.warning("This upload is branch-only. Paste a video link to sync the same video to all branches.");
-        } else if (uploaded) {
+        if (uploaded && uploaded.sourceType !== "chunked") {
           const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, uploadTargets).filter(
-            (b) => b.id !== effectiveBranchId,
+            (b) => b.id !== effectiveBranchId && !skipKeys.has(uploadSkipKey(b.id, resolvedTitle)),
           );
           await Promise.all(
             otherBranches.map((b) =>
@@ -470,8 +680,12 @@ export default function VideosPage() {
             ),
           );
           if (otherBranches.length > 0) {
-            toast.success(`Video synced to ${otherBranches.length + 1} branches`);
+            toast.success(`Video synced to ${otherBranches.length + 1} branches (duplicates skipped)`);
+          } else {
+            toast.success("Video uploaded — it will appear on the display shortly");
           }
+        } else {
+          toast.success("Video uploaded — it will appear on the display shortly");
         }
       } else {
         toast.success("Video uploaded — it will appear on the display shortly");
@@ -479,11 +693,18 @@ export default function VideosPage() {
 
       setTitle("");
       setFile(null);
+      setVideoFiles([]);
+      setVideoFileTitles([]);
       setProgress(0);
       setTargetScope("current");
+      setUploadSkipKeys(new Set());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Upload failed";
-      toast.error(message, { duration: 8000 });
+      if (isUploadLimitNoise(message)) {
+        console.warn("Upload failed (limit/fallback):", message);
+      } else {
+        toast.error(message, { duration: 8000 });
+      }
     } finally {
       setUploading(false);
       setProgress(0);
@@ -524,7 +745,7 @@ export default function VideosPage() {
     }
   }
 
-  async function handleImageUpload() {
+  async function handleImageUpload(skipKeys: Set<string> = uploadSkipKeys) {
     const files = imageFiles.length > 0 ? imageFiles : imageFile ? [imageFile] : [];
     if (!user || !profile || !effectiveBranchId || files.length === 0) {
       toast.error("Select an image file");
@@ -534,54 +755,62 @@ export default function VideosPage() {
     setImageUploading(true);
     let done = 0;
     try {
-      const uploadedIds: string[] = [];
+      const uploadedIds: { id: string; title: string }[] = [];
       for (let i = 0; i < files.length; i++) {
+        const fileTitle =
+          imageFileTitles[i]?.trim() || files[i].name.replace(/\.[^.]+$/, "") || files[i].name;
+        if (skipKeys.has(uploadSkipKey(effectiveBranchId, fileTitle))) {
+          continue;
+        }
         const id = await uploadImageAdvert(
           {
-            title: imageFileTitles[i]?.trim() || files[i].name.replace(/\.[^.]+$/, "") || files[i].name,
+            title: fileTitle,
             branchId: effectiveBranchId,
             file: files[i],
             displayDurationSeconds: imageDuration,
             createdBy: user.uid,
           },
           { userId: user.uid, userName: profile.displayName || profile.email },
-          // Adding images must never wipe the existing ones — they all rotate.
           { keepExisting: true },
         );
-        uploadedIds.push(id);
+        uploadedIds.push({ id, title: fileTitle });
         done += 1;
       }
-      // Honor the Apply-to choice for FILE uploads too — previously only the
-      // "Image URL" tab synced and uploads landed on the current branch alone
-      // (audit 2026-08-03). The stored copy is shared (same R2 file), so this
-      // adds branch docs, not duplicate storage.
       const imageTargets = mediaTargets();
       if (mediaTargetsWantSync(imageTargets) && actor) {
         const otherBranches = getActiveBranchTargets(branches, effectiveBranchId, imageTargets).filter(
           (b) => b.id !== effectiveBranchId,
         );
         if (otherBranches.length > 0) {
-          for (const id of uploadedIds) {
+          for (const { id, title: fileTitle } of uploadedIds) {
             const src = await getDocument<ImageAdvert>(COLLECTIONS.imageAdverts, id);
             if (!src) continue;
+            const targets = otherBranches.filter(
+              (b) => !skipKeys.has(uploadSkipKey(b.id, fileTitle)),
+            );
             await Promise.all(
-              otherBranches.map((b) => duplicateImageAdvertToBranch(src, b.id, user.uid, actor)),
+              targets.map((b) => duplicateImageAdvertToBranch(src, b.id, user.uid, actor)),
             );
           }
           toast.success(
-            `Also copied to ${otherBranches.length} other branch${otherBranches.length === 1 ? "" : "es"}`,
+            `Also copied to other branches where missing (duplicates skipped)`,
           );
         }
       }
-      toast.success(
-        files.length > 1
-          ? `${done} images uploaded — they take their turns in the TV play order`
-          : "Image uploaded — it takes its turn in the TV play order",
-      );
+      if (done > 0) {
+        toast.success(
+          files.length > 1
+            ? `${done} images uploaded — they take their turns in the TV play order`
+            : "Image uploaded — it takes its turn in the TV play order",
+        );
+      } else {
+        toast.message("Nothing new to upload on this branch — already present items were skipped");
+      }
       setImageFile(null);
       setImageFiles([]);
       setImageFileTitles([]);
       setTitle("");
+      setUploadSkipKeys(new Set());
     } catch (error) {
       toast.error(
         `${done} of ${files.length} uploaded before an error: ${error instanceof Error ? error.message : "failed"}`,
@@ -739,23 +968,40 @@ export default function VideosPage() {
     );
   }
 
-  async function handlePushPlaylistToAll() {
+  async function handlePushPlaylistToAll(media: "all" | "videos" | "images" = "all") {
     if (!actor || !effectiveBranchId || !canApplyToAll) {
       toast.error("Only admins can copy a playlist to all branches");
       return;
     }
-    const copyableVideos = videos.filter(
-      (v) => v.status === "active" && v.sourceType !== "chunked" && Boolean(v.downloadUrl?.trim()),
-    );
-    const copyableImages = images.filter(
-      (img) => img.status === "active" && Boolean(img.downloadUrl?.trim()),
-    );
+    const copyableVideos =
+      media === "images"
+        ? []
+        : videos.filter(
+            (v) => v.status === "active" && v.sourceType !== "chunked" && Boolean(v.downloadUrl?.trim()),
+          );
+    const copyableImages =
+      media === "videos"
+        ? []
+        : images.filter((img) => img.status === "active" && Boolean(img.downloadUrl?.trim()));
     if (copyableVideos.length + copyableImages.length === 0) {
-      toast.error("This branch has no copyable images or videos yet");
+      toast.error(
+        media === "videos"
+          ? "This branch has no copyable videos yet (each needs a playable URL)"
+          : media === "images"
+            ? "This branch has no copyable images yet (each needs a playable URL)"
+            : "This branch has no copyable images or videos yet (each item needs a playable URL)",
+      );
       return;
     }
 
-    setPushingPlaylist(true);
+    setPushingPlaylist(media);
+    const label =
+      media === "videos"
+        ? `${copyableVideos.length} video(s)`
+        : media === "images"
+          ? `${copyableImages.length} image(s)`
+          : `${copyableVideos.length} video(s) + ${copyableImages.length} image(s)`;
+    const toastId = toast.loading(`Copying ${label} to every other branch…`);
     try {
       const result = await pushBranchMediaToAllBranches(
         branches,
@@ -763,25 +1009,38 @@ export default function VideosPage() {
         videos,
         images,
         actor,
-        { replaceExisting: pushReplaceExisting },
+        { media },
       );
       if (result.targetCount === 0) {
-        toast.error("No other active branches to update");
+        toast.error("No other active branches to update", { id: toastId });
         return;
       }
-      const parts = [
-        `Updated ${result.targetCount} branch${result.targetCount === 1 ? "" : "es"}`,
-        `${result.videosCopied} video copy(ies)`,
-        `${result.imagesCopied} image copy(ies)`,
-      ];
+      const parts = [`Updated ${result.targetCount} branch${result.targetCount === 1 ? "" : "es"}`];
+      if (media !== "images") parts.push(`${result.videosCopied} video copy(ies)`);
+      if (media !== "videos") parts.push(`${result.imagesCopied} image copy(ies)`);
       if (result.videosSkipped > 0) {
         parts.push(`${result.videosSkipped} chunked video(s) skipped (branch-only)`);
       }
-      toast.success(parts.join(" · "), { duration: 8000 });
+      if (result.imagesSkippedNoUrl > 0) {
+        parts.push(`${result.imagesSkippedNoUrl} image(s) skipped (no URL)`);
+      }
+      if (result.failures > 0) {
+        toast.warning(`${parts.join(" · ")} · ${result.failures} copy(ies) failed — retry`, {
+          id: toastId,
+          duration: 12000,
+        });
+      } else {
+        toast.success(
+          `${parts.join(" · ")}. Existing files on a branch were skipped (no duplicates). Switch branch above to confirm.`,
+          { id: toastId, duration: 10000 },
+        );
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not copy playlist to all branches");
+      toast.error(error instanceof Error ? error.message : "Could not copy playlist to all branches", {
+        id: toastId,
+      });
     } finally {
-      setPushingPlaylist(false);
+      setPushingPlaylist(null);
     }
   }
 
@@ -822,6 +1081,35 @@ export default function VideosPage() {
       toast.error(error instanceof Error ? error.message : "Could not restore media");
     } finally {
       setRestoringMedia(false);
+    }
+  }
+
+  async function handlePurgeBrokenMedia() {
+    if (!actor || !canApplyToAll) {
+      toast.error("Only admins can clean broken media");
+      return;
+    }
+    setPurgingBroken(true);
+    const toastId = toast.loading("Checking which videos/images are missing from storage…");
+    try {
+      const result = await purgeUnreachableMediaOnAllBranches(branches, actor);
+      if (result.videosRemoved + result.imagesRemoved === 0) {
+        toast.success(
+          `All checked files are reachable (${result.urlsChecked} unique URL${result.urlsChecked === 1 ? "" : "s"})`,
+          { id: toastId },
+        );
+      } else {
+        toast.warning(
+          `Removed ${result.videosRemoved} video(s) and ${result.imagesRemoved} image(s) whose files are missing from storage (404). Re-upload those files to play them again.`,
+          { id: toastId, duration: 14000 },
+        );
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not clean broken media", {
+        id: toastId,
+      });
+    } finally {
+      setPurgingBroken(false);
     }
   }
 
@@ -952,11 +1240,17 @@ export default function VideosPage() {
         {branch ? (
           <div className="hidden xl:block xl:float-right xl:mb-5 xl:ml-6 xl:w-[44%] space-y-3">
               <Label>Live TV preview — {branch.name}</Label>
-              <LiveTvPreview
-                branchCode={branch.code}
-                draft={null}
-                label={`Live display preview for ${branch.name}`}
-              />
+              {showLivePreview ? (
+                <LiveTvPreview
+                  branchCode={branch.code}
+                  draft={null}
+                  label={`Live display preview for ${branch.name}`}
+                />
+              ) : (
+                <div className="flex aspect-video items-center justify-center rounded-2xl border border-border/40 bg-muted/20 text-sm text-muted-foreground">
+                  Loading preview…
+                </div>
+              )}
               {/* The apply-to options live BELOW the screen on wide layouts —
                   one control for both the video and image panels (they share
                   the same target state); the in-panel copies show below xl. */}
@@ -990,9 +1284,9 @@ export default function VideosPage() {
 
         <PreviewDisplayLink branchCode={branch?.code} />
 
-        {totalStorageBytes !== null || realStorage !== null
+        {totalStorageBytes !== null || realStorage !== null || usedBytes > 0
           ? (() => {
-              const used = realStorage?.bytes ?? totalStorageBytes ?? 0;
+              const used = displayedStorageBytes;
               const pct = Math.min(100, Math.round((used / MAX_TOTAL_STORAGE_BYTES) * 100));
               const freeGb = gb(Math.max(0, MAX_TOTAL_STORAGE_BYTES - used));
               const almostFull = used >= STORAGE_WARN_BYTES;
@@ -1010,13 +1304,18 @@ export default function VideosPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold">
-                        Storage — {gb(used)} GB of 10 GB used
-                        <span className="font-normal text-muted-foreground"> (all branches together)</span>
+                        Storage — {formatStorage(used)} occupied
+                        <span className="font-normal text-muted-foreground">
+                          {" "}
+                          of 10 GB R2 capacity (videos + images)
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {freeGb} GB free · Cloudflare R2 gives 10 GB free, then charges per GB.
                         {realStorage
-                          ? ` Counted live from the storage itself (${realStorage.objects} files) — this is the real number Cloudflare sees.`
+                          ? `Total in the R2 bucket to date: ${formatStorage(realStorage.bytes)} across ${realStorage.objects} files · ${freeGb} GB remaining.`
+                          : `Loading live R2 bucket total… ${freeGb} GB of 10 GB remaining (estimated).`}
+                        {usedBytes > 0
+                          ? ` This branch’s listed media: ${formatStorage(usedBytes)}.`
                           : ""}
                       </p>
                     </div>
@@ -1035,14 +1334,12 @@ export default function VideosPage() {
                   <Progress value={pct} className="mt-3" />
                   {full ? (
                     <p className="mt-3 text-xs font-medium text-red-600 dark:text-red-400">
-                      Storage is full. New uploads will be billed by Cloudflare (or may fail) — remove
-                      old videos or images to free space.
+                      R2 capacity is full. Remove old videos or images to free space.
                     </p>
                   ) : almostFull ? (
                     <p className="mt-3 text-xs font-medium text-amber-600 dark:text-amber-400">
-                      Heads up — your storage is almost full, only {freeGb} GB left of the 10 GB free
-                      space. Beyond 10 GB, Cloudflare R2 starts charging. Remove old videos/images to
-                      stay within the free tier.
+                      Almost full — only {freeGb} GB left of the 10 GB R2 capacity. Remove old
+                      videos/images to free space.
                     </p>
                   ) : null}
                 </div>
@@ -1052,8 +1349,8 @@ export default function VideosPage() {
 
         <Alert className="rounded-xl border-emerald-500/25 bg-emerald-500/5">
           <AlertDescription className="text-sm leading-relaxed">
-            <strong className="text-foreground">Recommended: MP4 (H.264), max 50 MB</strong> — works on every TV
-            browser. For large files, paste a direct link instead of uploading.
+            <strong className="text-foreground">Recommended: MP4 (H.264), under 80 MB</strong> — works on every TV
+            browser. Larger files need Cloudflare R2; pasting a direct link is still the fastest option.
             <span className="mt-1 block text-xs text-muted-foreground">{RECOMMENDED_VIDEO_FORMATS.join(" · ")}</span>
           </AlertDescription>
         </Alert>
@@ -1186,17 +1483,6 @@ export default function VideosPage() {
                   {file ? (
                     <p className="text-xs text-muted-foreground">
                       Selected: {file.name} ({(file.size / (1024 * 1024)).toFixed(1)} MB)
-                      {file.size > WARN_LARGE_VIDEO_BYTES ? (
-                        <span className="mt-1 block text-amber-600 dark:text-amber-400">
-                          Large file — compress to under 50 MB or paste a direct link for faster setup.
-                        </span>
-                      ) : null}
-                      {file.size > MAX_CHUNKED_VIDEO_BYTES && !isR2UploadConfigured() ? (
-                        <span className="mt-1 block text-amber-600 dark:text-amber-400">
-                          This file is too large to upload ({MAX_CHUNKED_VIDEO_BYTES / (1024 * 1024)} MB max).
-                          Compress it or paste a direct video link instead.
-                        </span>
-                      ) : null}
                     </p>
                   ) : null}
                 </div>
@@ -1208,7 +1494,12 @@ export default function VideosPage() {
                 ) : null}
                 <Button
                   disabled={uploading || !file}
-                  onClick={() => uploadAccess.guard(() => handleUpload())}
+                  onClick={() =>
+                    uploadAccess.guard(() => {
+                      if (canApplyToAll) setUploadDestOpen("video");
+                      else void handleUpload(new Set());
+                    })
+                  }
                   className="rounded-xl"
                 >
                   <Upload className="mr-2 h-4 w-4" />
@@ -1319,16 +1610,27 @@ export default function VideosPage() {
                 {
                   key: "preview",
                   header: "Preview",
-                  cell: (v) => (
-                    <a
-                      className="text-sm text-primary underline-offset-4 hover:underline"
-                      href={v.downloadUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open
-                    </a>
-                  ),
+                  cell: (v) =>
+                    !v.downloadUrl?.trim() ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <video
+                          src={v.downloadUrl}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="h-10 w-16 shrink-0 rounded-md border border-border/40 bg-muted object-contain"
+                        />
+                        <button
+                          type="button"
+                          className="text-sm text-primary underline-offset-4 hover:underline"
+                          onClick={() => void openHttpMediaInNewTab(v.downloadUrl, v.storagePath)}
+                        >
+                          Open
+                        </button>
+                      </div>
+                    ),
                   hideOnMobile: true,
                 },
                 {
@@ -1468,7 +1770,12 @@ export default function VideosPage() {
                   ) : null}
                 </div>
                 <Button
-                  onClick={() => uploadAccess.guard(() => handleImageUpload())}
+                  onClick={() =>
+                    uploadAccess.guard(() => {
+                      if (canApplyToAll) setUploadDestOpen("image");
+                      else void handleImageUpload(new Set());
+                    })
+                  }
                   disabled={imageUploading || !imageFile}
                   className="rounded-xl"
                 >
@@ -1486,6 +1793,15 @@ export default function VideosPage() {
             description="Bring back soft-deleted Media Manager files on every branch, then copy this branch’s active playlist onto the others (add-only — nothing is wiped)."
           >
             <div className="flex flex-wrap gap-3">
+              <Button
+                variant="outline"
+                className="rounded-xl"
+                disabled={purgingBroken || restoringMedia || !actor}
+                onClick={() => void handlePurgeBrokenMedia()}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {purgingBroken ? "Checking files…" : "Remove broken files (404)"}
+              </Button>
               <AlertDialog>
                 <AlertDialogTrigger
                   render={
@@ -1554,7 +1870,7 @@ export default function VideosPage() {
         {canApplyToAll && effectiveBranchId && videos.length + images.length > 0 ? (
           <ContentPanel
             title="Push this playlist to all branches"
-            description={`Copy what “${branch?.name ?? "this branch"}” already plays onto every other active branch. Use this after you finish uploading on one branch.`}
+            description={`Copy what “${branch?.name ?? "this branch"}” already plays onto every other active branch. Choose videos only, images only, or both. Files already on a branch are skipped — nothing is duplicated or removed.`}
           >
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
@@ -1571,63 +1887,109 @@ export default function VideosPage() {
                   {branches.filter((b) => b.status === "active" && b.id !== effectiveBranchId).length} other
                   branch(es)
                 </strong>
-                . Chunked (Firestore-only) videos stay on this branch. Rate-card promotion images are separate —
-                use Settings → Save with “copy promotions” for those.
+                . Extra media that only exists on another branch stays there. Chunked (Firestore-only)
+                videos stay on this branch.
               </p>
-              <div className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/30 p-3">
-                <Checkbox
-                  id="push-replace-existing"
-                  checked={pushReplaceExisting}
-                  onCheckedChange={(value) => setPushReplaceExisting(value === true)}
-                />
-                <div className="space-y-0.5">
-                  <Label htmlFor="push-replace-existing" className="cursor-pointer text-sm font-medium">
-                    Replace existing media on other branches
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Off by default (safe). On: clear each branch’s Media Manager playlist first, then
-                    copy. Off: add these files alongside what they already have.
-                  </p>
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={
+                      <Button
+                        className="rounded-xl"
+                        disabled={pushingPlaylist !== null || !actor || videos.length === 0}
+                      >
+                        <Share2 className="mr-2 h-4 w-4" />
+                        {pushingPlaylist === "videos" ? "Copying videos…" : "Apply videos to all branches"}
+                      </Button>
+                    }
+                  />
+                  <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Apply videos to all branches?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Adds videos from “{branch?.name ?? "this branch"}” onto every other active
+                        branch when they are not already there. Images are not changed. Existing
+                        unique media is never removed.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="rounded-xl"
+                        onClick={() => void handlePushPlaylistToAll("videos")}
+                      >
+                        Apply videos
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={
+                      <Button
+                        className="rounded-xl"
+                        variant="secondary"
+                        disabled={pushingPlaylist !== null || !actor || images.length === 0}
+                      >
+                        <Share2 className="mr-2 h-4 w-4" />
+                        {pushingPlaylist === "images" ? "Copying images…" : "Apply images to all branches"}
+                      </Button>
+                    }
+                  />
+                  <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Apply images to all branches?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Adds image adverts from “{branch?.name ?? "this branch"}” onto every other
+                        active branch when they are not already there. Videos are not changed.
+                        Existing unique media is never removed.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="rounded-xl"
+                        onClick={() => void handlePushPlaylistToAll("images")}
+                      >
+                        Apply images
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <AlertDialog>
+                  <AlertDialogTrigger
+                    render={
+                      <Button
+                        className="rounded-xl"
+                        variant="outline"
+                        disabled={pushingPlaylist !== null || !actor}
+                      >
+                        <Share2 className="mr-2 h-4 w-4" />
+                        {pushingPlaylist === "all" ? "Copying…" : "Apply videos + images"}
+                      </Button>
+                    }
+                  />
+                  <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Apply videos + images to all branches?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Adds both videos and images from “{branch?.name ?? "this branch"}” onto every
+                        other active branch when they are not already there. Existing unique media is
+                        never removed.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="rounded-xl"
+                        onClick={() => void handlePushPlaylistToAll("all")}
+                      >
+                        Apply both
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
-              <AlertDialog>
-                <AlertDialogTrigger
-                  render={
-                    <Button className="rounded-xl" disabled={pushingPlaylist || !actor}>
-                      <Share2 className="mr-2 h-4 w-4" />
-                      {pushingPlaylist
-                        ? "Copying to all branches…"
-                        : pushReplaceExisting
-                          ? "Replace media on all branches"
-                          : "Add this media to all branches"}
-                    </Button>
-                  }
-                />
-                <AlertDialogContent className="rounded-2xl sm:max-w-md">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      {pushReplaceExisting
-                        ? "Replace media on all branches?"
-                        : "Add this media to all branches?"}
-                    </AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {pushReplaceExisting
-                        ? `This copies the current Media Manager playlist from “${branch?.name ?? "this branch"}” to every other active branch, and removes their current videos/images first.`
-                        : `This adds the current Media Manager playlist from “${branch?.name ?? "this branch"}” onto every other active branch, keeping their existing media.`}{" "}
-                      Rate-card promotions are not changed.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      className="rounded-xl"
-                      onClick={() => void handlePushPlaylistToAll()}
-                    >
-                      {pushReplaceExisting ? "Replace on all branches" : "Add to all branches"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </div>
           </ContentPanel>
         ) : null}
@@ -1781,17 +2143,25 @@ export default function VideosPage() {
                   key: "preview",
                   header: "Preview",
                   cell: (v) =>
-                    v.sourceType === "chunked" ? (
+                    v.sourceType === "chunked" || !v.downloadUrl?.trim() ? (
                       <span className="text-xs text-muted-foreground">Plays on display</span>
                     ) : (
-                      <a
-                        className="text-sm text-primary underline-offset-4 hover:underline"
-                        href={v.downloadUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <video
+                          src={v.downloadUrl}
+                          muted
+                          playsInline
+                          preload="metadata"
+                          className="h-10 w-16 shrink-0 rounded-md border border-border/40 bg-muted object-contain"
+                        />
+                        <button
+                          type="button"
+                          className="text-sm text-primary underline-offset-4 hover:underline"
+                          onClick={() => void openHttpMediaInNewTab(v.downloadUrl, v.storagePath)}
+                        >
+                          Open
+                        </button>
+                      </div>
                     ),
                 },
                 {
@@ -1866,15 +2236,130 @@ export default function VideosPage() {
         )}
 
         {images.length > 0 ? (
-          <ContentPanel title="Active Image Adverts" description="Drag the ⠿ handle to set order, or use ▲ ▼ as a fallback">
+          <ContentPanel
+            title="Active Image Adverts"
+            description="Drag the ⠿ handle to set order, or use ▲ ▼ as a fallback. These images play on THIS branch’s TV only until you copy the playlist to other branches."
+          >
             {canManageImages ? (
               <div className="mb-3 flex justify-end">{removeAllButton("images", images.length)}</div>
             ) : null}
-            {/* Change every image in one go — with many images, setting each row
-                one by one takes ages. Per-image boxes below still work too. */}
+            {canApplyToAll ? (
+              <div className="mb-4 space-y-3 rounded-xl border border-primary/40 bg-primary/10 p-3">
+                <p className="text-sm font-medium text-foreground">
+                  Copy this branch’s media to every other branch
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  The “Set seconds…” button below only changes how long each image stays on screen on{" "}
+                  <strong>this</strong> branch. Use the buttons below to add videos and/or images to
+                  other branches. Files already present are skipped — no duplicates.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          size="sm"
+                          className="rounded-lg"
+                          disabled={pushingPlaylist !== null || !actor || videos.length === 0}
+                        >
+                          <Share2 className="mr-2 h-3.5 w-3.5" />
+                          {pushingPlaylist === "videos" ? "Copying videos…" : "Apply videos"}
+                        </Button>
+                      }
+                    />
+                    <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Apply videos to all branches?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Adds videos from “{branch?.name ?? "this branch"}” onto every other active
+                          branch when they are not already there. Images are not changed.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="rounded-xl"
+                          onClick={() => void handlePushPlaylistToAll("videos")}
+                        >
+                          Apply videos
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="rounded-lg"
+                          disabled={pushingPlaylist !== null || !actor || images.length === 0}
+                        >
+                          <Share2 className="mr-2 h-3.5 w-3.5" />
+                          {pushingPlaylist === "images" ? "Copying images…" : "Apply images"}
+                        </Button>
+                      }
+                    />
+                    <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Apply images to all branches?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Adds images from “{branch?.name ?? "this branch"}” onto every other active
+                          branch when they are not already there. Videos are not changed.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="rounded-xl"
+                          onClick={() => void handlePushPlaylistToAll("images")}
+                        >
+                          Apply images
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                  <AlertDialog>
+                    <AlertDialogTrigger
+                      render={
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="rounded-lg"
+                          disabled={pushingPlaylist !== null || !actor}
+                        >
+                          <Share2 className="mr-2 h-3.5 w-3.5" />
+                          {pushingPlaylist === "all" ? "Copying…" : "Apply videos + images"}
+                        </Button>
+                      }
+                    />
+                    <AlertDialogContent className="rounded-2xl sm:max-w-md">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Apply videos + images to all branches?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Adds videos and images from “{branch?.name ?? "this branch"}” onto every
+                          other active branch when those files are not already there. Unique media
+                          already on other branches is never removed.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="rounded-xl"
+                          onClick={() => void handlePushPlaylistToAll("all")}
+                        >
+                          Apply both
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            ) : null}
+            {/* Change every image duration on THIS branch only — does not sync to other branches. */}
             {images.length > 1 ? (
               <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border/40 bg-muted/20 p-3">
-                <Label className="text-sm">Seconds for ALL {images.length} images:</Label>
+                <Label className="text-sm">Seconds for ALL {images.length} images on this branch:</Label>
                 <Input
                   type="number"
                   min={3}
@@ -1907,7 +2392,9 @@ export default function VideosPage() {
                             title: img.title,
                           });
                         }
-                        toast.success(`All ${images.length} images now show for ${v} seconds each`);
+                        toast.success(
+                          `All ${images.length} images on this branch now show for ${v} seconds each (other branches unchanged)`,
+                        );
                       } catch (err) {
                         toast.error(err instanceof Error ? err.message : "Could not update every image");
                       } finally {
@@ -1916,10 +2403,10 @@ export default function VideosPage() {
                     });
                   }}
                 >
-                  {bulkApplying ? "Applying…" : "Apply to all"}
+                  {bulkApplying ? "Updating…" : "Set seconds on all images"}
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  Or fine-tune single images in the list below.
+                  Duration only — does not copy media to other branches.
                 </span>
               </div>
             ) : null}
@@ -1990,8 +2477,6 @@ export default function VideosPage() {
                 {
                   key: "preview",
                   header: "Preview",
-                  // Uploaded images are stored as data: URLs, which browsers block
-                  // from opening in a new tab — show an inline thumbnail instead.
                   cell: (img) => (
                     <div className="flex items-center gap-2">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -2000,16 +2485,13 @@ export default function VideosPage() {
                         alt={img.title}
                         className="h-10 w-16 shrink-0 rounded-md border border-border/40 bg-muted object-contain"
                       />
-                      {!img.downloadUrl.startsWith("data:") ? (
-                        <a
-                          className="text-sm text-primary underline-offset-4 hover:underline"
-                          href={img.downloadUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open
-                        </a>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="text-sm text-primary underline-offset-4 hover:underline"
+                        onClick={() => void openImageInNewTab(img.downloadUrl, img.storagePath)}
+                      >
+                        Open
+                      </button>
                     </div>
                   ),
                 },
@@ -2066,6 +2548,67 @@ export default function VideosPage() {
           </ContentPanel>
         ) : null}
       </PageShell>
+
+      {effectiveBranchId && uploadDestOpen === "video" ? (
+        <UploadDestinationDialog
+          open
+          kind="video"
+          fileLabels={
+            videoFiles.length > 0
+              ? videoFiles.map((f, i) => videoFileTitles[i]?.trim() || deriveTitleFromFile(f))
+              : file
+                ? [resolveVideoTitle(title, deriveTitleFromFile(file))]
+                : []
+          }
+          fileSizes={
+            videoFiles.length > 0 ? videoFiles.map((f) => f.size) : file ? [file.size] : []
+          }
+          branches={branches}
+          currentBranchId={effectiveBranchId}
+          canChooseBranches={canApplyToAll}
+          initialScope={targetScope}
+          initialSelectedBranchIds={selectedBranchIds}
+          onOpenChange={(open) => {
+            if (!open) setUploadDestOpen(null);
+          }}
+          onConfirm={({ scope, selectedBranchIds: ids, skipKeys }) => {
+            setTargetScope(scope);
+            setSelectedBranchIds(ids);
+            setUploadSkipKeys(skipKeys);
+            void handleUpload(skipKeys);
+          }}
+        />
+      ) : null}
+
+      {effectiveBranchId && uploadDestOpen === "image" ? (
+        <UploadDestinationDialog
+          open
+          kind="image"
+          fileLabels={
+            (imageFiles.length > 0 ? imageFiles : imageFile ? [imageFile] : []).map(
+              (f, i) =>
+                imageFileTitles[i]?.trim() || f.name.replace(/\.[^.]+$/, "") || f.name,
+            )
+          }
+          fileSizes={(imageFiles.length > 0 ? imageFiles : imageFile ? [imageFile] : []).map(
+            (f) => f.size,
+          )}
+          branches={branches}
+          currentBranchId={effectiveBranchId}
+          canChooseBranches={canApplyToAll}
+          initialScope={targetScope}
+          initialSelectedBranchIds={selectedBranchIds}
+          onOpenChange={(open) => {
+            if (!open) setUploadDestOpen(null);
+          }}
+          onConfirm={({ scope, selectedBranchIds: ids, skipKeys }) => {
+            setTargetScope(scope);
+            setSelectedBranchIds(ids);
+            setUploadSkipKeys(skipKeys);
+            void handleImageUpload(skipKeys);
+          }}
+        />
+      ) : null}
     </>
   );
 }

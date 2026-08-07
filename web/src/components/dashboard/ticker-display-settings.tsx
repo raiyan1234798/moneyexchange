@@ -19,6 +19,12 @@ import {
 } from "@/components/ui/select";
 import { DEFAULT_BRANCH_SETTINGS, DISPLAY_ANIMATIONS } from "@/lib/constants";
 import { LOGO_IMAGE_OPTIONS, compressImageToDataUrl, compressLogoTransparent, stripLogoBackground, trimLogoMargin } from "@/lib/image-utils";
+import {
+  assertBranchPayloadUnderLimit,
+  migrateBranchInlineMedia,
+  storeImageForBranch,
+} from "@/lib/migrate-inline-media";
+import { slimBranchDocument } from "@/lib/slim-branch";
 import { updateBranch } from "@/lib/services/branch-service";
 import type { Branch, BranchSettings } from "@/lib/types";
 
@@ -284,6 +290,25 @@ export function TickerDisplaySettings({
   async function save() {
     setSaving(true);
     try {
+      toast.info("Moving large images to cloud storage…");
+      const slim = await slimBranchDocument(branch.id);
+      if (!slim.ok) {
+        throw new Error(slim.error || "Could not free space on this branch document");
+      }
+      if (slim.migrated > 0) {
+        toast.message(`Moved ${slim.migrated} image(s) to R2 — continuing save…`);
+      }
+      const { settings: prepared } = await migrateBranchInlineMedia({
+        branchId: branch.id,
+        settings,
+        onProgress: (msg) => toast.message(msg),
+      });
+      if (prepared !== settings) setSettings(prepared);
+      assertBranchPayloadUnderLimit({
+        logoUrl: branch.logoUrl ?? "",
+        settings: prepared,
+      });
+
       const targets =
         targetScope === "all"
           ? activeBranches
@@ -294,7 +319,7 @@ export function TickerDisplaySettings({
 
       await Promise.all(
         list.map((b) => {
-          let nextSettings: BranchSettings = settings;
+          let nextSettings: BranchSettings = prepared;
           if (b.id !== branch.id) {
             // Copy ONLY the ticker/bar keys onto the target — NEVER spread the
             // whole draft, which would overwrite the target branch's rate card,
@@ -303,9 +328,9 @@ export function TickerDisplaySettings({
             // loss). Everything the target owns outside the ticker is preserved.
             const tickerPatch: Partial<BranchSettings> = {};
             for (const k of TICKER_COPY_KEYS) {
-              if (k in settings) {
+              if (k in prepared) {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                (tickerPatch as any)[k] = (settings as any)[k];
+                (tickerPatch as any)[k] = (prepared as any)[k];
               }
             }
             nextSettings = {
@@ -394,7 +419,9 @@ export function TickerDisplaySettings({
               onCheckedChange={(checked) => set({ showTickerLogo: checked })}
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          {/* Stacked like Scrolling ticker logos: text on top, logos full-width
+              below — avoids the empty left column beside a tall logo grid. */}
+          <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                 Badge text
@@ -422,14 +449,25 @@ export function TickerDisplaySettings({
                     const urls: string[] = [];
                     let kept = 0;
                     for (const file of files) {
-                      const res =
-                        s.logoAutoRemoveBg !== false
-                          ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, badgeSurface())
-                          : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
-                      // Auto-adjust to the badge (client 2026-08-04): trim the
-                      // file's blank margin on upload so the logo fills at once.
-                      urls.push(await trimLogoMargin(res.dataUrl).catch(() => res.dataUrl));
-                      if (res.backgroundKept) kept++;
+                      let backgroundKept = false;
+                      const url = await storeImageForBranch({
+                        file,
+                        branchId: branch.id,
+                        label: "ticker-badge",
+                        toDataUrl: async (f) => {
+                          const res =
+                            s.logoAutoRemoveBg !== false
+                              ? await compressLogoTransparent(f, LOGO_IMAGE_OPTIONS, badgeSurface())
+                              : {
+                                  ...(await compressImageToDataUrl(f, LOGO_IMAGE_OPTIONS)),
+                                  backgroundKept: false,
+                                };
+                          backgroundKept = Boolean(res.backgroundKept);
+                          return trimLogoMargin(res.dataUrl).catch(() => res.dataUrl);
+                        },
+                      });
+                      urls.push(url);
+                      if (backgroundKept) kept++;
                     }
                     addBadgeLogos(urls);
                     toast.success(
@@ -443,7 +481,7 @@ export function TickerDisplaySettings({
                 className="rounded-xl"
               />
               {badgeLogos.length > 0 ? (
-                <div className="flex flex-wrap gap-2 pt-1">
+                <div className="flex flex-wrap gap-3 pt-1">
                   {badgeLogos.map((src, i) => (
                     <div
                       key={`${i}-${src.slice(-12)}`}
@@ -723,6 +761,7 @@ export function TickerDisplaySettings({
                 </div>
               ) : null}
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                 Logo movement
@@ -860,6 +899,7 @@ export function TickerDisplaySettings({
                 Transparent, or clear the box to go back to the default white.
               </p>
             </div>
+            </div>
           </div>
         </div>
 
@@ -898,14 +938,25 @@ export function TickerDisplaySettings({
                 const urls: string[] = [];
                 let kept = 0;
                 for (const file of files) {
-                  const res =
-                    s.logoAutoRemoveBg !== false
-                      ? await compressLogoTransparent(file, LOGO_IMAGE_OPTIONS, scrollSurface())
-                      : { ...(await compressImageToDataUrl(file, LOGO_IMAGE_OPTIONS)), backgroundKept: false };
-                  // Auto-adjust to the bar (client 2026-08-04): trim blank margin
-                  // on upload so the logo fills the bar height at once.
-                  urls.push(await trimLogoMargin(res.dataUrl).catch(() => res.dataUrl));
-                  if (res.backgroundKept) kept++;
+                  let backgroundKept = false;
+                  const url = await storeImageForBranch({
+                    file,
+                    branchId: branch.id,
+                    label: "scroll-logo",
+                    toDataUrl: async (f) => {
+                      const res =
+                        s.logoAutoRemoveBg !== false
+                          ? await compressLogoTransparent(f, LOGO_IMAGE_OPTIONS, scrollSurface())
+                          : {
+                              ...(await compressImageToDataUrl(f, LOGO_IMAGE_OPTIONS)),
+                              backgroundKept: false,
+                            };
+                      backgroundKept = Boolean(res.backgroundKept);
+                      return trimLogoMargin(res.dataUrl).catch(() => res.dataUrl);
+                    },
+                  });
+                  urls.push(url);
+                  if (backgroundKept) kept++;
                 }
                 setScrollItems([
                   ...scrollItems,
@@ -1498,7 +1549,7 @@ export function TickerDisplaySettings({
               saveSlot,
             )
           : null}
-        <div className={`${saveSlot ? "xl:hidden " : ""}sticky bottom-3 z-20 space-y-3 rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-lg backdrop-blur`}>
+        <div className={`${saveSlot ? "xl:hidden " : ""}mt-2 space-y-3 rounded-2xl border border-primary/30 bg-background/95 p-3 shadow-sm`}>
           {canApplyToAll ? (
             <ApplyToAllCheckbox
               id="ticker-settings-apply-all"

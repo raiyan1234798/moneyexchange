@@ -18,7 +18,7 @@ interface UnimoniPromoPanelProps {
   mediaPending?: boolean;
   videoLoaded?: boolean;
   loopVideo?: boolean;
-  /** "stretch" = stretch to exactly fill (old-player behaviour); "auto" = area resizes to the media; "contain" = whole media + blurred fill; "cover" = fill & crop. */
+  /** "stretch" = stretch to exactly fill (old-player behaviour); "auto"/"contain" = whole media + blurred fill (rate card fixed); "cover" = fill & crop. */
   fit?: "contain" | "cover" | "auto" | "stretch";
   /** Width of the promo area as a % of the screen (desktop/TV only). */
   widthPercent?: number;
@@ -128,12 +128,11 @@ export function UnimoniPromoPanel({
   // "stretch" (default): media is stretched to exactly fill the fixed area —
   // whole content visible, no bars, no crop (matches the client's previous
   // signage player; the mild distortion is invisible on promo content).
-  // "auto": the promo AREA is resized to the media's shape upstream, then
-  // object-contain fills it. "contain": whole media on a blurred fill.
-  // "cover": fill a fixed area, cropping edges.
+  // "auto" / "contain": whole media on a blurred fill — rate-card column width
+  // stays fixed (set upstream). "cover": fill a fixed area, cropping edges.
   const objectClass =
     fit === "stretch" ? "object-fill" : fit === "cover" ? "object-cover" : "object-contain";
-  const useBackdrop = fit === "contain";
+  const useBackdrop = fit === "contain" || fit === "auto";
   const mediaAnimMs =
     typeof mediaTransitionSeconds === "number"
       ? Math.round(mediaTransitionSeconds * 1000)
@@ -156,28 +155,57 @@ export function UnimoniPromoPanel({
           ready, so transitions never drop to blank navy. */}
       {showHold && hold ? (
         hold.kind === "image" ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={hold.url}
-            alt=""
-            aria-hidden
-            className={`absolute inset-0 z-[3] h-full w-full ${objectClass}`}
-          />
+          <>
+            {useBackdrop ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={hold.url}
+                alt=""
+                aria-hidden
+                className="absolute inset-0 z-[2] h-full w-full scale-110 object-cover blur-2xl brightness-[0.55]"
+              />
+            ) : null}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={hold.url}
+              alt=""
+              aria-hidden
+              className={`absolute inset-0 z-[3] h-full w-full ${objectClass}`}
+            />
+          </>
         ) : (
-          <video
-            tabIndex={-1}
-            disableRemotePlayback
-            controlsList="nodownload nofullscreen noremoteplayback"
-            src={hold.url}
-            className={`absolute inset-0 z-[3] h-full w-full ${objectClass}`}
-            muted
-            playsInline
-            autoPlay
-            loop
-            controls={false}
-            disablePictureInPicture
-            aria-hidden
-          />
+          <>
+            {useBackdrop ? (
+              <video
+                tabIndex={-1}
+                disableRemotePlayback
+                controlsList="nodownload nofullscreen noremoteplayback"
+                src={hold.url}
+                className="absolute inset-0 z-[2] h-full w-full scale-110 object-cover blur-2xl brightness-[0.5]"
+                muted
+                playsInline
+                autoPlay
+                loop
+                controls={false}
+                disablePictureInPicture
+                aria-hidden
+              />
+            ) : null}
+            <video
+              tabIndex={-1}
+              disableRemotePlayback
+              controlsList="nodownload nofullscreen noremoteplayback"
+              src={hold.url}
+              className={`absolute inset-0 z-[3] h-full w-full ${objectClass}`}
+              muted
+              playsInline
+              autoPlay
+              loop
+              controls={false}
+              disablePictureInPicture
+              aria-hidden
+            />
+          </>
         )
       ) : null}
 

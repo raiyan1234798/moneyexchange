@@ -1,4 +1,4 @@
-import { doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, deleteDoc, serverTimestamp } from "@/lib/d1/firestore-compat";
 import { changeAuthAccountPassword, deleteAuthAccount, db } from "@/lib/firebase/client";
 import { subscribeCollection, writeAuditLog } from "@/lib/firebase/firestore";
 import { normalizeEmail } from "@/lib/auth/user-profile";
@@ -119,7 +119,7 @@ export async function changeUserEmail(
 ): Promise<string> {
   const { completeLoginEmail } = await import("@/lib/auth/user-profile");
   const { createAuthAccount, deleteAuthAccount } = await import("@/lib/firebase/client");
-  const { getDoc, setDoc: setDocFs, serverTimestamp: srvTs } = await import("firebase/firestore");
+  const { getDoc, setDoc: setDocFs, serverTimestamp: srvTs } = await import("@/lib/d1/firestore-compat");
   const newEmail = completeLoginEmail(newEmailInput);
   if (!newEmail || !newEmail.includes("@")) throw new Error("Enter a valid email or user ID.");
   if (newEmail === normalizeEmail(credential.email)) throw new Error("That is already their sign-in.");
