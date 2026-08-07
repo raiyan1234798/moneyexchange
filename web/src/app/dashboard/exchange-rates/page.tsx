@@ -227,6 +227,11 @@ export default function ExchangeRatesPage() {
   // that chip can edit values but never add or remove a currency.
   const canAddNewCurrencies =
     isSuperAdmin || isAdmin || hasModule("addBranchCurrencies");
+  // Hidden currencies are a CURATION tool: only admins and users trusted to
+  // add/edit currencies may see them. A normal branch user sees exactly what
+  // their TV shows, so a hidden currency can never be edited or published back
+  // onto the screen by mistake (client 2026-08-07).
+  const canSeeHiddenCurrencies = isSuperAdmin || isAdmin || canAddNewCurrencies;
   // For the catalog's "On branches" column: every branch's rates (admins only).
   const [allRates, setAllRates] = useState<ExchangeRate[]>([]);
   const transferLocalLabel = branch?.settings?.transferLocalLabel?.trim() || "UGX";
@@ -1149,6 +1154,10 @@ export default function ExchangeRatesPage() {
   // What the publish confirm pop-up will actually publish. Users without
   // "Add new currencies" can only UPDATE codes already on their branch —
   // new codes are rejected (shown in the pop-up) and never added.
+  // Everything the CURRENT user may see/act on in the editor.
+  const editorRates = canSeeHiddenCurrencies
+    ? rates
+    : rates.filter((r) => r.isHidden !== true);
   const knownBranchCodes = new Set(rates.map((r) => r.currencyCode.toUpperCase()));
   const importAllowedRows = (importPreview ?? []).filter(
     (r) => canAddNewCurrencies || knownBranchCodes.has(r.currencyCode.toUpperCase()),
@@ -2273,15 +2282,15 @@ export default function ExchangeRatesPage() {
                       type="checkbox"
                       className="h-3.5 w-3.5"
                       checked={
-                        rates.length > 0 &&
-                        rates.every((r) =>
+                        editorRates.length > 0 &&
+                        editorRates.every((r) =>
                           selectedVisibilityCodes.includes(r.currencyCode.toUpperCase()),
                         )
                       }
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelectedVisibilityCodes(
-                            rates.map((r) => r.currencyCode.toUpperCase()),
+                            editorRates.map((r) => r.currencyCode.toUpperCase()),
                           );
                         } else {
                           setSelectedVisibilityCodes([]);
@@ -2322,7 +2331,7 @@ export default function ExchangeRatesPage() {
                 </div>
               ) : null}
               <div className="space-y-2">
-                {rates.map((rate, index) => {
+                {editorRates.map((rate, index) => {
                   const draft = drafts[rate.id];
                   const savedLabel = getRateDisplayLabel(rate);
                   const { primary, resolved } = getBranchRateLabel(rate);
@@ -2537,7 +2546,7 @@ export default function ExchangeRatesPage() {
                                     size="sm"
                                     className="h-8 rounded-lg px-2"
                                     onClick={() => void handleMove(rate, "down")}
-                                    disabled={index === rates.length - 1}
+                                    disabled={index === editorRates.length - 1}
                                     title="Move down on every branch TV"
                                   >
                                     <ArrowDown className="mr-1 h-3 w-3" />
