@@ -87,6 +87,15 @@ export function isUsingSnapshot(): boolean {
   return snapshotNotified;
 }
 
+/** Set whenever a read had to fall back because the API was unreachable.
+ *  Callers use it to distinguish "this really does not exist" from
+ *  "we could not check right now" — the difference between denying a user
+ *  access forever and asking them to retry (client 2026-08-07). */
+let lastReadWasFallback = false;
+export function lastReadUsedFallback(): boolean {
+  return lastReadWasFallback;
+}
+
 function matchesConstraints(row: Record<string, unknown>, constraints: D1Constraint[]): boolean {
   for (const c of constraints) {
     if (c.type !== "where") continue;
@@ -211,6 +220,7 @@ export async function d1GetDoc<T>(collection: string, id: string): Promise<T | n
       const ct = res.headers.get("Content-Type") || "";
       if (ct.includes("application/json")) {
         const data = (await res.json()) as { doc?: T };
+        lastReadWasFallback = false;
         return data.doc ?? null;
       }
     } else if (res.status === 404) {
@@ -220,6 +230,7 @@ export async function d1GetDoc<T>(collection: string, id: string): Promise<T | n
   } catch {
     /* network error — fall through to the snapshot */
   }
+  lastReadWasFallback = true;
   const viaFirestore = await firestoreDoc<T>(collection, id);
   if (viaFirestore !== null) return viaFirestore;
   return snapshotDoc<T>(collection, id);
@@ -245,11 +256,13 @@ export async function d1ListDocs<T>(
       const data = (await res.json()) as { docs?: T[] };
       docs = Array.isArray(data.docs) ? data.docs : [];
       served = true;
+      lastReadWasFallback = false;
     }
   } catch {
     /* network error — fall through to the snapshot */
   }
   if (!served) {
+    lastReadWasFallback = true;
     // API unavailable (daily Functions ceiling / outage): serve the static
     // snapshot so screens keep working instead of throwing.
     const viaFirestore = await firestoreList<T>(collection, constraints);
@@ -308,7 +321,12 @@ export async function d1UpsertDoc(
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error((err as { error?: string }).error || `D1 upsert failed (${res.status})`);
+    throw new Error(
+      (err as { error?: string }).error ||
+        (res.status === 404 || res.status === 405
+          ? "Saving is paused — the server is temporarily unavailable. Your existing content is safe; try again shortly."
+          : `Could not save (${res.status})`),
+    );
   }
 }
 

@@ -9,6 +9,10 @@ const COLLECTION = "user_credentials";
 /** The only people who may see or regenerate the team's sign-in passwords. */
 export const CREDENTIAL_MANAGER_EMAILS = [
   normalizeEmail(CLIENT_ADMIN_EMAIL),
+  // The client's handover admin uses the DOT spelling — a separate account
+  // from CLIENT_ADMIN_EMAIL's dash spelling. Without this it could not see or
+  // regenerate team passwords (client 2026-08-07).
+  "admin@unimoni.signage.com",
   "mohamedaalthaf@gmail.com",
 ];
 

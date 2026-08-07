@@ -11,6 +11,7 @@ import {
   where,
   type DocumentReference,
 } from "@/lib/d1/firestore-compat";
+import { lastReadUsedFallback } from "@/lib/d1/docs-client";
 import { FirebaseError } from "firebase/app";
 import type { User } from "firebase/auth";
 import { bootstrapInvitedUserProfile } from "@/lib/auth/bootstrap-invited-user";
@@ -527,6 +528,14 @@ async function ensureUserProfileOnce(firebaseUser: User): Promise<ProfileLoadRes
   const pendingInvite = await runFirestoreStep("Invite read", () => findPendingInvite(email));
 
   if (!pendingInvite) {
+    // "No invite" is a PERMANENT denial that signs the user out — only say it
+    // when we actually reached the server. If the read fell back (API down),
+    // this is a temporary condition: throw a plain retryable error so the
+    // caller retries instead of locking a legitimate user out
+    // (client 2026-08-07).
+    if (lastReadUsedFallback()) {
+      throw new Error("Sign-in is temporarily unavailable — please try again in a few minutes.");
+    }
     throw new ProfileAccessError(
       "No access — ask your admin to invite you with this Gmail address, then sign in at /login with Google.",
       "no-invite",

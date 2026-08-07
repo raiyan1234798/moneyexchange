@@ -345,12 +345,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.error("Your account was removed or deactivated. You have been signed out.");
       await signOut(auth).catch(() => undefined);
     };
+    // Only an OBSERVED DELETION signs anyone out. A profile that reads as
+    // missing because the server is unavailable (static-404 fallback, offline,
+    // quota) must never be treated as deleted — that threw signed-in users out
+    // with "Your account was removed" while nothing had been removed
+    // (client 2026-08-07).
+    let sawProfile = false;
+    let missCount = 0;
     const unsubscribe = onSnapshot(
       doc(db, COLLECTIONS.users, uid),
       (snap) => {
         if (!snap.exists()) {
-          void kick("profile deleted");
-        } else if (snap.data()?.isActive === false) {
+          if (!sawProfile) return; // never confirmed to exist — cannot be a deletion
+          missCount += 1;
+          if (missCount >= 3) void kick("profile deleted");
+          return;
+        }
+        sawProfile = true;
+        missCount = 0;
+        if (snap.data()?.isActive === false) {
           void kick("profile deactivated");
         }
       },

@@ -23,8 +23,8 @@ export async function estimateUniqueMediaStorageBytes(): Promise<{
   imageItems: number;
 }> {
   const [videos, images] = await Promise.all([
-    listDocuments<SizedMedia>(COLLECTIONS.videos, [], ["fileSizeBytes", "storagePath", "downloadUrl"]),
-    listDocuments<SizedMedia>(COLLECTIONS.imageAdverts, [], ["fileSizeBytes", "storagePath", "downloadUrl"]),
+    listDocuments<SizedMedia>(COLLECTIONS.videos, [], ["fileSizeBytes", "storagePath", "downloadUrl", "status"]),
+    listDocuments<SizedMedia>(COLLECTIONS.imageAdverts, [], ["fileSizeBytes", "storagePath", "downloadUrl", "status"]),
   ]);
 
   const seen = new Set<string>();

@@ -401,6 +401,7 @@ export default function VideosPage() {
   // Collapse duplicate active rows (same file copied more than once). Deferred
   // so it never blocks the initial list paint on refresh.
   const dedupingRef = useRef(false);
+  const dedupeFailedRef = useRef(false);
   useEffect(() => {
     if (!effectiveBranchId || (!canManageVideos && !canManageImages)) return;
     if (dedupingRef.current) return;
@@ -419,11 +420,17 @@ export default function VideosPage() {
     if (!hasDupes(videos) && !hasDupes(images)) return;
 
     const t = window.setTimeout(() => {
-      if (dedupingRef.current) return;
+      // Latch on failure: while writes are unavailable this fired on every
+      // poll tick, producing an uncaught rejection every ~20s (2026-08-07).
+      if (dedupingRef.current || dedupeFailedRef.current) return;
       dedupingRef.current = true;
-      void dedupeActiveMediaOnBranch(effectiveBranchId).finally(() => {
-        dedupingRef.current = false;
-      });
+      dedupeActiveMediaOnBranch(effectiveBranchId)
+        .catch(() => {
+          dedupeFailedRef.current = true;
+        })
+        .finally(() => {
+          dedupingRef.current = false;
+        });
     }, 1200);
     return () => window.clearTimeout(t);
   }, [canManageImages, canManageVideos, effectiveBranchId, images, videos]);

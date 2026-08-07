@@ -9,8 +9,11 @@
 import { execFileSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
 
-// PUBLIC display data only — never users/invites/audit/notifications, which
-// would otherwise be readable as a plain static file.
+// PUBLIC display data only. NEVER include collections that can hold secrets or
+// personal data — users, invites, audit, notifications, and app_config (it
+// carries the upload-lock password + granted emails). This file is served
+// unauthenticated, so anything listed here is world-readable.
+// A safety net below refuses to write a snapshot containing credential-ish keys.
 const COLLECTIONS = [
   { name: "branches" },
   { name: "exchange_rates" },
@@ -21,7 +24,6 @@ const COLLECTIONS = [
   // Skip docs still carrying inline base64 media — they would bloat the file.
   { name: "image_adverts", maxLen: 20000 },
   { name: "branch_display_prefs" },
-  { name: "app_config" },
 ];
 
 function query(sql) {
@@ -53,5 +55,14 @@ for (const { name, maxLen } of COLLECTIONS) {
 }
 
 const json = JSON.stringify(snapshot);
+// Safety net: never ship a snapshot carrying anything credential-shaped.
+const FORBIDDEN = /"(password|passwordHash|secret|token|apiKey|grantedEmails|refreshToken)"\s*:/i;
+const hit = json.match(FORBIDDEN);
+if (hit) {
+  throw new Error(
+    `Refusing to write snapshot: it contains ${hit[1]}. This file is served publicly — ` +
+      `remove that collection/field from COLLECTIONS above.`,
+  );
+}
 writeFileSync("public/data/snapshot.json", json);
 console.log(`snapshot written: ${(json.length / 1024 / 1024).toFixed(2)} MB`);

@@ -555,7 +555,7 @@ export type AccessModuleKey = (typeof ACCESS_MODULES)[number]["key"];
 export const MODULE_DEFAULTS_BY_ROLE: Record<string, AccessModuleKey[]> = {
   superAdmin: ACCESS_MODULES.map((m) => m.key),
   admin: ACCESS_MODULES.map((m) => m.key),
-  branchManager: ["forexRates", "transferRates"],
+  branchManager: ["forexRates", "transferRates", "displayMessages", "media"],
   branchUser: ["forexRates"],
 };
 
