@@ -27,3 +27,11 @@ R2_PUBLIC_URL = "https://pub-ad5465971a1b41bdb06b0b0d3dc8aa1f.r2.dev"
 # Workers AI — powers /api/ocr-rates (photo of a rate board → structured rates).
 [ai]
 binding = "AI"
+
+# D1 — app data (documents table). MUST match web/wrangler.toml, otherwise
+# git-triggered Pages builds deploy WITHOUT env.DB and every /api/d1/* call
+# fails with "D1 is not bound yet" (hit 2026-08-07).
+[[d1_databases]]
+binding = "DB"
+database_name = "unimoni"
+database_id = "93a35e04-9673-4e9c-8340-b7485dd3d5ea"
