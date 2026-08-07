@@ -283,7 +283,14 @@ function BranchSettingsForm({
     s: BranchSettings,
   ): Promise<{ settings: BranchSettings; logoUrl: string }> {
     toast.info("Moving large images to cloud storage…");
-    const slim = await slimBranchDocument(branchId);
+    // Never let the slim step hang the save (it once stalled on a rate-limited
+    // backend): 10s ceiling, then continue with the local shrink path.
+    const slim = await Promise.race([
+      slimBranchDocument(branchId),
+      new Promise<Awaited<ReturnType<typeof slimBranchDocument>>>((resolve) =>
+        setTimeout(() => resolve({ ok: false, branchId, migrated: 0, error: "timeout" }), 10_000),
+      ),
+    ]);
     if (slim.ok && slim.migrated > 0) {
       toast.message(`Moved ${slim.migrated} image(s) to R2 — continuing save…`);
     }

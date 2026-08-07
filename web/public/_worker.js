@@ -995,6 +995,25 @@ async function handleBranchSlim(request, env) {
     return json({ error: "Missing or invalid branchId" }, 400);
   }
 
+  // POST-MIGRATION FAST PATH: the app now reads/writes the D1 `documents`
+  // branch doc. If that doc's settings carry no inline data: media there is
+  // nothing to slim — answer instantly WITHOUT touching Firestore (which can
+  // be rate-limited and made every Settings save hang here, 2026-08-07).
+  try {
+    if (env.DB) {
+      const row = await env.DB.prepare(
+        "SELECT data_json FROM documents WHERE collection = 'branches' AND id = ?",
+      )
+        .bind(branchId)
+        .first();
+      if (row && row.data_json && !row.data_json.includes("data:image") && !row.data_json.includes("data:video")) {
+        return json({ ok: true, branchId, migrated: 0, fields: [] });
+      }
+    }
+  } catch {
+    /* fall through to the legacy Firestore path */
+  }
+
   const docPath = `projects/${projectId}/databases/(default)/documents/branches/${branchId}`;
   const fsBase = `https://firestore.googleapis.com/v1/${docPath}`;
   const authH = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
