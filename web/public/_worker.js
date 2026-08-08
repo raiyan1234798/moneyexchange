@@ -1049,12 +1049,37 @@ async function handleTvBundle(request, env) {
   const byBranch = (rows) => rows.filter((r) => r.branchId === bid);
   const [rates, transferRates, tickers, videos, images, prefs, overrides] = await Promise.all([
     all("exchange_rates").then((r) =>
-      byBranch(r).filter((x) => x.status === "published" && x.isHidden !== true),
+      byBranch(r)
+        .filter((x) => x.status === "published" && x.isHidden !== true)
+        .sort(
+          (a, b) =>
+            (a.displayOrder ?? 0) - (b.displayOrder ?? 0) ||
+            String(a.currencyCode || "").localeCompare(String(b.currencyCode || "")),
+        ),
     ),
-    all("transfer_rates"),
+    // Same ordering the app applies client-side (visible first, then the
+    // admin's drag order, then code). Without this the bundle returned D1's
+    // arbitrary row order and the TRANSFER card ignored the arrangement the
+    // admin set by dragging (client 2026-08-08).
+    all("transfer_rates").then((rows) =>
+      rows.sort(
+        (a, b) =>
+          (a.isHidden ? 1 : 0) - (b.isHidden ? 1 : 0) ||
+          (a.displayOrder ?? 0) - (b.displayOrder ?? 0) ||
+          String(a.currencyCode || "").localeCompare(String(b.currencyCode || "")),
+      ),
+    ),
     all("ticker_messages").then((r) => byBranch(r).filter((x) => x.status === "active")),
-    all("videos").then((r) => byBranch(r).filter((x) => x.status === "active")),
-    all("image_adverts").then((r) => byBranch(r).filter((x) => x.status === "active")),
+    all("videos").then((r) =>
+      byBranch(r)
+        .filter((x) => x.status === "active")
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
+    ),
+    all("image_adverts").then((r) =>
+      byBranch(r)
+        .filter((x) => x.status === "active")
+        .sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)),
+    ),
     all("branch_display_prefs").then((r) => r.find((x) => x.id === bid) || null),
     all("currency_overrides").catch(() => []),
   ]);
