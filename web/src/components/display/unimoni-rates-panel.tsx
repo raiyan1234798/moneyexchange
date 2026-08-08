@@ -75,7 +75,9 @@ function OneLineNote({
         className="inline-block whitespace-nowrap font-extrabold leading-none text-white"
         style={{
           fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
-          fontSize: `clamp(${0.7 * fontScale}rem, ${1.05 * fontScale}vw, ${1.05 * fontScale}rem)`,
+          // Smaller base size (client 2026-08-08). The auto-fit only shrinks
+          // further when a longer note would overflow.
+          fontSize: `clamp(${0.6 * fontScale}rem, ${0.82 * fontScale}vw, ${0.9 * fontScale}rem)`,
           transform: `scale(${scale})`,
           transformOrigin: "left center",
         }}
@@ -529,10 +531,15 @@ export function UnimoniRatesPanel({
   const activeIndex = sheetIndex % sheetCount;
   const firstForexIndex = sheets.findIndex((sheet) => sheet.kind === "rates");
   const noteText = naturalRateCardNote(rateCardNote ?? "");
+  // "all" now means every RATE page — forex AND transfer — so the note does not
+  // vanish for most of the rotation (client 2026-08-08: "still hidden from the
+  // screen"). Promo slides are pictures, so it stays off those. "first" keeps
+  // the original behaviour: the first forex page only.
   const showNote =
     Boolean(noteText) &&
-    activeSheet.kind === "rates" &&
-    (rateNotePlacement === "all" || activeIndex === firstForexIndex);
+    (rateNotePlacement === "all"
+      ? activeSheet.kind !== "promo"
+      : activeSheet.kind === "rates" && activeIndex === firstForexIndex);
 
   if (variant === "board") {
     return (
