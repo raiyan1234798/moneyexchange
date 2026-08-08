@@ -7,6 +7,7 @@ import { DashboardHeader } from "@/components/layout/dashboard-sidebar";
 import { LiveTvPreview } from "@/components/shared/live-tv-preview";
 import { ApplyToAllCheckbox, type BranchTargetScope } from "@/components/shared/apply-to-all-checkbox";
 import { estimateUniqueMediaStorageBytes } from "@/lib/media-storage-estimate";
+import { hardDeleteMedia } from "@/lib/services/media-hard-delete";
 import { BranchSelector } from "@/components/shared/branch-selector";
 import {
   ContentPanel,
@@ -196,7 +197,7 @@ export default function VideosPage() {
       if (kind === "videos") {
         for (const v of videos.filter((x) => ids.includes(x.id))) {
           try {
-            await deleteVideo(v, actor);
+            await hardDeleteMedia("video", v, actor);
             removed += 1;
           } catch {
             failed += 1;
@@ -206,7 +207,7 @@ export default function VideosPage() {
       } else {
         for (const img of images.filter((x) => ids.includes(x.id))) {
           try {
-            await deleteImageAdvert(img, actor);
+            await hardDeleteMedia("image", img, actor);
             removed += 1;
           } catch {
             failed += 1;
@@ -1228,8 +1229,9 @@ export default function VideosPage() {
               Remove {count} selected {kind === "videos" ? "video(s)" : "image(s)"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              They stop playing on {branch?.name ?? "this branch"}&apos;s TV immediately. Other
-              branches and the stored files are untouched.
+              This permanently deletes them from {branch?.name ?? "this branch"} — the records are
+              removed and each stored file is deleted too, unless another branch still uses it.
+              Other branches keep their own copies. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2353,7 +2355,9 @@ export default function VideosPage() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Remove {v.title}?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This video will be removed from the branch display.
+                                Permanently deletes this video from this branch — the record and
+                                its stored file (unless another branch still uses it). Other
+                                branches keep their own copies. This cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -2361,11 +2365,17 @@ export default function VideosPage() {
                               <AlertDialogAction
                                 className="rounded-xl"
                                 onClick={() =>
-                                  void deleteVideo(v, {
+                                  void hardDeleteMedia("video", v, {
                                     userId: user!.uid,
                                     userName: profile!.displayName || profile!.email,
                                   })
-                                    .then(() => toast.success("Video removed"))
+                                    .then(({ fileRemoved }) =>
+                                      toast.success(
+                                        fileRemoved
+                                          ? "Video deleted — file removed from storage"
+                                          : "Video deleted from this branch (file kept: other branches still use it)",
+                                      ),
+                                    )
                                     .catch((e) =>
                                       toast.error(e instanceof Error ? e.message : "Failed to remove video"),
                                     )
@@ -2702,11 +2712,17 @@ export default function VideosPage() {
                           size="sm"
                           className="rounded-lg"
                           onClick={() =>
-                            void deleteImageAdvert(img, {
+                            void hardDeleteMedia("image", img, {
                               userId: user!.uid,
                               userName: profile!.displayName || profile!.email,
                             })
-                              .then(() => toast.success("Image removed"))
+                              .then(({ fileRemoved }) =>
+                                toast.success(
+                                  fileRemoved
+                                    ? "Image deleted — file removed from storage"
+                                    : "Image deleted from this branch (file kept: other branches still use it)",
+                                ),
+                              )
                               .catch((e) =>
                                 toast.error(e instanceof Error ? e.message : "Failed to remove image"),
                               )
