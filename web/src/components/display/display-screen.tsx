@@ -12,6 +12,7 @@ import { subscribeTickers } from "@/lib/services/ticker-service";
 import { resolveVideoPlaybackUrl, subscribeVideos, isChunkedVideo, loadChunkedVideoBlobUrl } from "@/lib/services/video-service";
 import { subscribeCurrencyOverrides } from "@/lib/services/currency-service";
 import { getCachedVideoUrl, cacheVideoBlob } from "@/lib/tv/offline-cache";
+import { useBranchBundle } from "@/lib/tv/use-branch-bundle";
 import { DEFAULT_BRANCH_SETTINGS, logoFontCss, messageFontCss } from "@/lib/constants";
 import { displaySafeInsetCss, effectiveDisplaySafeAreaPercent } from "@/lib/display-tv-safe-area";
 import { UNIMONI_DEFAULT_TICKER } from "@/lib/unimoni-signage";
@@ -563,8 +564,42 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
     }
   }, []);
 
+  // ONE bundled request replaces the eight subscriptions below. Eight polls per
+  // screen cost ~276k server requests/day across the fleet — nearly 3x
+  // Cloudflare's free-plan ceiling, which took the whole API down
+  // (client 2026-08-07). While the bundle is answering we skip the individual
+  // subscriptions entirely; if it ever fails we fall straight back to them, so
+  // a screen can never go blank because of this optimisation.
+  const bundle = useBranchBundle(branch?.code ?? null);
+  const bundleLive = bundle !== null;
+
+  useEffect(() => {
+    if (!bundle) return;
+    if (bundle.branch) setBranch(bundle.branch as typeof branch);
+    setRates(bundle.rates ?? []);
+    setTransferRates(bundle.transferRates ?? []);
+    setTickers(bundle.tickers ?? []);
+    setVideos(bundle.videos ?? []);
+    setImages(bundle.images ?? []);
+    const hidden = bundle.prefs?.hiddenTransferCodes;
+    setDisplayPrefsHiddenTransfer(
+      hidden === undefined || hidden === null
+        ? null
+        : hidden.map((c) => String(c).toUpperCase()).filter(Boolean),
+    );
+    if (Array.isArray(bundle.currencyOverrides) && bundle.currencyOverrides.length > 0) {
+      setCurrencyOverrides(
+        Object.fromEntries(
+          bundle.currencyOverrides.map((o) => [String(o.id).toUpperCase(), { flag: o.flag, name: o.name }]),
+        ),
+      );
+    }
+  }, [bundle]);
+
   useEffect(() => {
     if (!branchId) return;
+    // Bundle is serving — no need for the per-collection polls.
+    if (bundleLive) return;
 
     // BRANCH ISOLATION: every subscription is scoped to this branchId only.
     // Videos, rates, and tickers from other branches never appear here unless
@@ -598,7 +633,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       unsubImages();
       unsubOverrides();
     };
-  }, [branchId]);
+  }, [branchId, bundleLive]);
 
   const activeVideos = useMemo(
     () => videos.filter((video) => video.status === "active"),

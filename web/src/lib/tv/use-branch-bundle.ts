@@ -36,17 +36,29 @@ export function useBranchBundle(branchCode: string | null, intervalMs = 30_000):
     let cancelled = false;
     let timer: number | undefined;
 
+    let consecutiveFailures = 0;
+
     const tick = async () => {
       try {
         const res = await fetch(`/api/tv?branch=${encodeURIComponent(branchCode)}`);
         const ct = res.headers.get("Content-Type") || "";
         if (res.ok && ct.includes("application/json")) {
           const data = (await res.json()) as BranchBundle;
-          if (!cancelled && data && data.branch) setBundle(data);
+          if (!cancelled && data && data.branch) {
+            consecutiveFailures = 0;
+            setBundle(data);
+          }
+        } else {
+          consecutiveFailures += 1;
         }
       } catch {
-        // Unavailable — the caller's own subscriptions/snapshot keep the screen alive.
+        consecutiveFailures += 1;
       }
+      // After three straight failures, hand control BACK to the caller by
+      // clearing the bundle — otherwise a screen would sit on stale data
+      // forever instead of falling back to the per-collection reads (which
+      // themselves fall back to the static snapshot).
+      if (!cancelled && consecutiveFailures >= 3) setBundle(null);
       if (cancelled) return;
       const hidden = typeof document !== "undefined" && document.visibilityState === "hidden";
       timer = window.setTimeout(tick, hidden ? intervalMs * 4 : intervalMs);
