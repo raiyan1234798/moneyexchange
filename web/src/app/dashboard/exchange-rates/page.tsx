@@ -206,6 +206,16 @@ export default function ExchangeRatesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Per-branch small-bills footer on the TV rate card (edited here, not via Excel).
   const [rateCardNoteDraft, setRateCardNoteDraft] = useState("");
+  /** Splits "…SMALL BILLS $20,$10 @ 3400" into the fixed wording and the
+   *  editable amount, so a branch user can change only the part after "@". */
+  const noteAtSplit = (() => {
+    const at = rateCardNoteDraft.lastIndexOf("@");
+    if (at < 0) return null;
+    return {
+      prefix: rateCardNoteDraft.slice(0, at).trimEnd(),
+      value: rateCardNoteDraft.slice(at + 1).trim(),
+    };
+  })();
   const [savingRateCardNote, setSavingRateCardNote] = useState(false);
   // Hide / Show dialog: this branch · selected branches · all branches.
   // Supports one currency (eye button) or many (checkbox multi-select).
@@ -1274,28 +1284,47 @@ export default function ExchangeRatesPage() {
                 <Label className="text-xs uppercase tracking-wide text-muted-foreground">
                   Rate card note
                 </Label>
-                <Input
-                  value={rateCardNoteDraft}
-                  onChange={(e) => setRateCardNoteDraft(e.target.value)}
-                  placeholder="BILLS $20,$10,$5,$2,$1 @ 3300"
-                  className="rounded-xl"
-                  // Branch users may update RATES only — this note is part of
-                  // the display's wording and stays with admins/managers
-                  // (client 2026-08-08).
-                  disabled={isBranchUser}
-                  title={isBranchUser ? "Only an admin can change this note" : undefined}
-                />
+                {isBranchUser && noteAtSplit ? (
+                  // Branch users change ONLY the amount after "@" — the wording
+                  // before it is fixed (client 2026-08-08). Example:
+                  //   *WE BUY USD SMALL BILLS $20,$10,$5,$2,$1 @ [3400]
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-lg border border-border/50 bg-muted/40 px-2.5 py-2 font-mono text-xs text-muted-foreground">
+                      {noteAtSplit.prefix} @
+                    </span>
+                    <Input
+                      value={noteAtSplit.value}
+                      inputMode="decimal"
+                      onChange={(e) =>
+                        setRateCardNoteDraft(`${noteAtSplit.prefix} @ ${e.target.value.replace(/[^\d.,\s]/g, "")}`)
+                      }
+                      placeholder="3400"
+                      className="w-40 rounded-xl"
+                      aria-label="Small-bills rate"
+                    />
+                  </div>
+                ) : (
+                  <Input
+                    value={rateCardNoteDraft}
+                    onChange={(e) => setRateCardNoteDraft(e.target.value)}
+                    placeholder="BILLS $20,$10,$5,$2,$1 @ 3300"
+                    className="rounded-xl"
+                    disabled={isBranchUser}
+                    title={isBranchUser ? "Only an admin can change this note" : undefined}
+                  />
+                )}
                 {isBranchUser ? (
                   <p className="text-[11px] text-muted-foreground">
-                    View only — ask an admin to change this note. You can still update the buy and
-                    sell rates above.
+                    {noteAtSplit
+                      ? "You can change the rate after the “@”. The wording before it is set by an admin."
+                      : "View only — ask an admin to set this note. You can still update the buy and sell rates above."}
                   </p>
                 ) : null}
               </div>
               <Button
                 className="shrink-0 rounded-xl"
                 disabled={
-                  isBranchUser ||
+                  (isBranchUser && !noteAtSplit) ||
                   savingRateCardNote ||
                   rateCardNoteDraft.trim() === (branch.settings?.rateCardNote ?? "").trim()
                 }

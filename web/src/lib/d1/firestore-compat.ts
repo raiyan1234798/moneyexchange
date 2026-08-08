@@ -306,13 +306,46 @@ export function writeBatch(_db?: unknown) {
       ops.push(() => setDoc(ref, data, opts));
     },
     update(ref: DocRef, data: Record<string, unknown>) {
-      ops.push(() => updateDoc(ref, data));
+      // Plain field updates (the common case: playOrder, displayOrder,
+      // isHidden) are merged BY THE SERVER in a single PUT. The old path did a
+      // GET then a PUT of the whole document per row, so one drag on a
+      // ~120-item playlist cost ~244 requests (client 2026-08-08).
+      // Sentinels (__delete / arrayUnion / arrayRemove) still need the
+      // client-side merge, so they keep the original path.
+      const needsClientMerge = Object.values(data).some(
+        (v) => v !== null && typeof v === "object" && !(v instanceof Date),
+      );
+      ops.push(() =>
+        needsClientMerge
+          ? updateDoc(ref, data)
+          : d1UpsertDoc(ref.collection, ref.id, data, { merge: true }),
+      );
     },
     delete(ref: DocRef) {
       ops.push(() => deleteDoc(ref));
     },
     async commit() {
-      for (const op of ops) await op();
+      // Run with bounded concurrency instead of one-at-a-time. Each op is its
+      // own HTTP write (~200ms), so a strictly sequential loop made bulk
+      // actions crawl: hiding 12 currencies across 8 branches is 96 writes —
+      // ~19s serially, ~2s at 10 in flight (client 2026-08-08). The documents
+      // are independent, so order does not matter; the first error still
+      // rejects, exactly as before.
+      const LIMIT = 10;
+      let next = 0;
+      let failure: unknown = null;
+      const runners = Array.from({ length: Math.min(LIMIT, ops.length) }, async () => {
+        while (next < ops.length) {
+          const op = ops[next++];
+          try {
+            await op();
+          } catch (e) {
+            if (failure === null) failure = e;
+          }
+        }
+      });
+      await Promise.all(runners);
+      if (failure !== null) throw failure;
     },
   };
 }

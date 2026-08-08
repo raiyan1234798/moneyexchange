@@ -432,6 +432,22 @@ export default function VideosPage() {
   useEffect(() => {
     if (!canApplyToAll || !actor || branches.length === 0) return;
     if (purgedBrokenRef.current) return;
+    // This sweep probes EVERY media URL on EVERY branch — ~1,000 network checks.
+    // Running it on every page load made the Media Manager sluggish for the
+    // first minute and queued up every click behind it (client 2026-08-08).
+    // Once a day is plenty; the manual "Remove broken files" button still runs
+    // it on demand. It only flips status on files that 404 — it never deletes
+    // or moves media.
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    try {
+      const last = Number(localStorage.getItem("unimoni:lastMediaPurgeAt") || 0);
+      if (Date.now() - last < DAY_MS) {
+        purgedBrokenRef.current = true;
+        return;
+      }
+    } catch {
+      /* storage unavailable — fall through and run once this session */
+    }
     purgedBrokenRef.current = true;
     const timer = window.setTimeout(() => {
       void (async () => {
@@ -448,6 +464,11 @@ export default function VideosPage() {
           // Non-blocking — admin can still use the manual Clean button.
         } finally {
           setPurgingBroken(false);
+          try {
+            localStorage.setItem("unimoni:lastMediaPurgeAt", String(Date.now()));
+          } catch {
+            /* ignore */
+          }
         }
       })();
     }, 2500);
@@ -895,11 +916,21 @@ export default function VideosPage() {
     [videos, images],
   );
 
+  /** Stored playOrder per document id — lets the reorder skip rows that are
+   *  already in the right place instead of rewriting the whole playlist. */
+  const storedPlayOrder = (id: string): number | null => {
+    const v = videos.find((x) => x.id === id);
+    if (v) return typeof v.playOrder === "number" ? v.playOrder : null;
+    const i = images.find((x) => x.id === id);
+    return i && typeof i.playOrder === "number" ? i.playOrder : null;
+  };
+
   function withReseqKind(kind: "video" | "image", orderedIds: string[]) {
     const queue = [...orderedIds];
-    return sortBranchMedia(videos, images).map((slot) =>
-      slot.kind === kind ? { kind, id: queue.shift() ?? mediaItemId(slot) } : { kind: slot.kind, id: mediaItemId(slot) },
-    );
+    return sortBranchMedia(videos, images).map((slot) => {
+      const id = slot.kind === kind ? (queue.shift() ?? mediaItemId(slot)) : mediaItemId(slot);
+      return { kind: slot.kind === kind ? kind : slot.kind, id, playOrder: storedPlayOrder(id) };
+    });
   }
 
   async function reorderVideosList(ordered: VideoAsset[]) {
@@ -943,7 +974,11 @@ export default function VideosPage() {
     uploadAccess.guard(async () => {
       try {
         await reorderBranchMedia(
-          ordered.map((m) => ({ kind: m.kind, id: mediaItemId(m) })),
+          ordered.map((m) => ({
+            kind: m.kind,
+            id: mediaItemId(m),
+            playOrder: storedPlayOrder(mediaItemId(m)),
+          })),
           a,
         );
         toast.success("TV play order updated");

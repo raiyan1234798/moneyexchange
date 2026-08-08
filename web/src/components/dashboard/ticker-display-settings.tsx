@@ -396,8 +396,9 @@ export function TickerDisplaySettings({
           <div>
             <Label className="text-sm">Remove logo backgrounds automatically</Label>
             <p className="text-xs text-muted-foreground">
-              On: white/solid backgrounds are stripped when you upload a logo (kept when the logo
-              needs them). Off: every logo is uploaded exactly as-is.
+              On: white/solid backgrounds are stripped and empty edges trimmed when you upload.
+              <strong> Off: your logo is stored exactly as you supplied it</strong> — nothing
+              removed, nothing trimmed. Turn this off if an upload looks cropped.
             </p>
           </div>
           <Switch
@@ -463,6 +464,11 @@ export function TickerDisplaySettings({
                                   backgroundKept: false,
                                 };
                           backgroundKept = Boolean(res.backgroundKept);
+                          // "Clean up logos automatically" OFF = upload EXACTLY
+                          // as given: no background strip, no edge trim. The
+                          // trim used to run unconditionally, which looked like
+                          // the image was being cropped (client 2026-08-08).
+                          if (s.logoAutoRemoveBg === false) return res.dataUrl;
                           return trimLogoMargin(res.dataUrl).catch(() => res.dataUrl);
                         },
                       });
@@ -952,6 +958,7 @@ export function TickerDisplaySettings({
                               backgroundKept: false,
                             };
                       backgroundKept = Boolean(res.backgroundKept);
+                      if (s.logoAutoRemoveBg === false) return res.dataUrl;
                       return trimLogoMargin(res.dataUrl).catch(() => res.dataUrl);
                     },
                   });

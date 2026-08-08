@@ -68,16 +68,24 @@ function collectionFor(kind: BranchMediaItem["kind"]): string {
     ONE atomic batch — a half-applied order (network drop mid-save) would leave
     the TV playing a scrambled sequence. */
 export async function reorderBranchMedia(
-  ordered: Array<{ kind: BranchMediaItem["kind"]; id: string }>,
+  ordered: Array<{ kind: BranchMediaItem["kind"]; id: string; playOrder?: number | null }>,
   actor: { userId: string; userName: string },
 ): Promise<void> {
   const batch = writeBatch(db);
+  let writes = 0;
   ordered.forEach((entry, index) => {
+    // Only write rows whose STORED position differs from the new one. Moving a
+    // single item used to rewrite the entire playlist (client 2026-08-08).
+    // Compared against the persisted playOrder, not the old array index, so a
+    // list with missing/sparse orders still gets densified on the first save.
+    if (typeof entry.playOrder === "number" && entry.playOrder === index) return;
+    writes += 1;
     batch.update(doc(db, collectionFor(entry.kind), entry.id), {
       playOrder: index,
       updatedAt: serverTimestamp(),
     });
   });
+  if (writes === 0) return;
   await batch.commit();
   // Audit is best-effort — a logging hiccup must not report the reorder failed.
   await writeAuditLog({
