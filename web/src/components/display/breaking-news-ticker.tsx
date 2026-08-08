@@ -448,20 +448,17 @@ function BreakingNewsTickerInner({
           // rounded-right corner curves over the logo's corner pixels. "Whole
           // logo" keeps breathing room on all sides so wordmarks clear the
           // corner and gold border. Cropping via object-cover stays gone.
-          className={`absolute z-40 flex items-center justify-center overflow-hidden rounded-[14px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
-            // Even in FILL mode keep a hair of padding: the rounded-right
-            // corner + overflow-hidden was clipping edge lettering on wide
-            // logos (client 2026-08-08, RIA at 2.67:1). Small enough to still
-            // read as edge-to-edge, big enough that the radius never bites.
-            isTextLogo || effLogoFit !== "fill" ? "px-[1.3vw] py-[0.7vh]" : "px-[0.35vw] py-[0.5vh]"
+          className={`absolute z-40 flex items-center justify-center overflow-hidden rounded-r-[14px] border-2 border-l-0 shadow-[0_4px_18px_rgba(0,0,0,0.55),0_0_14px_rgba(201,162,39,0.35)] ${
+            // FILL means fill: no padding, no white gap (client 2026-08-08).
+            isTextLogo || effLogoFit !== "fill" ? "px-[1.3vw] py-[0.7vh]" : "p-0"
           } ${pulse ? "ticker-logo-pulse" : ""}`}
           style={{
-            // Nudged off the exact corner so a TV's overscan (it trims ~3-5% of
-            // every edge over HDMI) can't slice the logo — WITHOUT shrinking
-            // the whole screen, so the full-bleed look is kept
-            // (client 2026-08-08).
-            left: "calc(var(--display-safe-inset, 0px) + 1.2vw)",
-            bottom: "0.8vh",
+            // Flush in the corner, as designed. (Overscan protection belongs
+            // to the TV's own "Just Scan" picture mode or the per-branch
+            // edge-cut setting — moving the badge inward left a visible gap
+            // the client did not want, 2026-08-08.)
+            left: "var(--display-safe-inset, 0px)",
+            bottom: "var(--display-safe-inset, 0px)",
             width: badgeWidth,
             height: `calc(${barHeight} * 1.5 * ${logoHeightScale})`,
             backgroundColor: isTextLogo
