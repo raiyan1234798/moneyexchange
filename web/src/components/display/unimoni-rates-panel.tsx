@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   UNIMONI_COLORS,
   formatUnimoniRate,
@@ -27,6 +27,63 @@ function naturalRateCardNote(raw: string): string {
   // Case is preserved exactly as the admin typed it — capitals AND small
   // letters both show (per client, 2026-07-25). Only spacing is normalised.
   return `${starred ? "*" : ""}${text}`;
+}
+
+/**
+ * The small-bills note, always on ONE line.
+ *
+ * Wrapping to two lines looked unprofessional and truncating hid the rate, so
+ * the text is measured against the card width and scaled down just enough to
+ * fit (client 2026-08-08). Nothing is ever cut off or wrapped.
+ */
+function OneLineNote({
+  text,
+  fontCss,
+  fontScale,
+}: {
+  text: string;
+  fontCss?: string;
+  fontScale: number;
+}) {
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  const innerRef = useRef<HTMLSpanElement | null>(null);
+  const [scale, setScale] = useState(1);
+
+  useEffect(() => {
+    const outer = outerRef.current;
+    const inner = innerRef.current;
+    if (!outer || !inner) return;
+    const fit = () => {
+      const available = outer.clientWidth;
+      const natural = inner.scrollWidth;   // width at full size, unscaled
+      setScale(natural > 0 && available > 0 ? Math.min(1, available / natural) : 1);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(outer);
+    return () => ro.disconnect();
+  }, [text, fontScale]);
+
+  return (
+    <div
+      ref={outerRef}
+      className="shrink-0 overflow-hidden px-[1vw] pb-[1vh] pt-[0.2vh] text-left"
+      title={text}
+    >
+      <span
+        ref={innerRef}
+        className="inline-block whitespace-nowrap font-extrabold leading-none text-white"
+        style={{
+          fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
+          fontSize: `clamp(${0.7 * fontScale}rem, ${1.05 * fontScale}vw, ${1.05 * fontScale}rem)`,
+          transform: `scale(${scale})`,
+          transformOrigin: "left center",
+        }}
+      >
+        {text}
+      </span>
+    </div>
+  );
 }
 
 interface UnimoniRatesPanelProps {
@@ -873,19 +930,7 @@ export function UnimoniRatesPanel({
       {/* Per-branch note BELOW the white card — same panel font, size-only scale.
           Renders as one natural-reading line (editable in Settings). */}
       {showNote ? (
-        <div
-          // Wraps to at most two lines instead of truncating: a longer note
-          // (e.g. one a branch user typed) was being cut off at the card's
-          // width rather than fitting (client 2026-08-08).
-          className="line-clamp-2 shrink-0 whitespace-normal break-words px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold leading-tight text-white"
-          style={{
-            fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
-            fontSize: `clamp(${0.7 * rateCardNoteFontScale}rem, ${1.05 * rateCardNoteFontScale}vw, ${1.05 * rateCardNoteFontScale}rem)`,
-          }}
-          title={noteText}
-        >
-          {noteText}
-        </div>
+        <OneLineNote text={noteText} fontCss={fontCss} fontScale={rateCardNoteFontScale} />
       ) : null}
     </aside>
   );
