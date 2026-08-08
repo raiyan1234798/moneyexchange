@@ -182,6 +182,10 @@ export default function VideosPage() {
   const [selectedVideoIds, setSelectedVideoIds] = useState<string[]>([]);
   const [selectedImageIds, setSelectedImageIds] = useState<string[]>([]);
   const [deletingSelected, setDeletingSelected] = useState<"videos" | "images" | null>(null);
+  /** Where a delete applies. Default ALL branches (client 2026-08-08) — the
+   *  same advert usually lives on every branch, so removing it one branch at a
+   *  time was tedious and left copies behind. */
+  const [deleteScope, setDeleteScope] = useState<"all" | "branch">("all");
 
   const toggleId = (list: string[], id: string) =>
     list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
@@ -197,7 +201,7 @@ export default function VideosPage() {
       if (kind === "videos") {
         for (const v of videos.filter((x) => ids.includes(x.id))) {
           try {
-            await hardDeleteMedia("video", v, actor);
+            await hardDeleteMedia("video", v, actor, deleteScope);
             removed += 1;
           } catch {
             failed += 1;
@@ -207,7 +211,7 @@ export default function VideosPage() {
       } else {
         for (const img of images.filter((x) => ids.includes(x.id))) {
           try {
-            await hardDeleteMedia("image", img, actor);
+            await hardDeleteMedia("image", img, actor, deleteScope);
             removed += 1;
           } catch {
             failed += 1;
@@ -1229,11 +1233,39 @@ export default function VideosPage() {
               Remove {count} selected {kind === "videos" ? "video(s)" : "image(s)"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes them from {branch?.name ?? "this branch"} — the records are
-              removed and each stored file is deleted too, unless another branch still uses it.
-              Other branches keep their own copies. This cannot be undone.
+              This permanently deletes the selected items. Choose whether that applies to every
+              branch or only this one. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2 rounded-xl border border-border/50 bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Delete from
+            </p>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                className="h-3.5 w-3.5"
+                checked={deleteScope === "all"}
+                onChange={() => setDeleteScope("all")}
+              />
+              <span>
+                <strong>All branches</strong> — removes this file everywhere and deletes it from
+                storage
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                className="h-3.5 w-3.5"
+                checked={deleteScope === "branch"}
+                onChange={() => setDeleteScope("branch")}
+              />
+              <span>
+                This branch only — other branches keep their copy
+              </span>
+            </label>
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -2355,11 +2387,39 @@ export default function VideosPage() {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Remove {v.title}?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Permanently deletes this video from this branch — the record and
-                                its stored file (unless another branch still uses it). Other
-                                branches keep their own copies. This cannot be undone.
+                                Permanently deletes this video. Choose whether that applies to
+                                every branch or only this one. This cannot be undone.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
+          <div className="space-y-2 rounded-xl border border-border/50 bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Delete from
+            </p>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                className="h-3.5 w-3.5"
+                checked={deleteScope === "all"}
+                onChange={() => setDeleteScope("all")}
+              />
+              <span>
+                <strong>All branches</strong> — removes this file everywhere and deletes it from
+                storage
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-sm">
+              <input
+                type="radio"
+                className="h-3.5 w-3.5"
+                checked={deleteScope === "branch"}
+                onChange={() => setDeleteScope("branch")}
+              />
+              <span>
+                This branch only — other branches keep their copy
+              </span>
+            </label>
+          </div>
+
                             <AlertDialogFooter>
                               <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
                               <AlertDialogAction
@@ -2368,12 +2428,14 @@ export default function VideosPage() {
                                   void hardDeleteMedia("video", v, {
                                     userId: user!.uid,
                                     userName: profile!.displayName || profile!.email,
-                                  })
-                                    .then(({ fileRemoved }) =>
+                                  }, deleteScope)
+                                    .then(({ fileRemoved, branchesAffected }) =>
                                       toast.success(
-                                        fileRemoved
-                                          ? "Video deleted — file removed from storage"
-                                          : "Video deleted from this branch (file kept: other branches still use it)",
+                                        deleteScope === "all"
+                                          ? `Video deleted from ${branchesAffected} branch${branchesAffected === 1 ? "" : "es"}${fileRemoved ? " — file removed from storage" : ""}`
+                                          : fileRemoved
+                                            ? "Video deleted — file removed from storage"
+                                            : "Video deleted from this branch (file kept: other branches still use it)",
                                       ),
                                     )
                                     .catch((e) =>
@@ -2715,12 +2777,14 @@ export default function VideosPage() {
                             void hardDeleteMedia("image", img, {
                               userId: user!.uid,
                               userName: profile!.displayName || profile!.email,
-                            })
-                              .then(({ fileRemoved }) =>
+                            }, deleteScope)
+                              .then(({ fileRemoved, branchesAffected }) =>
                                 toast.success(
-                                  fileRemoved
-                                    ? "Image deleted — file removed from storage"
-                                    : "Image deleted from this branch (file kept: other branches still use it)",
+                                  deleteScope === "all"
+                                    ? `Image deleted from ${branchesAffected} branch${branchesAffected === 1 ? "" : "es"}${fileRemoved ? " — file removed from storage" : ""}`
+                                    : fileRemoved
+                                      ? "Image deleted — file removed from storage"
+                                      : "Image deleted from this branch (file kept: other branches still use it)",
                                 ),
                               )
                               .catch((e) =>

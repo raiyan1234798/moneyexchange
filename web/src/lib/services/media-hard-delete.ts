@@ -44,17 +44,48 @@ export async function hardDeleteMedia(
   kind: "video" | "image",
   item: Media,
   actor: { userId: string; userName: string },
-): Promise<{ fileRemoved: boolean }> {
+  /** "all" (default) removes this file from EVERY branch that has it;
+   *  "branch" removes only this branch's entry and keeps the file if others
+   *  still use it (client 2026-08-08). */
+  scope: "all" | "branch" = "all",
+): Promise<{ fileRemoved: boolean; branchesAffected: number }> {
   const collection = kind === "video" ? COLLECTIONS.videos : COLLECTIONS.imageAdverts;
   let fileRemoved = false;
+  let branchesAffected = 1;
 
-  // Order matters: check references BEFORE removing this document, otherwise
-  // the item's own row is already gone and every file looks unused.
-  const shared = await fileStillUsedElsewhere(item);
-  await removeDocument(collection, item.id);
-  if (!shared && item.storagePath) {
-    await deleteR2Object(item.storagePath);
-    fileRemoved = true;
+  if (scope === "all") {
+    // Remove every document pointing at the SAME file, on any branch, then the
+    // file itself — nothing is left behind anywhere.
+    const keys = new Set(mediaIdentityKeys(item.downloadUrl, item.storagePath));
+    const siblings: Media[] = [];
+    if (keys.size > 0) {
+      const rows = await listDocuments<Media>(collection, []);
+      for (const row of rows) {
+        const otherKeys = mediaIdentityKeys(row.downloadUrl, row.storagePath);
+        if (otherKeys.some((k) => keys.has(k))) siblings.push(row);
+      }
+    }
+    const targets = siblings.length > 0 ? siblings : [item];
+    for (const row of targets) await removeDocument(collection, row.id);
+    branchesAffected = new Set(targets.map((t) => t.branchId ?? "")).size || 1;
+    if (item.storagePath) {
+      // Any other COLLECTION still using it? (a video and an image never share
+      // a key in practice, but check so we can never orphan a live file)
+      const stillUsed = await fileStillUsedElsewhere({ ...item, id: "__deleted__" });
+      if (!stillUsed) {
+        await deleteR2Object(item.storagePath);
+        fileRemoved = true;
+      }
+    }
+  } else {
+    // Order matters: check references BEFORE removing this document, otherwise
+    // the item's own row is already gone and every file looks unused.
+    const shared = await fileStillUsedElsewhere(item);
+    await removeDocument(collection, item.id);
+    if (!shared && item.storagePath) {
+      await deleteR2Object(item.storagePath);
+      fileRemoved = true;
+    }
   }
 
   await writeAuditLog({
@@ -64,7 +95,13 @@ export async function hardDeleteMedia(
     userId: actor.userId,
     userName: actor.userName,
     branchId: item.branchId,
-    metadata: { title: item.title ?? "", fileRemoved, storagePath: item.storagePath ?? "" },
+    metadata: {
+      title: item.title ?? "",
+      fileRemoved,
+      scope,
+      branchesAffected,
+      storagePath: item.storagePath ?? "",
+    },
   });
-  return { fileRemoved };
+  return { fileRemoved, branchesAffected };
 }
