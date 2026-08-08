@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BranchSettings } from "@/lib/types";
 
 /**
@@ -63,15 +63,44 @@ export function LiveTvPreview({
   // A fresh branch means a fresh document — force the iframe to reload.
   const src = `/display/?branch=${encodeURIComponent(branchCode)}&preview=1`;
 
+  // TRUE MINIATURE (client 2026-08-08): render the display at real TV size and
+  // scale the whole thing down, instead of letting it re-flow into a narrow
+  // box. The panel then shows exactly what the TV shows — rates, images and
+  // video all visible — while the real display is untouched.
+  const TV_W = 1920;
+  const TV_H = 1080;
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(0.35);
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const apply = () => setScale(Math.max(0.05, el.clientWidth / TV_W));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   return (
     <div className={className}>
-      <div className="overflow-hidden rounded-xl border border-border/60 shadow-lg">
+      <div
+        ref={shellRef}
+        className="relative w-full overflow-hidden rounded-xl border border-border/60 shadow-lg"
+        style={{ aspectRatio: `${TV_W} / ${TV_H}` }}
+      >
         <iframe
           ref={iframeRef}
           key={src}
           src={src}
           title={label ?? `Live preview — ${branchCode}`}
-          className="aspect-video w-full border-0"
+          className="absolute left-0 top-0 border-0"
+          style={{
+            width: `${TV_W}px`,
+            height: `${TV_H}px`,
+            transform: `scale(${scale})`,
+            transformOrigin: "top left",
+          }}
           onLoad={() => {
             // If the iframe reloaded, its readiness resets; wait for its ready
             // ping. But also try an immediate post in case the ping was missed.
