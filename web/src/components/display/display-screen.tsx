@@ -367,7 +367,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   // — so changing the rate-card font restyles EVERY slide, promo text included
   // (client 2026-08-01). Same cascade the rate-card note already uses.
   const ratePromoFontCss = messageFontCss(
-    branchSettings.ratePromoFont || branchSettings.displayFont || branchSettings.rateCardFont,
+    branchSettings.displayFont || branchSettings.ratePromoFont || branchSettings.rateCardFont,
   );
   const headerLogoDisplay = (branchSettings.headerLogoDisplay ?? "single") as "single" | "both";
   // Promo slides always hide the rate-card header unless the admin explicitly
@@ -426,8 +426,12 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   const rateCardNoteFontScale = branchSettings.rateCardNoteFontScale ?? 1;
   const rateNotePlacement = (branchSettings.rateNotePlacement ?? "first") as "first" | "all";
   const rateNoteScale = branchSettings.rateNoteScale ?? 0.85;
+  // ONE font for the whole screen: the master (displayFont) always wins when
+  // set. These read the element's own font FIRST, so a leftover per-element
+  // font kept overriding it and parts of the screen looked different
+  // (client 2026-08-08).
   const rateNoteFontCss = messageFontCss(
-    branchSettings.rateNoteFont || branchSettings.displayFont || branchSettings.rateCardFont,
+    branchSettings.displayFont || branchSettings.rateNoteFont || branchSettings.rateCardFont,
   );
   const syncRateCardPlayback = branchSettings.syncRateCardPlayback === true;
   const hideDotsOnPromo = branchSettings.hideDotsOnPromo !== false;
@@ -473,7 +477,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
   // A per-announcement font WINS over the master font when the admin picks one,
   // so the announcement can read in a different typeface than the rest of the
   // screen; otherwise it follows the whole-screen display font.
-  const announcementFontCss = messageFontCss(branchSettings.announcementFont || masterFont);
+  const announcementFontCss = messageFontCss(masterFont || branchSettings.announcementFont);
   const announcementColorStyle = (branchSettings.announcementColorStyle ?? "white") as
     | "white"
     | "logo"

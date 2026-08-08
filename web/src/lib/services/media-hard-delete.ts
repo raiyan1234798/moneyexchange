@@ -11,84 +11,85 @@ type Media = {
   storagePath?: string | null;
 };
 
+/** Only the fields the reference check needs — keeps the query tiny. */
+const REF_FIELDS = ["storagePath", "downloadUrl", "branchId"];
+
 /**
- * Is this stored file still used by any OTHER media document?
+ * Every document pointing at the SAME stored file, across both collections.
  *
- * The same R2 object is shared when a playlist is copied to other branches, so
- * removing one branch's entry must never delete a file another branch is still
- * playing.
+ * Uses an indexed equality query on storagePath (falling back to downloadUrl)
+ * and projects just three fields. The first version listed EVERY video and
+ * image document in full — 1,200+ docs per click — which is why Remove
+ * appeared to hang and nothing was deleted (client 2026-08-08).
  */
-async function fileStillUsedElsewhere(item: Media): Promise<boolean> {
-  const keys = new Set(mediaIdentityKeys(item.downloadUrl, item.storagePath));
-  if (keys.size === 0) return true; // unknown identity — never delete the file
+async function findSiblings(item: Media): Promise<Media[]> {
+  const path = item.storagePath?.trim();
+  const url = item.downloadUrl?.trim();
+  if (!path && !url) return [];
+
+  const found: Media[] = [];
   for (const collection of [COLLECTIONS.videos, COLLECTIONS.imageAdverts]) {
-    const rows = await listDocuments<Media>(collection, []);
-    for (const row of rows) {
-      if (row.id === item.id) continue;
-      const otherKeys = mediaIdentityKeys(row.downloadUrl, row.storagePath);
-      if (otherKeys.some((k) => keys.has(k))) return true;
+    if (path) {
+      found.push(
+        ...(await listDocuments<Media>(collection, [where("storagePath", "==", path)], REF_FIELDS)),
+      );
+    }
+    if (url) {
+      const byUrl = await listDocuments<Media>(
+        collection,
+        [where("downloadUrl", "==", url)],
+        REF_FIELDS,
+      );
+      for (const row of byUrl) if (!found.some((f) => f.id === row.id)) found.push(row);
     }
   }
-  return false;
+  // Belt and braces: normalised URL forms (query/hash variants) still match.
+  const keys = new Set(mediaIdentityKeys(url, path));
+  return found.filter((row) => {
+    if (row.id === item.id) return true;
+    const other = mediaIdentityKeys(row.downloadUrl, row.storagePath);
+    return other.some((k) => keys.has(k));
+  });
 }
 
 /**
- * PERMANENTLY delete one video or image: the document goes from the database
- * and, when no other branch still points at it, the file goes from R2 too.
+ * PERMANENTLY delete a video or image: the document goes from the database and,
+ * when nothing else points at it, the file goes from R2 too.
  *
- * The old behaviour only set status="inactive": the item vanished from the list
- * while the record and the file stayed forever, so nothing was ever really
- * removed and storage never went down (client 2026-08-08).
+ * scope "all" (default) removes the file from EVERY branch that has it;
+ * "branch" removes only this branch's entry and keeps the file if other
+ * branches still use it.
  */
 export async function hardDeleteMedia(
   kind: "video" | "image",
   item: Media,
   actor: { userId: string; userName: string },
-  /** "all" (default) removes this file from EVERY branch that has it;
-   *  "branch" removes only this branch's entry and keeps the file if others
-   *  still use it (client 2026-08-08). */
   scope: "all" | "branch" = "all",
 ): Promise<{ fileRemoved: boolean; branchesAffected: number }> {
   const collection = kind === "video" ? COLLECTIONS.videos : COLLECTIONS.imageAdverts;
+  const siblings = await findSiblings(item);
   let fileRemoved = false;
   let branchesAffected = 1;
 
   if (scope === "all") {
-    // Remove every document pointing at the SAME file, on any branch, then the
-    // file itself — nothing is left behind anywhere.
-    const keys = new Set(mediaIdentityKeys(item.downloadUrl, item.storagePath));
-    const siblings: Media[] = [];
-    if (keys.size > 0) {
-      const rows = await listDocuments<Media>(collection, []);
-      for (const row of rows) {
-        const otherKeys = mediaIdentityKeys(row.downloadUrl, row.storagePath);
-        if (otherKeys.some((k) => keys.has(k))) siblings.push(row);
-      }
-    }
     const targets = siblings.length > 0 ? siblings : [item];
-    for (const row of targets) await removeDocument(collection, row.id);
+    await Promise.all(targets.map((row) => removeDocument(collection, row.id)));
     branchesAffected = new Set(targets.map((t) => t.branchId ?? "")).size || 1;
     if (item.storagePath) {
-      // Any other COLLECTION still using it? (a video and an image never share
-      // a key in practice, but check so we can never orphan a live file)
-      const stillUsed = await fileStillUsedElsewhere({ ...item, id: "__deleted__" });
-      if (!stillUsed) {
-        await deleteR2Object(item.storagePath);
-        fileRemoved = true;
-      }
+      await deleteR2Object(item.storagePath);
+      fileRemoved = true;
     }
   } else {
-    // Order matters: check references BEFORE removing this document, otherwise
-    // the item's own row is already gone and every file looks unused.
-    const shared = await fileStillUsedElsewhere(item);
+    const usedElsewhere = siblings.some((row) => row.id !== item.id);
     await removeDocument(collection, item.id);
-    if (!shared && item.storagePath) {
+    if (!usedElsewhere && item.storagePath) {
       await deleteR2Object(item.storagePath);
       fileRemoved = true;
     }
   }
 
-  await writeAuditLog({
+  // Fire-and-forget: the audit entry must never delay the UI.
+  void writeAuditLog({
     action: kind === "video" ? "video_hard_delete" : "image_advert_hard_delete",
     entityType: kind === "video" ? "video" : "image_advert",
     entityId: item.id,
@@ -102,6 +103,7 @@ export async function hardDeleteMedia(
       branchesAffected,
       storagePath: item.storagePath ?? "",
     },
-  });
+  }).catch(() => undefined);
+
   return { fileRemoved, branchesAffected };
 }

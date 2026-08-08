@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, Monitor, MonitorOff } from "lucide-react";
+import { ExternalLink, Monitor, MonitorOff, Maximize2 } from "lucide-react";
 import { getDisplayUrl, normalizeBranchCode } from "@/lib/display-url";
 import { listExchangeRates } from "@/lib/services/exchange-rate-service";
 import { subscribeTvDevices } from "@/lib/services/tv-service";
@@ -28,17 +28,57 @@ function toDate(value: unknown): Date | null {
   return Number.isNaN(p) ? null : new Date(p);
 }
 
-/** Branch display preview — browser-lazy iframe of the live TV screen. */
+/** Branch display preview — a scaled-down copy of the real TV screen, with a
+ *  full-screen button (client 2026-08-08). Rendering at 1920x1080 and scaling
+ *  keeps every element visible instead of re-flowing into a narrow box. */
 function BranchTvView({ branchCode, name }: { branchCode: string; name: string }) {
   const code = normalizeBranchCode(branchCode);
   const src = `/display/?branch=${encodeURIComponent(code)}&preview=1`;
+  const TV_W = 1920;
+  const TV_H = 1080;
+  const shellRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(0.25);
+
+  useEffect(() => {
+    const el = shellRef.current;
+    if (!el) return;
+    const apply = () => setScale(Math.max(0.05, el.clientWidth / TV_W));
+    apply();
+    const ro = new ResizeObserver(apply);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border/50 bg-black shadow-inner">
+    <div
+      ref={shellRef}
+      className="group relative w-full overflow-hidden rounded-xl border border-border/50 bg-black shadow-inner"
+      style={{ aspectRatio: `${TV_W} / ${TV_H}` }}
+    >
+      <button
+        type="button"
+        title="View this screen full screen"
+        onClick={() => {
+          const el = shellRef.current;
+          if (!el) return;
+          if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+          else void el.requestFullscreen?.().catch(() => {});
+        }}
+        className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow transition-opacity hover:bg-black/80 focus:opacity-100 group-hover:opacity-100"
+      >
+        <Maximize2 className="h-3 w-3" />
+        Full screen
+      </button>
       <iframe
         src={src}
         title={`TV view — ${name}`}
-        className="aspect-video w-full border-0"
+        className="absolute left-0 top-0 border-0"
+        style={{
+          width: `${TV_W}px`,
+          height: `${TV_H}px`,
+          transform: `scale(${scale})`,
+          transformOrigin: "top left",
+        }}
         loading="lazy"
         referrerPolicy="no-referrer"
       />

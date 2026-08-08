@@ -874,7 +874,10 @@ export function UnimoniRatesPanel({
           Renders as one natural-reading line (editable in Settings). */}
       {showNote ? (
         <div
-          className="shrink-0 truncate whitespace-nowrap px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold leading-none text-white"
+          // Wraps to at most two lines instead of truncating: a longer note
+          // (e.g. one a branch user typed) was being cut off at the card's
+          // width rather than fitting (client 2026-08-08).
+          className="line-clamp-2 shrink-0 whitespace-normal break-words px-[1vw] pb-[1vh] pt-[0.2vh] text-left font-extrabold leading-tight text-white"
           style={{
             fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
             fontSize: `clamp(${0.7 * rateCardNoteFontScale}rem, ${1.05 * rateCardNoteFontScale}vw, ${1.05 * rateCardNoteFontScale}rem)`,

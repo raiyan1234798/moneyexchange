@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Maximize2 } from "lucide-react";
 import type { BranchSettings } from "@/lib/types";
 
 /**
@@ -86,9 +87,25 @@ export function LiveTvPreview({
     <div className={className}>
       <div
         ref={shellRef}
-        className="relative w-full overflow-hidden rounded-xl border border-border/60 shadow-lg"
+        className="group relative w-full overflow-hidden rounded-xl border border-border/60 shadow-lg"
         style={{ aspectRatio: `${TV_W} / ${TV_H}` }}
       >
+        {/* Full-screen the preview itself — same picture, bigger, without
+            leaving the page or touching the real display (client 2026-08-08). */}
+        <button
+          type="button"
+          title="View this preview full screen"
+          onClick={() => {
+            const el = shellRef.current;
+            if (!el) return;
+            if (document.fullscreenElement) void document.exitFullscreen().catch(() => {});
+            else void el.requestFullscreen?.().catch(() => {});
+          }}
+          className="absolute right-2 top-2 z-20 inline-flex items-center gap-1 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white opacity-0 shadow transition-opacity hover:bg-black/80 focus:opacity-100 group-hover:opacity-100"
+        >
+          <Maximize2 className="h-3 w-3" />
+          Full screen
+        </button>
         <iframe
           ref={iframeRef}
           key={src}

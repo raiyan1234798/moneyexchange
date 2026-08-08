@@ -1279,11 +1279,23 @@ export default function ExchangeRatesPage() {
                   onChange={(e) => setRateCardNoteDraft(e.target.value)}
                   placeholder="BILLS $20,$10,$5,$2,$1 @ 3300"
                   className="rounded-xl"
+                  // Branch users may update RATES only — this note is part of
+                  // the display's wording and stays with admins/managers
+                  // (client 2026-08-08).
+                  disabled={isBranchUser}
+                  title={isBranchUser ? "Only an admin can change this note" : undefined}
                 />
+                {isBranchUser ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    View only — ask an admin to change this note. You can still update the buy and
+                    sell rates above.
+                  </p>
+                ) : null}
               </div>
               <Button
                 className="shrink-0 rounded-xl"
                 disabled={
+                  isBranchUser ||
                   savingRateCardNote ||
                   rateCardNoteDraft.trim() === (branch.settings?.rateCardNote ?? "").trim()
                 }
