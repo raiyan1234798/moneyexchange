@@ -176,6 +176,30 @@ function useCleanLogoSrc(
 /** One scrolling logo — every logo uses the SAME fixed slot (bar-height × 14:5 /
  *  ~2.8:1 landscape); artwork stays fully visible via object-contain (never
  *  cropped). Equal plate + equal gap so spacing looks identical between logos. */
+/**
+ * Match a per-logo setting to the logo on screen.
+ *
+ * Settings are keyed by URL, but a logo's URL changes whenever it is
+ * re-uploaded or re-processed — so after a refresh the saved size no longer
+ * matched and the badge silently fell back to the global size. That is why a
+ * logo looked right when it was set and different after reloading
+ * (client 2026-08-08). We now fall back to the file NAME and finally to the
+ * logo's position in the list.
+ */
+function findLogoPref<T extends { url: string }>(
+  prefs: T[],
+  url: string | null,
+  index: number,
+): T | undefined {
+  if (!url) return undefined;
+  const exact = prefs.find((p) => p.url === url);
+  if (exact) return exact;
+  const base = (u: string) => u.split("?")[0].split("/").pop() ?? u;
+  const byName = prefs.find((p) => base(p.url) === base(url));
+  if (byName) return byName;
+  return prefs[index];
+}
+
 function ScrollingLogoImg({
   src,
   animClass,
@@ -346,7 +370,7 @@ function BreakingNewsTickerInner({
   // Per-logo size override wins for the logo currently on screen; otherwise the
   // global Normal-fit size. Lets a wide logo be shrunk until it clears the
   // rounded corner while the rest stay large.
-  const perLogoEntry = currentBadge ? logoScales.find((x) => x.url === currentBadge) : undefined;
+  const perLogoEntry = findLogoPref(logoScales, currentBadge, galleryLen ? logoIdx % galleryLen : 0);
   // How much of the badge the logo fills. BOTH knobs work in EVERY fit mode
   // (client 2026-08-04: "Logo size inside badge" did nothing unless the fit was
   // Normal): the global "Logo size inside badge" is the base, and a per-logo

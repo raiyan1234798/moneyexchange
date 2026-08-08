@@ -304,6 +304,31 @@ export function TickerDisplaySettings({
         onProgress: (msg) => toast.message(msg),
       });
       if (prepared !== settings) setSettings(prepared);
+
+      // Drop per-logo size/fit entries whose logo is no longer in the list, and
+      // re-key the survivors to the CURRENT urls. Uploading or re-processing a
+      // logo changes its url, so these accumulated as orphans (11 entries for 3
+      // logos on one branch) and the badge fell back to the global size after a
+      // refresh (client 2026-08-08).
+      const liveBadge = (prepared.tickerLogoUrls ?? []).filter(Boolean);
+      const base = (u: string) => u.split("?")[0].split("/").pop() ?? u;
+      const oldScales = Array.isArray(prepared.tickerLogoScales) ? prepared.tickerLogoScales : [];
+      const cleanedScales = liveBadge
+        .map((url, i) => {
+          const hit =
+            oldScales.find((x) => x.url === url) ??
+            oldScales.find((x) => base(x.url) === base(url)) ??
+            oldScales[i];
+          return hit ? { ...hit, url } : null;
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+      if (
+        cleanedScales.length !== oldScales.length ||
+        cleanedScales.some((x, i) => x.url !== oldScales[i]?.url)
+      ) {
+        prepared.tickerLogoScales = cleanedScales;
+      }
+
       assertBranchPayloadUnderLimit({
         logoUrl: branch.logoUrl ?? "",
         settings: prepared,
