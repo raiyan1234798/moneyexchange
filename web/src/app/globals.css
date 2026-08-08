@@ -442,11 +442,17 @@
      rows on a wide card get big, clear rates; a narrow card caps the size so
      currency codes never truncate. */
   .display-rate-currency {
+    /* Fallback FIRST: container-query units need Chromium 105+. Older TV
+       browsers drop the cq line and would otherwise fall back to 16px, so the
+       text overflowed its row and the bottom rates were sliced
+       (client 2026-08-08). Viewport units keep those TVs scaling correctly. */
+    font-size: calc(clamp(0.7rem, 1.7vh, 1.55rem) * var(--rate-scale, 1) * var(--currency-scale, 1));
     font-size: calc(clamp(0.7rem, min(46cqh, 6.5cqw), 1.55rem) * var(--rate-scale, 1) * var(--currency-scale, 1));
     line-height: 1.05;
   }
 
   .display-rate-value {
+    font-size: calc(clamp(0.65rem, 1.6vh, 1.5rem) * var(--rate-scale, 1) * var(--value-scale, 1));
     font-size: calc(clamp(0.65rem, min(44cqh, 6cqw), 1.5rem) * var(--rate-scale, 1) * var(--value-scale, 1));
     line-height: 1.05;
   }
@@ -648,3 +654,20 @@ video::-webkit-media-controls-fullscreen-button {
 /* Signage videos must never show focus rings or summon TV overlay controls. */
 video:focus, video:focus-visible { outline: none !important; }
 video::-internal-media-controls-overlay-cast-button { display: none !important; }
+
+/* Display root sizing with a FALLBACK for older TV browsers.
+   `dvh` needs Chromium 108+; plenty of Android TV boxes ship 74–107, where the
+   declaration is dropped, the root falls back to height:auto and the flex
+   children collapse to zero — the screen showed only the ticker strip
+   (client 2026-08-08). The vh line keeps those TVs working; modern engines
+   take the dvh line that follows. */
+.display-root {
+  width: 100vw;
+  width: 100dvw;
+  max-width: 100vw;
+  max-width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+}

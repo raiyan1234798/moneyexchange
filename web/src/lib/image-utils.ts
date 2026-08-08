@@ -19,8 +19,12 @@ export const ADVERT_IMAGE_OPTIONS: CompressOptions = {
 };
 
 export const LOGO_IMAGE_OPTIONS: CompressOptions = {
-  maxDimension: 400,
-  targetBytes: 90_000,
+  // 400px was too small: the corner badge can render ~400px wide on a large or
+  // scaled-up TV, so a 400px source was being UPSCALED and looked blurry
+  // (client 2026-08-08, RIA logo). 1000px gives 2x headroom at any badge size
+  // while staying small on the wire.
+  maxDimension: 1000,
+  targetBytes: 180_000,
 };
 
 /** Scrolling-message logo master canvas (TV slot is height × 2.8 ≈ 14:5). */

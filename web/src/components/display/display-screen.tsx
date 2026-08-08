@@ -1058,7 +1058,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
 
   return (
     <div
-      className={`relative flex h-[100dvh] w-[100dvw] max-h-[100dvh] max-w-[100dvw] flex-col overflow-hidden bg-black text-white select-none ${
+      className={`display-root relative flex flex-col overflow-hidden bg-black text-white select-none ${
         isFullscreen ? "display-kiosk" : ""
       }`}
       style={{
@@ -1072,7 +1072,11 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
               boxShadow: "0 0 0 100vmax #000",
             }
           : {}),
-        ["--display-safe-inset" as string]: safeInset,
+        // ONE mechanism only. The root already SCALES the whole screen down by
+        // the safe-area amount, so panels must not ALSO pad themselves by it —
+        // that double-charged the inset and squeezed the rate-card header and
+        // the ticker on TVs (client 2026-08-08).
+        ["--display-safe-inset" as string]: "0px",
         ["--display-safe-pct" as string]: String(safeAreaPercent),
         ["--rate-anim-secs" as string]: `${rateAnimCycleSecs}s`,
         ["--sheet-anim-secs" as string]: `${Math.max(0.2, Math.min(5, branchSettings.slideTransitionSeconds ?? 0.6))}s`,
