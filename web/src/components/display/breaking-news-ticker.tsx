@@ -296,9 +296,6 @@ function BreakingNewsTickerInner({
   // instead of an image) — fall back to the real brand logo instead of a broken
   // img.
   const [logoFailed, setLogoFailed] = useState(false);
-  /** Natural width/height of the badge logo currently on screen — drives the
-   *  adaptive badge width so the artwork is never stretched or letterboxed. */
-  const [logoAspect, setLogoAspect] = useState<number | null>(null);
   const [logoIdx, setLogoIdx] = useState(0);
 
   // The badge can hold SEVERAL logos that take turns; a single logoUrl still
@@ -341,13 +338,6 @@ function BreakingNewsTickerInner({
   }, [logoScales]);
 
   const currentBadge = galleryLen ? effectiveBadgeImages[logoIdx % galleryLen] : null;
-  const lastMeasuredRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (currentBadge && lastMeasuredRef.current !== currentBadge) {
-      lastMeasuredRef.current = currentBadge;
-      setLogoAspect(null); // measured again by onLoadingComplete below
-    }
-  }, [currentBadge]);
   const imageLogoSrc = isTextLogo
     ? null
     : currentBadge && !(galleryLen === 1 && logoFailed)
@@ -388,27 +378,13 @@ function BreakingNewsTickerInner({
   // strip and headline tab shift right to clear the badge; the whole badge and
   // the inset scale together with logoScale.
   const baseBadgeWidth = !showLogo ? "0px" : isTextLogo ? "clamp(8rem,19vw,15rem)" : "clamp(8.5rem,18vw,13rem)";
+  const badgeWidth = !showLogo ? "0px" : `calc(${baseBadgeWidth} * ${logoScale})`;
   const textLen = resolvedText?.length ?? 0;
   const textLogoSize =
     textLen <= 6 ? "clamp(1.1rem,2.4vw,2.5rem)" : textLen <= 10 ? "clamp(0.85rem,1.8vw,1.9rem)" : "clamp(0.6rem,1.3vw,1.35rem)";
 
   // Independently resizable ticker: bar height and scrolling text both scale.
   const barHeight = `calc(clamp(3rem,6vh,4.5rem) * ${heightScale})`;
-
-  // BADGE ADAPTS TO THE LOGO (client 2026-08-08). Stretching a wide logo into a
-  // fixed box distorted it; letterboxing it left white space. Instead the badge
-  // takes the LOGO's own proportions: width = badge height x the image's aspect
-  // ratio. The artwork then fills the badge edge to edge at its true shape —
-  // no stretch, no gap, whatever the logo's dimensions. Clamped so a very wide
-  // or very tall logo can never take over the bar.
-  const badgeHeightCss = `calc(${barHeight} * 1.5 * ${logoHeightScale})`;
-  const adaptiveWidth =
-    logoAspect && !isTextLogo
-      ? `clamp(6rem, calc(${badgeHeightCss} * ${logoAspect.toFixed(3)} * ${logoScale}), 34vw)`
-      : null;
-  const badgeWidth = !showLogo
-    ? "0px"
-    : (adaptiveWidth ?? `calc(${baseBadgeWidth} * ${logoScale})`);
   const scrollFontSize = fontSize
     ? `calc(${fontSize}px * ${heightScale})`
     : `calc(clamp(1.1rem, 2.2vw, 2rem) * ${heightScale})`;
@@ -509,20 +485,17 @@ function BreakingNewsTickerInner({
               alt={`${BRAND.name} logo`}
               width={260}
               height={84}
-              // The badge itself now takes the LOGO's proportions (see
-              // adaptiveWidth), so "fill" needs no stretching: object-contain
-              // already meets every edge. Nothing is cropped or distorted in
-              // either mode (client 2026-08-08).
-              className={`object-contain drop-shadow-sm ${logoAnimClass}`}
+              // Two honest modes (client 2026-08-04: "fill the badge" is back):
+              // - contain: WHOLE logo, true proportions, centred.
+              // - fill: stretches the logo to the badge box so it FILLS it —
+              //   nothing is ever cropped in either mode (object-cover is gone
+              //   for good; it cut M-PESA to "IEPES").
+              className={`drop-shadow-sm ${
+                effLogoFit === "fill" ? "object-fill" : "object-contain"
+              } ${logoAnimClass}`}
               style={{ height: `${containPct}%`, width: `${containPct}%` }}
               unoptimized
               priority
-              onLoadingComplete={(el) => {
-                // Measure the artwork so the badge can size itself to it.
-                if (el.naturalWidth > 0 && el.naturalHeight > 0) {
-                  setLogoAspect(el.naturalWidth / el.naturalHeight);
-                }
-              }}
               onError={() => (galleryLen > 1 ? setLogoIdx((i) => i + 1) : setLogoFailed(true))}
             />
           )}
