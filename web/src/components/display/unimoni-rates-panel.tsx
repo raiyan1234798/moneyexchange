@@ -40,10 +40,14 @@ function OneLineNote({
   text,
   fontCss,
   fontScale,
+  mode = "fit",
 }: {
   text: string;
   fontCss?: string;
   fontScale: number;
+  /** "fit" = always one line, shrink to fit. "wrap" = keep the chosen size and
+   *  allow a second line (client 2026-08-09). */
+  mode?: "fit" | "wrap";
 }) {
   const outerRef = useRef<HTMLDivElement | null>(null);
   const innerRef = useRef<HTMLSpanElement | null>(null);
@@ -54,6 +58,10 @@ function OneLineNote({
     const inner = innerRef.current;
     if (!outer || !inner) return;
     const fit = () => {
+      if (mode === "wrap") {
+        setScale(1); // the chosen size wins; the text wraps instead of shrinking
+        return;
+      }
       const available = outer.clientWidth;
       const natural = inner.scrollWidth;   // width at full size, unscaled
       setScale(natural > 0 && available > 0 ? Math.min(1, available / natural) : 1);
@@ -62,7 +70,7 @@ function OneLineNote({
     const ro = new ResizeObserver(fit);
     ro.observe(outer);
     return () => ro.disconnect();
-  }, [text, fontScale]);
+  }, [text, fontScale, mode]);
 
   return (
     <div
@@ -72,14 +80,17 @@ function OneLineNote({
     >
       <span
         ref={innerRef}
-        className="inline-block whitespace-nowrap font-extrabold leading-none text-white"
+        className={`inline-block font-extrabold text-white ${
+          mode === "wrap" ? "line-clamp-2 whitespace-normal leading-tight" : "whitespace-nowrap leading-none"
+        }`}
         style={{
           fontFamily: fontCss ?? "Arial, Helvetica, sans-serif",
           // Smaller base size (client 2026-08-08). The auto-fit only shrinks
           // further when a longer note would overflow.
           fontSize: `clamp(${0.6 * fontScale}rem, ${0.82 * fontScale}vw, ${0.9 * fontScale}rem)`,
-          transform: `scale(${scale})`,
-          transformOrigin: "left center",
+          ...(mode === "fit"
+            ? { transform: `scale(${scale})`, transformOrigin: "left center" }
+            : {}),
         }}
       >
         {text}
@@ -158,6 +169,8 @@ interface UnimoniRatesPanelProps {
   rateCardNote?: string | null;
   /** Size multiplier for the rate-card note (1 = normal). */
   rateCardNoteFontScale?: number;
+  /** "fit" = one line, auto-shrink; "wrap" = keep size, allow two lines. */
+  rateNoteFit?: "fit" | "wrap";
   rateNoteScale?: number;
   rateNoteFontCss?: string | null;
   syncPlayback?: boolean;
@@ -344,6 +357,7 @@ export function UnimoniRatesPanel({
   headerLogoUrls = null,
   rateCardNote,
   rateCardNoteFontScale = 1,
+  rateNoteFit = "fit",
   rateNotePlacement = "first",
   fontCss,
   sheetIntervalSeconds,
@@ -937,7 +951,12 @@ export function UnimoniRatesPanel({
       {/* Per-branch note BELOW the white card — same panel font, size-only scale.
           Renders as one natural-reading line (editable in Settings). */}
       {showNote ? (
-        <OneLineNote text={noteText} fontCss={fontCss} fontScale={rateCardNoteFontScale} />
+        <OneLineNote
+          text={noteText}
+          fontCss={fontCss}
+          fontScale={rateCardNoteFontScale}
+          mode={rateNoteFit}
+        />
       ) : null}
     </aside>
   );

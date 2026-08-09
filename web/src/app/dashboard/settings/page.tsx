@@ -1295,6 +1295,27 @@ function BranchSettingsForm({
             />
           </div>
           <div>
+            <Label className="mb-1 block text-xs">If the note is too long</Label>
+            <Select
+              value={settings.rateNoteFit ?? "fit"}
+              onValueChange={(value) =>
+                setSettings({ ...settings, rateNoteFit: value === "wrap" ? "wrap" : "fit" })
+              }
+            >
+              <SelectTrigger className="rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="fit">Keep it on ONE line (shrink to fit)</SelectItem>
+                <SelectItem value="wrap">Keep my text size (use a second line)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              On one line the size above applies until the note reaches the card&apos;s width —
+              after that it shrinks so nothing is hidden.
+            </p>
+          </div>
+          <div>
             <Label className="mb-1 block text-xs">Show the note on</Label>
             <Select
               value={settings.rateNotePlacement ?? "first"}

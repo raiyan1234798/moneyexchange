@@ -64,6 +64,7 @@ interface TimedRatesPanelProps {
   headerLogoRotationIntervalSeconds: number;
   rateCardNote: string | null;
   rateCardNoteFontScale: number;
+  rateNoteFit: "fit" | "wrap";
   rateNotePlacement: "first" | "all";
   rateNoteScale: number;
   rateNoteFontCss?: string;
@@ -126,6 +127,7 @@ function TimedRatesPanel({
   headerLogoRotationIntervalSeconds,
   rateCardNote,
   rateCardNoteFontScale,
+  rateNoteFit,
   rateNotePlacement,
   rateNoteScale,
   rateNoteFontCss,
@@ -200,6 +202,7 @@ function TimedRatesPanel({
       headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
       rateCardNoteFontScale={rateCardNoteFontScale}
+      rateNoteFit={rateNoteFit}
       rateNotePlacement={rateNotePlacement}
       rateNoteScale={rateNoteScale}
       rateNoteFontCss={rateNoteFontCss}
@@ -992,6 +995,7 @@ export function DisplayScreen({ branchId, settingsOverride = null }: DisplayScre
       headerLogoRotationIntervalSeconds={headerLogoRotationIntervalSeconds}
       rateCardNote={rateCardNote}
       rateCardNoteFontScale={rateCardNoteFontScale}
+      rateNoteFit={branchSettings.rateNoteFit === "wrap" ? "wrap" : "fit"}
       rateNotePlacement={rateNotePlacement}
       rateNoteScale={rateNoteScale}
       rateNoteFontCss={rateNoteFontCss}

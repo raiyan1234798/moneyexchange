@@ -39,6 +39,9 @@ export function ApplyToAllCheckbox({
   onScopeChange?: (selection: BranchTargetSelection) => void;
 }) {
   const activeBranches = branches.filter((b) => b.status === "active");
+  // Naming the branch removes the ambiguity the client hit — "Selected branch
+  // only" did not say WHICH branch (2026-08-09).
+  const currentBranchName = branches.find((b) => b.id === currentBranchId)?.name ?? null;
   // Prefer explicit branchCount when parents pass "other branches only" for the
   // picker list — the All label must still show the real total (e.g. 8 not 7).
   const count = branchCount ?? activeBranches.length;
@@ -79,7 +82,12 @@ export function ApplyToAllCheckbox({
                 onChange={() => handleScopeRadio("current")}
                 className="h-3.5 w-3.5 text-primary"
               />
-              <span className="font-medium">Selected branch only</span>
+              <span>
+                <span className="font-medium">This branch only</span>
+                {currentBranchName ? (
+                  <span className="text-muted-foreground"> — {currentBranchName}</span>
+                ) : null}
+              </span>
             </label>
             {allLabelCount > 1 ? (
               <>
@@ -91,7 +99,10 @@ export function ApplyToAllCheckbox({
                     onChange={() => handleScopeRadio("specific")}
                     className="h-3.5 w-3.5 text-primary"
                   />
-                  <span className="font-medium">Select specific branches</span>
+                  <span>
+                    <span className="font-medium">Selected branches</span>
+                    <span className="text-muted-foreground"> — pick them below</span>
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 text-xs cursor-pointer">
                   <input
@@ -101,7 +112,10 @@ export function ApplyToAllCheckbox({
                     onChange={() => handleScopeRadio("all")}
                     className="h-3.5 w-3.5 text-primary"
                   />
-                  <span className="font-medium">All active branches ({allLabelCount})</span>
+                  <span>
+                    <span className="font-medium">All branches</span>
+                    <span className="text-muted-foreground"> — all {allLabelCount} active</span>
+                  </span>
                 </label>
               </>
             ) : null}

@@ -271,6 +271,10 @@ export interface BranchSettings {
   ratePromoTransitionSpeed?: number | "normal" | "fast" | "slow";
   /** Size multiplier for the rate-card note text (1 = normal). */
   rateCardNoteFontScale?: number;
+  /** How the small-bills note behaves when it is too long for one line:
+   *  "fit" (default) shrinks it to stay on ONE line; "wrap" keeps the chosen
+   *  text size and lets it use a second line. Client 2026-08-09. */
+  rateNoteFit?: "fit" | "wrap";
   /** Which forex page(s) show the note: the first forex page, or every forex page. */
   rateNotePlacement?: "first" | "all";
   /** Seconds each rotating rate screen stays visible (forex/transfer pages). Default 5. */
